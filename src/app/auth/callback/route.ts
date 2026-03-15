@@ -1,0 +1,29 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+export async function GET(request: Request) {
+  const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get("code");
+
+  if (code) {
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (session?.user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .single();
+
+      const role = profile?.role;
+      if (role === "admin" || role === "superadmin") {
+        return NextResponse.redirect(`${origin}/admin/dashboard`);
+      } else if (role === "instructor") {
+        return NextResponse.redirect(`${origin}/docente/dashboard`);
+      }
+    }
+  }
+
+  return NextResponse.redirect(`${origin}/dashboard`);
+}

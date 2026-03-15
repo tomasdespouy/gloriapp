@@ -39,3 +39,20 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# documents & reports (not source code)
+*.pdf
+*.docx
+*.doc
+*.xlsx
+*.jpg
+*.jpeg
+avatares.*
+imagenes/
+
+# patient videos (stored in Supabase Storage)
+public/patients/*.mp4
+
+# simulation data (not needed in prod)
+public/*.json
+public/*.txt

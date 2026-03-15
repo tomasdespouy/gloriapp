@@ -131,4 +131,272 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Inputs — glow on focus */
+  textarea:focus,
+  input:focus,
+  select:focus {
+    box-shadow: 0 0 0 3px rgba(74, 85, 162, 0.1);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+@keyframes bounce-once {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.15); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-bounce-once {
+  animation: bounce-once 0.6s ease-out;
+}
+
+/* Staggered entrance for card grids */
+/* Hide scrollbar for carousel */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+
+@keyframes stagger-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-stagger > * {
+  opacity: 0;
+  animation: stagger-in 0.5s ease-out forwards;
+}
+.animate-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.animate-stagger > *:nth-child(2) { animation-delay: 60ms; }
+.animate-stagger > *:nth-child(3) { animation-delay: 120ms; }
+.animate-stagger > *:nth-child(4) { animation-delay: 180ms; }
+.animate-stagger > *:nth-child(5) { animation-delay: 240ms; }
+.animate-stagger > *:nth-child(6) { animation-delay: 300ms; }
+.animate-stagger > *:nth-child(7) { animation-delay: 360ms; }
+.animate-stagger > *:nth-child(8) { animation-delay: 420ms; }
+
+/* Slide up entrance */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.6s ease-out;
+}
+
+/* Scale pop */
+@keyframes pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  70% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop {
+  animation: pop 0.4s ease-out;
+}
+
+/* Glow pulse for achievements */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(74, 85, 162, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(74, 85, 162, 0.6); }
+}
+.animate-glow {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* Progress bar fill */
+@keyframes fill-bar {
+  from { width: 0%; }
+}
+.animate-fill {
+  animation: fill-bar 1s ease-out;
+}
+
+/* Chat message entrance */
+@keyframes msg-in-left {
+  from { opacity: 0; transform: translateX(-12px) translateY(4px); }
+  to { opacity: 1; transform: translateX(0) translateY(0); }
+}
+@keyframes msg-in-right {
+  from { opacity: 0; transform: translateX(12px) translateY(4px); }
+  to { opacity: 1; transform: translateX(0) translateY(0); }
+}
+.animate-msg-left {
+  animation: msg-in-left 0.3s ease-out;
+}
+.animate-msg-right {
+  animation: msg-in-right 0.3s ease-out;
+}
+
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.typing-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #9CA3AF;
+  animation: typing-bounce 1.4s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* Loading spinner */
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #E5E7EB;
+  border-top-color: #4A55A2;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ═══ HOVER CLASSES ═══ */
+/* Use these classes explicitly on interactive elements */
+
+/* .hover-lift — filled buttons (sidebar, red, green) */
+.hover-lift {
+  transition: all 0.15s ease !important;
+}
+.hover-lift:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+.hover-lift:active {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow: none !important;
+}
+
+/* .hover-card — card links that lift */
+.hover-card {
+  transition: all 0.2s ease !important;
+}
+.hover-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Action icon buttons — explicit color transitions */
+.action-btn {
+  transition: all 0.15s ease !important;
+  border-radius: 8px;
+  padding: 6px;
+}
+.action-btn-amber:hover {
+  color: #f59e0b !important;
+  background-color: rgba(245, 158, 11, 0.1) !important;
+}
+.action-btn-red:hover {
+  color: #ef4444 !important;
+  background-color: rgba(239, 68, 68, 0.1) !important;
+}
+.action-btn-green:hover {
+  color: #22c55e !important;
+  background-color: rgba(34, 197, 94, 0.1) !important;
+}
+.action-btn-sidebar:hover {
+  color: #4A55A2 !important;
+  background-color: rgba(74, 85, 162, 0.1) !important;
+}
+
+/* Tab buttons */
+.tab-btn {
+  transition: all 0.15s ease !important;
+}
+.tab-btn:hover {
+  color: #4A55A2 !important;
+  background-color: rgba(74, 85, 162, 0.05) !important;
+}
+
+/* End session button — dedicated class to avoid CSS conflicts */
+.end-session-btn {
+  transition: all 0.2s ease !important;
+  transform: translateY(0) !important;
+  box-shadow: none !important;
+}
+.end-session-btn:hover {
+  background-color: #dc2626 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35) !important;
+}
+.end-session-btn:active {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow: none !important;
+}
+
+/* Sidebar nav hover effect */
+.sidebar-link {
+  transition: all 0.2s ease;
+  transform: translateX(0);
+}
+.sidebar-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  transform: translateX(4px);
+}
+.sidebar-link.active {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateX(0);
+}
+.sidebar-link.active:hover {
+  transform: translateX(0);
+}
+
+/* Sidebar footer buttons — !important to override @layer base */
+.sidebar-btn {
+  transition: all 0.2s ease !important;
+  transform: translateX(0) !important;
+}
+.sidebar-btn-access:hover {
+  background: rgba(77, 208, 225, 0.15) !important;
+  color: #4DD0E1 !important;
+  transform: translateX(4px) !important;
+  border-color: rgba(77, 208, 225, 0.3) !important;
+}
+.sidebar-btn-support:hover {
+  background: rgba(251, 191, 36, 0.15) !important;
+  color: #FBBF24 !important;
+  transform: translateX(4px) !important;
+}
+
+/* Accessibility contrast themes */
+.contrast-high {
+  filter: contrast(1.5);
+  background: #000 !important;
+}
+.contrast-high body {
+  background: #000 !important;
+  color: #FFD700 !important;
+}
+.contrast-high * {
+  border-color: #FFD700 !important;
+}
+
+.contrast-inverted {
+  filter: invert(1) hue-rotate(180deg);
+}
+.contrast-inverted img,
+.contrast-inverted video {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+.contrast-warm {
+  filter: sepia(0.35) saturate(1.2);
+}
+
+.contrast-cool {
+  filter: saturate(0.8) hue-rotate(10deg) brightness(1.05);
+  background: #f0f4ff !important;
 }

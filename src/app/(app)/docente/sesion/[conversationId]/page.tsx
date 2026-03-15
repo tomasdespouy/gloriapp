@@ -1,0 +1,74 @@
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import TeacherReviewClient from "./TeacherReviewClient";
+
+interface Props {
+  params: Promise<{ conversationId: string }>;
+}
+
+export default async function DocenteSesionPage({ params }: Props) {
+  const { conversationId } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  // Get conversation with patient info
+  const { data: conversation } = await supabase
+    .from("conversations")
+    .select(`
+      id, student_id, ai_patient_id, session_number, status, created_at, ended_at,
+      ai_patients(name, age, occupation, difficulty_level)
+    `)
+    .eq("id", conversationId)
+    .single();
+
+  if (!conversation || conversation.status !== "completed") {
+    redirect("/docente/dashboard");
+  }
+
+  // Get student profile
+  const { data: student } = await supabase
+    .from("profiles")
+    .select("id, full_name, email")
+    .eq("id", conversation.student_id)
+    .single();
+
+  // Get messages
+  const { data: messages } = await supabase
+    .from("messages")
+    .select("id, role, content, created_at")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true });
+
+  // Get AI evaluation
+  const { data: competencies } = await supabase
+    .from("session_competencies")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .single();
+
+  // Get feedback (student reflection + teacher evaluation)
+  const { data: feedback } = await supabase
+    .from("session_feedback")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .single();
+
+  const patient = conversation.ai_patients as unknown as {
+    name: string; age: number; occupation: string; difficulty_level: string;
+  };
+
+  return (
+    <TeacherReviewClient
+      conversationId={conversationId}
+      student={student || { id: "", full_name: "Alumno", email: "" }}
+      patient={patient}
+      sessionNumber={conversation.session_number}
+      createdAt={conversation.created_at}
+      messages={messages || []}
+      competencies={competencies}
+      feedback={feedback}
+      feedbackStatus={(competencies?.feedback_status as "pending" | "approved") || "pending"}
+    />
+  );
+}

@@ -1,0 +1,74 @@
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import ReviewClient from "./ReviewClient";
+
+export default async function ReviewPage({
+  params,
+}: {
+  params: Promise<{ conversationId: string }>;
+}) {
+  const { conversationId } = await params;
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  // Get conversation with patient info + active time
+  const { data: conversation } = await supabase
+    .from("conversations")
+    .select("id, session_number, ai_patient_id, active_seconds, ai_patients(name, age, occupation, difficulty_level)")
+    .eq("id", conversationId)
+    .single();
+
+  if (!conversation) redirect("/dashboard");
+
+  // Get message count
+  const { count } = await supabase
+    .from("messages")
+    .select("*", { count: "exact", head: true })
+    .eq("conversation_id", conversationId);
+
+  // Use active_seconds from client tracking (accurate) for duration
+  const activeSeconds = conversation.active_seconds || 0;
+  const durationMinutes = Math.round(activeSeconds / 60);
+  // Too short = less than 5 minutes of tracked active time, AND less than 4 user messages
+  const userMsgCount = count || 0;
+  const tooShort = activeSeconds < 5 * 60 && userMsgCount < 6;
+
+  // If too short, mark conversation as completed immediately (no evaluation)
+  if (tooShort) {
+    await supabase
+      .from("conversations")
+      .update({ status: "completed" })
+      .eq("id", conversationId);
+  }
+
+  // Check if already evaluated
+  const { data: existingEval } = await supabase
+    .from("session_competencies")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .single();
+
+  const patient = conversation.ai_patients as unknown as {
+    name: string;
+    age: number;
+    occupation: string;
+    difficulty_level: string;
+  };
+
+  const feedbackStatus = (existingEval?.feedback_status as "pending" | "approved") || null;
+
+  return (
+    <ReviewClient
+      conversationId={conversationId}
+      patient={patient}
+      sessionNumber={conversation.session_number}
+      messageCount={count || 0}
+      existingEvaluation={existingEval}
+      feedbackStatus={feedbackStatus}
+      tooShort={tooShort}
+      durationMinutes={durationMinutes}
+    />
+  );
+}
