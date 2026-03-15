@@ -26,9 +26,33 @@ interface ChatInterfaceProps {
   initialMessages: Message[];
 }
 
-type Phase = "idle" | "thinking" | "writing";
+type Phase = "idle" | "thinking" | "writing" | "paused";
 
-const CHAR_DELAY_MS = 35;
+// ═══ Latency & micro-behavior constants ═══
+const THINKING_DELAY_RANGE: [number, number] = [800, 2000];
+const MICRO_PAUSE_RANGE: [number, number] = [600, 1500];
+const MICRO_PAUSE_CHANCE = 0.12;
+
+function randInt(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/** Variable typing delay based on punctuation context */
+function getCharDelay(drained: string, buffer: string): number {
+  const tail = drained.slice(-3);
+  const next = buffer[0] || "";
+
+  // Ellipsis — long hesitation
+  if (tail.endsWith("...")) return randInt(400, 700);
+  // Sentence end — natural pause between thoughts
+  if (/[.!?]$/.test(tail) && /[\s\n]/.test(next)) return randInt(300, 600);
+  // Clause separator — brief pause
+  if (/[,;:]$/.test(tail) && /\s/.test(next)) return randInt(150, 250);
+  // Newline
+  if (tail.endsWith("\n")) return randInt(200, 400);
+  // Normal typing with slight jitter
+  return randInt(25, 45);
+}
 
 export function ChatInterface({ patient, conversationId: initialConvId, initialMessages }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -55,6 +79,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const drainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamDoneRef = useRef(false);
   const lastAssistantMsgRef = useRef<string>("");
+
+  // Latency & micro-behavior refs
+  const readyToDrainRef = useRef(false);
+  const firstTokenRef = useRef(false);
 
   // ═══ REALTIME (WebSocket) — Patient interruptions & typing detection ═══
   const realtimeUnsubRef = useRef<(() => void) | null>(null);
@@ -270,10 +298,18 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     };
   }, [isRecording, isStreaming]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Drain buffer character by character
+  // Drain buffer with variable speed and micro-pauses
   const drainBuffer = useCallback(() => {
+    // Wait for thinking delay to complete before showing any text
+    if (!readyToDrainRef.current) {
+      drainTimerRef.current = setTimeout(drainBuffer, 50);
+      return;
+    }
+
     if (tokenBufferRef.current.length > 0) {
-      const chunk = tokenBufferRef.current.slice(0, 2);
+      // Variable chunk size (1-3 chars) for natural jitter
+      const chunkSize = randInt(1, 3);
+      const chunk = tokenBufferRef.current.slice(0, chunkSize);
       tokenBufferRef.current = tokenBufferRef.current.slice(chunk.length);
 
       setMessages((prev) => {
@@ -287,12 +323,29 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         return updated;
       });
 
-      drainTimerRef.current = setTimeout(drainBuffer, CHAR_DELAY_MS);
+      const delay = getCharDelay(lastAssistantMsgRef.current, tokenBufferRef.current);
+
+      // Micro-pause: patient briefly stops typing after a sentence
+      const endsWithSentence = /[.!?]\s*$/.test(lastAssistantMsgRef.current);
+      if (
+        endsWithSentence &&
+        tokenBufferRef.current.length > 0 &&
+        Math.random() < MICRO_PAUSE_CHANCE
+      ) {
+        setPhase("paused");
+        const pauseDuration = randInt(...MICRO_PAUSE_RANGE);
+        drainTimerRef.current = setTimeout(() => {
+          setPhase("writing");
+          drainTimerRef.current = setTimeout(drainBuffer, delay);
+        }, pauseDuration);
+      } else {
+        drainTimerRef.current = setTimeout(drainBuffer, delay);
+      }
     } else if (streamDoneRef.current) {
       setPhase("idle");
       setIsStreaming(false);
     } else {
-      drainTimerRef.current = setTimeout(drainBuffer, CHAR_DELAY_MS);
+      drainTimerRef.current = setTimeout(drainBuffer, 50);
     }
   }, []);
 
@@ -384,6 +437,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     setIsStreaming(true);
     setPhase("thinking");
     streamDoneRef.current = false;
+    readyToDrainRef.current = false;
+    firstTokenRef.current = false;
     // Reset interrupt flags on new message
     interruptFiredRef.current = false;
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
@@ -394,8 +449,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     // Add empty assistant message with timestamp
     setMessages((prev) => [...prev, { role: "assistant", content: "", created_at: new Date().toISOString() }]);
 
-    // Start draining buffer
-    drainTimerRef.current = setTimeout(drainBuffer, CHAR_DELAY_MS);
+    // Start draining buffer (polls until readyToDrain)
+    drainTimerRef.current = setTimeout(drainBuffer, 50);
 
     try {
       const response = await fetch("/api/chat", {
@@ -431,9 +486,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           if (data.type === "conversation_id") {
             setConversationId(data.value);
           } else if (data.type === "token") {
-            // First token received → switch from "thinking" to "writing"
-            if (phase === "thinking" || tokenBufferRef.current.length === 0) {
-              setPhase("writing");
+            // First token: add intentional thinking delay before typing starts
+            if (!firstTokenRef.current) {
+              firstTokenRef.current = true;
+              const thinkDelay = randInt(...THINKING_DELAY_RANGE);
+              setTimeout(() => {
+                setPhase("writing");
+                readyToDrainRef.current = true;
+              }, thinkDelay);
             }
             tokenBufferRef.current += data.value;
           } else if (data.type === "error") {
@@ -515,7 +575,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const showThinkingBubble = phase === "thinking" && lastMsg?.role === "assistant" && !lastMsg.content;
   const showWritingSubtext = phase === "writing" && lastMsg?.role === "assistant" && !!lastMsg.content;
 
-  // Header status
+  // Header status — "paused" shows nothing (patient stopped typing briefly)
   const headerStatus = phase === "thinking"
     ? "Pensando"
     : phase === "writing"
