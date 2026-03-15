@@ -4,6 +4,7 @@ import { getUserProfile } from "@/lib/supabase/user-profile";
 import CompetencyRadar from "@/components/CompetencyRadar";
 import LevelBadge from "@/components/LevelBadge";
 import AchievementCard from "@/components/AchievementCard";
+import TrendChart from "@/components/TrendChart";
 import ProgresoClient from "./ProgresoClient";
 import { EMPTY_SCORES_V2, COMPETENCY_LABELS_V2, COMPETENCY_KEYS_V2, type CompetencyScoresV2 } from "@/lib/gamification";
 
@@ -139,6 +140,23 @@ export default async function ProgresoPage() {
             )}
           </div>
         </div>
+
+        {/* Progress trend */}
+        {hasData && recentScores && recentScores.length >= 2 && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 animate-slide-up">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">Evolución de puntaje general</h3>
+            <TrendChart
+              data={[...recentScores].reverse().map((s, i) => ({
+                label: `#${i + 1}`,
+                value: Number(s.overall_score_v2 || s.overall_score || 0),
+              }))}
+              height={200}
+            />
+            <p className="text-xs text-gray-400 text-center mt-2">
+              Últimas {recentScores.length} sesiones (de más antigua a más reciente)
+            </p>
+          </div>
+        )}
 
         {/* Achievements */}
         <div className="animate-slide-up">

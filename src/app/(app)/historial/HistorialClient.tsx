@@ -5,8 +5,9 @@ import Link from "next/link";
 import {
   ChevronDown, ChevronRight, ChevronLeft, ArrowRight, MessageSquare,
   BookOpen, GraduationCap, Brain, Clock, CheckCircle, XCircle, ListChecks,
-  ExternalLink,
+  ExternalLink, Filter, Search,
 } from "lucide-react";
+import ExportSessionButton from "@/components/ExportSessionButton";
 
 interface Session {
   id: string;
@@ -43,6 +44,28 @@ export default function HistorialClient({ sessions, actionItems }: { sessions: S
   const [items, setItems] = useState<ActionItem[]>(actionItems);
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
+  const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [difficultyFilter, setDifficultyFilter] = useState<string>("");
+
+  // Extract unique patient names and difficulties
+  const patientNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const s of sessions) {
+      const p = s.ai_patients as { name: string } | null;
+      if (p?.name) names.add(p.name);
+    }
+    return Array.from(names).sort();
+  }, [sessions]);
+
+  const difficulties = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of sessions) {
+      const p = s.ai_patients as { difficulty_level?: string } | null;
+      if (p?.difficulty_level) set.add(p.difficulty_level);
+    }
+    return Array.from(set).sort();
+  }, [sessions]);
 
   // Group action items by conversation
   const itemsByConversation = useMemo(() => {
@@ -106,9 +129,21 @@ export default function HistorialClient({ sessions, actionItems }: { sessions: S
   }, [calMonth, calYear]);
 
   // Filtered sessions
-  const filteredSessions = selectedDate
-    ? sessions.filter((s) => new Date(s.created_at).toLocaleDateString("en-CA") === selectedDate)
-    : sessions;
+  const filteredSessions = useMemo(() => {
+    return sessions.filter((s) => {
+      if (selectedDate && new Date(s.created_at).toLocaleDateString("en-CA") !== selectedDate) return false;
+      const patient = s.ai_patients as { name: string; difficulty_level?: string } | null;
+      if (searchText && patient?.name && !patient.name.toLowerCase().includes(searchText.toLowerCase())) return false;
+      if (statusFilter === "completed" && s.status !== "completed") return false;
+      if (statusFilter === "active" && s.status !== "active") return false;
+      if (statusFilter === "approved") {
+        const comp = (s.session_competencies as { feedback_status?: string }[] | null)?.[0];
+        if (comp?.feedback_status !== "approved") return false;
+      }
+      if (difficultyFilter && patient?.difficulty_level !== difficultyFilter) return false;
+      return true;
+    });
+  }, [sessions, selectedDate, searchText, statusFilter, difficultyFilter]);
 
   const prevMonth = () => {
     if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); }
@@ -204,6 +239,53 @@ export default function HistorialClient({ sessions, actionItems }: { sessions: S
 
       {/* Session list */}
       <div>
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Buscar por paciente..."
+              className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-sidebar/30 bg-white"
+          >
+            <option value="">Todos los estados</option>
+            <option value="active">En curso</option>
+            <option value="completed">Completadas</option>
+            <option value="approved">Evaluadas</option>
+          </select>
+          {difficulties.length > 1 && (
+            <select
+              value={difficultyFilter}
+              onChange={(e) => setDifficultyFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-sidebar/30 bg-white"
+            >
+              <option value="">Toda dificultad</option>
+              {difficulties.map((d) => (
+                <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+              ))}
+            </select>
+          )}
+          {(searchText || statusFilter || difficultyFilter || selectedDate) && (
+            <button
+              onClick={() => { setSearchText(""); setStatusFilter(""); setDifficultyFilter(""); setSelectedDate(null); }}
+              className="flex items-center gap-1 px-3 py-2 text-xs text-sidebar hover:bg-sidebar/5 rounded-lg transition-colors"
+            >
+              <Filter size={12} />
+              Limpiar filtros
+            </button>
+          )}
+          <span className="text-xs text-gray-400 ml-auto">
+            {filteredSessions.length} de {sessions.length}
+          </span>
+        </div>
         {filteredSessions.length === 0 ? (
           <div className="text-center py-16">
             <MessageSquare size={40} className="mx-auto text-gray-300 mb-3" />
@@ -290,6 +372,39 @@ export default function HistorialClient({ sessions, actionItems }: { sessions: S
                         : "Pendiente revisión"}
                     </span>
 
+                    {isCompleted && isApproved && comp && (
+                      <span onClick={(e) => e.stopPropagation()}>
+                        <ExportSessionButton
+                          data={{
+                            patientName: patient?.name || "Paciente",
+                            patientAge: (patient as { age?: number })?.age || 0,
+                            patientOccupation: (patient as { occupation?: string })?.occupation || "",
+                            sessionNumber: session.session_number,
+                            date: new Date(session.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" }),
+                            scores: [
+                              { label: "Empatía", value: comp.empathy },
+                              { label: "Escucha activa", value: comp.active_listening },
+                              { label: "Preguntas abiertas", value: comp.open_questions },
+                              { label: "Reformulación", value: comp.reformulation },
+                              { label: "Confrontación", value: comp.confrontation },
+                              { label: "Silencios", value: comp.silence_management },
+                              { label: "Rapport", value: comp.rapport },
+                            ],
+                            overallScore: score,
+                            aiCommentary: String(comp.ai_commentary || ""),
+                            strengths: comp.strengths || [],
+                            areasToImprove: comp.areas_to_improve || [],
+                            reflection: {
+                              discomfortMoment: feedback?.discomfort_moment ? String(feedback.discomfort_moment) : undefined,
+                              wouldRedo: feedback?.would_redo ? String(feedback.would_redo) : undefined,
+                              clinicalNote: feedback?.clinical_note ? String(feedback.clinical_note) : undefined,
+                            },
+                            teacherComment: feedback?.teacher_comment ? String(feedback.teacher_comment) : undefined,
+                            teacherScore: feedback?.teacher_score != null ? Number(feedback.teacher_score) : undefined,
+                          }}
+                        />
+                      </span>
+                    )}
                     <Link
                       href={isCompleted ? `/review/${session.id}` : `/chat/${session.ai_patient_id}?conversationId=${session.id}`}
                       className="text-gray-400 hover:text-sidebar transition-colors flex-shrink-0"

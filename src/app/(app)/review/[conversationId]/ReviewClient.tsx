@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { MessageSquare, Send, ArrowRight, Flame, Clock } from "lucide-react";
 import Confetti from "@/components/Confetti";
@@ -38,9 +38,30 @@ export default function ReviewClient({
       ? canSeeResults ? "results" : "pending"
       : "reflect"
   );
-  const [discomfortMoment, setDiscomfortMoment] = useState("");
-  const [wouldRedo, setWouldRedo] = useState("");
-  const [clinicalNote, setClinicalNote] = useState("");
+  // Restore drafts from localStorage
+  const draftKey = `gloria_draft_${conversationId}`;
+  const [discomfortMoment, setDiscomfortMoment] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try { return JSON.parse(localStorage.getItem(draftKey) || "{}").discomfortMoment || ""; } catch { return ""; }
+  });
+  const [wouldRedo, setWouldRedo] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try { return JSON.parse(localStorage.getItem(draftKey) || "{}").wouldRedo || ""; } catch { return ""; }
+  });
+  const [clinicalNote, setClinicalNote] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try { return JSON.parse(localStorage.getItem(draftKey) || "{}").clinicalNote || ""; } catch { return ""; }
+  });
+
+  // Auto-save drafts to localStorage
+  useEffect(() => {
+    if (step !== "reflect") return;
+    if (!discomfortMoment && !wouldRedo && !clinicalNote) return;
+    const timeout = setTimeout(() => {
+      localStorage.setItem(draftKey, JSON.stringify({ discomfortMoment, wouldRedo, clinicalNote }));
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [discomfortMoment, wouldRedo, clinicalNote, draftKey, step]);
   const [results, setResults] = useState<Record<string, unknown> | null>(
     existingEvaluation
       ? {
@@ -71,6 +92,7 @@ export default function ReviewClient({
       if (!res.ok) throw new Error("Error");
       const data = await res.json();
       setResults(data);
+      localStorage.removeItem(draftKey);
       setStep("pending"); // Student must wait for teacher approval
     } catch {
       toast("Error al enviar tu reflexión. Intenta de nuevo.", "error");
@@ -200,6 +222,10 @@ export default function ReviewClient({
                     placeholder="Observaciones generales sobre la sesión..."
                   />
                 </div>
+
+                {(discomfortMoment || wouldRedo || clinicalNote) && (
+                  <p className="text-[10px] text-gray-400 text-right">Borrador guardado automáticamente</p>
+                )}
 
                 <div className="flex gap-3 pt-2">
                   <button
