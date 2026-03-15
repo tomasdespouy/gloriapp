@@ -92,6 +92,27 @@ Responde SOLO con los accionables, sin introducción ni cierre.` }],
     return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
   }
 
+  // Verify instructor has scope over this student
+  if (profile.role === "instructor") {
+    const { data: instructorProfile } = await supabase
+      .from("profiles")
+      .select("establishment_id")
+      .eq("id", user.id)
+      .single();
+
+    const adminCheck = createAdminClient();
+    const { data: studentProfile } = await adminCheck
+      .from("profiles")
+      .select("establishment_id")
+      .eq("id", student_id)
+      .single();
+
+    if (instructorProfile?.establishment_id && studentProfile?.establishment_id
+      && instructorProfile.establishment_id !== studentProfile.establishment_id) {
+      return NextResponse.json({ error: "No tienes acceso a este estudiante" }, { status: 403 });
+    }
+  }
+
   const admin = createAdminClient();
   const toInsert = items.map((item: { content: string; resource_link?: string }) => ({
     conversation_id,

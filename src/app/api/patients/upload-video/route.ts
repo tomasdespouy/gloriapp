@@ -15,6 +15,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "file y slug requeridos" }, { status: 400 });
   }
 
+  // Validate slug to prevent path traversal
+  if (!/^[a-zA-Z0-9_-]+$/.test(slug)) {
+    return NextResponse.json({ error: "Slug inválido" }, { status: 400 });
+  }
+
+  // Validate file type
+  if (file.type && !["video/mp4", "video/webm", "video/quicktime"].includes(file.type)) {
+    return NextResponse.json({ error: "Tipo de archivo no permitido. Solo video/mp4, video/webm" }, { status: 400 });
+  }
+
+  // Validate file size (max 100MB)
+  if (file.size > 100 * 1024 * 1024) {
+    return NextResponse.json({ error: "Archivo demasiado grande. Máximo 100MB" }, { status: 400 });
+  }
+
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
     const admin = createAdminClient();

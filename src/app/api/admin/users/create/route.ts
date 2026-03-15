@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { escapeHtml } from "@/lib/utils";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
               <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">Plataforma de Entrenamiento Clínico con IA</p>
             </div>
             <div style="background: #f9f9f9; padding: 32px; border: 1px solid #e5e5e5; border-top: none; border-radius: 0 0 12px 12px;">
-              <p style="font-size: 15px; color: #333;">Hola <strong>${full_name}</strong>,</p>
+              <p style="font-size: 15px; color: #333;">Hola <strong>${escapeHtml(full_name)}</strong>,</p>
               <p style="font-size: 14px; color: #555; line-height: 1.6;">
                 Se ha creado tu cuenta en GlorIA con el rol de <strong>${roleLabels[role || "student"]}</strong>.
                 A continuación encontrarás tus credenciales de acceso:
@@ -100,7 +101,7 @@ export async function POST(request: Request) {
                   </tr>
                   <tr>
                     <td style="padding: 6px 0; color: #666;">Email:</td>
-                    <td style="padding: 6px 0; font-weight: bold;">${email}</td>
+                    <td style="padding: 6px 0; font-weight: bold;">${escapeHtml(email)}</td>
                   </tr>
                   <tr>
                     <td style="padding: 6px 0; color: #666;">Contraseña:</td>

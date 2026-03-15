@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Resend } from "resend";
 import { NextResponse } from "next/server";
+import { escapeHtml } from "@/lib/utils";
 
 let _resend: Resend | null = null;
 function getResend() {
@@ -43,19 +44,19 @@ export async function POST(request: Request) {
         <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
           <tr>
             <td style="padding: 8px; color: #666; width: 120px;">Usuario</td>
-            <td style="padding: 8px; font-weight: bold;">${userName}</td>
+            <td style="padding: 8px; font-weight: bold;">${escapeHtml(userName)}</td>
           </tr>
           <tr>
             <td style="padding: 8px; color: #666;">Email</td>
-            <td style="padding: 8px;">${userEmail}</td>
+            <td style="padding: 8px;">${escapeHtml(userEmail)}</td>
           </tr>
           <tr>
             <td style="padding: 8px; color: #666;">Asunto</td>
-            <td style="padding: 8px; font-weight: bold;">${subject.trim()}</td>
+            <td style="padding: 8px; font-weight: bold;">${escapeHtml(subject.trim())}</td>
           </tr>
         </table>
         <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin-top: 8px;">
-          <p style="margin: 0; white-space: pre-wrap;">${body.trim()}</p>
+          <p style="margin: 0; white-space: pre-wrap;">${escapeHtml(body.trim())}</p>
         </div>
         <p style="color: #999; font-size: 12px; margin-top: 24px;">
           Enviado desde GlorIA — Puedes responder directamente a este email.

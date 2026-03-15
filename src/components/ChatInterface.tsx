@@ -483,7 +483,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   };
 
   const renderContent = (content: string) => {
-    return content.replace(/\[([^\]]+)\]/g, '<em class="text-gray-400">[$1]</em>');
+    // Escape HTML first to prevent XSS, then apply formatting
+    const escaped = content
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+    return escaped.replace(/\[([^\]]+)\]/g, '<em class="text-gray-400">[$1]</em>');
   };
 
   const formatTime = (isoString?: string) => {

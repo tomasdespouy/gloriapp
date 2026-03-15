@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "instructor" && profile?.role !== "admin") {
+  if (profile?.role !== "instructor" && profile?.role !== "admin" && profile?.role !== "superadmin") {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
@@ -29,6 +29,34 @@ export async function POST(request: Request) {
 
   if (teacher_score != null && (teacher_score < 0 || teacher_score > 10)) {
     return NextResponse.json({ error: "teacher_score debe estar entre 0 y 10" }, { status: 400 });
+  }
+
+  // Verify instructor has scope over this conversation's student
+  if (profile.role === "instructor") {
+    const { data: instructorProfile } = await supabase
+      .from("profiles")
+      .select("establishment_id")
+      .eq("id", user.id)
+      .single();
+
+    const { data: conversation } = await supabase
+      .from("conversations")
+      .select("student_id")
+      .eq("id", conversation_id)
+      .single();
+
+    if (conversation) {
+      const { data: studentProfile } = await supabase
+        .from("profiles")
+        .select("establishment_id")
+        .eq("id", conversation.student_id)
+        .single();
+
+      if (instructorProfile?.establishment_id && studentProfile?.establishment_id
+        && instructorProfile.establishment_id !== studentProfile.establishment_id) {
+        return NextResponse.json({ error: "No tienes acceso a este estudiante" }, { status: 403 });
+      }
+    }
   }
 
   // Update session_feedback with teacher evaluation

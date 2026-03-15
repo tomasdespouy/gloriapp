@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+import { escapeHtml } from "@/lib/utils";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -30,6 +31,26 @@ export async function POST(request: Request) {
 
   if (!conversation) {
     return NextResponse.json({ error: "Conversación no encontrada" }, { status: 404 });
+  }
+
+  // Verify instructor has scope over this student
+  if (profile.role === "instructor") {
+    const { data: instructorProfile } = await supabase
+      .from("profiles")
+      .select("establishment_id")
+      .eq("id", user.id)
+      .single();
+
+    const { data: studentProfile } = await admin
+      .from("profiles")
+      .select("establishment_id")
+      .eq("id", conversation.student_id)
+      .single();
+
+    if (instructorProfile?.establishment_id && studentProfile?.establishment_id
+      && instructorProfile.establishment_id !== studentProfile.establishment_id) {
+      return NextResponse.json({ error: "No tienes acceso a este estudiante" }, { status: 403 });
+    }
   }
 
   // Mark as approved
@@ -76,8 +97,8 @@ export async function POST(request: Request) {
         html: `
           <div style="font-family: sans-serif; max-width: 500px;">
             <h2 style="color: #4A55A2;">Tu retroalimentación está lista</h2>
-            <p>Hola ${studentProfile.full_name?.split(" ")[0] || ""},</p>
-            <p>Tu docente ha revisado y aprobado la retroalimentación de tu sesión con <strong>${patientName}</strong>.</p>
+            <p>Hola ${escapeHtml(studentProfile.full_name?.split(" ")[0] || "")},</p>
+            <p>Tu docente ha revisado y aprobado la retroalimentación de tu sesión con <strong>${escapeHtml(patientName)}</strong>.</p>
             <p>Ingresa a GlorIA para ver tus resultados detallados, incluyendo tus puntajes por competencia y recomendaciones de mejora.</p>
             <p style="color: #999; font-size: 12px; margin-top: 24px;">GlorIA — Plataforma de entrenamiento clínico</p>
           </div>

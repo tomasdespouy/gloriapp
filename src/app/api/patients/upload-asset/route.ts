@@ -12,6 +12,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "url, slug y type requeridos" }, { status: 400 });
   }
 
+  // Validate slug to prevent path traversal
+  if (!/^[a-zA-Z0-9_-]+$/.test(slug)) {
+    return NextResponse.json({ error: "Slug inválido: solo letras, números, guiones y guiones bajos" }, { status: 400 });
+  }
+
+  if (!["image", "video"].includes(type)) {
+    return NextResponse.json({ error: "type debe ser 'image' o 'video'" }, { status: 400 });
+  }
+
   const ext = type === "video" ? "mp4" : "png";
   const filePath = `${slug}.${ext}`;
   const contentType = type === "video" ? "video/mp4" : "image/png";
