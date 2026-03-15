@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getAdminContext, scopeByEstablishment } from "@/lib/admin-helpers";
+import { getAdminContext } from "@/lib/admin-helpers";
 // LogoutButton moved to global TopHeader
 import KPICard from "@/components/admin/KPICard";
 import AdminDashboardClient from "./AdminDashboardClient";
@@ -12,6 +12,7 @@ import Link from "next/link";
 export default async function AdminDashboard() {
   const ctx = await getAdminContext();
   const supabase = await createClient();
+  const now = Date.now(); // eslint-disable-line react-hooks/purity
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -104,7 +105,7 @@ export default async function AdminDashboard() {
     const comp = (s.session_competencies as CompRow[] | null)?.[0];
     if (comp?.overall_score == null) return;
     const created = new Date(s.created_at);
-    const weeksAgo = Math.floor((Date.now() - created.getTime()) / (7 * 86400000));
+    const weeksAgo = Math.floor((now - created.getTime()) / (7 * 86400000));
     if (weeksAgo < 12) {
       if (!weeklyScores[weeksAgo]) weeklyScores[weeksAgo] = [];
       weeklyScores[weeksAgo].push(Number(comp.overall_score));
@@ -119,7 +120,7 @@ export default async function AdminDashboard() {
   // ── Chart data: student registrations per week ───────────
   const registrationsByWeek: Record<number, number> = {};
   students?.forEach((s) => {
-    const weeksAgo = Math.floor((Date.now() - new Date(s.created_at).getTime()) / (7 * 86400000));
+    const weeksAgo = Math.floor((now - new Date(s.created_at).getTime()) / (7 * 86400000));
     if (weeksAgo < 12) {
       registrationsByWeek[weeksAgo] = (registrationsByWeek[weeksAgo] || 0) + 1;
     }

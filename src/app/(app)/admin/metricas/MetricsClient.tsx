@@ -5,7 +5,7 @@ import {
   BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { BarChart3, Download } from "lucide-react";
+import { Download } from "lucide-react";
 
 type Props = {
   competencies: { key: string; label: string }[];

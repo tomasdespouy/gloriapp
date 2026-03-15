@@ -35,7 +35,7 @@ export default function UserDetailClient({
 
   // Load courses when establishment changes
   useEffect(() => {
-    if (!estId) { setCourses([]); setCourseId(""); setSections([]); setSectionId(""); return; }
+    if (!estId) { setCourses([]); setCourseId(""); setSections([]); setSectionId(""); return; } // eslint-disable-line react-hooks/set-state-in-effect
     fetch(`/api/admin/courses?establishment_id=${estId}`)
       .then((r) => r.json())
       .then((data) => {
@@ -46,7 +46,7 @@ export default function UserDetailClient({
 
   // Load sections when course changes
   useEffect(() => {
-    if (!courseId) { setSections([]); setSectionId(""); return; }
+    if (!courseId) { setSections([]); setSectionId(""); return; } // eslint-disable-line react-hooks/set-state-in-effect
     fetch(`/api/admin/sections?course_id=${courseId}`)
       .then((r) => r.json())
       .then((data) => {

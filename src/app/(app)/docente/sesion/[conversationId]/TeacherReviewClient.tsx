@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Brain, BookOpen, GraduationCap, Send, CheckCircle,
-  MessageSquare, Clock, User as UserIcon, Sparkles, Loader2,
+  MessageSquare, Sparkles, Loader2,
 } from "lucide-react";
 
 interface Message {
@@ -664,7 +664,7 @@ function ActionItemsPanel({ conversationId, studentId, studentName, competencies
                  item.status === "rejected" ? "✗ No aceptado" :
                  "⏳ Pendiente de validación"}
               </p>
-              {item.student_comment && <p className="text-[10px] text-gray-500 mt-0.5">"{item.student_comment}"</p>}
+              {item.student_comment && <p className="text-[10px] text-gray-500 mt-0.5">&quot;{item.student_comment}&quot;</p>}
             </div>
           ))}
         </div>
@@ -695,7 +695,7 @@ function ActionItemsPanel({ conversationId, studentId, studentName, competencies
 
       {/* No items yet */}
       {items.length === 0 && suggestions.length === 0 && !generating && (
-        <p className="text-xs text-gray-400 text-center py-3">Sin accionables. Usa "Sugerir con IA" para generar.</p>
+        <p className="text-xs text-gray-400 text-center py-3">Sin accionables. Usa &quot;Sugerir con IA&quot; para generar.</p>
       )}
 
       {/* Previous agreements */}

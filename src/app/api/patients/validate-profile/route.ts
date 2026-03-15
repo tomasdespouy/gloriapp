@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   }));
 
   // 2. Test conversation validation (if provided)
-  let conversationChecks: { label: string; pass: boolean; detail: string }[] = [];
+  const conversationChecks: { label: string; pass: boolean; detail: string }[] = [];
   if (testConversation && Array.isArray(testConversation)) {
     const patientMsgs = testConversation.filter((m: { role: string; content: string }) => m.role === "paciente").map((m: { content: string }) => m.content);
 

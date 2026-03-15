@@ -41,7 +41,13 @@ export default function TopHeader({ userName, userEmail, userRole }: Props) {
   }, []);
 
   // Load notifications on mount
-  useEffect(() => { loadNotifications(); }, [loadNotifications]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/notifications")
+      .then((res) => { if (res.ok) return res.json(); })
+      .then((data) => { if (!cancelled && data) { setNotifications(data); setNotifLoaded(true); } });
+    return () => { cancelled = true; };
+  }, []);
 
   const markAllRead = async () => {
     await fetch("/api/notifications", {

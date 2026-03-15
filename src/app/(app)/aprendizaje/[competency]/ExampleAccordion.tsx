@@ -218,7 +218,7 @@ function AnimatedDialogue({ dialogue }: { dialogue: DialogueLine[] }) {
     if (!started) return;
     if (visibleCount < dialogue.length) {
       const nextLine = dialogue[visibleCount];
-      typeMessage(nextLine.content, () => {
+      typeMessage(nextLine.content, () => { // eslint-disable-line react-hooks/set-state-in-effect
         timerRef.current = setTimeout(() => {
           setVisibleCount((v) => v + 1);
         }, PAUSE_BETWEEN);

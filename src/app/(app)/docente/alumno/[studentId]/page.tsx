@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, ChevronRight, Brain, GraduationCap,
-  MessageSquare, TrendingUp, Flame, Target,
+  TrendingUp, Flame, Target,
 } from "lucide-react";
 import DownloadReportButton from "@/components/DownloadReportButton";
 
@@ -200,7 +200,7 @@ export default async function DocenteAlumnoPage({ params }: Props) {
                   <h3 className="text-sm font-semibold text-gray-900">Evolución del puntaje general</h3>
                 </div>
                 <div className="flex items-end gap-2 h-24">
-                  {progressionSessions.map((s, i) => {
+                  {progressionSessions.map((s) => {
                     const comp = (s.session_competencies as CompRow[] | null)?.[0];
                     const val = comp?.overall_score != null ? Number(comp.overall_score) : 0;
                     const height = Math.max((val / 10) * 100, 5);

@@ -59,7 +59,7 @@ Responde SOLO con el comentario, sin introducción.` }],
 
   // AI suggestion mode
   if (body.action === "suggest") {
-    const { conversation_id, student_name, evaluation_summary } = body;
+    const { student_name, evaluation_summary } = body;
 
     const suggestion = await chat(
       [{ role: "user", content: `Eres un docente supervisor de psicología clínica con mentalidad de crecimiento.

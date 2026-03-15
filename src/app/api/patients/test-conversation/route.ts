@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { chat } from "@/lib/ai";
 
-function buildTestPrompt(systemPrompt: string, patientName: string): string {
+function buildTestPrompt(systemPrompt: string): string {
   return `Eres un evaluador experto de simuladores clínicos de terapia psicologica.
 
 Tu tarea tiene DOS partes:
@@ -66,9 +66,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { system_prompt, patient_name } = await request.json();
+    const { system_prompt } = await request.json();
 
-    const prompt = buildTestPrompt(system_prompt, patient_name);
+    const prompt = buildTestPrompt(system_prompt);
     const response = await chat(
       [{ role: "user", content: prompt }],
       "Eres un evaluador de simuladores clínicos. Respondes UNICAMENTE con JSON valido, sin markdown ni texto adicional."

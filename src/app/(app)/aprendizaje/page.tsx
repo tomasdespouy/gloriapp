@@ -7,7 +7,7 @@ export default async function AprendizajePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  let progressMap: Record<string, number> = {};
+  const progressMap: Record<string, number> = {};
   let tutorCompleted = false;
 
   if (user) {

@@ -36,7 +36,7 @@ export default function SobrePage() {
             Cada paciente virtual tiene una personalidad, historia de vida y cuadro clínico único, construido con rigor académico por profesionales de la salud mental. Los estudiantes pueden practicar técnicas terapéuticas, recibir retroalimentación estructurada y desarrollar competencias clínicas antes de trabajar con pacientes reales.
           </p>
           <p className="text-sm text-gray-700 leading-relaxed">
-            El nombre rinde homenaje al histórico caso "Gloria" de 1965, filmado por el Dr. Everett Shostrom, donde tres pioneros de la psicoterapia — Carl Rogers (Terapia Humanista), Fritz Perls (Terapia Gestalt) y Albert Ellis (Terapia Racional Emotiva) — demostraron sus enfoques con la misma paciente, marcando un antes y después en la enseñanza de la psicoterapia.
+            El nombre rinde homenaje al histórico caso &quot;Gloria&quot; de 1965, filmado por el Dr. Everett Shostrom, donde tres pioneros de la psicoterapia — Carl Rogers (Terapia Humanista), Fritz Perls (Terapia Gestalt) y Albert Ellis (Terapia Racional Emotiva) — demostraron sus enfoques con la misma paciente, marcando un antes y después en la enseñanza de la psicoterapia.
           </p>
         </section>
 

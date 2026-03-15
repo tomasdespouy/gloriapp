@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
-  Activity, AlertTriangle, Clock, Zap, MessageSquare,
+  AlertTriangle, Clock, MessageSquare,
   CheckCircle2, XCircle, Server,
 } from "lucide-react";
 import {
@@ -44,14 +44,15 @@ export default function SystemMetrics() {
   const [range, setRange] = useState("24h");
   const [loading, setLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch("/api/admin/metrics/system?range=" + range);
-    if (res.ok) setData(await res.json());
-    setLoading(false);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true); // eslint-disable-line react-hooks/set-state-in-effect
+    fetch("/api/admin/metrics/system?range=" + range)
+      .then((res) => { if (res.ok) return res.json(); })
+      .then((d) => { if (!cancelled && d) setData(d); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [range]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
 
   if (loading) return <div className="text-center py-12 text-gray-400 text-sm">Cargando metricas del sistema...</div>;
   if (!data) return <div className="text-center py-12 text-gray-400 text-sm">Error al cargar</div>;

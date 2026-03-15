@@ -38,6 +38,7 @@ export default function LiveMetrics() {
   if (loading) return <div className="text-center py-12 text-gray-400 text-sm">Cargando métricas en vivo...</div>;
   if (!data) return <div className="text-center py-12 text-gray-400 text-sm">Error al cargar</div>;
 
+  const nowMs = Date.now(); // eslint-disable-line react-hooks/purity
   const maxHourly = Math.max(...data.hourlyActivity, 1);
 
   return (
@@ -71,7 +72,7 @@ export default function LiveMetrics() {
           {data.activeSessions.length > 0 ? (
             <div className="space-y-2">
               {data.activeSessions.map((s) => {
-                const mins = Math.round((Date.now() - new Date(s.startedAt).getTime()) / 60000);
+                const mins = Math.round((nowMs - new Date(s.startedAt).getTime()) / 60000);
                 return (
                   <div key={s.id} className="flex items-center justify-between py-2 px-3 bg-green-50 rounded-xl">
                     <div>

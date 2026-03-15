@@ -4,7 +4,7 @@ import Link from "next/link";
 // LogoutButton moved to global TopHeader
 import {
   Users, ClipboardCheck, TrendingUp, AlertTriangle,
-  ChevronRight, GraduationCap, MessageSquare, Clock,
+  ChevronRight, MessageSquare, Clock,
 } from "lucide-react";
 
 export default async function DocenteDashboard() {

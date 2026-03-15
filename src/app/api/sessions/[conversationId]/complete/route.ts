@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat } from "@/lib/ai";
-import { calculateSessionXp, getLevelInfo, LEVELS } from "@/lib/gamification";
+import { calculateSessionXp, getLevelInfo } from "@/lib/gamification";
 
 const EVALUATION_PROMPT = `Eres un supervisor clínico experto evaluando la sesión de un estudiante de psicología.
 Usa el instrumento de competencias clínicas de la Universidad Gabriela Mistral.

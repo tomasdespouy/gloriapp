@@ -19,7 +19,6 @@ export type RealtimeEvent =
 type EventHandler = (event: RealtimeEvent) => void;
 
 let _channel: RealtimeChannel | null = null;
-let _conversationId: string | null = null;
 
 /**
  * Subscribe to a conversation's realtime channel.
@@ -36,8 +35,6 @@ export function subscribeToConversation(
   }
 
   const supabase = createClient();
-  _conversationId = conversationId;
-
   _channel = supabase
     .channel(`chat:${conversationId}`, {
       config: { broadcast: { self: false } },
@@ -52,7 +49,6 @@ export function subscribeToConversation(
     if (_channel) {
       _channel.unsubscribe();
       _channel = null;
-      _conversationId = null;
     }
   };
 }

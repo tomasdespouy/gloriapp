@@ -26,6 +26,27 @@ export default function CountUp({
   useEffect(() => {
     if (hasAnimated.current) return;
 
+    const animate = () => {
+      const start = 0;
+      const startTime = performance.now();
+
+      const step = (now: number) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = start + (end - start) * eased;
+        setDisplay(current.toFixed(decimals));
+
+        if (progress < 1) {
+          requestAnimationFrame(step);
+        } else {
+          setDisplay(end.toFixed(decimals));
+        }
+      };
+
+      requestAnimationFrame(step);
+    };
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !hasAnimated.current) {
@@ -39,29 +60,7 @@ export default function CountUp({
 
     if (ref.current) observer.observe(ref.current);
     return () => observer.disconnect();
-  }, [end]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const animate = () => {
-    const start = 0;
-    const startTime = performance.now();
-
-    const step = (now: number) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      // Ease out cubic
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const current = start + (end - start) * eased;
-      setDisplay(current.toFixed(decimals));
-
-      if (progress < 1) {
-        requestAnimationFrame(step);
-      } else {
-        setDisplay(end.toFixed(decimals));
-      }
-    };
-
-    requestAnimationFrame(step);
-  };
+  }, [end, duration, decimals]);
 
   return (
     <span ref={ref} className={className}>

@@ -217,7 +217,6 @@ export async function generateStudentReport(studentId: string): Promise<void> {
       const barH = 4;
       const barW = mw * 0.55;
       const labelW = mw * 0.3;
-      const valW = mw * 0.15;
 
       doc.setFontSize(8);
       doc.setFont("Roboto", "normal");

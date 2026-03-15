@@ -92,24 +92,6 @@ export default function UsuariosClient({ users, establishments, isSuperadmin }: 
     router.refresh();
   };
 
-  const SortHeader = ({ label, sortKeyName, align = "left" }: { label: string; sortKeyName: SortKey; align?: string }) => (
-    <th
-      className={`text-${align} text-xs font-semibold text-gray-500 px-4 py-3 cursor-pointer hover:text-sidebar hover:bg-gray-50 transition-colors select-none`}
-      onClick={() => toggleSort(sortKeyName)}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {sortKey === sortKeyName ? (
-          sortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />
-        ) : (
-          <ChevronDown size={10} className="opacity-30" />
-        )}
-      </span>
-    </th>
-  );
-
-  const userToDelete = users.find((u) => u.id === deleteConfirm);
-
   return (
     <div className="min-h-screen">
       <header className="flex justify-between items-center px-8 py-5">
@@ -156,13 +138,13 @@ export default function UsuariosClient({ users, establishments, isSuperadmin }: 
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
-                  <SortHeader label="Nombre" sortKeyName="full_name" />
-                  <SortHeader label="Email" sortKeyName="email" />
-                  <SortHeader label="Rol" sortKeyName="role" align="center" />
-                  <SortHeader label="Institución" sortKeyName="establishmentName" />
-                  <SortHeader label="Asignatura" sortKeyName="courseName" />
-                  <SortHeader label="Sección" sortKeyName="sectionName" />
-                  <SortHeader label="Sesiones" sortKeyName="sessionCount" align="center" />
+                  <SortHeader label="Nombre" sortKeyName="full_name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortHeader label="Email" sortKeyName="email" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortHeader label="Rol" sortKeyName="role" align="center" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortHeader label="Institución" sortKeyName="establishmentName" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortHeader label="Asignatura" sortKeyName="courseName" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortHeader label="Sección" sortKeyName="sectionName" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortHeader label="Sesiones" sortKeyName="sessionCount" align="center" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <th className="text-center text-xs font-semibold text-gray-500 px-4 py-3">Estado</th>
                   <th className="text-center text-xs font-semibold text-gray-500 px-4 py-3">Acciones</th>
                   <th className="px-4 py-3" />
@@ -397,6 +379,27 @@ export default function UsuariosClient({ users, establishments, isSuperadmin }: 
         );
       })()}
     </div>
+  );
+}
+
+function SortHeader({ label, sortKeyName, align = "left", sortKey, sortDir, onSort }: {
+  label: string; sortKeyName: SortKey; align?: string;
+  sortKey: SortKey; sortDir: SortDir; onSort: (key: SortKey) => void;
+}) {
+  return (
+    <th
+      className={`text-${align} text-xs font-semibold text-gray-500 px-4 py-3 cursor-pointer hover:text-sidebar hover:bg-gray-50 transition-colors select-none`}
+      onClick={() => onSort(sortKeyName)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sortKey === sortKeyName ? (
+          sortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+        ) : (
+          <ChevronDown size={10} className="opacity-30" />
+        )}
+      </span>
+    </th>
   );
 }
 

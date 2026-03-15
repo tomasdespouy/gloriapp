@@ -6,6 +6,7 @@ import MetricsTabs from "./MetricsTabs";
 export default async function MetricasPage() {
   const ctx = await getAdminContext();
   const supabase = await createClient();
+  const now = Date.now(); // eslint-disable-line react-hooks/purity
 
   // Fetch establishments
   const { data: establishments } = ctx.isSuperadmin
@@ -130,7 +131,7 @@ export default async function MetricasPage() {
   sessions?.forEach((s) => {
     const comp = (s.session_competencies as CompRow[] | null)?.[0];
     if (comp?.overall_score == null) return;
-    const weeksAgo = Math.floor((Date.now() - new Date(s.created_at).getTime()) / (7 * 86400000));
+    const weeksAgo = Math.floor((now - new Date(s.created_at).getTime()) / (7 * 86400000));
     if (weeksAgo < 12) {
       if (!weeklyData[weeksAgo]) weeklyData[weeksAgo] = [];
       weeklyData[weeksAgo].push(Number(comp.overall_score));

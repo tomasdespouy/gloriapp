@@ -30,6 +30,13 @@ const difficultyLabels: Record<string, { label: string; color: string; order: nu
 type SortKey = "name" | "difficulty" | "country" | "status" | "created";
 type SortDir = "asc" | "desc";
 
+function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: SortDir }) {
+  if (sortKey !== col) return <ChevronDown size={12} className="text-gray-300 ml-1 inline" />;
+  return sortDir === "asc"
+    ? <ChevronUp size={12} className="text-sidebar ml-1 inline" />
+    : <ChevronDown size={12} className="text-sidebar ml-1 inline" />;
+}
+
 export default function PatientTable({ patients, canEdit = false }: { patients: Patient[]; canEdit?: boolean }) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
@@ -101,13 +108,6 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
 
   const patientToDelete = patients.find((p) => p.id === deleteConfirm);
 
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <ChevronDown size={12} className="text-gray-300 ml-1 inline" />;
-    return sortDir === "asc"
-      ? <ChevronUp size={12} className="text-sidebar ml-1 inline" />
-      : <ChevronDown size={12} className="text-sidebar ml-1 inline" />;
-  };
-
   const thClass = "text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3 cursor-pointer select-none hover:text-gray-700 transition-colors";
 
   return (
@@ -117,19 +117,19 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
           <thead>
             <tr className="border-b border-gray-100">
               <th className={thClass} onClick={() => handleSort("name")}>
-                Paciente <SortIcon col="name" />
+                Paciente <SortIcon col="name" sortKey={sortKey} sortDir={sortDir} />
               </th>
               <th className={thClass} onClick={() => handleSort("difficulty")}>
-                Dificultad <SortIcon col="difficulty" />
+                Dificultad <SortIcon col="difficulty" sortKey={sortKey} sortDir={sortDir} />
               </th>
               <th className={thClass} onClick={() => handleSort("country")}>
-                País <SortIcon col="country" />
+                País <SortIcon col="country" sortKey={sortKey} sortDir={sortDir} />
               </th>
               <th className={thClass} onClick={() => handleSort("status")}>
-                Estado <SortIcon col="status" />
+                Estado <SortIcon col="status" sortKey={sortKey} sortDir={sortDir} />
               </th>
               <th className={thClass} onClick={() => handleSort("created")}>
-                Creado <SortIcon col="created" />
+                Creado <SortIcon col="created" sortKey={sortKey} sortDir={sortDir} />
               </th>
               <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
                 Acciones

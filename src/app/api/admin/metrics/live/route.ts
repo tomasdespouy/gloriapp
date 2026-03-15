@@ -14,7 +14,6 @@ export async function GET() {
 
   const admin = createAdminClient();
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
   const oneHourAgo = new Date(now.getTime() - 3600000).toISOString();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 

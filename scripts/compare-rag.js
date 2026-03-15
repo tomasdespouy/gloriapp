@@ -7,9 +7,7 @@
  */
 var OpenAI = require("openai");
 var { createClient } = require("@supabase/supabase-js");
-var { jsPDF } = require("jspdf");
 var fs = require("fs");
-var path = require("path");
 
 var openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 var admin = createClient(

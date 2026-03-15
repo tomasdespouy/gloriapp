@@ -49,21 +49,11 @@ export default function TutorClient({
   const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const msgCountRef = useRef(0);
+  const [msgCount, setMsgCount] = useState(0);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // Ctrl hold to record
-  useEffect(() => {
-    if (phase !== "practice") return;
-    const down = (e: KeyboardEvent) => { if (e.key === "Control" && !e.repeat && !isRecording && !isStreaming) startRecording(); };
-    const up = (e: KeyboardEvent) => { if (e.key === "Control" && isRecording) stopRecording(); };
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
-  }, [phase, isRecording, isStreaming]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startRecording = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -90,6 +80,16 @@ export default function TutorClient({
 
   const stopRecording = () => { recognitionRef.current?.stop(); setIsRecording(false); };
 
+  // Ctrl hold to record
+  useEffect(() => {
+    if (phase !== "practice") return;
+    const down = (e: KeyboardEvent) => { if (e.key === "Control" && !e.repeat && !isRecording && !isStreaming) startRecording(); };
+    const up = (e: KeyboardEvent) => { if (e.key === "Control" && isRecording) stopRecording(); };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
+  }, [phase, isRecording, isStreaming]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const toggleComp = (key: string) => {
     setSelectedComps((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
@@ -100,7 +100,7 @@ export default function TutorClient({
     if (selectedComps.length === 0) return;
     setPhase("practice");
     setIsStreaming(true);
-    msgCountRef.current = 0;
+    setMsgCount(0);
 
     const res = await fetch("/api/learning/tutor", {
       method: "POST",
@@ -125,7 +125,8 @@ export default function TutorClient({
     const updated = [...messages, newMsg];
     setMessages(updated);
     setIsStreaming(true);
-    msgCountRef.current++;
+    const nextCount = msgCount + 1;
+    setMsgCount(nextCount);
 
     const apiMessages = updated.map((m) => ({ role: m.role, content: m.content }));
 
@@ -136,7 +137,7 @@ export default function TutorClient({
         action: "respond",
         competencies: selectedComps,
         messages: apiMessages,
-        turnCount: msgCountRef.current,
+        turnCount: nextCount,
       }),
     });
 
@@ -322,7 +323,7 @@ export default function TutorClient({
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { setPhase("select"); setMessages([]); setFeedback(null); msgCountRef.current = 0; }}
+              onClick={() => { setPhase("select"); setMessages([]); setFeedback(null); setMsgCount(0); }}
               className="flex-1 bg-sidebar text-white py-3 rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors"
             >
               Practicar de nuevo
@@ -499,12 +500,12 @@ export default function TutorClient({
           {/* Turn counter */}
           <div className="mt-auto">
             <p className="text-[10px] text-gray-400">
-              Turno {msgCountRef.current} de 8
+              Turno {msgCount} de 8
             </p>
             <div className="bg-gray-200 rounded-full h-1.5 mt-1">
               <div
                 className="bg-sidebar h-1.5 rounded-full transition-all"
-                style={{ width: `${Math.min(100, (msgCountRef.current / 8) * 100)}%` }}
+                style={{ width: `${Math.min(100, (msgCount / 8) * 100)}%` }}
               />
             </div>
           </div>

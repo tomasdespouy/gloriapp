@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageSquare, Plus, TrendingUp, Users, Send } from "lucide-react";
+import { Send } from "lucide-react";
 
 type Survey = { id: string; title: string; scope_type: string; scope_id: string | null; starts_at: string; ends_at: string; is_active: boolean; created_at: string };
 type Response = { id: string; survey_id: string; nps_score: number; positives: string | null; improvements: string | null; comments: string | null; created_at: string; userName: string; establishmentId: string | null; courseId: string | null; sectionId: string | null };
@@ -23,7 +23,7 @@ type Props = {
 
 const NPS_EMOJIS = ["😡", "😠", "😤", "😕", "😐", "🙂", "😊", "😃", "😄", "🤩", "🌟"];
 
-export default function RetroClient({ surveys, responses, establishments, courses, sections, nps, totalResponses, isSuperadmin }: Props) {
+export default function RetroClient({ surveys, responses, establishments, courses, sections }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<"overview" | "surveys" | "create">("overview");
   const [yearFilter, setYearFilter] = useState("");
@@ -190,14 +190,17 @@ export default function RetroClient({ surveys, responses, establishments, course
   );
 }
 
+const INITIAL_START_DATE = new Date().toISOString().slice(0, 10);
+const INITIAL_END_DATE = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+
 function CreateSurveyForm({ establishments, courses, sections, countries, onCreated }: {
   establishments: Est[]; courses: Course[]; sections: Section[]; countries: string[]; onCreated: () => void;
 }) {
   const [title, setTitle] = useState("Encuesta de satisfacción GlorIA");
   const [scopeType, setScopeType] = useState("global");
   const [scopeId, setScopeId] = useState("");
-  const [startsAt, setStartsAt] = useState(new Date().toISOString().slice(0, 10));
-  const [endsAt, setEndsAt] = useState(new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10));
+  const [startsAt, setStartsAt] = useState(INITIAL_START_DATE);
+  const [endsAt, setEndsAt] = useState(INITIAL_END_DATE);
   const [loading, setLoading] = useState(false);
 
   const handleCreate = async () => {

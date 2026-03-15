@@ -24,7 +24,7 @@ export default function PatientShowcase({ patients }: { patients: Patient[] }) {
     if (!track || patients.length < 3) return;
 
     let animId: number;
-    let speed = 0.5; // px per frame
+    const speed = 0.5; // px per frame
 
     const step = () => {
       if (!pausedRef.current && track) {

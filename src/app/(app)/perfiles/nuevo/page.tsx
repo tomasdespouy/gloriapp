@@ -9,15 +9,14 @@ import {
   Loader2,
   Check,
   Upload,
-  RefreshCw,
   User,
   ImageIcon,
-  Download,
   Video,
   Play,
   MessageCircle,
   FileText,
   ShieldCheck,
+  RefreshCw,
   AlertTriangle,
   CheckCircle2,
   XCircle,
@@ -594,7 +593,6 @@ export default function NuevoPerfilPage() {
             {/* Image generation */}
             <ImageGenerator
               form={form}
-              profile={profile}
               generatedImage={generatedImage}
               setGeneratedImage={setGeneratedImage}
               imagePrompt={imagePrompt}
@@ -1120,9 +1118,9 @@ function ProfileValidator({ form, systemPrompt }: { form: PatientFormData; syste
 }
 
 function ImageGenerator({
-  form, profile, generatedImage, setGeneratedImage, imagePrompt, setImagePrompt, imageLoading, setImageLoading,
+  form, generatedImage, setGeneratedImage, imagePrompt, setImagePrompt, imageLoading, setImageLoading,
 }: {
-  form: PatientFormData; profile: GeneratedProfile;
+  form: PatientFormData;
   generatedImage: string | null; setGeneratedImage: (v: string | null) => void;
   imagePrompt: string; setImagePrompt: (v: string) => void;
   imageLoading: boolean; setImageLoading: (v: boolean) => void;
@@ -1283,7 +1281,7 @@ function ImageGenerator({
 function VideoGenerator({ imageUrl, patientName }: { imageUrl: string; patientName: string }) {
   const [state, setState] = useState<"idle" | "generating" | "polling" | "done" | "error">("idle");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [generationId, setGenerationId] = useState<string | null>(null);
+  const [, setGenerationId] = useState<string | null>(null);
   const [videoPrompt, setVideoPrompt] = useState("Subtle natural movement: gentle breathing, slight eye blinks, micro facial expressions. The person stays still, looking forward with a calm, neutral presence. Photorealistic, no camera movement.");
   const [showPrompt, setShowPrompt] = useState(false);
   const [error, setError] = useState("");

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Globe, Loader2, Check, Save, Image as ImageIcon, RefreshCw,
+  ArrowLeft, Globe, Loader2, Check, Save, Image as ImageIcon,
 } from "lucide-react";
 
 const COUNTRIES = [
@@ -302,7 +302,7 @@ export default function MasivoPage() {
                             <div className="border-t border-gray-100 px-4 py-3 space-y-3 bg-gray-50/50 animate-fade-in">
                               <div>
                                 <p className="text-[10px] font-semibold text-gray-400 uppercase">Frase</p>
-                                <p className="text-sm text-gray-700 italic">"{p.quote}"</p>
+                                <p className="text-sm text-gray-700 italic">&quot;{p.quote}&quot;</p>
                               </div>
                               <div>
                                 <p className="text-[10px] font-semibold text-gray-400 uppercase">Historia</p>
