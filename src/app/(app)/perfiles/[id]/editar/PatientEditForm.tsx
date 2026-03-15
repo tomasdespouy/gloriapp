@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Save, ToggleLeft, ToggleRight, ImageIcon, Video, RefreshCw, Upload, Loader2, Sparkles } from "lucide-react";
+import { useToast } from "@/components/Toast";
 
 interface FamilyMember {
   name: string;
@@ -41,6 +42,7 @@ const COUNTRY_OPTIONS = [
 
 export default function PatientEditForm({ patient }: { patient: Patient }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [form, setForm] = useState({
     name: patient.name,
     age: patient.age || 30,
@@ -259,10 +261,12 @@ export default function PatientEditForm({ patient }: { patient: Patient }) {
     });
 
     if (res.ok) {
-      setMessage("Guardado correctamente");
+      toast("Paciente guardado correctamente", "success");
+      setMessage("");
       router.refresh();
     } else {
       const data = await res.json();
+      toast(data.error || "Error al guardar", "error");
       setMessage(data.error || "Error al guardar");
     }
     setSaving(false);

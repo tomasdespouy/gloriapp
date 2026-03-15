@@ -7,6 +7,7 @@ import {
   ArrowLeft, Brain, BookOpen, GraduationCap, Send, CheckCircle,
   MessageSquare, Sparkles, Loader2,
 } from "lucide-react";
+import { useToast } from "@/components/Toast";
 
 interface Message {
   id: string;
@@ -88,6 +89,7 @@ export default function TeacherReviewClient({
   feedbackStatus,
 }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
   const [comment, setComment] = useState(feedback?.teacher_comment || "");
   const [isApproved, setIsApproved] = useState(feedbackStatus === "approved");
   const [approving, setApproving] = useState(false);
@@ -112,13 +114,18 @@ export default function TeacherReviewClient({
       areas_to_improve: editedAreas,
     };
     Object.entries(editedScores).forEach(([k, v]) => { updates[k] = v; });
-    await fetch("/api/docente/update-competencies", {
+    const res = await fetch("/api/docente/update-competencies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ conversation_id: conversationId, updates }),
     });
     setSavingEdits(false);
     setEditingAI(false);
+    if (res.ok) {
+      toast("Evaluación actualizada", "success");
+    } else {
+      toast("Error al guardar cambios", "error");
+    }
   };
 
   const generateSupervisorComment = async () => {
@@ -164,6 +171,9 @@ export default function TeacherReviewClient({
       });
       if (res.ok) {
         setSaved(true);
+        toast("Evaluación guardada", "success");
+      } else {
+        toast("Error al guardar evaluación", "error");
       }
     } finally {
       setSaving(false);
@@ -529,6 +539,9 @@ export default function TeacherReviewClient({
                         });
                         if (res.ok) {
                           setIsApproved(true);
+                          toast("Retroalimentación aprobada y enviada al estudiante", "success");
+                        } else {
+                          toast("Error al aprobar la retroalimentación", "error");
                         }
                         setApproving(false);
                       }}

@@ -189,6 +189,15 @@ body {
   animation: slide-up 0.6s ease-out;
 }
 
+/* Slide in from left (mobile sidebar) */
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in-left {
+  animation: slide-in-left 0.25s ease-out;
+}
+
 /* Scale pop */
 @keyframes pop {
   0% { transform: scale(0.8); opacity: 0; }

@@ -3,11 +3,11 @@
 import {
   Home, User, History, BarChart3, BookOpen, Info,
   Users, ClipboardCheck, LayoutDashboard, Building2,
-  Accessibility, LifeBuoy,
+  Accessibility, LifeBuoy, Menu, X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Portal from "@/components/Portal";
 
 const studentNav = [
@@ -44,15 +44,38 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
   const navItems = isAdmin ? adminNav(role === "superadmin") : isInstructor ? instructorNav : studentNav;
   const [showAccessibility, setShowAccessibility] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  return (
-    <aside className="fixed left-0 top-0 h-screen w-[260px] bg-sidebar flex flex-col text-white z-50">
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
+
+  const sidebarContent = (
+    <>
       {/* Logo */}
-      <div className="px-6 pt-6 mb-10">
+      <div className="px-6 pt-6 mb-10 flex items-center justify-between">
         <Link href={isAdmin ? "/admin/dashboard" : isInstructor ? "/docente/dashboard" : "/dashboard"}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/branding/gloria-side-logo.png" alt="GlorIA" className="h-9 w-auto" />
         </Link>
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="lg:hidden w-8 h-8 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+          aria-label="Cerrar menú"
+        >
+          <X size={20} />
+        </button>
       </div>
 
       {/* Role badge */}
@@ -85,7 +108,6 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
 
       {/* Footer */}
       <div className="mt-auto px-6 pb-6 space-y-3">
-        {/* Accessibility button — above support */}
         <button
           onClick={() => setShowAccessibility(true)}
           className="sidebar-btn sidebar-btn-access flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-white/15 bg-white/5 text-white/70 text-sm"
@@ -94,23 +116,56 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
           <span className="font-medium">Accesibilidad</span>
         </button>
 
-        {/* Support button — below accessibility */}
         <button
           onClick={() => setShowSupport(true)}
           className="sidebar-btn sidebar-btn-support flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-white/10 text-white/70 text-sm"
         >
           <LifeBuoy size={20} />
-          <span className="font-medium">Soporte t&eacute;cnico</span>
+          <span className="font-medium">Soporte técnico</span>
         </button>
 
-        {/* UGM Logo */}
         <div className="flex items-center justify-center pt-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/branding/ugm-logo.png" alt="Universidad Gabriela Mistral" className="h-12 w-auto" />
         </div>
       </div>
+    </>
+  );
 
-      {/* Modals rendered via Portal (outside aside to avoid z-index/overflow issues) */}
+  return (
+    <>
+      {/* Mobile hamburger button */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="fixed top-2.5 left-3 z-50 lg:hidden w-9 h-9 rounded-lg bg-sidebar flex items-center justify-center text-white shadow-lg"
+        aria-label="Abrir menú"
+      >
+        <Menu size={20} />
+      </button>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-[260px] bg-sidebar flex-col text-white z-50">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile sidebar overlay */}
+      {mobileOpen && (
+        <Portal>
+          <div className="fixed inset-0 z-[90] lg:hidden">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/50 animate-fade-in"
+              onClick={() => setMobileOpen(false)}
+            />
+            {/* Sidebar panel */}
+            <aside className="absolute left-0 top-0 h-full w-[280px] bg-sidebar flex flex-col text-white animate-slide-in-left shadow-2xl">
+              {sidebarContent}
+            </aside>
+          </div>
+        </Portal>
+      )}
+
+      {/* Modals rendered via Portal */}
       {showAccessibility && (
         <Portal>
           <AccessibilityModal onClose={() => setShowAccessibility(false)} />
@@ -121,7 +176,7 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
           <SupportModal onClose={() => setShowSupport(false)} />
         </Portal>
       )}
-    </aside>
+    </>
   );
 }
 

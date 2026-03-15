@@ -89,7 +89,7 @@ export default function TopHeader({ userName, userEmail, userRole }: Props) {
   };
 
   return (
-    <header className="h-12 bg-[#2D3561] flex items-center justify-end px-5 gap-2">
+    <header className="h-12 bg-[#2D3561] flex items-center justify-end pl-14 lg:pl-5 pr-5 gap-2">
       {/* Notifications */}
       <div ref={notifRef} className="relative">
         <button

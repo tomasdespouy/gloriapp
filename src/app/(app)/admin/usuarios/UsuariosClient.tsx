@@ -7,6 +7,7 @@ import {
   ToggleLeft, ToggleRight, Trash2, RotateCcw, Pencil,
 } from "lucide-react";
 import Link from "next/link";
+import { useToast } from "@/components/Toast";
 
 type User = {
   id: string;
@@ -36,6 +37,7 @@ type SortDir = "asc" | "desc";
 
 export default function UsuariosClient({ users, establishments, isSuperadmin }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [estFilter, setEstFilter] = useState("");
@@ -68,27 +70,42 @@ export default function UsuariosClient({ users, establishments, isSuperadmin }: 
 
   const toggleActive = async (userId: string, currentlyDisabled: boolean) => {
     setActionLoading(userId);
-    await fetch(`/api/admin/users/${userId}`, {
+    const res = await fetch(`/api/admin/users/${userId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_disabled: !currentlyDisabled }),
     });
     setActionLoading(null);
+    if (res.ok) {
+      toast(currentlyDisabled ? "Usuario activado" : "Usuario desactivado", "success");
+    } else {
+      toast("Error al cambiar estado del usuario", "error");
+    }
     router.refresh();
   };
 
   const resetUserData = async (userId: string) => {
     setActionLoading(userId);
-    await fetch(`/api/admin/users/${userId}/reset`, { method: "POST" });
+    const res = await fetch(`/api/admin/users/${userId}/reset`, { method: "POST" });
     setActionLoading(null);
     setResetConfirm(null);
+    if (res.ok) {
+      toast("Datos del usuario reiniciados", "success");
+    } else {
+      toast("Error al reiniciar datos", "error");
+    }
     router.refresh();
   };
 
   const deleteUser = async (userId: string) => {
     setActionLoading(userId);
-    await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
     setActionLoading(null);
     setDeleteConfirm(null);
+    if (res.ok) {
+      toast("Usuario eliminado", "success");
+    } else {
+      toast("Error al eliminar usuario", "error");
+    }
     router.refresh();
   };
 

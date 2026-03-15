@@ -6,6 +6,7 @@ import { MessageSquare, Send, ArrowRight, Flame, Clock } from "lucide-react";
 import Confetti from "@/components/Confetti";
 import CountUp from "@/components/CountUp";
 import CompetencyRadar from "@/components/CompetencyRadar";
+import { useToast } from "@/components/Toast";
 import type { CompetencyScores } from "@/lib/gamification";
 
 interface Props {
@@ -30,6 +31,7 @@ export default function ReviewClient({
   durationMinutes,
 }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
   const canSeeResults = feedbackStatus === "approved";
   const [step, setStep] = useState<"reflect" | "loading" | "results" | "pending">(
     existingEvaluation
@@ -71,6 +73,7 @@ export default function ReviewClient({
       setResults(data);
       setStep("pending"); // Student must wait for teacher approval
     } catch {
+      toast("Error al enviar tu reflexión. Intenta de nuevo.", "error");
       setStep("reflect");
     }
   };
