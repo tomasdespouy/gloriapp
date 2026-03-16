@@ -1,179 +1,128 @@
-# Plan: Análisis Turno-a-Turno Post-Sesión
+# Plan: Flujo de 15 pasos para creacion de pacientes
 
-## Resumen
+## Estado actual
+- Wizard de 4 pasos: Configurar -> Perfil (preview + validator) -> Prueba (test conversation) -> Guardar (image/video)
+- APIs existentes: generate-profile, test-conversation, validate-profile, generate-image, generate-video
+- El generate-profile genera system_prompt + backstory + personality_traits de una vez
 
-Generar un análisis detallado por cada intervención del estudiante después de finalizar la sesión. El análisis es generado por IA, revisado/editado por el docente, y liberado al estudiante solo tras aprobación. Se apoya en infraestructura existente: `clinical_state_log` (datos de estado por turno) y `message_annotations` (tabla ya creada, sin uso actual).
+## Nuevo flujo de 15 pasos
 
----
+### Fase 1: Variables (Paso 1 - Humano)
+- **Reusar** el formulario actual (Step 0) sin cambios
+- Al enviar, llama al nuevo endpoint `generate-narrative`
 
-## Flujo completo
+### Fase 2: Relato simplificado (Paso 2 - IA)
+- **Nuevo endpoint**: `POST /api/patients/generate-narrative`
+- Recibe el form data, genera un relato estructurado CORTO del paciente
+- Secciones: Datos basicos, Motivo de consulta, Contexto familiar, Personalidad, Dinamica relacional
+- Output: JSON con `short_narrative` (objeto con secciones, ~1-2 paginas)
 
+### Fase 3: Ajustar relato corto (Paso 3 - Humano)
+- UI: muestra el relato por secciones, cada seccion editable
+- Boton "Regenerar seccion" por cada seccion
+- Boton "Validar y continuar"
+
+### Fase 4: Relato extenso (Paso 4 - IA)
+- **Nuevo endpoint**: `POST /api/patients/generate-extended-narrative`
+- Recibe el relato corto validado + form data
+- Genera relato extenso (~10 paginas) con secciones obligatorias:
+  1. Historia personal (infancia, adolescencia, adultez)
+  2. Historia familiar (familia de origen, dinamicas, eventos significativos)
+  3. Vinculos de apego y estilo relacional
+  4. Historia profesional/academica
+  5. Eventos traumaticos o significativos
+  6. Mecanismos de defensa y patrones repetitivos
+  7. Contexto cultural y socioeconomico
+  8. Estado actual y motivo de consulta
+- Usa valores demograficos reales del pais seleccionado
+
+### Fase 5: Revision de coherencia (Paso 5 - IA)
+- **Nuevo endpoint**: `POST /api/patients/review-coherence`
+- Dos tipos de revision:
+  - **Coherencia interna**: contradicciones en la historia (edades, fechas, eventos)
+  - **Coherencia clinica**: patologia vs historia de vida (referencias DSM-5, PDM-2)
+- Output: lista de observaciones con severidad (critica, sugerencia, ok)
+
+### Fase 6: Ajustar relato extenso (Paso 6 - Humano)
+- UI: muestra relato extenso por secciones editables
+- Muestra resultados de coherencia al costado (items criticos en rojo, sugerencias en amarillo)
+- Boton "Re-evaluar coherencia" despues de editar
+- Boton "Validar y continuar"
+
+### Fase 7: Proyecciones paralelas (Paso 7 - IA)
+- **Nuevo endpoint**: `POST /api/patients/generate-projections`
+- Genera 3 proyecciones de 8 sesiones (principiante, intermedio, experto)
+- Por cada sesion: resumen, estado del paciente, alianza terapeutica, sintomas, resistencias
+- Evalua: coherencia temporal, evolucion/involucion realista, mantenimiento de personalidad
+
+### Fase 8: Revisar proyecciones (Paso 8 - Humano)
+- UI: 3 tabs (Principiante / Intermedio / Experto)
+- Por cada tab: timeline de 8 sesiones con resumen, scores, evolucion
+- Indicadores visuales de coherencia, evolucion de sintomas, alianza
+- Boton "Guardar paciente" o "Volver a ajustar"
+
+### Fase 9: Generar system_prompt (Paso 9 - IA)
+- **Nuevo endpoint**: `POST /api/patients/generate-system-prompt`
+- Recibe: relato extenso validado + proyecciones aprobadas + form data
+- Genera system_prompt optimizado para el LLM (formato existente con secciones)
+- Tambien genera: quote, presenting_problem, tags, skills_practiced, total_sessions
+
+### Fase 10: Validar system_prompt (Paso 10 - Humano)
+- UI: reutilizar el editor actual de system_prompt
+- Incluir el ProfileValidator existente
+- Boton "Activar paciente"
+
+### Fase 11: Paciente activo (Paso 11)
+- Se guarda en BD (tabla ai_patients + nuevos campos para narrativas)
+- Paciente queda con is_active = true, listo para uso
+- Redirige a la ficha del paciente con opcion de agregar media
+
+### Fase 12-13: Imagen (Pasos 12-13 - IA + Humano)
+- Reusar la funcionalidad existente de ImageGenerator
+- Se accede desde la ficha del paciente (no bloquea publicacion)
+
+### Fase 14-15: Video (Pasos 14-15 - IA + Humano)
+- Reusar la funcionalidad existente de video upload/generation
+- Se accede desde la ficha del paciente (no bloquea publicacion)
+
+## Cambios en base de datos
+
+### Nueva migracion: agregar campos de narrativa a ai_patients
+```sql
+ALTER TABLE ai_patients ADD COLUMN IF NOT EXISTS short_narrative JSONB;
+ALTER TABLE ai_patients ADD COLUMN IF NOT EXISTS extended_narrative JSONB;
+ALTER TABLE ai_patients ADD COLUMN IF NOT EXISTS coherence_review JSONB;
+ALTER TABLE ai_patients ADD COLUMN IF NOT EXISTS projections JSONB;
+ALTER TABLE ai_patients ADD COLUMN IF NOT EXISTS creation_step INTEGER DEFAULT 0;
 ```
-Sesión finaliza → Estudiante envía reflexión → AI evalúa competencias globales (ya existe)
-                                                ↓
-                                    AI genera análisis turno-a-turno
-                                    (usa clinical_state_log + transcript)
-                                                ↓
-                                    Resultados guardados en message_annotations
-                                                ↓
-                                    Docente ve transcripción anotada
-                                    (puede editar/eliminar/agregar anotaciones)
-                                                ↓
-                                    Docente aprueba → estudiante ve transcripción anotada
-```
-
-El análisis turno-a-turno se dispara automáticamente al completar la sesión (dentro del endpoint `/api/sessions/[conversationId]/complete` existente), en paralelo con la evaluación global. No requiere acción extra del docente para generarlo.
-
----
-
-## Cambios por componente
-
-### 1. API: Nuevo endpoint `POST /api/sessions/[conversationId]/turn-analysis`
-
-**Archivo:** `src/app/api/sessions/[conversationId]/turn-analysis/route.ts`
-
-Endpoint separado que genera el análisis turno a turno. Se puede invocar:
-- Automáticamente desde el endpoint `complete` existente (fire-and-forget)
-- Manualmente por el docente si quiere regenerar
-
-**Lógica:**
-1. Cargar todos los mensajes de la conversación
-2. Cargar `clinical_state_log` para la conversación (ya tiene intervention_type, deltas, estado)
-3. Construir pares de turnos: `[intervención estudiante, respuesta paciente, estado clínico]`
-4. Enviar al LLM con un prompt especializado en evaluación por turno
-5. El LLM retorna un JSON array con una anotación por cada turno del estudiante:
-   ```json
-   [
-     {
-       "turn": 1,
-       "annotation_type": "positive" | "suggestion" | "technique" | "warning",
-       "text": "Buena pregunta abierta que invita a explorar...",
-       "competency": "escucha_activa",
-       "alternative": "Podrías haber reformulado: '¿Qué sientes cuando...?'"  // opcional
-     }
-   ]
-   ```
-6. Guardar en `message_annotations` (vinculado al `message_id` del turno del estudiante)
-
-**Prompt del LLM:** Evalúa cada intervención del estudiante considerando:
-- Tipo de intervención (dato ya disponible del clinical_state_engine)
-- Impacto en el estado clínico (deltas reales del estado del paciente)
-- Timing y pertinencia en el contexto de la conversación
-- Alternativas concretas cuando la intervención no fue óptima
-
-### 2. Migración: Extender `message_annotations`
-
-**Archivo:** `supabase/migrations/XXXXXX_turn_analysis.sql`
-
-Agregar columnas a `message_annotations`:
-- `alternative` TEXT — sugerencia alternativa concreta (opcional)
-- `turn_number` INTEGER — número de turno para ordenamiento
-- `intervention_type` TEXT — tipo de intervención clasificada
-- `clinical_impact` JSONB — deltas del estado clínico en ese turno
-- `approved` BOOLEAN DEFAULT false — si el docente aprobó esta anotación específica
-
-Agregar políticas RLS para que instructores puedan insertar/actualizar/eliminar anotaciones.
-
-### 3. Integración con `complete` endpoint
-
-**Archivo:** `src/app/api/sessions/[conversationId]/complete/route.ts`
-
-Agregar al final del endpoint existente (después de guardar competencias):
-```typescript
-// Fire-and-forget: genera análisis turno-a-turno en background
-fetch(`${baseUrl}/api/sessions/${conversationId}/turn-analysis`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-}).catch(() => {}); // No bloquea al estudiante
-```
-
-### 4. UI Docente: Transcripción anotada
-
-**Archivo:** `src/app/(app)/docente/sesion/[conversationId]/TeacherReviewClient.tsx`
-
-Reemplazar la transcripción plana actual con una vista anotada:
-
-- Cada mensaje del estudiante muestra un badge con el tipo de intervención (ej: "Pregunta abierta", "Validación empática")
-- Debajo de cada mensaje del estudiante, si tiene anotación:
-  - Chip de color según `annotation_type`:
-    - `positive` → verde: "Buena técnica"
-    - `suggestion` → ámbar: "Sugerencia"
-    - `technique` → azul: "Técnica identificada"
-    - `warning` → rojo: "Atención"
-  - Texto de la anotación
-  - Alternativa sugerida (si existe), en itálica
-  - Competencia asociada como tag
-- Mini gráfico sparkline del estado clínico (5 variables) que evoluciona turno a turno
-- Botones por anotación: Editar / Eliminar
-- Botón global: "Regenerar análisis"
-- Botón: "Agregar anotación manual" en cualquier turno
-
-### 5. UI Estudiante: Transcripción anotada (post-aprobación)
-
-**Archivo:** `src/app/(app)/review/[conversationId]/ReviewClient.tsx`
-
-Nuevo step o sección dentro de `step === "results"`:
-
-- Botón "Ver análisis turno a turno" que expande la transcripción anotada
-- Solo visible si `feedback_status === "approved"` (ya controlado)
-- Vista simplificada (sin controles de edición del docente)
-- Cada turno del estudiante muestra:
-  - Badge de tipo de intervención
-  - Anotación del supervisor/IA
-  - Alternativa sugerida (si existe)
-  - Indicador de impacto: flechita verde (positivo) o roja (negativo) en alianza/resistencia
-
-### 6. Server Component: Cargar datos de anotaciones
-
-**Archivos:**
-- `src/app/(app)/docente/sesion/[conversationId]/page.tsx` — agregar query de `message_annotations` + `clinical_state_log`
-- `src/app/(app)/review/[conversationId]/page.tsx` — agregar query de `message_annotations` (solo si approved)
-
----
-
-## Esquema de datos final
-
-```
-messages (ya existe)
-  ├── message_annotations (ya existe, se extiende)
-  │     ├── annotation_type: positive | suggestion | technique | warning
-  │     ├── annotation_text: "Buena reformulación que..."
-  │     ├── competency: "escucha_activa"
-  │     ├── alternative: "Podrías haber dicho..."  (NUEVO)
-  │     ├── turn_number: 3  (NUEVO)
-  │     ├── intervention_type: "reformulacion"  (NUEVO)
-  │     └── clinical_impact: {...deltas}  (NUEVO)
-  │
-  └── clinical_state_log (ya existe, solo lectura)
-        ├── intervention_type, intervention_raw
-        ├── state values (resistencia, alianza, etc.)
-        └── delta values
-```
-
----
 
 ## Archivos a crear/modificar
 
-| Acción | Archivo |
-|--------|---------|
-| CREAR | `src/app/api/sessions/[conversationId]/turn-analysis/route.ts` |
-| CREAR | `supabase/migrations/XXXXXX_turn_analysis.sql` |
-| MODIFICAR | `src/app/api/sessions/[conversationId]/complete/route.ts` (fire-and-forget) |
-| MODIFICAR | `src/app/(app)/docente/sesion/[conversationId]/page.tsx` (cargar annotations) |
-| MODIFICAR | `src/app/(app)/docente/sesion/[conversationId]/TeacherReviewClient.tsx` (transcripción anotada) |
-| MODIFICAR | `src/app/(app)/review/[conversationId]/page.tsx` (cargar annotations) |
-| MODIFICAR | `src/app/(app)/review/[conversationId]/ReviewClient.tsx` (vista estudiante) |
+### Nuevos archivos:
+1. `src/app/api/patients/generate-narrative/route.ts`
+2. `src/app/api/patients/generate-extended-narrative/route.ts`
+3. `src/app/api/patients/review-coherence/route.ts`
+4. `src/app/api/patients/generate-projections/route.ts`
+5. `src/app/api/patients/generate-system-prompt/route.ts`
 
----
+### Archivos a modificar:
+1. `src/app/(app)/perfiles/nuevo/page.tsx` - Reescribir wizard completo
+2. `src/lib/patient-options.ts` - Agregar tipos para narrativas, coherencia, proyecciones
+3. Nueva migracion SQL
 
-## Decisiones de diseño
+## UI del stepper
 
-1. **El análisis se genera automáticamente** al completar sesión (no on-demand del docente). Esto permite que cuando el docente abre la revisión, las anotaciones ya estén listas.
+Agrupar los 15 pasos en 6 fases visuales para no abrumar:
+1. **Variables** (paso 1)
+2. **Relato** (pasos 2-3-4)
+3. **Validacion** (pasos 5-6)
+4. **Proyecciones** (pasos 7-8)
+5. **System prompt** (pasos 9-10)
+6. **Activar** (paso 11 + media opcional 12-15)
 
-2. **El docente puede editar** las anotaciones de IA antes de aprobar. Esto cumple el requisito de que "tendría que ser aprobado por el docente".
+## Orden de implementacion
 
-3. **Una sola llamada LLM** para todos los turnos (no una por turno). El prompt recibe el transcript completo + state log y retorna todas las anotaciones de una vez. Más eficiente y coherente.
-
-4. **Se reutiliza la tabla `message_annotations`** existente en vez de crear una nueva. Solo se agregan columnas.
-
-5. **La aprobación del docente ya existe** (`feedback_status`). Se reutiliza el mismo mecanismo — cuando el docente aprueba la retroalimentación, se libera todo (competencias globales + análisis turno a turno).
+1. Migracion de BD (nuevos campos)
+2. Tipos en patient-options.ts
+3. APIs nuevas (5 endpoints)
+4. UI del wizard (reescritura del page.tsx)
