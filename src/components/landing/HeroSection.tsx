@@ -21,7 +21,7 @@ export default function HeroSection() {
             <div className="space-y-5">
               <div className="inline-flex items-center gap-3 bg-[#4A55A2]/10 px-3 py-1.5 rounded-full">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/branding/ugm-logo.png" alt="Universidad Gabriela Mistral" className="h-6 w-auto" />
+                <img src="/universities/ugm.png" alt="Universidad Gabriela Mistral" className="h-6 w-auto" />
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-bold text-gray-900 leading-[1.1]">
                 Práctica terapéutica con pacientes que{" "}
