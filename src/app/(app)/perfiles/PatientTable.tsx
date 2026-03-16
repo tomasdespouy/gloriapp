@@ -43,6 +43,25 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("created");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [countryFilter, setCountryFilter] = useState<string>("");
+
+  // Build country options with counts from the "country" (visible para) array
+  const countryCountMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of patients) {
+      const countries = Array.isArray(p.country) ? p.country : p.country ? [p.country] : [];
+      for (const c of countries) {
+        map[c] = (map[c] || 0) + 1;
+      }
+    }
+    return map;
+  }, [patients]);
+
+  const countryOptions = useMemo(() => {
+    return Object.entries(countryCountMap)
+      .sort(([a], [b]) => a.localeCompare(b, "es"))
+      .map(([country, count]) => ({ country, count }));
+  }, [countryCountMap]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -53,8 +72,17 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
     }
   };
 
+  // Filter by country (visible para) array, then sort
+  const filtered = useMemo(() => {
+    if (!countryFilter) return patients;
+    return patients.filter((p) => {
+      const countries = Array.isArray(p.country) ? p.country : p.country ? [p.country] : [];
+      return countries.includes(countryFilter);
+    });
+  }, [patients, countryFilter]);
+
   const sorted = useMemo(() => {
-    const arr = [...patients];
+    const arr = [...filtered];
     const dir = sortDir === "asc" ? 1 : -1;
 
     arr.sort((a, b) => {
@@ -77,7 +105,7 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
       }
     });
     return arr;
-  }, [patients, sortKey, sortDir]);
+  }, [filtered, sortKey, sortDir]);
 
   async function toggleActive(id: string, currentActive: boolean) {
     setLoading(id);
@@ -112,6 +140,29 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
 
   return (
     <>
+      {/* Country filter */}
+      <div className="flex items-center gap-3 mb-4">
+        <label htmlFor="country-filter" className="text-sm text-gray-500">Filtrar por país (visible para):</label>
+        <select
+          id="country-filter"
+          value={countryFilter}
+          onChange={(e) => setCountryFilter(e.target.value)}
+          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/20 focus:border-[#4A55A2]"
+        >
+          <option value="">Todos ({patients.length})</option>
+          {countryOptions.map(({ country, count }) => (
+            <option key={country} value={country}>
+              {country} ({count})
+            </option>
+          ))}
+        </select>
+        {countryFilter && (
+          <span className="text-xs text-gray-400">
+            {filtered.length} paciente{filtered.length !== 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
+
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <table className="w-full">
           <thead>
