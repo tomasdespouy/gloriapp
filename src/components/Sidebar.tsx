@@ -126,7 +126,7 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
 
         <div className="flex items-center justify-center pt-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/branding/ugm-logo.png" alt="Universidad Gabriela Mistral" className="h-12 w-auto" />
+          <img src="/universities/ugm.png" alt="Universidad Gabriela Mistral" className="h-12 w-auto" />
         </div>
       </div>
     </>

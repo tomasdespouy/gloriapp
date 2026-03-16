@@ -174,7 +174,7 @@ export default function SobrePage() {
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <div className="flex items-center mb-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/branding/ugm-logo.png" alt="Universidad Gabriela Mistral" className="h-12 w-auto" />
+              <img src="/universities/ugm.png" alt="Universidad Gabriela Mistral" className="h-12 w-auto" />
             </div>
             <p className="text-sm text-gray-700 leading-relaxed mb-3">
               GlorIA es un proyecto desarrollado en la Universidad Gabriela Mistral, Santiago de Chile.
