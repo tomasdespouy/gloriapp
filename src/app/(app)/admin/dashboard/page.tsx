@@ -1,11 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { getAdminContext } from "@/lib/admin-helpers";
-// LogoutButton moved to global TopHeader
-import KPICard from "@/components/admin/KPICard";
 import AdminDashboardClient from "./AdminDashboardClient";
 import {
-  Users, MessageSquare, TrendingUp, Building2, GraduationCap,
-  ChevronRight,
+  Users, UserCheck, Radio, CheckCircle2,
+  Building2, GraduationCap, ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -20,11 +18,10 @@ export default async function AdminDashboard() {
     .eq("id", ctx.userId)
     .single();
 
-  // ── KPIs ──────────────────────────────────────────────────
-  // Students scoped by establishment
+  // ── Students scoped by establishment ─────────────────────
   const studentsQuery = supabase
     .from("profiles")
-    .select("id, full_name, email, establishment_id, created_at")
+    .select("id, full_name, email, establishment_id, section_id, created_at")
     .eq("role", "student");
   const { data: students } = ctx.isSuperadmin
     ? await studentsQuery
@@ -38,41 +35,56 @@ export default async function AdminDashboard() {
   const studentIds = students?.map((s) => s.id) || [];
   const safeIds = studentIds.length > 0 ? studentIds : ["00000000-0000-0000-0000-000000000000"];
 
-  // Completed sessions
+  // ── All completed sessions with competencies ─────────────
   const { data: allSessions } = await supabase
     .from("conversations")
-    .select("id, student_id, created_at, session_competencies(overall_score)")
+    .select("id, student_id, created_at, session_competencies(overall_score, empathy, active_listening, open_questions, reformulation, confrontation, silence_management, rapport)")
     .eq("status", "completed")
     .in("student_id", safeIds)
     .order("created_at", { ascending: false });
 
   const totalSessions = allSessions?.length || 0;
 
-  // Average score
-  type CompRow = { overall_score: number };
-  const allScores = allSessions?.flatMap((s) => {
-    const comp = (s.session_competencies as CompRow[] | null)?.[0];
-    return comp?.overall_score != null ? [Number(comp.overall_score)] : [];
-  }) || [];
-  const avgScore = allScores.length > 0
-    ? (allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(1)
-    : "—";
+  // ── Active sessions right now ────────────────────────────
+  const { count: activeSessions } = await supabase
+    .from("conversations")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "active")
+    .in("student_id", safeIds);
 
-  // Active establishments
+  // ── Active students (had a conversation in last 7 days) ──
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const { data: recentConvos } = await supabase
+    .from("conversations")
+    .select("student_id")
+    .in("student_id", safeIds)
+    .gte("created_at", sevenDaysAgo.toISOString());
+  const activeStudentIds = new Set(recentConvos?.map((c) => c.student_id) || []);
+  const activeStudentCount = activeStudentIds.size;
+
+  // ── Completed today ──────────────────────────────────────
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const completedToday = allSessions?.filter(
+    (s) => new Date(s.created_at) >= todayStart
+  ).length || 0;
+
+  // ── Establishments ───────────────────────────────────────
   const { data: establishments } = ctx.isSuperadmin
-    ? await supabase.from("establishments").select("id, name, slug, is_active")
+    ? await supabase.from("establishments").select("id, name, slug, country, is_active")
     : await supabase
         .from("establishments")
-        .select("id, name, slug, is_active")
+        .select("id, name, slug, country, is_active")
         .in("id", ctx.establishmentIds.length > 0 ? ctx.establishmentIds : ["00000000-0000-0000-0000-000000000000"]);
   const activeEstablishments = establishments?.filter((e) => e.is_active).length || 0;
 
-  // Instructors scoped
+  // ── Instructors ──────────────────────────────────────────
   const instructorsQuery = supabase
     .from("profiles")
-    .select("id", { count: "exact", head: true })
+    .select("id, full_name, section_id, establishment_id")
     .eq("role", "instructor");
-  const { count: instructorCount } = ctx.isSuperadmin
+  const { data: instructors } = ctx.isSuperadmin
     ? await instructorsQuery
     : await instructorsQuery.in(
         "establishment_id",
@@ -81,43 +93,59 @@ export default async function AdminDashboard() {
           : ["00000000-0000-0000-0000-000000000000"]
       );
 
-  // ── Chart data: sessions per day (last 30 days) ──────────
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  // ── Radar: average competencies across all sessions ──────
+  type CompRow = {
+    overall_score: number;
+    empathy: number;
+    active_listening: number;
+    open_questions: number;
+    reformulation: number;
+    confrontation: number;
+    silence_management: number;
+    rapport: number;
+  };
 
-  const sessionsPerDay: Record<string, number> = {};
-  allSessions?.forEach((s) => {
-    const day = new Date(s.created_at).toISOString().slice(0, 10);
-    if (new Date(s.created_at) >= thirtyDaysAgo) {
-      sessionsPerDay[day] = (sessionsPerDay[day] || 0) + 1;
-    }
-  });
-
-  const chartSessionsPerDay = [];
-  for (let d = new Date(thirtyDaysAgo); d <= new Date(); d.setDate(d.getDate() + 1)) {
-    const key = d.toISOString().slice(0, 10);
-    chartSessionsPerDay.push({ date: key, sessions: sessionsPerDay[key] || 0 });
-  }
-
-  // ── Chart data: weekly average score (last 12 weeks) ─────
-  const weeklyScores: Record<number, number[]> = {};
+  const compTotals = { empathy: 0, active_listening: 0, open_questions: 0, reformulation: 0, confrontation: 0, silence_management: 0, rapport: 0 };
+  let compCount = 0;
   allSessions?.forEach((s) => {
     const comp = (s.session_competencies as CompRow[] | null)?.[0];
-    if (comp?.overall_score == null) return;
-    const created = new Date(s.created_at);
-    const weeksAgo = Math.floor((now - created.getTime()) / (7 * 86400000));
-    if (weeksAgo < 12) {
-      if (!weeklyScores[weeksAgo]) weeklyScores[weeksAgo] = [];
-      weeklyScores[weeksAgo].push(Number(comp.overall_score));
-    }
-  });
-  const chartWeeklyScore = Array.from({ length: 12 }, (_, i) => {
-    const scores = weeklyScores[11 - i] || [];
-    const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-    return { week: `S-${12 - i}`, score: parseFloat(avg.toFixed(1)) };
+    if (!comp || comp.overall_score == null) return;
+    compCount++;
+    compTotals.empathy += Number(comp.empathy);
+    compTotals.active_listening += Number(comp.active_listening);
+    compTotals.open_questions += Number(comp.open_questions);
+    compTotals.reformulation += Number(comp.reformulation);
+    compTotals.confrontation += Number(comp.confrontation);
+    compTotals.silence_management += Number(comp.silence_management);
+    compTotals.rapport += Number(comp.rapport);
   });
 
-  // ── Chart data: student registrations per week ───────────
+  const radarData = compCount > 0
+    ? [
+        { competency: "Empatía", value: parseFloat((compTotals.empathy / compCount).toFixed(1)) },
+        { competency: "Escucha activa", value: parseFloat((compTotals.active_listening / compCount).toFixed(1)) },
+        { competency: "Preg. abiertas", value: parseFloat((compTotals.open_questions / compCount).toFixed(1)) },
+        { competency: "Reformulación", value: parseFloat((compTotals.reformulation / compCount).toFixed(1)) },
+        { competency: "Confrontación", value: parseFloat((compTotals.confrontation / compCount).toFixed(1)) },
+        { competency: "Manejo silencio", value: parseFloat((compTotals.silence_management / compCount).toFixed(1)) },
+        { competency: "Rapport", value: parseFloat((compTotals.rapport / compCount).toFixed(1)) },
+      ]
+    : [];
+
+  // ── Chart: sessions per week (12 weeks) ──────────────────
+  const weeklySessionCounts: Record<number, number> = {};
+  allSessions?.forEach((s) => {
+    const weeksAgo = Math.floor((now - new Date(s.created_at).getTime()) / (7 * 86400000));
+    if (weeksAgo < 12) {
+      weeklySessionCounts[weeksAgo] = (weeklySessionCounts[weeksAgo] || 0) + 1;
+    }
+  });
+  const chartSessionsPerWeek = Array.from({ length: 12 }, (_, i) => ({
+    week: `S-${12 - i}`,
+    sessions: weeklySessionCounts[11 - i] || 0,
+  }));
+
+  // ── Chart: student registrations per week ────────────────
   const registrationsByWeek: Record<number, number> = {};
   students?.forEach((s) => {
     const weeksAgo = Math.floor((now - new Date(s.created_at).getTime()) / (7 * 86400000));
@@ -130,35 +158,46 @@ export default async function AdminDashboard() {
     registrations: registrationsByWeek[11 - i] || 0,
   }));
 
-  // ── Chart data: comparison by establishment (superadmin) ──
-  const chartByEstablishment = ctx.isSuperadmin
-    ? (establishments || []).map((est) => {
-        const estStudents = students?.filter((s) => s.establishment_id === est.id) || [];
-        const estStudentIds = estStudents.map((s) => s.id);
-        const estSessions = allSessions?.filter((s) => estStudentIds.includes(s.student_id)) || [];
-        const estScores = estSessions.flatMap((s) => {
-          const comp = (s.session_competencies as CompRow[] | null)?.[0];
-          return comp?.overall_score != null ? [Number(comp.overall_score)] : [];
-        });
-        return {
-          name: est.name,
-          students: estStudents.length,
-          sessions: estSessions.length,
-          avgScore: estScores.length > 0
-            ? parseFloat((estScores.reduce((a, b) => a + b, 0) / estScores.length).toFixed(1))
-            : 0,
-        };
-      })
-    : [];
+  // ── Table: establishments comparison ─────────────────────
+  const establishmentTable = (establishments || [])
+    .filter((e) => e.is_active)
+    .map((est) => {
+      const estStudents = students?.filter((s) => s.establishment_id === est.id) || [];
+      const estStudentIds = estStudents.map((s) => s.id);
+      const estSessions = allSessions?.filter((s) => estStudentIds.includes(s.student_id)) || [];
+      const estActiveCount = estStudentIds.filter((id) => activeStudentIds.has(id)).length;
+      const estScores = estSessions.flatMap((s) => {
+        const comp = (s.session_competencies as CompRow[] | null)?.[0];
+        return comp?.overall_score != null ? [Number(comp.overall_score)] : [];
+      });
+      const avgScore = estScores.length > 0
+        ? parseFloat((estScores.reduce((a, b) => a + b, 0) / estScores.length).toFixed(1))
+        : 0;
+      const sessionsPerStudent = estStudents.length > 0
+        ? parseFloat((estSessions.length / estStudents.length).toFixed(1))
+        : 0;
 
-  // ── Activity heatmap (day of week x hour) ─────────────────
+      return {
+        id: est.id,
+        name: est.name,
+        country: est.country || "—",
+        students: estStudents.length,
+        activeStudents: estActiveCount,
+        sessions: estSessions.length,
+        sessionsPerStudent,
+        avgScore,
+      };
+    })
+    .sort((a, b) => b.sessions - a.sessions);
+
+  // ── Activity heatmap (day of week x hour) ────────────────
   const heatmap: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
   allSessions?.forEach((s) => {
     const d = new Date(s.created_at);
     heatmap[d.getDay()][d.getHours()]++;
   });
 
-  // ── Top students ──────────────────────────────────────────
+  // ── Top students ─────────────────────────────────────────
   const { data: allProgress } = await supabase
     .from("student_progress")
     .select("student_id, total_xp, sessions_completed, level_name")
@@ -170,7 +209,7 @@ export default async function AdminDashboard() {
     return { name: student?.full_name || student?.email || "—", xp: p.total_xp, level: p.level_name };
   });
 
-  // Struggling students (low score, ≥3 sessions)
+  // ── Struggling students ──────────────────────────────────
   const studentScoreMap: Record<string, { total: number; count: number }> = {};
   allSessions?.forEach((s) => {
     const comp = (s.session_competencies as CompRow[] | null)?.[0];
@@ -191,7 +230,12 @@ export default async function AdminDashboard() {
     .sort((a, b) => a.avgScore - b.avgScore)
     .slice(0, 5);
 
-  // Unreviewed sessions
+  // ── Sections for instructor lookup ───────────────────────
+  const { data: sections } = await supabase
+    .from("sections")
+    .select("id, name, instructor_id");
+
+  // ── Unreviewed sessions (with hierarchy) ─────────────────
   const { data: unreviewedSessions } = await supabase
     .from("conversations")
     .select(`
@@ -210,13 +254,24 @@ export default async function AdminDashboard() {
       const fb = (s.session_feedback as FbRow[] | null)?.[0];
       return !fb?.teacher_comment && !fb?.teacher_score;
     })
-    .slice(0, 5)
-    .map((s) => ({
-      id: s.id,
-      studentName: students?.find((st) => st.id === s.student_id)?.full_name || "—",
-      patientName: (s.ai_patients as unknown as { name: string } | null)?.name || "—",
-      date: new Date(s.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short" }),
-    }));
+    .slice(0, 8)
+    .map((s) => {
+      const student = students?.find((st) => st.id === s.student_id);
+      const est = establishments?.find((e) => e.id === student?.establishment_id);
+      // Find instructor via section
+      const section = sections?.find((sec) => sec.id === student?.section_id);
+      const instructor = instructors?.find((i) => i.id === section?.instructor_id);
+
+      return {
+        id: s.id,
+        country: est?.country || "—",
+        establishment: est?.name || "—",
+        instructorName: instructor?.full_name || "Sin asignar",
+        studentName: student?.full_name || student?.email || "—",
+        patientName: (s.ai_patients as unknown as { name: string } | null)?.name || "—",
+        date: new Date(s.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short" }),
+      };
+    });
 
   const firstName = profile?.full_name?.split(" ")[0] || "Admin";
 
@@ -230,26 +285,72 @@ export default async function AdminDashboard() {
       </header>
 
       <div className="px-8 pb-8 space-y-6">
-        {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          <KPICard icon={Users} value={students?.length || 0} label="Total alumnos" color="blue" />
-          <KPICard icon={MessageSquare} value={totalSessions} label="Sesiones completadas" color="green" />
-          <KPICard icon={TrendingUp} value={avgScore} label="Puntaje promedio" color="purple" />
-          <KPICard icon={Building2} value={activeEstablishments} label="Establecimientos activos" color="indigo" />
-          <KPICard icon={GraduationCap} value={instructorCount || 0} label="Instructores activos" color="amber" />
+        {/* ── Funnel KPIs ──────────────────────────────────── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <FunnelCard
+            icon={Users}
+            value={students?.length || 0}
+            label="Inscritos"
+            color="blue"
+          />
+          <FunnelCard
+            icon={UserCheck}
+            value={activeStudentCount}
+            label="Activos (7d)"
+            color="green"
+            rate={students?.length ? Math.round((activeStudentCount / students.length) * 100) : undefined}
+          />
+          <FunnelCard
+            icon={Radio}
+            value={activeSessions || 0}
+            label="En sesión ahora"
+            color="amber"
+            rate={activeStudentCount ? Math.round(((activeSessions || 0) / activeStudentCount) * 100) : undefined}
+          />
+          <FunnelCard
+            icon={CheckCircle2}
+            value={completedToday}
+            label="Completadas hoy"
+            color="purple"
+          />
         </div>
 
-        {/* Charts (client component) */}
+        {/* ── Secondary KPIs ───────────────────────────────── */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 px-5 py-3 flex items-center gap-3">
+            <Building2 size={16} className="text-indigo-500" />
+            <div>
+              <span className="text-lg font-bold text-gray-900">{activeEstablishments}</span>
+              <span className="text-xs text-gray-500 ml-2">Establecimientos</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 px-5 py-3 flex items-center gap-3">
+            <GraduationCap size={16} className="text-amber-500" />
+            <div>
+              <span className="text-lg font-bold text-gray-900">{instructors?.length || 0}</span>
+              <span className="text-xs text-gray-500 ml-2">Instructores</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 px-5 py-3 flex items-center gap-3">
+            <CheckCircle2 size={16} className="text-green-500" />
+            <div>
+              <span className="text-lg font-bold text-gray-900">{totalSessions}</span>
+              <span className="text-xs text-gray-500 ml-2">Sesiones totales</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Charts (client) ──────────────────────────────── */}
         <AdminDashboardClient
-          sessionsPerDay={chartSessionsPerDay}
-          weeklyScore={chartWeeklyScore}
+          sessionsPerWeek={chartSessionsPerWeek}
           registrations={chartRegistrations}
-          byEstablishment={chartByEstablishment}
+          radarData={radarData}
           heatmap={heatmap}
+          establishmentTable={establishmentTable}
           isSuperadmin={ctx.isSuperadmin}
         />
 
-        {/* Tables */}
+        {/* ── Tables row ───────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Top 5 students */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -292,7 +393,7 @@ export default async function AdminDashboard() {
             )}
           </div>
 
-          {/* Pending review */}
+          {/* Pending review — with hierarchy */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h3 className="text-sm font-semibold text-gray-900 mb-4">Sin revisar por docente</h3>
             {pendingSessions.length > 0 ? (
@@ -301,15 +402,20 @@ export default async function AdminDashboard() {
                   <Link
                     key={s.id}
                     href={`/docente/sesion/${s.id}`}
-                    className="flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-gray-50 transition-colors group"
+                    className="block py-2 px-2 rounded-lg hover:bg-gray-50 transition-colors group"
                   >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-gray-900 truncate">
-                        {s.studentName} &rarr; {s.patientName}
-                      </p>
-                      <p className="text-[10px] text-gray-400">{s.date}</p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-900 truncate">
+                          {s.studentName} &rarr; {s.patientName}
+                        </p>
+                        <p className="text-[10px] text-gray-400 truncate">
+                          {s.country} &middot; {s.establishment} &middot; {s.instructorName}
+                        </p>
+                        <p className="text-[10px] text-gray-300">{s.date}</p>
+                      </div>
+                      <ChevronRight size={12} className="text-gray-300 group-hover:text-sidebar shrink-0" />
                     </div>
-                    <ChevronRight size={12} className="text-gray-300 group-hover:text-sidebar" />
                   </Link>
                 ))}
               </div>
@@ -318,6 +424,46 @@ export default async function AdminDashboard() {
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Funnel KPI Card ─────────────────────────────────────── */
+function FunnelCard({
+  icon: Icon,
+  value,
+  label,
+  color,
+  rate,
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  value: number;
+  label: string;
+  color: string;
+  rate?: number;
+}) {
+  const colorMap: Record<string, { bg: string; text: string }> = {
+    blue: { bg: "bg-blue-50", text: "text-blue-500" },
+    green: { bg: "bg-green-50", text: "text-green-500" },
+    amber: { bg: "bg-amber-50", text: "text-amber-500" },
+    purple: { bg: "bg-purple-50", text: "text-purple-500" },
+  };
+  const c = colorMap[color] || colorMap.blue;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
+      <div className={`w-9 h-9 rounded-full ${c.bg} flex items-center justify-center shrink-0`}>
+        <Icon size={18} className={c.text} />
+      </div>
+      <div className="min-w-0">
+        <div className="flex items-baseline gap-2">
+          <p className="text-2xl font-bold text-gray-900">{value}</p>
+          {rate !== undefined && (
+            <span className="text-[10px] text-gray-400">{rate}%</span>
+          )}
+        </div>
+        <p className="text-xs text-gray-500">{label}</p>
       </div>
     </div>
   );
