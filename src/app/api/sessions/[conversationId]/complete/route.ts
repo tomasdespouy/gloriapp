@@ -155,7 +155,8 @@ export async function POST(
     areas_to_improve: evaluation.areas_to_improve || [],
   }, { onConflict: "conversation_id" });
 
-  // Generate cumulative narrative summary (non-blocking)
+  // Generate cumulative narrative summary (non-blocking, max 10 sessions)
+  const MAX_NARRATIVE_SESSIONS = 10;
   const narrativePromise = (async () => {
     try {
       // Load existing narrative for this student-patient pair
@@ -166,11 +167,16 @@ export async function POST(
         .eq("ai_patient_id", conversation.ai_patient_id)
         .maybeSingle();
 
+      const currentCount = existing?.sessions_included || 0;
+
+      // Cap at 10 sessions — narrative is frozen after that
+      if (currentCount >= MAX_NARRATIVE_SESSIONS) return;
+
       // Summarize this session
       const sessionSummary = await summarizeSession(transcript);
 
       // Merge with previous narrative
-      const sessionsIncluded = (existing?.sessions_included || 0) + 1;
+      const sessionsIncluded = currentCount + 1;
       const merged = await mergeNarrative(
         existing?.narrative || "",
         sessionSummary,

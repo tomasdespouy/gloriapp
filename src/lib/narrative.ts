@@ -76,6 +76,7 @@ Responde ÚNICAMENTE con JSON válido (sin markdown, sin backticks):
   }
 
   // Merge with existing narrative
+  const isLastSession = sessionNumber >= 10;
   const messages: ChatMessage[] = [
     { role: "user", content: `Resumen acumulativo previo (sesiones 1-${sessionNumber - 1}):
 ${previousNarrative}
@@ -83,7 +84,7 @@ ${previousNarrative}
 Resumen de la sesión ${sessionNumber}:
 ${newSessionSummary}
 
-Fusiona ambos en un resumen acumulativo coherente.` },
+${isLastSession ? "IMPORTANTE: Esta es la última sesión que se incluirá en el resumen. Genera un cierre narrativo que integre la evolución completa del paciente a lo largo de las 10 sesiones.\n\n" : ""}Fusiona ambos en un resumen acumulativo coherente.` },
   ];
 
   const response = await chat(messages, MERGE_SYSTEM);
