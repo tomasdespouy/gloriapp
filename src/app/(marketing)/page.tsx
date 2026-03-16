@@ -9,6 +9,7 @@ import FeaturesSection from "@/components/landing/FeaturesSection";
 import TestimonialsSection from "@/components/landing/TestimonialsSection";
 import StatsSection from "@/components/landing/StatsSection";
 import CTASection from "@/components/landing/CTASection";
+import InstitutionsSection from "@/components/landing/InstitutionsSection";
 import LandingFooter from "@/components/landing/LandingFooter";
 
 export default async function LandingPage() {
@@ -34,13 +35,20 @@ export default async function LandingPage() {
     }
   }
 
-  // Fetch active patients for showcase
+  // Fetch active patients and institutions for showcase
   const admin = createAdminClient();
-  const { data: patients } = await admin
-    .from("ai_patients")
-    .select("name, age, country_origin, country_residence")
-    .eq("is_active", true)
-    .order("created_at", { ascending: true });
+  const [{ data: patients }, { data: institutions }] = await Promise.all([
+    admin
+      .from("ai_patients")
+      .select("name, age, country_origin, country_residence")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true }),
+    admin
+      .from("establishments")
+      .select("name, slug, logo_url, country")
+      .eq("is_active", true)
+      .order("name"),
+  ]);
 
   return (
     <div className="bg-white">
@@ -51,6 +59,7 @@ export default async function LandingPage() {
       <FeaturesSection />
       <TestimonialsSection />
       <StatsSection />
+      <InstitutionsSection institutions={institutions || []} />
       <CTASection />
       <LandingFooter />
     </div>
