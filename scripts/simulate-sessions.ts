@@ -271,6 +271,22 @@ function simulateSession(
   };
 }
 
+// Carry-over: 40% of progress persists between sessions (matches production)
+const CARRY_OVER_FACTOR = 0.4;
+
+function carryOverState(previousEndState: ClinicalState): ClinicalState {
+  const blend = (initial: number, prev: number) =>
+    clamp(initial + (prev - initial) * CARRY_OVER_FACTOR);
+
+  return {
+    resistencia: blend(INITIAL_STATE.resistencia, previousEndState.resistencia),
+    alianza: blend(INITIAL_STATE.alianza, previousEndState.alianza),
+    apertura_emocional: blend(INITIAL_STATE.apertura_emocional, previousEndState.apertura_emocional),
+    sintomatologia: blend(INITIAL_STATE.sintomatologia, previousEndState.sintomatologia),
+    disposicion_cambio: blend(INITIAL_STATE.disposicion_cambio, previousEndState.disposicion_cambio),
+  };
+}
+
 function simulate8Sessions(
   profile: TherapistProfile,
   seed: number,
@@ -282,8 +298,8 @@ function simulate8Sessions(
   for (let s = 1; s <= 8; s++) {
     const session = simulateSession(s, state, profile, rng);
     sessions.push(session);
-    // Next session starts where last one ended (state persists between sessions)
-    state = session.endState;
+    // Partial carry-over: 40% of progress persists, 60% regresses toward initial
+    state = carryOverState(session.endState);
   }
 
   return sessions;
@@ -559,8 +575,8 @@ function generateReport(): string {
   lines.push("  IMPACTO DEL NARRATIVO ACUMULATIVO");
   lines.push("═══════════════════════════════════════════════════════════════════════════");
   lines.push("");
-  lines.push("  El narrativo acumulativo no afecta los NÚMEROS del motor adaptativo");
-  lines.push("  (estado siempre reinicia en 7/2/2/7/2 por sesión nueva).");
+  lines.push("  El narrativo acumulativo no afecta los NÚMEROS del motor adaptativo.");
+  lines.push("  El estado persiste parcialmente entre sesiones (40% carry-over).");
   lines.push("  Su impacto es CUALITATIVO: afecta cómo el LLM genera las respuestas");
   lines.push("  del paciente, dándole memoria entre sesiones.");
   lines.push("");

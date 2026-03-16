@@ -285,6 +285,30 @@ export function applyDeltas(
 }
 
 /**
+ * Carry over state from a previous session to the start of a new session.
+ * Blends previous session's final state with INITIAL_STATE using a decay factor.
+ *
+ * - CARRY_OVER_FACTOR = 0.4 means 40% of progress carries over.
+ * - Clinically: patient doesn't fully reset, but regresses partially
+ *   (resistance climbs back a bit, alliance drops a bit, etc.)
+ */
+const CARRY_OVER_FACTOR = 0.4;
+
+export function carryOverState(previousEndState: ClinicalState): ClinicalState {
+  const clamp = (v: number) => Math.max(0, Math.min(10, parseFloat(v.toFixed(1))));
+  const blend = (initial: number, prev: number) =>
+    clamp(initial + (prev - initial) * CARRY_OVER_FACTOR);
+
+  return {
+    resistencia: blend(INITIAL_STATE.resistencia, previousEndState.resistencia),
+    alianza: blend(INITIAL_STATE.alianza, previousEndState.alianza),
+    apertura_emocional: blend(INITIAL_STATE.apertura_emocional, previousEndState.apertura_emocional),
+    sintomatologia: blend(INITIAL_STATE.sintomatologia, previousEndState.sintomatologia),
+    disposicion_cambio: blend(INITIAL_STATE.disposicion_cambio, previousEndState.disposicion_cambio),
+  };
+}
+
+/**
  * Build a prompt block that tells the LLM the patient's current internal state.
  * This conditions the response to reflect the state realistically.
  */

@@ -5,7 +5,7 @@ import { chatStream, type ChatMessage } from "@/lib/ai";
 import { z } from "zod";
 import {
   classifyWithLLM, calculateDeltas, applyDeltas,
-  buildStatePrompt, INITIAL_STATE, type ClinicalState,
+  buildStatePrompt, INITIAL_STATE, carryOverState, type ClinicalState,
 } from "@/lib/clinical-state-engine";
 import { chat as chatEval } from "@/lib/ai";
 import { searchKnowledge, buildRAGContext } from "@/lib/clinical-knowledge";
@@ -175,9 +175,47 @@ TU ROL COMO PACIENTE:
     }
   }
 
-  const currentState: ClinicalState = lastState
-    ? lastState.state
-    : INITIAL_STATE;
+  // If no state for this conversation, check for carry-over from previous session
+  let currentState: ClinicalState;
+  if (lastState) {
+    currentState = lastState.state;
+  } else {
+    // Look for the last completed session with this patient by this student
+    const { data: prevConvs } = await admin
+      .from("conversations")
+      .select("id")
+      .eq("student_id", user.id)
+      .eq("ai_patient_id", patientId)
+      .neq("id", conversationId)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const prevConvId = prevConvs?.[0]?.id;
+    const { data: prevSession } = prevConvId
+      ? await admin
+          .from("clinical_state_log")
+          .select("resistencia, alianza, apertura_emocional, sintomatologia, disposicion_cambio")
+          .eq("conversation_id", prevConvId)
+          .order("turn_number", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
+
+    if (prevSession) {
+      // Partial carry-over: 40% of progress persists between sessions
+      currentState = carryOverState({
+        resistencia: Number(prevSession.resistencia),
+        alianza: Number(prevSession.alianza),
+        apertura_emocional: Number(prevSession.apertura_emocional),
+        sintomatologia: Number(prevSession.sintomatologia),
+        disposicion_cambio: Number(prevSession.disposicion_cambio),
+      });
+      logger.info("state_carry_over", { conversationId, previousState: prevSession, carryOverState: currentState });
+    } else {
+      currentState = INITIAL_STATE;
+    }
+  }
 
   const turnNumber = (lastState?.turn || 0) + 1;
 
