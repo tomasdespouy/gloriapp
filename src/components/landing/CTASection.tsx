@@ -13,7 +13,7 @@ export default function CTASection() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <ScrollReveal>
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-            Comienza a practicar hoy
+            Tu primera sesion esta a un click
           </h2>
           <p className="text-gray-600 mb-6 max-w-xl mx-auto">
             Crea tu cuenta y empieza a entrenar tus habilidades clínicas con

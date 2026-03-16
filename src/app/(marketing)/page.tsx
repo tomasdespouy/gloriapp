@@ -60,11 +60,11 @@ export default async function LandingPage() {
     <div className="bg-white">
       <LandingNavbar />
       <HeroSection />
+      <StatsSection />
       <HowItWorks />
       <PatientShowcase patients={patients || []} />
       <FeaturesSection />
       <TestimonialsSection testimonials={testimonials || []} />
-      <StatsSection />
       <InstitutionsSection institutions={institutions || []} />
       <CTASection />
       <LandingFooter />
