@@ -3,7 +3,7 @@
 import {
   Home, User, History, BarChart3, BookOpen, Info,
   Users, ClipboardCheck, LayoutDashboard, Building2,
-  Accessibility, LifeBuoy, Menu, X,
+  Accessibility, LifeBuoy, Menu, X, Rocket,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -33,6 +33,7 @@ const adminNav = (isSuperadmin: boolean) => [
   { icon: Users, label: "Usuarios", href: "/admin/usuarios" },
   { icon: BarChart3, label: "Métricas", href: "/admin/metricas" },
   { icon: BookOpen, label: "Retroalimentación", href: "/admin/retroalimentacion" },
+  ...(isSuperadmin ? [{ icon: Rocket, label: "Growth", href: "/admin/growth" }] : []),
   { icon: User, label: "Pacientes IA", href: "/perfiles" },
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];
