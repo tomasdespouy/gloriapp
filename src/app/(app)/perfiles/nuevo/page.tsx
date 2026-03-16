@@ -8,18 +8,16 @@ import {
   ArrowRight,
   Loader2,
   Check,
-  Upload,
   User,
-  ImageIcon,
-  Video,
-  Play,
-  MessageCircle,
-  FileText,
   ShieldCheck,
   RefreshCw,
   AlertTriangle,
   CheckCircle2,
   XCircle,
+  BookOpen,
+  Search,
+  BarChart3,
+  Zap,
 } from "lucide-react";
 import {
   GENDER_OPTIONS,
@@ -33,12 +31,26 @@ import {
   VARIABILITY_OPTIONS,
   DIFFICULTY_OPTIONS,
   COUNTRY_OPTIONS,
+  NARRATIVE_LABELS,
+  EXTENDED_NARRATIVE_LABELS,
   type PatientFormData,
-  type GeneratedProfile,
-  type TestResult,
+  type ShortNarrative,
+  type ExtendedNarrative,
+  type CoherenceReview,
+  type CoherenceItem,
+  type Projections,
+  type GeneratedSystemPrompt,
 } from "@/lib/patient-options";
 
-const STEPS = ["Configurar", "Perfil", "Prueba", "Guardar"];
+// Visual phases for the stepper (grouping 15 steps into 6 phases)
+const PHASES = [
+  { label: "Variables", icon: User, steps: [0] },
+  { label: "Relato", icon: BookOpen, steps: [1, 2, 3] },
+  { label: "Validacion", icon: Search, steps: [4, 5] },
+  { label: "Proyecciones", icon: BarChart3, steps: [6, 7] },
+  { label: "System prompt", icon: Zap, steps: [8, 9] },
+  { label: "Activar", icon: Check, steps: [10] },
+];
 
 const initialForm: PatientFormData = {
   name: "",
@@ -61,15 +73,28 @@ export default function NuevoPerfilPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<PatientFormData>(initialForm);
-  const [profile, setProfile] = useState<GeneratedProfile | null>(null);
-  const [editedPrompt, setEditedPrompt] = useState("");
-  const [testResult, setTestResult] = useState<TestResult | null>(null);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
-  const [imagePrompt, setImagePrompt] = useState("");
-  const [imageLoading, setImageLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Step 1-2: Short narrative
+  const [shortNarrative, setShortNarrative] = useState<ShortNarrative | null>(null);
+
+  // Step 3-5: Extended narrative
+  const [extendedNarrative, setExtendedNarrative] = useState<ExtendedNarrative | null>(null);
+
+  // Step 4-5: Coherence review
+  const [coherenceReview, setCoherenceReview] = useState<CoherenceReview | null>(null);
+
+  // Step 6-7: Projections
+  const [projections, setProjections] = useState<Projections | null>(null);
+
+  // Step 8-9: System prompt
+  const [generatedPrompt, setGeneratedPrompt] = useState<GeneratedSystemPrompt | null>(null);
+  const [editedPrompt, setEditedPrompt] = useState("");
+
+  // Step 10: Media (optional, post-activation)
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
   // --- Helpers ---
   function updateForm<K extends keyof PatientFormData>(key: K, value: PatientFormData[K]) {
@@ -140,67 +165,134 @@ export default function NuevoPerfilPage() {
     );
   }
 
+  // Get current phase index based on step
+  function getCurrentPhase(): number {
+    for (let i = 0; i < PHASES.length; i++) {
+      if (PHASES[i].steps.includes(step)) return i;
+    }
+    return 0;
+  }
+
   // --- API calls ---
-  async function generateProfile() {
+
+  // Step 0 → 1: Generate short narrative
+  async function generateNarrative() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/patients/generate-profile", {
+      const res = await fetch("/api/patients/generate-narrative", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error del servidor");
-      if (data.system_prompt) {
-        setProfile(data);
-        setEditedPrompt(data.system_prompt);
-        setStep(1);
-      } else {
-        throw new Error("Respuesta invalida del modelo");
-      }
+      setShortNarrative(data);
+      setStep(1);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al generar el perfil");
+      setError(e instanceof Error ? e.message : "Error al generar el relato");
     } finally {
       setLoading(false);
     }
   }
 
-  async function testConversation() {
+  // Step 2 → 3: Generate extended narrative
+  async function generateExtendedNarrative() {
+    if (!shortNarrative) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/patients/test-conversation", {
+      const res = await fetch("/api/patients/generate-extended-narrative", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_prompt: editedPrompt,
-          patient_name: form.name,
-        }),
+        body: JSON.stringify({ form, shortNarrative }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error del servidor");
-      if (data.conversation) {
-        setTestResult(data);
-        setStep(2);
-      } else {
-        throw new Error("Respuesta invalida del modelo");
-      }
+      setExtendedNarrative(data);
+      setStep(3);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al probar la conversación");
+      setError(e instanceof Error ? e.message : "Error al generar el relato extenso");
     } finally {
       setLoading(false);
     }
   }
 
+  // Step 3 → 4: Review coherence (auto-triggered after extended narrative)
+  async function reviewCoherence() {
+    if (!shortNarrative || !extendedNarrative) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/patients/review-coherence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ form, shortNarrative, extendedNarrative }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error del servidor");
+      setCoherenceReview(data);
+      setStep(4);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error en la revision de coherencia");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Step 5 → 6: Generate projections
+  async function generateProjections() {
+    if (!shortNarrative || !extendedNarrative) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/patients/generate-projections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ form, shortNarrative, extendedNarrative }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error del servidor");
+      setProjections(data);
+      setStep(6);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al generar proyecciones");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Step 7 → 8: Generate system prompt
+  async function generateSystemPrompt() {
+    if (!shortNarrative || !extendedNarrative || !projections) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/patients/generate-system-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ form, shortNarrative, extendedNarrative, projections }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error del servidor");
+      setGeneratedPrompt(data);
+      setEditedPrompt(data.system_prompt);
+      setStep(8);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al generar el system prompt");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Step 9 → 10: Save patient
   async function savePatient() {
-    if (!profile) return;
+    if (!generatedPrompt) return;
     setLoading(true);
     setError(null);
     try {
       const slug = form.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
 
-      // Auto-upload image to Storage if generated but not yet saved
       if (generatedImage) {
         await fetch("/api/patients/upload-asset", {
           method: "POST",
@@ -216,21 +308,26 @@ export default function NuevoPerfilPage() {
           name: form.name,
           age: form.age,
           occupation: form.occupation,
-          quote: profile.quote,
-          presenting_problem: profile.presenting_problem,
-          backstory: profile.backstory,
-          personality_traits: profile.personality_traits,
+          quote: generatedPrompt.quote,
+          presenting_problem: generatedPrompt.presenting_problem,
+          backstory: generatedPrompt.backstory,
+          personality_traits: generatedPrompt.personality_traits,
           system_prompt: editedPrompt,
           difficulty_level: form.difficulty,
-          tags: profile.tags,
-          skills_practiced: profile.skills_practiced,
-          total_sessions: profile.total_sessions,
+          tags: generatedPrompt.tags,
+          skills_practiced: generatedPrompt.skills_practiced,
+          total_sessions: generatedPrompt.total_sessions,
           country: form.countries,
           country_origin: form.countries[0] || "Chile",
           country_residence: form.countries[0] || "Chile",
-          birthday: profile.birthday || null,
-          neighborhood: profile.neighborhood || null,
-          family_members: profile.family_members || [],
+          birthday: generatedPrompt.birthday || null,
+          neighborhood: generatedPrompt.neighborhood || null,
+          family_members: generatedPrompt.family_members || [],
+          short_narrative: shortNarrative,
+          extended_narrative: extendedNarrative,
+          coherence_review: coherenceReview,
+          projections,
+          creation_step: 11,
         })
       );
       if (videoFile) body.append("video", videoFile);
@@ -240,13 +337,15 @@ export default function NuevoPerfilPage() {
         body,
       });
       if (!res.ok) throw new Error("Error al guardar");
-      router.push("/perfiles");
+      setStep(10);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al guardar el paciente");
     } finally {
       setLoading(false);
     }
   }
+
+  const currentPhase = getCurrentPhase();
 
   return (
     <div className="min-h-screen p-8">
@@ -259,27 +358,32 @@ export default function NuevoPerfilPage() {
           <h1 className="text-2xl font-bold text-gray-900">Crear paciente</h1>
         </div>
 
-        {/* Stepper */}
+        {/* Phase stepper */}
         <div className="flex items-center gap-2 mb-10">
-          {STEPS.map((label, i) => (
-            <div key={label} className="flex items-center gap-2">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                  i < step
-                    ? "bg-green-500 text-white"
-                    : i === step
-                    ? "bg-[#4A55A2] text-white"
-                    : "bg-gray-200 text-gray-500"
-                }`}
-              >
-                {i < step ? <Check size={14} /> : i + 1}
+          {PHASES.map((phase, i) => {
+            const PhaseIcon = phase.icon;
+            const isComplete = i < currentPhase;
+            const isCurrent = i === currentPhase;
+            return (
+              <div key={phase.label} className="flex items-center gap-2">
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                    isComplete
+                      ? "bg-green-500 text-white"
+                      : isCurrent
+                      ? "bg-[#4A55A2] text-white"
+                      : "bg-gray-200 text-gray-500"
+                  }`}
+                >
+                  {isComplete ? <Check size={14} /> : <PhaseIcon size={16} />}
+                </div>
+                <span className={`text-sm hidden sm:inline ${isCurrent ? "font-medium text-gray-900" : "text-gray-400"}`}>
+                  {phase.label}
+                </span>
+                {i < PHASES.length - 1 && <div className="w-6 lg:w-12 h-px bg-gray-200" />}
               </div>
-              <span className={`text-sm hidden sm:inline ${i === step ? "font-medium text-gray-900" : "text-gray-400"}`}>
-                {label}
-              </span>
-              {i < STEPS.length - 1 && <div className="w-8 lg:w-16 h-px bg-gray-200" />}
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Error */}
@@ -289,10 +393,9 @@ export default function NuevoPerfilPage() {
           </div>
         )}
 
-        {/* Step 0: Form */}
+        {/* ===================== STEP 0: Variables (Paso 1 - Humano) ===================== */}
         {step === 0 && (
           <div className="space-y-8">
-            {/* Random button */}
             <div className="flex justify-end">
               <button
                 onClick={generateRandom}
@@ -303,7 +406,6 @@ export default function NuevoPerfilPage() {
               </button>
             </div>
 
-            {/* Identidad */}
             <Section title="Identidad del paciente">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Input label="Nombre completo" value={form.name} onChange={(v) => updateForm("name", v)} placeholder="Ej: Ana Valdivia" />
@@ -311,9 +413,8 @@ export default function NuevoPerfilPage() {
                 <Select label="Genero" value={form.gender} options={GENDER_OPTIONS} onChange={(v) => updateForm("gender", v)} />
                 <Input label="Ocupacion" value={form.occupation} onChange={(v) => updateForm("occupation", v)} placeholder="Ej: Enfermera" />
               </div>
-              {/* Countries multiselect */}
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Países (puede elegir más de uno)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Paises (puede elegir mas de uno)</label>
                 <div className="flex flex-wrap gap-2">
                   {COUNTRY_OPTIONS.map((c) => {
                     const selected = form.countries.includes(c);
@@ -339,15 +440,13 @@ export default function NuevoPerfilPage() {
                   })}
                 </div>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <Select label="Contexto sociocultural" value={form.context} options={CONTEXT_OPTIONS} onChange={(v) => updateForm("context", v)} />
                 <Select label="Motivo de consulta" value={form.motivo} options={MOTIVO_OPTIONS} onChange={(v) => updateForm("motivo", v)} />
               </div>
             </Section>
 
-            {/* Arquetipo */}
-            <Section title="Arquetipo clínico">
+            <Section title="Arquetipo clinico">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {ARCHETYPE_OPTIONS.map((a) => (
                   <button
@@ -367,28 +466,24 @@ export default function NuevoPerfilPage() {
               </div>
             </Section>
 
-            {/* Personalidad */}
-            <Section title="Rasgos de personalidad" subtitle="Seleccióna 2 o más">
+            <Section title="Rasgos de personalidad" subtitle="Selecciona 2 o mas">
               <ChipGrid options={PERSONALITY_OPTIONS} selected={form.personalityTraits} onToggle={(v) => toggleArrayItem("personalityTraits", v)} />
             </Section>
 
-            {/* Defensa */}
-            <Section title="Mecanismos de defensa" subtitle="Seleccióna 1 o más">
+            <Section title="Mecanismos de defensa" subtitle="Selecciona 1 o mas">
               <ChipGrid options={DEFENSE_OPTIONS} selected={form.defenseMechanisms} onToggle={(v) => toggleArrayItem("defenseMechanisms", v)} />
             </Section>
 
-            {/* Temas sensibles */}
-            <Section title="Temas sensibles" subtitle="Seleccióna 1 o más">
+            <Section title="Temas sensibles" subtitle="Selecciona 1 o mas">
               <ChipGrid options={SENSITIVE_TOPICS} selected={form.sensitiveTopics} onToggle={(v) => toggleArrayItem("sensitiveTopics", v)} />
             </Section>
 
-            {/* Configuracion */}
-            <Section title="Configuracion de sesión">
+            <Section title="Configuracion de sesion">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Select label="Nivel de apertura inicial" value={form.openness} options={OPENNESS_OPTIONS} onChange={(v) => updateForm("openness", v)} />
-                <Select label="Variabilidad emociónal" value={form.variability} options={VARIABILITY_OPTIONS} onChange={(v) => updateForm("variability", v)} />
+                <Select label="Variabilidad emocional" value={form.variability} options={VARIABILITY_OPTIONS} onChange={(v) => updateForm("variability", v)} />
                 <Select
-                  label="Dificultad clínica"
+                  label="Dificultad clinica"
                   value={form.difficulty}
                   options={DIFFICULTY_OPTIONS.map((d) => d.value)}
                   displayOptions={DIFFICULTY_OPTIONS.map((d) => d.label)}
@@ -397,22 +492,289 @@ export default function NuevoPerfilPage() {
               </div>
             </Section>
 
-            {/* Action */}
             <div className="flex justify-end pt-4">
               <button
-                onClick={generateProfile}
+                onClick={generateNarrative}
                 disabled={!isFormValid() || loading}
                 className="flex items-center gap-2 bg-[#4A55A2] text-white px-6 py-3 rounded-lg hover:bg-[#3D4890] disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
               >
                 {loading ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />}
-                Generar perfil
+                Generar relato
               </button>
             </div>
           </div>
         )}
 
-        {/* Step 1: Preview */}
-        {step === 1 && profile && (
+        {/* ===================== STEP 1: Short narrative preview (Paso 2 - IA genera) ===================== */}
+        {step === 1 && shortNarrative && (
+          <div className="space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+              La IA genero un relato estructurado corto. Revisa cada seccion y edita lo que necesites antes de continuar.
+            </div>
+
+            {(Object.keys(NARRATIVE_LABELS) as Array<keyof ShortNarrative>).map((key) => (
+              <div key={key} className="bg-white rounded-xl p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-900 text-sm">{NARRATIVE_LABELS[key]}</h3>
+                </div>
+                <textarea
+                  value={shortNarrative[key]}
+                  onChange={(e) =>
+                    setShortNarrative((prev) => prev ? { ...prev, [key]: e.target.value } : prev)
+                  }
+                  rows={4}
+                  className="w-full border border-gray-200 rounded-lg p-3 text-sm leading-relaxed resize-y focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/20 focus:border-[#4A55A2]"
+                />
+              </div>
+            ))}
+
+            <div className="flex justify-between pt-4">
+              <button onClick={() => setStep(0)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+                <ArrowLeft size={18} /> Volver a variables
+              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={generateNarrative}
+                  disabled={loading}
+                  className="flex items-center gap-2 border border-[#4A55A2] text-[#4A55A2] px-4 py-2.5 rounded-lg hover:bg-[#4A55A2]/5 disabled:opacity-50 transition-colors text-sm font-medium"
+                >
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                  Regenerar relato
+                </button>
+                <button
+                  onClick={() => setStep(2)}
+                  className="flex items-center gap-2 bg-[#4A55A2] text-white px-6 py-2.5 rounded-lg hover:bg-[#3D4890] transition-colors font-medium"
+                >
+                  Validar y continuar <ArrowRight size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ===================== STEP 2: Confirm short narrative → generate extended (Paso 3-4) ===================== */}
+        {step === 2 && shortNarrative && (
+          <div className="space-y-6">
+            <Section title="Relato corto validado">
+              <div className="space-y-3">
+                {(Object.keys(NARRATIVE_LABELS) as Array<keyof ShortNarrative>).map((key) => (
+                  <div key={key}>
+                    <p className="text-xs font-medium text-gray-500 mb-1">{NARRATIVE_LABELS[key]}</p>
+                    <p className="text-sm text-gray-700 leading-relaxed">{shortNarrative[key]}</p>
+                  </div>
+                ))}
+              </div>
+            </Section>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+              Al continuar, la IA generara un relato extenso (~10 paginas) a partir del relato corto validado. Este proceso puede tomar 30-60 segundos.
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <button onClick={() => setStep(1)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+                <ArrowLeft size={18} /> Editar relato corto
+              </button>
+              <button
+                onClick={generateExtendedNarrative}
+                disabled={loading}
+                className="flex items-center gap-2 bg-[#4A55A2] text-white px-6 py-3 rounded-lg hover:bg-[#3D4890] disabled:opacity-50 transition-colors font-medium"
+              >
+                {loading ? <Loader2 size={18} className="animate-spin" /> : <BookOpen size={18} />}
+                {loading ? "Generando relato extenso..." : "Generar relato extenso"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ===================== STEP 3: Extended narrative preview + edit (Paso 4) ===================== */}
+        {step === 3 && extendedNarrative && (
+          <div className="space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+              Relato extenso generado. Revisa y edita cada seccion. Luego la IA revisara la coherencia.
+            </div>
+
+            {(Object.keys(EXTENDED_NARRATIVE_LABELS) as Array<keyof ExtendedNarrative>).map((key) => (
+              <div key={key} className="bg-white rounded-xl p-6 shadow-sm">
+                <h3 className="font-semibold text-gray-900 text-sm mb-3">{EXTENDED_NARRATIVE_LABELS[key]}</h3>
+                <textarea
+                  value={extendedNarrative[key]}
+                  onChange={(e) =>
+                    setExtendedNarrative((prev) => prev ? { ...prev, [key]: e.target.value } : prev)
+                  }
+                  rows={8}
+                  className="w-full border border-gray-200 rounded-lg p-3 text-sm leading-relaxed resize-y focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/20 focus:border-[#4A55A2]"
+                />
+                <p className="text-xs text-gray-400 mt-1">{extendedNarrative[key].length} caracteres</p>
+              </div>
+            ))}
+
+            <div className="flex justify-between pt-4">
+              <button onClick={() => setStep(2)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+                <ArrowLeft size={18} /> Volver
+              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={generateExtendedNarrative}
+                  disabled={loading}
+                  className="flex items-center gap-2 border border-[#4A55A2] text-[#4A55A2] px-4 py-2.5 rounded-lg hover:bg-[#4A55A2]/5 disabled:opacity-50 transition-colors text-sm font-medium"
+                >
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                  Regenerar
+                </button>
+                <button
+                  onClick={reviewCoherence}
+                  disabled={loading}
+                  className="flex items-center gap-2 bg-[#4A55A2] text-white px-6 py-2.5 rounded-lg hover:bg-[#3D4890] disabled:opacity-50 transition-colors font-medium"
+                >
+                  {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+                  {loading ? "Revisando coherencia..." : "Revisar coherencia"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ===================== STEP 4: Coherence review results (Paso 5) ===================== */}
+        {step === 4 && coherenceReview && extendedNarrative && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <h3 className="font-semibold text-gray-900 mb-4">Revision de coherencia</h3>
+              <p className="text-sm text-gray-700 mb-6 leading-relaxed">{coherenceReview.summary}</p>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-green-50 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-green-600">
+                    {coherenceReview.items.filter((i) => i.severity === "ok").length}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Coherente</p>
+                </div>
+                <div className="bg-amber-50 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-amber-600">
+                    {coherenceReview.items.filter((i) => i.severity === "sugerencia").length}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Sugerencias</p>
+                </div>
+                <div className="bg-red-50 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-red-600">
+                    {coherenceReview.items.filter((i) => i.severity === "critica").length}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Criticas</p>
+                </div>
+              </div>
+
+              {/* Items */}
+              <div className="space-y-2">
+                {coherenceReview.items.map((item, i) => (
+                  <CoherenceItemCard key={i} item={item} />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <button onClick={() => setStep(3)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+                <ArrowLeft size={18} /> Editar relato extenso
+              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={reviewCoherence}
+                  disabled={loading}
+                  className="flex items-center gap-2 border border-[#4A55A2] text-[#4A55A2] px-4 py-2.5 rounded-lg hover:bg-[#4A55A2]/5 disabled:opacity-50 transition-colors text-sm font-medium"
+                >
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                  Re-evaluar
+                </button>
+                <button
+                  onClick={() => setStep(5)}
+                  className="flex items-center gap-2 bg-[#4A55A2] text-white px-6 py-2.5 rounded-lg hover:bg-[#3D4890] transition-colors font-medium"
+                >
+                  Validar y continuar <ArrowRight size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ===================== STEP 5: Confirm → Generate projections (Paso 6-7) ===================== */}
+        {step === 5 && (
+          <div className="space-y-6">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+              Al continuar, la IA generara 3 proyecciones paralelas de 8 sesiones cada una (principiante, intermedio, experto). Este proceso puede tomar 30-60 segundos.
+            </div>
+
+            <Section title="Que se evaluara">
+              <ul className="space-y-2 text-sm text-gray-700">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
+                  Coherencia del paciente a lo largo de 8 sesiones
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
+                  Evolucion o involucion segun el nivel del estudiante
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
+                  Mantenimiento de personalidad y patologia
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
+                  Alianza terapeutica, sintomas y resistencia por sesion
+                </li>
+              </ul>
+            </Section>
+
+            <div className="flex justify-between pt-4">
+              <button onClick={() => setStep(4)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+                <ArrowLeft size={18} /> Volver a coherencia
+              </button>
+              <button
+                onClick={generateProjections}
+                disabled={loading}
+                className="flex items-center gap-2 bg-[#4A55A2] text-white px-6 py-3 rounded-lg hover:bg-[#3D4890] disabled:opacity-50 transition-colors font-medium"
+              >
+                {loading ? <Loader2 size={18} className="animate-spin" /> : <BarChart3 size={18} />}
+                {loading ? "Generando proyecciones..." : "Generar proyecciones"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ===================== STEP 6: Projections results (Paso 7-8) ===================== */}
+        {step === 6 && projections && (
+          <ProjectionsView
+            projections={projections}
+            onBack={() => setStep(5)}
+            onContinue={() => setStep(7)}
+            onRegenerate={generateProjections}
+            loading={loading}
+          />
+        )}
+
+        {/* ===================== STEP 7: Confirm → Generate system prompt (Paso 8-9) ===================== */}
+        {step === 7 && (
+          <div className="space-y-6">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+              Al continuar, la IA generara el system prompt optimizado para sesiones, basandose en todo el material validado (relato, coherencia, proyecciones).
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <button onClick={() => setStep(6)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+                <ArrowLeft size={18} /> Volver a proyecciones
+              </button>
+              <button
+                onClick={generateSystemPrompt}
+                disabled={loading}
+                className="flex items-center gap-2 bg-[#4A55A2] text-white px-6 py-3 rounded-lg hover:bg-[#3D4890] disabled:opacity-50 transition-colors font-medium"
+              >
+                {loading ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />}
+                {loading ? "Generando system prompt..." : "Generar system prompt"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ===================== STEP 8: System prompt editor (Paso 9-10) ===================== */}
+        {step === 8 && generatedPrompt && (
           <div className="space-y-6">
             {/* Patient card preview */}
             <div className="bg-white rounded-xl p-6 shadow-sm">
@@ -425,10 +787,10 @@ export default function NuevoPerfilPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="text-lg font-bold text-gray-900">{form.name}</h4>
-                  <p className="text-sm text-gray-500">{form.age} años &middot; {form.occupation}</p>
-                  <p className="text-sm text-gray-600 italic mt-1">&ldquo;{profile.quote}&rdquo;</p>
+                  <p className="text-sm text-gray-500">{form.age} anos &middot; {form.occupation}</p>
+                  <p className="text-sm text-gray-600 italic mt-1">&ldquo;{generatedPrompt.quote}&rdquo;</p>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {profile.tags.map((tag) => (
+                    {generatedPrompt.tags.map((tag) => (
                       <span key={tag} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{tag}</span>
                     ))}
                   </div>
@@ -444,7 +806,7 @@ export default function NuevoPerfilPage() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-900">System prompt</h3>
                 <button
-                  onClick={generateProfile}
+                  onClick={generateSystemPrompt}
                   disabled={loading}
                   className="flex items-center gap-1.5 text-sm text-[#4A55A2] hover:underline"
                 >
@@ -461,212 +823,72 @@ export default function NuevoPerfilPage() {
               <p className="text-xs text-gray-400 mt-2">{editedPrompt.length} caracteres</p>
             </div>
 
-            {/* Ficha clínica preview */}
-            <FichaClinicaPreview form={form} profile={profile} systemPrompt={editedPrompt} />
-
-            {/* Actions */}
             <div className="flex justify-between pt-4">
-              <button onClick={() => setStep(0)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
-                <ArrowLeft size={18} /> Volver al formulario
+              <button onClick={() => setStep(7)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+                <ArrowLeft size={18} /> Volver
               </button>
               <button
-                onClick={testConversation}
-                disabled={loading}
-                className="flex items-center gap-2 bg-[#4A55A2] text-white px-6 py-3 rounded-lg hover:bg-[#3D4890] disabled:opacity-50 transition-colors font-medium"
+                onClick={() => setStep(9)}
+                className="flex items-center gap-2 bg-[#4A55A2] text-white px-6 py-2.5 rounded-lg hover:bg-[#3D4890] transition-colors font-medium"
               >
-                {loading ? <Loader2 size={18} className="animate-spin" /> : <MessageCircle size={18} />}
-                Probar paciente
+                Continuar a guardar <ArrowRight size={18} />
               </button>
             </div>
           </div>
         )}
 
-        {/* Step 2: Test */}
-        {step === 2 && testResult && (
+        {/* ===================== STEP 9: Save + activate (Paso 11) ===================== */}
+        {step === 9 && generatedPrompt && (
           <div className="space-y-6">
-            {/* Simulated conversation */}
-            <div className="bg-white rounded-xl p-6 shadow-sm">
-              <h3 className="font-semibold text-gray-900 mb-4">Conversación simulada</h3>
-              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                {testResult.conversation.map((msg, i) => (
-                  <div key={i} className={`flex gap-3 ${msg.role === "estudiante" ? "" : "flex-row-reverse"}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      msg.role === "estudiante" ? "bg-green-100" : "bg-[#4A55A2]"
-                    }`}>
-                      {msg.role === "estudiante" ? (
-                        <User size={14} className="text-green-700" />
-                      ) : (
-                        <span className="text-white text-xs font-bold">
-                          {form.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                        </span>
-                      )}
-                    </div>
-                    <div className={`max-w-[75%] rounded-xl px-4 py-3 text-sm ${
-                      msg.role === "estudiante"
-                        ? "bg-gray-100 text-gray-800"
-                        : "bg-[#4A55A2]/10 text-gray-800"
-                    }`}>
-                      <p className="text-xs font-medium mb-1 text-gray-500">
-                        {msg.role === "estudiante" ? "Terapeuta" : form.name}
-                      </p>
-                      {msg.content}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Analysis */}
-            <div className="bg-white rounded-xl p-6 shadow-sm">
-              <h3 className="font-semibold text-gray-900 mb-4">Analisis del perfil</h3>
-
-              {/* Scores */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <ScoreCard label="Consistencia" value={testResult.analysis.consistency} />
-                <ScoreCard label="Realismo" value={testResult.analysis.realism} />
-                <ScoreCard label="Matriz" value={testResult.analysis.matrix_compliance} />
-              </div>
-
-              {/* Details */}
-              <div className="grid md:grid-cols-3 gap-6">
-                <div>
-                  <h4 className="text-sm font-medium text-green-700 mb-2">Fortalezas</h4>
-                  <ul className="space-y-1">
-                    {testResult.analysis.strengths.map((s, i) => (
-                      <li key={i} className="text-sm text-gray-600 flex items-start gap-1.5">
-                        <span className="text-green-500 mt-0.5">+</span> {s}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-red-700 mb-2">Debilidades</h4>
-                  <ul className="space-y-1">
-                    {testResult.analysis.weaknesses.map((w, i) => (
-                      <li key={i} className="text-sm text-gray-600 flex items-start gap-1.5">
-                        <span className="text-red-500 mt-0.5">-</span> {w}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-[#4A55A2] mb-2">Sugerencias</h4>
-                  <ul className="space-y-1">
-                    {testResult.analysis.suggestions.map((s, i) => (
-                      <li key={i} className="text-sm text-gray-600 flex items-start gap-1.5">
-                        <span className="text-[#4A55A2] mt-0.5">*</span> {s}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-between pt-4">
-              <button onClick={() => setStep(1)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
-                <ArrowLeft size={18} /> Ajustar perfil
-              </button>
-              <div className="flex gap-3">
-                <button
-                  onClick={testConversation}
-                  disabled={loading}
-                  className="flex items-center gap-2 border border-[#4A55A2] text-[#4A55A2] px-4 py-2.5 rounded-lg hover:bg-[#4A55A2]/5 disabled:opacity-50 transition-colors text-sm font-medium"
-                >
-                  {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                  Probar de nuevo
-                </button>
-                <button
-                  onClick={() => setStep(3)}
-                  className="flex items-center gap-2 bg-[#4A55A2] text-white px-6 py-2.5 rounded-lg hover:bg-[#3D4890] transition-colors font-medium"
-                >
-                  Continuar <ArrowRight size={18} />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Save */}
-        {step === 3 && profile && (
-          <div className="space-y-6">
-            {/* Image generation */}
-            <ImageGenerator
-              form={form}
-              generatedImage={generatedImage}
-              setGeneratedImage={setGeneratedImage}
-              imagePrompt={imagePrompt}
-              setImagePrompt={setImagePrompt}
-              imageLoading={imageLoading}
-              setImageLoading={setImageLoading}
-            />
-
-            {/* Video generation from image */}
-            {generatedImage && (
-              <VideoGenerator imageUrl={generatedImage} patientName={form.name} />
-            )}
-
-            <div className="bg-white rounded-xl p-6 shadow-sm">
-              <h3 className="font-semibold text-gray-900 mb-4">Subir video del paciente (manual)</h3>
-              <p className="text-sm text-gray-500 mb-4">
-                Sube un video .mp4 que se usara como avatar animado. Se guardara como{" "}
-                <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">
-                  {form.name
-                    .toLowerCase()
-                    .normalize("NFD")
-                    .replace(/[\u0300-\u036f]/g, "")
-                    .replace(/\s+/g, "-")}
-                  .mp4
-                </code>
-              </p>
-              <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-[#4A55A2] hover:bg-[#4A55A2]/5 transition-colors">
-                <Upload size={32} className="text-gray-400 mb-2" />
-                <span className="text-sm text-gray-600">
-                  {videoFile ? videoFile.name : "Click para selecciónar video"}
-                </span>
-                {videoFile && (
-                  <span className="text-xs text-gray-400 mt-1">
-                    {(videoFile.size / 1024 / 1024).toFixed(1)} MB
-                  </span>
-                )}
-                <input
-                  type="file"
-                  accept="video/mp4"
-                  className="hidden"
-                  onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-                />
-              </label>
-            </div>
-
             {/* Summary */}
             <div className="bg-white rounded-xl p-6 shadow-sm">
-              <h3 className="font-semibold text-gray-900 mb-4">Resumen</h3>
+              <h3 className="font-semibold text-gray-900 mb-4">Resumen del paciente</h3>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                 <dt className="text-gray-500">Nombre</dt>
                 <dd className="text-gray-900 font-medium">{form.name}</dd>
                 <dt className="text-gray-500">Edad</dt>
-                <dd className="text-gray-900">{form.age} años</dd>
+                <dd className="text-gray-900">{form.age} anos</dd>
                 <dt className="text-gray-500">Ocupacion</dt>
                 <dd className="text-gray-900">{form.occupation}</dd>
                 <dt className="text-gray-500">Dificultad</dt>
                 <dd className="text-gray-900">{DIFFICULTY_OPTIONS.find((d) => d.value === form.difficulty)?.label}</dd>
                 <dt className="text-gray-500">Quote</dt>
-                <dd className="text-gray-900 italic">&ldquo;{profile.quote}&rdquo;</dd>
+                <dd className="text-gray-900 italic">&ldquo;{generatedPrompt.quote}&rdquo;</dd>
                 <dt className="text-gray-500">Tags</dt>
-                <dd className="text-gray-900">{profile.tags.join(", ")}</dd>
+                <dd className="text-gray-900">{generatedPrompt.tags.join(", ")}</dd>
                 <dt className="text-gray-500">Habilidades</dt>
-                <dd className="text-gray-900">{profile.skills_practiced.join(", ")}</dd>
-                <dt className="text-gray-500">Sesiónes</dt>
-                <dd className="text-gray-900">{profile.total_sessions}</dd>
+                <dd className="text-gray-900">{generatedPrompt.skills_practiced.join(", ")}</dd>
+                <dt className="text-gray-500">Sesiones</dt>
+                <dd className="text-gray-900">{generatedPrompt.total_sessions}</dd>
               </dl>
             </div>
 
-            {/* Save action — prominent */}
+            {/* Checklist */}
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <h3 className="font-semibold text-gray-900 mb-4">Checklist de creacion</h3>
+              <div className="space-y-2">
+                {[
+                  { label: "Variables ingresadas", done: true },
+                  { label: "Relato corto validado", done: !!shortNarrative },
+                  { label: "Relato extenso generado", done: !!extendedNarrative },
+                  { label: "Coherencia revisada", done: !!coherenceReview },
+                  { label: "Proyecciones generadas", done: !!projections },
+                  { label: "System prompt generado", done: !!generatedPrompt },
+                ].map((item, i) => (
+                  <div key={i} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${item.done ? "bg-green-50" : "bg-gray-50"}`}>
+                    {item.done ? <CheckCircle2 size={16} className="text-green-500" /> : <XCircle size={16} className="text-gray-300" />}
+                    <span className={item.done ? "text-green-800" : "text-gray-400"}>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Save */}
             <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-bold text-green-800">Paso final: guardar paciente en la plataforma</p>
-                  <p className="text-xs text-green-600 mt-0.5">Asegúrate de haber guardado la imagen y el video antes de continuar.</p>
+                  <p className="text-sm font-bold text-green-800">Activar paciente</p>
+                  <p className="text-xs text-green-600 mt-0.5">El paciente quedara activo para sesiones. Imagen y video se pueden agregar despues.</p>
                 </div>
                 <button
                   onClick={savePatient}
@@ -674,18 +896,193 @@ export default function NuevoPerfilPage() {
                   className="flex items-center gap-2 bg-green-600 text-white px-8 py-3 rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors font-bold text-base shadow-md"
                 >
                   {loading ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
-                  Guardar paciente
+                  Guardar y activar
                 </button>
               </div>
             </div>
 
             <div className="flex justify-start pt-2">
-              <button onClick={() => setStep(2)} className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors text-sm">
-                <ArrowLeft size={16} /> Volver a la prueba
+              <button onClick={() => setStep(8)} className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors text-sm">
+                <ArrowLeft size={16} /> Volver al system prompt
               </button>
             </div>
           </div>
         )}
+
+        {/* ===================== STEP 10: Success + optional media (Pasos 12-15) ===================== */}
+        {step === 10 && (
+          <div className="space-y-6">
+            <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-8 text-center">
+              <CheckCircle2 size={48} className="text-green-500 mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-green-800 mb-2">Paciente activado</h2>
+              <p className="text-sm text-green-600">
+                {form.name} ya esta disponible para sesiones de practica.
+              </p>
+            </div>
+
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <h3 className="font-semibold text-gray-900 mb-2">Opcional: agregar imagen y video</h3>
+              <p className="text-sm text-gray-500 mb-4">Puedes agregar imagen y video desde la ficha del paciente en cualquier momento.</p>
+              <div className="flex gap-3">
+                <Link
+                  href="/perfiles"
+                  className="flex items-center gap-2 bg-[#4A55A2] text-white px-6 py-3 rounded-lg hover:bg-[#3D4890] transition-colors font-medium"
+                >
+                  Ver todos los pacientes
+                </Link>
+                <button
+                  onClick={() => router.push("/perfiles")}
+                  className="flex items-center gap-2 border border-gray-200 text-gray-600 px-6 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Crear otro paciente
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Projections View Component ---
+
+function ProjectionsView({
+  projections,
+  onBack,
+  onContinue,
+  onRegenerate,
+  loading,
+}: {
+  projections: Projections;
+  onBack: () => void;
+  onContinue: () => void;
+  onRegenerate: () => void;
+  loading: boolean;
+}) {
+  const [activeTab, setActiveTab] = useState<"principiante" | "intermedio" | "experto">("principiante");
+  const tabs = [
+    { key: "principiante" as const, label: "Principiante", color: "bg-blue-500" },
+    { key: "intermedio" as const, label: "Intermedio", color: "bg-amber-500" },
+    { key: "experto" as const, label: "Experto", color: "bg-green-500" },
+  ];
+
+  const projection = projections[activeTab];
+
+  return (
+    <div className="space-y-6">
+      {/* Tabs */}
+      <div className="flex gap-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex-1 py-3 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === tab.key
+                ? "bg-[#4A55A2] text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Scores */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <p className={`text-3xl font-bold ${projection.coherence_score >= 7 ? "text-green-600" : "text-amber-600"}`}>
+            {projection.coherence_score}/10
+          </p>
+          <p className="text-xs text-gray-500 mt-1">Coherencia</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <p className={`text-3xl font-bold ${projection.evolution_score >= 7 ? "text-green-600" : projection.evolution_score >= 4 ? "text-amber-600" : "text-red-600"}`}>
+            {projection.evolution_score}/10
+          </p>
+          <p className="text-xs text-gray-500 mt-1">Evolucion</p>
+        </div>
+      </div>
+
+      {/* Overall assessment */}
+      <div className="bg-white rounded-xl p-6 shadow-sm">
+        <h3 className="font-semibold text-gray-900 mb-2">Evaluacion general</h3>
+        <p className="text-sm text-gray-700 leading-relaxed">{projection.overall_assessment}</p>
+      </div>
+
+      {/* Sessions timeline */}
+      <div className="bg-white rounded-xl p-6 shadow-sm">
+        <h3 className="font-semibold text-gray-900 mb-4">Proyeccion de 8 sesiones</h3>
+        <div className="space-y-4">
+          {projection.sessions.map((session) => (
+            <div key={session.session_number} className="border border-gray-100 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-900">Sesion {session.session_number}</span>
+                <div className="flex gap-3 text-xs">
+                  <span className="text-blue-600">Alianza: {session.alliance}/10</span>
+                  <span className="text-red-600">Sintomas: {session.symptoms}/10</span>
+                  <span className="text-amber-600">Resistencia: {session.resistance}/10</span>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 mb-1">{session.summary}</p>
+              <p className="text-xs text-[#4A55A2] italic">Momento clave: {session.key_moment}</p>
+
+              {/* Mini bar chart */}
+              <div className="flex gap-1 mt-2">
+                <div className="h-1.5 rounded-full bg-blue-400" style={{ width: `${session.alliance * 10}%` }} title="Alianza" />
+                <div className="h-1.5 rounded-full bg-red-400" style={{ width: `${session.symptoms * 10}%` }} title="Sintomas" />
+                <div className="h-1.5 rounded-full bg-amber-400" style={{ width: `${session.resistance * 10}%` }} title="Resistencia" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex justify-between pt-4">
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+          <ArrowLeft size={18} /> Volver
+        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={onRegenerate}
+            disabled={loading}
+            className="flex items-center gap-2 border border-[#4A55A2] text-[#4A55A2] px-4 py-2.5 rounded-lg hover:bg-[#4A55A2]/5 disabled:opacity-50 transition-colors text-sm font-medium"
+          >
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+            Regenerar
+          </button>
+          <button
+            onClick={onContinue}
+            className="flex items-center gap-2 bg-[#4A55A2] text-white px-6 py-2.5 rounded-lg hover:bg-[#3D4890] transition-colors font-medium"
+          >
+            Continuar <ArrowRight size={18} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Coherence Item Card ---
+
+function CoherenceItemCard({ item }: { item: CoherenceItem }) {
+  const config = {
+    critica: { bg: "bg-red-50", border: "border-red-200", icon: <XCircle size={16} className="text-red-500" />, label: "Critica", labelColor: "text-red-700" },
+    sugerencia: { bg: "bg-amber-50", border: "border-amber-200", icon: <AlertTriangle size={16} className="text-amber-500" />, label: "Sugerencia", labelColor: "text-amber-700" },
+    ok: { bg: "bg-green-50", border: "border-green-200", icon: <CheckCircle2 size={16} className="text-green-500" />, label: "OK", labelColor: "text-green-700" },
+  };
+  const c = config[item.severity];
+
+  return (
+    <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border ${c.bg} ${c.border}`}>
+      <div className="mt-0.5 flex-shrink-0">{c.icon}</div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className={`text-xs font-medium ${c.labelColor}`}>{c.label}</span>
+          <span className="text-xs text-gray-400">{item.type === "interna" ? "Coherencia interna" : "Coherencia clinica"}</span>
+          <span className="text-xs text-gray-300">{item.section}</span>
+        </div>
+        <p className="text-sm text-gray-700">{item.message}</p>
       </div>
     </div>
   );
@@ -752,7 +1149,7 @@ function Select({
         onChange={(e) => onChange(e.target.value)}
         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/20 focus:border-[#4A55A2] bg-white"
       >
-        <option value="">Selecciónar...</option>
+        <option value="">Seleccionar...</option>
         {options.map((opt, i) => (
           <option key={opt} value={opt}>
             {displayOptions ? displayOptions[i] : opt}
@@ -792,147 +1189,6 @@ function ChipGrid({
   );
 }
 
-function ScoreCard({ label, value }: { label: string; value: number }) {
-  const color = value >= 8 ? "text-green-600" : value >= 6 ? "text-yellow-600" : "text-red-600";
-  return (
-    <div className="bg-gray-50 rounded-lg p-4 text-center">
-      <p className={`text-3xl font-bold ${color}`}>{value}</p>
-      <p className="text-xs text-gray-500 mt-1">{label}</p>
-    </div>
-  );
-}
-
-function FichaClinicaPreview({ form, profile, systemPrompt }: { form: PatientFormData; profile: GeneratedProfile; systemPrompt: string }) {
-  const [generating, setGenerating] = useState(false);
-  const [fichaContent, setFichaContent] = useState<string | null>(null);
-
-  const generateFicha = async () => {
-    setGenerating(true);
-    try {
-      const res = await fetch("/api/patients/generate-ficha", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          age: form.age,
-          occupation: form.occupation,
-          countries: form.countries,
-          presenting_problem: profile.presenting_problem,
-          backstory: profile.backstory,
-          difficulty_level: form.difficulty,
-          personality_traits: profile.personality_traits,
-          tags: profile.tags,
-          system_prompt: systemPrompt,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setFichaContent(data.content);
-      }
-    } catch { /* silently fail */ }
-    setGenerating(false);
-  };
-
-  const downloadPDF = async () => {
-    if (!fichaContent) return;
-    const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF({ unit: "mm", format: "letter" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    const maxWidth = pageWidth - margin * 2;
-    let y = 20;
-
-    // Header
-    doc.setFillColor(74, 85, 162);
-    doc.rect(0, 0, pageWidth, 35, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("FICHA CLÍNICA", margin, 15);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    doc.text(`${form.name} — ${form.age} años, ${form.occupation}`, margin, 23);
-    doc.setFontSize(9);
-    doc.text(`${form.countries.join(", ")} | Dificultad: ${form.difficulty} | GlorIA`, margin, 30);
-    y = 45;
-
-    // Parse sections
-    const sections = fichaContent.split(/\d+\.\s+/).filter(Boolean);
-    const titles = fichaContent.match(/\d+\.\s+[A-ZÁÉÍÓÚÑ\s]+/g) || [];
-
-    for (let i = 0; i < sections.length; i++) {
-      const title = titles[i]?.trim() || `Sección ${i + 1}`;
-      const body = sections[i].trim();
-
-      if (y > 240) { doc.addPage(); y = 20; }
-      doc.setFillColor(74, 85, 162);
-      doc.rect(margin, y - 4, maxWidth, 8, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text(title, margin + 3, y + 1);
-      y += 10;
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(50, 50, 50);
-      const lines = doc.splitTextToSize(body, maxWidth);
-      for (const line of lines) {
-        if (y > 260) { doc.addPage(); y = 20; }
-        doc.text(line, margin, y);
-        y += 4.5;
-      }
-      y += 6;
-    }
-
-    // Footers
-    const totalPages = doc.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(150, 150, 150);
-      doc.line(margin, 268, pageWidth - margin, 268);
-      doc.text(`GlorIA — Ficha clínica de ${form.name} — Página ${i} de ${totalPages}`, margin, 272);
-    }
-
-    doc.save(`Ficha_Clinica_${form.name.replace(/\s+/g, "_")}.pdf`);
-  };
-
-  return (
-    <div className="bg-white rounded-xl p-6 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <FileText size={18} className="text-sidebar" />
-          <h3 className="font-semibold text-gray-900">Ficha clínica</h3>
-        </div>
-        <div className="flex items-center gap-2">
-          {fichaContent && (
-            <button onClick={downloadPDF}
-              className="flex items-center gap-1.5 text-sm bg-sidebar text-white px-4 py-2 rounded-lg font-medium hover:bg-sidebar-hover transition-colors">
-              <FileText size={14} /> Descargar PDF
-            </button>
-          )}
-          <button onClick={generateFicha} disabled={generating}
-            className="flex items-center gap-1.5 text-sm border border-sidebar text-sidebar px-4 py-2 rounded-lg font-medium hover:bg-sidebar/5 transition-colors disabled:opacity-50">
-            {generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-            {generating ? "Generando..." : fichaContent ? "Regenerar" : "Generar ficha clínica"}
-          </button>
-        </div>
-      </div>
-
-      {fichaContent ? (
-        <div className="bg-gray-50 rounded-lg p-4 max-h-[400px] overflow-y-auto">
-          <pre className="text-xs text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{fichaContent}</pre>
-        </div>
-      ) : (
-        <p className="text-xs text-gray-400 text-center py-6">
-          Genera la ficha clínica para revisión de la escuela de psicología antes de activar el paciente.
-        </p>
-      )}
-    </div>
-  );
-}
-
 function ProfileValidator({ form, systemPrompt }: { form: PatientFormData; systemPrompt: string }) {
   const [validating, setValidating] = useState(false);
   const [result, setResult] = useState<{
@@ -955,11 +1211,11 @@ function ProfileValidator({ form, systemPrompt }: { form: PatientFormData; syste
     checks.push({
       label: "Edad mencionada",
       pass: prompt.includes(String(form.age)),
-      detail: `${form.age} años`,
+      detail: `${form.age} anos`,
     });
 
     checks.push({
-      label: "Ocupación",
+      label: "Ocupacion",
       pass: prompt.includes(normalize(form.occupation).slice(0, 5)),
       detail: form.occupation,
     });
@@ -992,9 +1248,9 @@ function ProfileValidator({ form, systemPrompt }: { form: PatientFormData; syste
     });
 
     checks.push({
-      label: "Extensión del prompt",
+      label: "Extension del prompt",
       pass: systemPrompt.length >= 500,
-      detail: `${systemPrompt.length} caracteres (mín. 500)`,
+      detail: `${systemPrompt.length} caracteres (min. 500)`,
     });
 
     const therapistPhrases = ["estoy aqui para escucharte", "puedes compartir", "como te sientes"];
@@ -1017,13 +1273,12 @@ function ProfileValidator({ form, systemPrompt }: { form: PatientFormData; syste
   const handleValidate = async () => {
     const localChecks = runLocalChecks();
 
-    // Add structural checks inline
     const structuralRules = [
       { label: "Secciones (HISTORIA, PERSONALIDAD, etc.)", pass: ["HISTORIA:", "PERSONALIDAD:", "COMPORTAMIENTO", "REGLAS:"].filter(s => systemPrompt.includes(s)).length >= 3, detail: "" },
       { label: "Bullets (-) en vez de texto corrido", pass: (systemPrompt.match(/^- /gm) || []).length >= 5, detail: `${(systemPrompt.match(/^- /gm) || []).length} bullets encontrados` },
       { label: "Corchetes para no verbal [...]", pass: /\[.+\]/.test(systemPrompt), detail: /\[.+\]/.test(systemPrompt) ? "Correcto" : "Falta: [suspira], [mira al suelo]" },
-      { label: "Regla anti-repetición", pass: systemPrompt.toLowerCase().includes("nunca repitas"), detail: "" },
-      { label: "Límite 1-4 oraciones", pass: /1-4 oraciones|maximo.*oracion/i.test(systemPrompt), detail: "" },
+      { label: "Regla anti-repeticion", pass: systemPrompt.toLowerCase().includes("nunca repitas"), detail: "" },
+      { label: "Limite 1-4 oraciones", pass: /1-4 oraciones|maximo.*oracion/i.test(systemPrompt), detail: "" },
       { label: "Apertura gradual", pass: /gradual|progresiv|poco a poco|eventualmente|con el tiempo/i.test(systemPrompt), detail: "" },
     ];
 
@@ -1066,7 +1321,7 @@ function ProfileValidator({ form, systemPrompt }: { form: PatientFormData; syste
 
       {!result && (
         <p className="text-xs text-gray-400 text-center py-4">
-          Verifica que el system prompt sea coherente con todas las variables configuradas y que no tenga errores de rol.
+          Verifica que el system prompt sea coherente con todas las variables configuradas.
         </p>
       )}
 
@@ -1080,7 +1335,7 @@ function ProfileValidator({ form, systemPrompt }: { form: PatientFormData; syste
               <div>
                 <p className={`text-2xl font-bold ${scoreColor}`}>{result.score}%</p>
                 <p className="text-xs text-gray-500">
-                  {result.score >= 80 ? "Perfil robusto — listo para usar" : result.score >= 60 ? "Aceptable con mejoras sugeridas" : "Necesita ajustes antes de usar"}
+                  {result.score >= 80 ? "Perfil robusto" : result.score >= 60 ? "Aceptable con mejoras" : "Necesita ajustes"}
                 </p>
               </div>
             </div>
@@ -1107,318 +1362,10 @@ function ProfileValidator({ form, systemPrompt }: { form: PatientFormData; syste
           )}
           {result.suggestion && (
             <div className="bg-sidebar/5 rounded-xl p-4 border border-sidebar/10">
-              <p className="text-xs font-semibold text-sidebar mb-1.5">Análisis de la IA</p>
+              <p className="text-xs font-semibold text-sidebar mb-1.5">Analisis de la IA</p>
               <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{result.suggestion}</p>
             </div>
           )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ImageGenerator({
-  form, generatedImage, setGeneratedImage, imagePrompt, setImagePrompt, imageLoading, setImageLoading,
-}: {
-  form: PatientFormData;
-  generatedImage: string | null; setGeneratedImage: (v: string | null) => void;
-  imagePrompt: string; setImagePrompt: (v: string) => void;
-  imageLoading: boolean; setImageLoading: (v: boolean) => void;
-}) {
-  const [error, setError] = useState("");
-  const [showPrompt, setShowPrompt] = useState(false);
-
-  const buildDefaultPrompt = () => {
-    const gender = form.gender === "Femeniño" ? "woman" : form.gender === "Masculino" ? "man" : "person";
-    const countries = form.countries.join(", ");
-
-    // Diversity-driven appearance details based on country and age
-    const appearanceHints: Record<string, string> = {
-      "Chile": "mestizo Chilean features, could range from lighter to darker skin tones, straight or wavy dark hair",
-      "Colombia": "diverse Colombian features — could be Afro-Colombian with dark skin, mestizo with warm brown skin, or lighter-skinned paisa — varied hair textures",
-      "México": "Mexican features — could be indigenous, mestizo, or lighter-skinned — diverse skin tones from brown to olive",
-      "Perú": "Peruvian features — could be Quechua with copper skin and straight dark hair, mestizo, or Afro-Peruvian",
-      "Argentina": "Argentine features — could be of European descent with lighter skin, mestizo, or darker-skinned from the north",
-      "República Dominicana": "Dominican features — mixed African and European heritage, warm dark skin, curly or coily hair",
-      "Ecuador": "Ecuadorian features — could be indigenous highland, coastal mestizo, or Afro-Ecuadorian",
-      "Bolivia": "Bolivian features — could be Aymara or Quechua indigenous with bronze skin, or mestizo",
-      "Venezuela": "Venezuelan features — diverse mix, could be lighter or darker skinned, straight or curly hair",
-      "Uruguay": "Uruguayan features, could range from European to Afro-Uruguayan descent",
-      "Paraguay": "Paraguayan Guaraní-mestizo features, warm brown skin, straight dark hair",
-      "España": "Spanish features — Mediterranean appearance with olive to fair skin",
-    };
-
-    const countryKey = form.countries[0] || "Chile";
-    const appearance = appearanceHints[countryKey] || "distinctive Latin American features with natural ethnic diversity";
-
-    // Age-related appearance
-    const ageDesc = form.age < 25 ? "youthful appearance"
-      : form.age < 40 ? "adult appearance, early signs of maturity"
-      : form.age < 55 ? "mature adult, visible laugh lines or slight wrinkles"
-      : "older adult, gray or white hair, weathered but dignified features";
-
-    return `Professional portrait photograph of a ${form.age}-year-old ${gender} from ${countries}. ${appearance}. ${ageDesc}. Works as ${form.occupation} — clothing and grooming reflect their socioeconomic context (${form.context}). Expression: neutral with slight warmth, as if sitting in a therapist's waiting room. Natural lighting, clean neutral background. This should look like a REAL person — not a model or stock photo. Unique distinguishing features (birthmarks, specific nose shape, eye shape, hair style). Realistic skin texture, natural imperfections. Photorealistic portrait, candid feel. No text, no watermarks.`;
-  };
-
-  const generateImage = async (customPrompt?: string) => {
-    const prompt = customPrompt || imagePrompt || buildDefaultPrompt();
-    if (!imagePrompt) setImagePrompt(prompt);
-    setImageLoading(true);
-    setError("");
-
-    const res = await fetch("/api/patients/generate-image", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt }),
-    });
-
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "Error al generar imagen");
-      setImageLoading(false);
-      return;
-    }
-
-    const data = await res.json();
-    setGeneratedImage(data.url);
-    if (data.revised_prompt && !customPrompt) setImagePrompt(data.revised_prompt);
-    setImageLoading(false);
-  };
-
-  const [imageSaved, setImageSaved] = useState(false);
-  const [imageSaving, setImageSaving] = useState(false);
-
-  const saveImageToStorage = async () => {
-    if (!generatedImage) return;
-    setImageSaving(true);
-    const slug = form.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
-    const res = await fetch("/api/patients/upload-asset", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: generatedImage, slug, type: "image" }),
-    });
-    if (res.ok) setImageSaved(true);
-    setImageSaving(false);
-  };
-
-  return (
-    <div className="bg-white rounded-xl p-6 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <ImageIcon size={18} className="text-sidebar" />
-          <h3 className="font-semibold text-gray-900">Imagen del paciente</h3>
-        </div>
-        <div className="flex items-center gap-2">
-          {generatedImage && (
-            <button onClick={saveImageToStorage} disabled={imageSaving || imageSaved}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                imageSaved ? "bg-green-100 text-green-700" : "bg-green-600 text-white hover:bg-green-700"
-              } disabled:opacity-70`}>
-              {imageSaving ? <Loader2 size={12} className="animate-spin" /> : imageSaved ? <CheckCircle2 size={12} /> : <Upload size={12} />}
-              {imageSaving ? "Subiendo..." : imageSaved ? "Imagen guardada" : "Guardar en plataforma"}
-            </button>
-          )}
-          <button onClick={() => generateImage()} disabled={imageLoading}
-            className="flex items-center gap-1.5 text-sm border border-sidebar text-sidebar px-4 py-2 rounded-lg font-medium hover:bg-sidebar/5 transition-colors disabled:opacity-50">
-            {imageLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-            {imageLoading ? "Generando..." : generatedImage ? "Regenerar" : "Generar imagen"}
-          </button>
-        </div>
-      </div>
-
-      {/* Image preview */}
-      {generatedImage ? (
-        <div className="flex justify-center mb-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={generatedImage} alt={form.name} className="w-64 h-64 rounded-2xl object-cover shadow-lg" />
-        </div>
-      ) : !imageLoading ? (
-        <div className="flex flex-col items-center justify-center py-8 text-gray-400">
-          <ImageIcon size={40} className="mb-2 opacity-30" />
-          <p className="text-xs">Genera una imagen basada en la identidad del paciente</p>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-12">
-          <Loader2 size={32} className="animate-spin text-sidebar mb-3" />
-          <p className="text-xs text-gray-400">Generando imagen con DALL-E 3...</p>
-          <p className="text-[10px] text-gray-300 mt-1">Esto puede tomar 15-30 segundos</p>
-        </div>
-      )}
-
-      {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
-
-      {/* Prompt editor */}
-      <button onClick={() => setShowPrompt(!showPrompt)}
-        className="text-xs text-sidebar font-medium hover:underline mb-2">
-        {showPrompt ? "Ocultar prompt" : "Ver/editar prompt de imagen"}
-      </button>
-
-      {showPrompt && (
-        <div className="space-y-2 animate-fade-in">
-          <textarea
-            value={imagePrompt || buildDefaultPrompt()}
-            onChange={(e) => setImagePrompt(e.target.value)}
-            rows={4}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono resize-y focus:outline-none focus:ring-2 focus:ring-sidebar/20"
-            placeholder="Describe la imagen que deseas generar..."
-          />
-          <div className="flex items-center gap-2">
-            <button onClick={() => generateImage(imagePrompt)} disabled={imageLoading}
-              className="text-xs bg-sidebar text-white px-3 py-1.5 rounded-lg font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50">
-              Generar con este prompt
-            </button>
-            <button onClick={() => { setImagePrompt(buildDefaultPrompt()); }}
-              className="text-xs text-gray-400 hover:text-gray-600">
-              Restaurar prompt original
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function VideoGenerator({ imageUrl, patientName }: { imageUrl: string; patientName: string }) {
-  const [state, setState] = useState<"idle" | "generating" | "polling" | "done" | "error">("idle");
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [, setGenerationId] = useState<string | null>(null);
-  const [videoPrompt, setVideoPrompt] = useState("Subtle natural movement: gentle breathing, slight eye blinks, micro facial expressions. The person stays still, looking forward with a calm, neutral presence. Photorealistic, no camera movement.");
-  const [showPrompt, setShowPrompt] = useState(false);
-  const [error, setError] = useState("");
-
-  const startGeneration = async () => {
-    setState("generating");
-    setError("");
-    setVideoUrl(null);
-
-    const res = await fetch("/api/patients/generate-video", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image_url: imageUrl, prompt: videoPrompt }),
-    });
-
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "Error al iniciar generación");
-      setState("error");
-      return;
-    }
-
-    const data = await res.json();
-    setGenerationId(data.id);
-    setState("polling");
-    pollStatus(data.id);
-  };
-
-  const pollStatus = async (id: string) => {
-    const poll = async () => {
-      const res = await fetch(`/api/patients/generate-video?id=${id}`);
-      if (!res.ok) { setState("error"); setError("Error consultando estado"); return; }
-      const data = await res.json();
-
-      if (data.state === "completed" && data.video_url) {
-        setVideoUrl(data.video_url);
-        setState("done");
-      } else if (data.state === "failed") {
-        setState("error");
-        setError("La generación de video falló. Intenta de nuevo.");
-      } else {
-        // Keep polling every 5 seconds
-        setTimeout(() => pollStatus(id), 5000);
-      }
-    };
-    poll();
-  };
-
-  const [videoSaved, setVideoSaved] = useState(false);
-  const [videoSaving, setVideoSaving] = useState(false);
-
-  const saveVideoToStorage = async () => {
-    if (!videoUrl) return;
-    setVideoSaving(true);
-    const slug = patientName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
-    const res = await fetch("/api/patients/upload-asset", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: videoUrl, slug, type: "video" }),
-    });
-    if (res.ok) setVideoSaved(true);
-    setVideoSaving(false);
-  };
-
-  return (
-    <div className="bg-white rounded-xl p-6 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Video size={18} className="text-sidebar" />
-          <h3 className="font-semibold text-gray-900">Video animado (Luma AI)</h3>
-        </div>
-        <div className="flex items-center gap-2">
-          {videoUrl && (
-            <button onClick={saveVideoToStorage} disabled={videoSaving || videoSaved}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                videoSaved ? "bg-green-100 text-green-700" : "bg-green-600 text-white hover:bg-green-700"
-              } disabled:opacity-70`}>
-              {videoSaving ? <Loader2 size={12} className="animate-spin" /> : videoSaved ? <CheckCircle2 size={12} /> : <Upload size={12} />}
-              {videoSaving ? "Subiendo..." : videoSaved ? "Video guardado" : "Guardar en plataforma"}
-            </button>
-          )}
-          <button onClick={startGeneration} disabled={state === "generating" || state === "polling"}
-            className="flex items-center gap-1.5 text-sm border border-sidebar text-sidebar px-4 py-2 rounded-lg font-medium hover:bg-sidebar/5 transition-colors disabled:opacity-50">
-            {state === "generating" || state === "polling" ? (
-              <><Loader2 size={14} className="animate-spin" /> Generando...</>
-            ) : (
-              <><Video size={14} /> {videoUrl ? "Regenerar video" : "Generar video"}</>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Video preview */}
-      {videoUrl ? (
-        <div className="flex justify-center mb-4">
-          <div className="relative rounded-2xl overflow-hidden shadow-lg">
-            <video src={videoUrl} controls loop className="w-64 h-64 object-cover" />
-          </div>
-        </div>
-      ) : state === "generating" || state === "polling" ? (
-        <div className="flex flex-col items-center justify-center py-12">
-          <Loader2 size={32} className="animate-spin text-sidebar mb-3" />
-          <p className="text-xs text-gray-500 font-medium">
-            {state === "generating" ? "Iniciando generación..." : "Generando video con Luma AI..."}
-          </p>
-          <p className="text-[10px] text-gray-400 mt-1">Esto puede tomar 1-3 minutos</p>
-          <div className="mt-4 w-48 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-            <div className="bg-sidebar h-1.5 rounded-full animate-pulse" style={{ width: "60%" }} />
-          </div>
-        </div>
-      ) : state === "idle" ? (
-        <div className="flex flex-col items-center justify-center py-8 text-gray-400">
-          <Play size={40} className="mb-2 opacity-30" />
-          <p className="text-xs">Genera un video animado a partir de la imagen del paciente</p>
-          <p className="text-[10px] text-gray-300 mt-1">Usa Luma Dream Machine — movimiento sutil y natural</p>
-        </div>
-      ) : null}
-
-      {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
-
-      {/* Prompt editor */}
-      <button onClick={() => setShowPrompt(!showPrompt)}
-        className="text-xs text-sidebar font-medium hover:underline mb-2">
-        {showPrompt ? "Ocultar prompt" : "Ver/editar prompt de video"}
-      </button>
-
-      {showPrompt && (
-        <div className="space-y-2 animate-fade-in">
-          <textarea
-            value={videoPrompt}
-            onChange={(e) => setVideoPrompt(e.target.value)}
-            rows={3}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono resize-y focus:outline-none focus:ring-2 focus:ring-sidebar/20"
-          />
-          <p className="text-[10px] text-gray-400">
-            Tip: para mejores resultados, describe movimientos sutiles (parpadeo, respiración) y evita movimientos bruscos.
-          </p>
         </div>
       )}
     </div>

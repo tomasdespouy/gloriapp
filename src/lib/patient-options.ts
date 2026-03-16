@@ -137,3 +137,116 @@ export interface TestResult {
     suggestions: string[];
   };
 }
+
+// --- 15-step creation workflow types ---
+
+export const NARRATIVE_SECTIONS = [
+  "datos_basicos",
+  "motivo_consulta",
+  "contexto_familiar",
+  "personalidad",
+  "dinamica_relacional",
+] as const;
+
+export const EXTENDED_NARRATIVE_SECTIONS = [
+  "historia_personal",
+  "historia_familiar",
+  "vinculos_apego",
+  "historia_profesional",
+  "eventos_traumaticos",
+  "mecanismos_defensa",
+  "contexto_cultural",
+  "estado_actual",
+] as const;
+
+export const EXTENDED_NARRATIVE_LABELS: Record<string, string> = {
+  historia_personal: "Historia personal (infancia, adolescencia, adultez)",
+  historia_familiar: "Historia familiar (familia de origen, dinamicas, eventos)",
+  vinculos_apego: "Vinculos de apego y estilo relacional",
+  historia_profesional: "Historia profesional / academica",
+  eventos_traumaticos: "Eventos traumaticos o significativos",
+  mecanismos_defensa: "Mecanismos de defensa y patrones repetitivos",
+  contexto_cultural: "Contexto cultural y socioeconomico",
+  estado_actual: "Estado actual y motivo de consulta",
+};
+
+export const NARRATIVE_LABELS: Record<string, string> = {
+  datos_basicos: "Datos basicos",
+  motivo_consulta: "Motivo de consulta",
+  contexto_familiar: "Contexto familiar",
+  personalidad: "Personalidad y rasgos",
+  dinamica_relacional: "Dinamica relacional",
+};
+
+export interface ShortNarrative {
+  datos_basicos: string;
+  motivo_consulta: string;
+  contexto_familiar: string;
+  personalidad: string;
+  dinamica_relacional: string;
+}
+
+export interface ExtendedNarrative {
+  historia_personal: string;
+  historia_familiar: string;
+  vinculos_apego: string;
+  historia_profesional: string;
+  eventos_traumaticos: string;
+  mecanismos_defensa: string;
+  contexto_cultural: string;
+  estado_actual: string;
+}
+
+export interface CoherenceItem {
+  section: string;
+  severity: "critica" | "sugerencia" | "ok";
+  type: "interna" | "clinica";
+  message: string;
+}
+
+export interface CoherenceReview {
+  items: CoherenceItem[];
+  summary: string;
+}
+
+export interface SessionProjection {
+  session_number: number;
+  summary: string;
+  alliance: number;
+  symptoms: number;
+  resistance: number;
+  key_moment: string;
+}
+
+export interface LevelProjection {
+  level: "principiante" | "intermedio" | "experto";
+  sessions: SessionProjection[];
+  overall_assessment: string;
+  coherence_score: number;
+  evolution_score: number;
+}
+
+export interface Projections {
+  principiante: LevelProjection;
+  intermedio: LevelProjection;
+  experto: LevelProjection;
+}
+
+export interface GeneratedSystemPrompt {
+  system_prompt: string;
+  quote: string;
+  presenting_problem: string;
+  backstory: string;
+  personality_traits: {
+    openness: number;
+    neuroticism: number;
+    resistance: string;
+    communication_style: string;
+  };
+  tags: string[];
+  skills_practiced: string[];
+  total_sessions: number;
+  birthday?: string;
+  neighborhood?: string;
+  family_members?: { name: string; age: number; relationship: string; notes: string }[];
+}

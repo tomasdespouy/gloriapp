@@ -80,6 +80,11 @@ export async function POST(request: Request) {
         birthday: patientData.birthday || null,
         neighborhood: patientData.neighborhood || null,
         family_members: patientData.family_members || [],
+        short_narrative: patientData.short_narrative || null,
+        extended_narrative: patientData.extended_narrative || null,
+        coherence_review: patientData.coherence_review || null,
+        projections: patientData.projections || null,
+        creation_step: patientData.creation_step || 0,
         is_active: true,
       })
       .select("id, name")
