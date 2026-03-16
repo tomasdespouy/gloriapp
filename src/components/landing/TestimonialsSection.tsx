@@ -1,31 +1,46 @@
 import { Quote } from "lucide-react";
 import ScrollReveal from "./ScrollReveal";
 
-const testimonials = [
+export interface Testimonial {
+  quote: string;
+  name: string;
+  year: string;
+  career: string;
+}
+
+const fallbackTestimonials: Testimonial[] = [
   {
     quote:
-      "Antes de GloriA, mi única práctica era con companeros haciendo role-play. Conversar con un paciente que realmente reacciona a lo que digo cambio mi forma de entender la terapia.",
+      "Antes de GloriA, mi única práctica era con compañeros haciendo role-play. Conversar con un paciente que realmente reacciona a lo que digo cambió mi forma de entender la terapia.",
     name: "Valentina Rojas",
     year: "4to año",
     career: "Psicología Clínica",
   },
   {
     quote:
-      "Me ayudo mucho a manejar silencios y pacientes resistentes. Con Carmen aprendi que presionar no funciona, y esa lección me la lleve a mi práctica profesional.",
-    name: "Sebastian Contreras",
+      "Me ayudó mucho a manejar silencios y pacientes resistentes. Con Carmen aprendí que presionar no funciona, y esa lección me la llevé a mi práctica profesional.",
+    name: "Sebastián Contreras",
     year: "5to año",
     career: "Psicología Clínica",
   },
   {
     quote:
-      "Lo uso antes de cada evaluación práctica. Puedo repetir la sesión, probar distintos enfoques y ver como cambia la respuesta del paciente. Es como un simulador de vuelo para terapeutas.",
-    name: "Catalina Munoz",
+      "Lo uso antes de cada evaluación práctica. Puedo repetir la sesión, probar distintos enfoques y ver cómo cambia la respuesta del paciente. Es como un simulador de vuelo para terapeutas.",
+    name: "Catalina Muñoz",
     year: "3er año",
-    career: "Psicologia",
+    career: "Psicología",
   },
 ];
 
-export default function TestimonialsSection() {
+export default function TestimonialsSection({
+  testimonials: externalTestimonials,
+}: {
+  testimonials?: Testimonial[];
+}) {
+  const testimonials =
+    externalTestimonials && externalTestimonials.length > 0
+      ? externalTestimonials
+      : fallbackTestimonials;
   return (
     <section
       id="testimonios"

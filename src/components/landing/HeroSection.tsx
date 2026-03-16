@@ -114,7 +114,7 @@ function VideoCircle({
     >
       <video
         src={`/patients/${slug}.mp4`}
-        poster={`/patients/${slug}.png`}
+        poster={`/patients/${slug}.webp`}
         autoPlay
         loop
         muted

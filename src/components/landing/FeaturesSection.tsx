@@ -70,7 +70,7 @@ export default function FeaturesSection() {
                   <div className="w-40 h-40 lg:w-52 lg:h-52 rounded-full overflow-hidden bg-[#4A55A2] border-4 border-[#4A55A2]/10 shadow-lg">
                     <video
                       src={`/patients/${feature.videoSlug}.mp4`}
-                      poster={`/patients/${feature.videoSlug}.png`}
+                      poster={`/patients/${feature.videoSlug}.webp`}
                       autoPlay
                       loop
                       muted

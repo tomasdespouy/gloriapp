@@ -37,18 +37,24 @@ export default async function LandingPage() {
 
   // Fetch active patients and institutions for showcase
   const admin = createAdminClient();
-  const [{ data: patients }, { data: institutions }] = await Promise.all([
-    admin
-      .from("ai_patients")
-      .select("name, age, country_origin, country_residence")
-      .eq("is_active", true)
-      .order("created_at", { ascending: true }),
-    admin
-      .from("establishments")
-      .select("name, slug, logo_url, country")
-      .eq("is_active", true)
-      .order("name"),
-  ]);
+  const [{ data: patients }, { data: institutions }, { data: testimonials }] =
+    await Promise.all([
+      admin
+        .from("ai_patients")
+        .select("name, age, country_origin, country_residence")
+        .eq("is_active", true)
+        .order("created_at", { ascending: true }),
+      admin
+        .from("establishments")
+        .select("name, slug, logo_url, country")
+        .eq("is_active", true)
+        .order("name"),
+      admin
+        .from("landing_testimonials")
+        .select("quote, name, year, career")
+        .eq("is_active", true)
+        .order("sort_order"),
+    ]);
 
   return (
     <div className="bg-white">
@@ -57,7 +63,7 @@ export default async function LandingPage() {
       <HowItWorks />
       <PatientShowcase patients={patients || []} />
       <FeaturesSection />
-      <TestimonialsSection />
+      <TestimonialsSection testimonials={testimonials || []} />
       <StatsSection />
       <InstitutionsSection institutions={institutions || []} />
       <CTASection />
