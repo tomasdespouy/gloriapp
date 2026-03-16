@@ -43,7 +43,7 @@ export default function LandingFooter() {
             </h4>
             <div className="flex items-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/branding/ugm-logo.png" alt="Universidad Gabriela Mistral" className="h-10 w-auto" />
+              <img src="/universities/ugm.png" alt="Universidad Gabriela Mistral" className="h-10 w-auto" />
             </div>
           </div>
         </div>
