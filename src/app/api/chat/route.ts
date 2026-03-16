@@ -307,18 +307,48 @@ async function loadMemory(
   patientId: string,
   now: Date,
 ): Promise<string> {
-  const { data: last } = await supabase
-    .from("conversations")
-    .select("id, created_at")
-    .eq("student_id", userId)
-    .eq("ai_patient_id", patientId)
-    .eq("status", "completed")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Try cumulative narrative first (compact, multi-session)
+  const [{ data: narrative }, { data: last }] = await Promise.all([
+    supabase
+      .from("patient_narratives")
+      .select("narrative, key_themes, sessions_included, updated_at")
+      .eq("student_id", userId)
+      .eq("ai_patient_id", patientId)
+      .maybeSingle(),
+    supabase
+      .from("conversations")
+      .select("id, created_at")
+      .eq("student_id", userId)
+      .eq("ai_patient_id", patientId)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   if (!last) return "";
 
+  const lastDate = new Date(last.created_at);
+  const diff = formatTimeDifference(lastDate, now);
+
+  // Use cumulative narrative if available
+  if (narrative?.narrative) {
+    const themes = narrative.key_themes?.length
+      ? `\nTemas recurrentes: ${narrative.key_themes.join(", ")}`
+      : "";
+
+    return `\n\n[MEMORIA ACUMULATIVA — ${narrative.sessions_included} sesión(es) con este terapeuta]
+${narrative.narrative}${themes}
+[FIN MEMORIA]
+
+IMPORTANTE sobre la memoria:
+- Tu última sesión fue ${diff}. Si preguntan cuándo hablaron, di "${diff}".
+- Has tenido ${narrative.sessions_included} sesión(es) con este terapeuta en total.
+- Recuerda lo compartido y evoluciona naturalmente.
+- ADVERTENCIA: Tú eres el PACIENTE, no el terapeuta. No ofrezcas apoyo ni hagas preguntas terapéuticas.`;
+  }
+
+  // Fallback: raw transcript from last session (for sessions before narrative was enabled)
   const { data: msgs } = await supabase
     .from("messages")
     .select("role, content, created_at")
@@ -328,8 +358,6 @@ async function loadMemory(
 
   if (!msgs?.length) return "";
 
-  const lastDate = new Date(last.created_at);
-  const diff = formatTimeDifference(lastDate, now);
   const dateStr = lastDate.toLocaleString("es-CL", {
     timeZone: "America/Santiago",
     weekday: "long", day: "numeric", month: "long", year: "numeric",
@@ -343,7 +371,7 @@ async function loadMemory(
     return `[${t}] ${m.role === "user" ? "TERAPEUTA" : "TU (PACIENTE)"}: ${m.content}`;
   }).join("\n");
 
-  return `\n\n[MEMORIA DE SESIÓN ANTERIOR]\nTu última sesión con este terapeuta fue el ${dateStr} (${diff}).\nConversación:\n${transcript}\n[FIN MEMORIA]\n\nIMPORTANTE sobre la memoria:\n- La última sesión fue ${diff}. Si preguntan cuándo hablaron, di "${diff}".\n- Recuerda lo compartido y evoluciona naturalmente.\n- ADVERTENCIA: Si en la sesión anterior cometiste el error de actuar como terapeuta (decir "estoy aquí para escucharte", ofrecer apoyo, hacer preguntas terapéuticas), NO lo repitas. Eso fue un error. Tú eres el PACIENTE, no el terapeuta.`;
+  return `\n\n[MEMORIA DE SESIÓN ANTERIOR]\nTu última sesión con este terapeuta fue el ${dateStr} (${diff}).\nConversación:\n${transcript}\n[FIN MEMORIA]\n\nIMPORTANTE sobre la memoria:\n- La última sesión fue ${diff}. Si preguntan cuándo hablaron, di "${diff}".\n- Recuerda lo compartido y evoluciona naturalmente.\n- ADVERTENCIA: Tú eres el PACIENTE, no el terapeuta. No ofrezcas apoyo ni hagas preguntas terapéuticas.`;
 }
 
 function formatTimeDifference(pastDate: Date, now: Date): string {

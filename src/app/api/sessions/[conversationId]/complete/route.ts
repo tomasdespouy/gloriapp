@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat } from "@/lib/ai";
+import { summarizeSession, mergeNarrative } from "@/lib/narrative";
 import { calculateSessionXp, getLevelInfo } from "@/lib/gamification";
 
 const EVALUATION_PROMPT = `Eres un supervisor clínico experto evaluando la sesión de un estudiante de psicología.
@@ -154,6 +155,43 @@ export async function POST(
     areas_to_improve: evaluation.areas_to_improve || [],
   }, { onConflict: "conversation_id" });
 
+  // Generate cumulative narrative summary (non-blocking)
+  const narrativePromise = (async () => {
+    try {
+      // Load existing narrative for this student-patient pair
+      const { data: existing } = await admin
+        .from("patient_narratives")
+        .select("narrative, sessions_included")
+        .eq("student_id", user.id)
+        .eq("ai_patient_id", conversation.ai_patient_id)
+        .maybeSingle();
+
+      // Summarize this session
+      const sessionSummary = await summarizeSession(transcript);
+
+      // Merge with previous narrative
+      const sessionsIncluded = (existing?.sessions_included || 0) + 1;
+      const merged = await mergeNarrative(
+        existing?.narrative || "",
+        sessionSummary,
+        sessionsIncluded,
+      );
+
+      // Upsert the cumulative narrative
+      await admin.from("patient_narratives").upsert({
+        student_id: user.id,
+        ai_patient_id: conversation.ai_patient_id,
+        narrative: merged.narrative,
+        key_themes: merged.key_themes,
+        sessions_included: sessionsIncluded,
+        last_conversation_id: conversationId,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "student_id,ai_patient_id" });
+    } catch (err) {
+      console.error("Narrative generation failed (non-critical):", err);
+    }
+  })();
+
   // Calculate XP (V2 scale 0-4)
   const xpEarned = calculateSessionXp(overallV2);
 
@@ -284,6 +322,9 @@ export async function POST(
       await admin.from("notifications").insert(notifications);
     }
   }
+
+  // Await narrative (best-effort, don't block response on failure)
+  await narrativePromise;
 
   const levelUp = levelInfo.current.level > (progress?.level || 1);
 
