@@ -123,11 +123,72 @@ const TRANSITION_RULES: StateTransition[] = [
   { intervention: "otro", deltas: {} },
 ];
 
-// ═══ FUNCTIONS ═══
+// ═══ LLM CLASSIFICATION ═══
+
+const CLASSIFY_SYSTEM = "Clasifica intervenciones terapéuticas. Responde SOLO con la categoría, sin explicación.";
+
+const CLASSIFY_PROMPT = `Clasifica esta intervención terapéutica en UNA categoría.
+
+Intervención del terapeuta: "{TEXT}"
+{CONTEXT}
+Categorías posibles:
+- pregunta_abierta: invita a explorar ("¿Cómo se siente?", "Cuénteme más")
+- pregunta_cerrada: se responde sí/no ("¿Duerme bien?", "¿Tiene hijos?")
+- validacion_empatica: muestra comprensión ("Entiendo lo difícil que es", "Debe ser duro")
+- reformulacion: parafrasea ("Si entiendo bien, lo que dice es...")
+- confrontacion: señala contradicciones ("Pero antes me dijo que...")
+- silencio_terapeutico: pausa, silencio, "[silencio]"
+- directividad: da consejos/órdenes ("Debería hacer...", "Tiene que...")
+- interpretacion: ofrece una lectura profunda ("Quizás en el fondo...")
+- normalizacion: normaliza la experiencia ("Es normal sentir eso")
+- resumen: resume lo conversado ("Hasta ahora hemos hablado de...")
+- otro: no encaja en ninguna
+
+Responde SOLO con la categoría.`;
+
+const VALID_TYPES = new Set<InterventionType>([
+  "pregunta_abierta", "pregunta_cerrada", "validacion_empatica",
+  "reformulacion", "confrontacion", "silencio_terapeutico",
+  "directividad", "interpretacion", "normalizacion", "resumen", "otro",
+]);
+
+const LLM_CLASSIFY_TIMEOUT_MS = 5_000;
+
+/**
+ * Classify a therapist intervention using LLM (with timeout + fallback to heuristics).
+ * Accepts an optional chatFn to avoid circular imports.
+ */
+export async function classifyWithLLM(
+  text: string,
+  chatFn: (messages: { role: "user" | "assistant" | "system"; content: string }[], system?: string) => Promise<string>,
+  context?: string,
+): Promise<InterventionType> {
+  try {
+    const prompt = CLASSIFY_PROMPT
+      .replace("{TEXT}", text)
+      .replace("{CONTEXT}", context ? `Contexto previo (últimos turnos):\n${context}\n` : "");
+
+    const result = await Promise.race([
+      chatFn([{ role: "user", content: prompt }], CLASSIFY_SYSTEM),
+      new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error("classify timeout")), LLM_CLASSIFY_TIMEOUT_MS)
+      ),
+    ]);
+
+    const cleaned = result.trim().toLowerCase().replace(/[^a-z_]/g, "") as InterventionType;
+    if (VALID_TYPES.has(cleaned)) return cleaned;
+  } catch {
+    // Timeout or LLM error — fall through to heuristic
+  }
+
+  return classifyIntervention(text);
+}
+
+// ═══ HEURISTIC CLASSIFICATION (fallback) ═══
 
 /**
  * Classify a therapist intervention using keyword matching.
- * For production, this should use the LLM, but for speed we use heuristics.
+ * Used as fast fallback when LLM classification times out.
  */
 export function classifyIntervention(text: string): InterventionType {
   const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");

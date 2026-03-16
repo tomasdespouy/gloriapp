@@ -4,9 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { chatStream, type ChatMessage } from "@/lib/ai";
 import { z } from "zod";
 import {
-  classifyIntervention, calculateDeltas, applyDeltas,
+  classifyWithLLM, calculateDeltas, applyDeltas,
   buildStatePrompt, INITIAL_STATE, type ClinicalState,
 } from "@/lib/clinical-state-engine";
+import { chat as chatEval } from "@/lib/ai";
 import { searchKnowledge, buildRAGContext } from "@/lib/clinical-knowledge";
 import { searchVectorRAG, buildVectorRAGContext } from "@/lib/vector-rag";
 import { logger } from "@/lib/logger";
@@ -108,6 +109,9 @@ TU ROL COMO PACIENTE:
 
   const memoryPromise = loadMemory(supabase, user.id, patientId, now);
 
+  // LLM classification — fire early, resolve later (5s timeout + heuristic fallback)
+  const classifyPromise = classifyWithLLM(message, chatEval);
+
   // 5. Create or use existing conversation
   if (!conversationId) {
     const { count } = await supabase
@@ -126,8 +130,8 @@ TU ROL COMO PACIENTE:
     conversationId = conv.id;
   }
 
-  // 6. Save message + load history + await memory — all in parallel
-  const [, { data: history }, memoryContext] = await Promise.all([
+  // 6. Save message + load history + await memory + classify — all in parallel
+  const [, { data: history }, memoryContext, interventionType] = await Promise.all([
     supabase.from("messages").insert({ conversation_id: conversationId, role: "user", content: message }),
     supabase
       .from("messages")
@@ -136,11 +140,12 @@ TU ROL COMO PACIENTE:
       .order("created_at", { ascending: false })
       .limit(MAX_HISTORY),
     memoryPromise,
+    classifyPromise,
   ]);
 
   const chronological = (history || []).reverse();
 
-  // 7. MOTOR ADAPTATIVO: classify intervention + update state
+  // 7. MOTOR ADAPTATIVO: update state using LLM-classified intervention
   const admin = createAdminClient();
 
   // Load current state (cached per conversation to avoid DB roundtrip)
@@ -175,9 +180,6 @@ TU ROL COMO PACIENTE:
     : INITIAL_STATE;
 
   const turnNumber = (lastState?.turn || 0) + 1;
-
-  // Classify the therapist's intervention
-  const interventionType = classifyIntervention(message);
 
   // Calculate how it affects the patient
   const deltas = calculateDeltas(interventionType, currentState);
