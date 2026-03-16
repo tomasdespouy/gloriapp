@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     async () => {
       const { data } = await supabase
         .from("ai_patients")
-        .select("id, name, system_prompt, country_origin, country_residence, neighborhood")
+        .select("id, name, system_prompt, country_origin, country_residence, neighborhood, difficulty_level")
         .eq("id", patientId)
         .single();
       if (!data) throw new Error("Patient not found");
@@ -227,6 +227,20 @@ TU ROL COMO PACIENTE:
 
   const streamStart = Date.now();
 
+  // Micro-feedback for beginner patients — fire in parallel with streaming
+  const isBeginner = patient.difficulty_level === "beginner";
+  const microFeedbackPromise = isBeginner
+    ? chatEval(
+        [{ role: "user", content: `Intervención del terapeuta estudiante: "${message}"
+Tipo clasificado: ${interventionType}
+
+Da UN micro-consejo breve (máximo 20 palabras) sobre esta intervención.
+Si fue buena, refuérzala brevemente. Si puede mejorar, sugiere una alternativa concreta.
+Responde SOLO con el consejo, sin prefijos ni explicación.` }],
+        "Eres un supervisor clínico que da micro-feedback formativo a estudiantes de psicología. Sé directo, cálido y conciso."
+      ).catch(() => null)
+    : Promise.resolve(null);
+
   // 8. Stream LLM response (array accumulator — O(n) instead of O(n²))
   const chunks: string[] = [];
   const encoder = new TextEncoder();
@@ -250,26 +264,55 @@ TU ROL COMO PACIENTE:
 
         const patientResponse = chunks.join("");
 
-        await supabase.from("messages").insert({
-          conversation_id: conversationId,
-          role: "assistant",
-          content: patientResponse,
-        });
+        // Save message + state log in parallel
+        await Promise.all([
+          supabase.from("messages").insert({
+            conversation_id: conversationId,
+            role: "assistant",
+            content: patientResponse,
+          }).then(),
+          admin.from("clinical_state_log").insert({
+            conversation_id: conversationId,
+            turn_number: turnNumber,
+            intervention_type: interventionType,
+            intervention_raw: message,
+            ...newState,
+            delta_resistencia: deltas.resistencia || 0,
+            delta_alianza: deltas.alianza || 0,
+            delta_apertura: deltas.apertura_emocional || 0,
+            delta_sintomatologia: deltas.sintomatologia || 0,
+            delta_disposicion: deltas.disposicion_cambio || 0,
+            patient_response: patientResponse.slice(0, 1000),
+          }).then(),
+        ]);
 
-        // Save clinical state log (trazabilidad causal)
-        await admin.from("clinical_state_log").insert({
-          conversation_id: conversationId,
-          turn_number: turnNumber,
-          intervention_type: interventionType,
-          intervention_raw: message,
-          ...newState,
-          delta_resistencia: deltas.resistencia || 0,
-          delta_alianza: deltas.alianza || 0,
-          delta_apertura: deltas.apertura_emocional || 0,
-          delta_sintomatologia: deltas.sintomatologia || 0,
-          delta_disposicion: deltas.disposicion_cambio || 0,
-          patient_response: patientResponse.slice(0, 1000),
-        }); // Non-blocking state log
+        // Micro-feedback for beginner patients (arrives after streaming)
+        if (isBeginner) {
+          const feedback = await microFeedbackPromise;
+          if (feedback) {
+            const annotation = feedback.trim().slice(0, 200);
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: "micro_feedback", value: annotation, intervention: interventionType })}\n\n`)
+            );
+            // Save to message_annotations (best-effort)
+            const { data: userMsg } = await admin
+              .from("messages")
+              .select("id")
+              .eq("conversation_id", conversationId)
+              .eq("role", "user")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (userMsg) {
+              await admin.from("message_annotations").insert({
+                message_id: userMsg.id,
+                annotation_type: "suggestion",
+                annotation_text: annotation,
+                competency: interventionType,
+              }).then();
+            }
+          }
+        }
 
         // Performance metrics
         logger.metric("chat_response", {

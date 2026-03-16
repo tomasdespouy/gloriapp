@@ -4,14 +4,17 @@ import { useState } from "react";
 import { FileText, Loader2 } from "lucide-react";
 import { jsPDF } from "jspdf";
 
-export default function ExportFichaButton({ patientId, patientName }: { patientId: string; patientName: string }) {
+export default function ExportFichaButton({ patientId, patientName, studentId }: { patientId: string; patientName: string; studentId?: string }) {
   const [loading, setLoading] = useState(false);
 
   const handleExport = async () => {
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/patients/${patientId}/ficha`);
+      const url = studentId
+        ? `/api/patients/${patientId}/ficha?studentId=${studentId}`
+        : `/api/patients/${patientId}/ficha`;
+      const res = await fetch(url);
       if (!res.ok) { setLoading(false); return; }
       const data = await res.json();
 
@@ -76,6 +79,28 @@ export default function ExportFichaButton({ patientId, patientName }: { patientI
         // Section body
         addText(body, 10, false, [50, 50, 50]);
         addSpace(6);
+      }
+
+      // Narrative section (if available)
+      const narrative = data.narrative as { narrative: string; key_themes: string[]; sessions_included: number } | null;
+      if (narrative?.narrative) {
+        if (y > 220) { doc.addPage(); y = 20; }
+        addSpace(4);
+        doc.setFillColor(74, 85, 162);
+        doc.rect(margin, y - 4, maxWidth, 8, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text(`RESUMEN NARRATIVO ACUMULATIVO (${narrative.sessions_included} sesiones)`, margin + 3, y + 1);
+        y += 10;
+
+        addText(narrative.narrative, 10, false, [50, 50, 50]);
+        addSpace(4);
+
+        if (narrative.key_themes?.length) {
+          addText(`Temas recurrentes: ${narrative.key_themes.join(", ")}`, 9, true, [74, 85, 162]);
+          addSpace(4);
+        }
       }
 
       // Footer on each page

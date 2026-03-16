@@ -8,6 +8,7 @@ import CountUp from "@/components/CountUp";
 import CompetencyRadar from "@/components/CompetencyRadar";
 import { useToast } from "@/components/Toast";
 import type { CompetencyScores } from "@/lib/gamification";
+import ClinicalStateChart from "@/components/ClinicalStateChart";
 
 interface Props {
   conversationId: string;
@@ -351,6 +352,9 @@ export default function ReviewClient({
                   </p>
                   <CompetencyRadar scores={scores} />
                 </div>
+
+                {/* Clinical State Evolution */}
+                <ClinicalStateChart conversationId={conversationId} canView={canSeeResults} />
 
                 {/* AI Commentary */}
                 <div className="bg-white rounded-xl border border-gray-200 p-6">

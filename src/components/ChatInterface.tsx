@@ -18,6 +18,7 @@ interface Message {
   role: string;
   content: string;
   created_at?: string;
+  microFeedback?: string;
 }
 
 interface ChatInterfaceProps {
@@ -496,6 +497,18 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               }, thinkDelay);
             }
             tokenBufferRef.current += data.value;
+          } else if (data.type === "micro_feedback") {
+            // Attach micro-feedback to the last user message
+            setMessages((prev) => {
+              const updated = [...prev];
+              for (let j = updated.length - 1; j >= 0; j--) {
+                if (updated[j].role === "user") {
+                  updated[j] = { ...updated[j], microFeedback: data.value };
+                  break;
+                }
+              }
+              return updated;
+            });
           } else if (data.type === "error") {
             tokenBufferRef.current = "";
             setMessages((prev) => {
@@ -721,6 +734,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                     >
                       {formatTime(msg.created_at)}
                     </span>
+                  )}
+
+                  {/* Micro-feedback (beginner patients only) */}
+                  {msg.role === "user" && msg.microFeedback && (
+                    <div className="mt-1.5 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 max-w-full animate-fade-in">
+                      <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide mb-0.5">Tip</p>
+                      <p className="text-[11px] text-indigo-700 leading-relaxed">{msg.microFeedback}</p>
+                    </div>
                   )}
                 </div>
               </div>

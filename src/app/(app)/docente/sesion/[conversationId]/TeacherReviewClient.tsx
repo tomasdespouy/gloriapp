@@ -8,6 +8,7 @@ import {
   MessageSquare, Sparkles, Loader2,
 } from "lucide-react";
 import { useToast } from "@/components/Toast";
+import ClinicalStateChart from "@/components/ClinicalStateChart";
 
 interface Message {
   id: string;
@@ -562,6 +563,9 @@ export default function TeacherReviewClient({
                 )}
               </div>
             </div>
+
+            {/* Clinical State Evolution */}
+            <ClinicalStateChart conversationId={conversationId} canView={true} />
 
             {/* Action Items */}
             <ActionItemsPanel

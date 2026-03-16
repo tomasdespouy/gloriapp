@@ -48,7 +48,7 @@ IMPORTANTE: El paciente NO debe mencionar suicidio, violencia extrema ni abuso s
 Responde SOLO con el contenido de las 12 secciones, usando los títulos numerados. Escribe en español.`;
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
@@ -61,6 +61,8 @@ export async function GET(
   }
 
   const { id } = await params;
+  const { searchParams } = new URL(request.url);
+  const studentId = searchParams.get("studentId");
   const admin = createAdminClient();
   const { data: patient } = await admin.from("ai_patients").select("*").eq("id", id).single();
 
@@ -85,6 +87,18 @@ Country: ${patient.country || "Chile"}
     FICHA_PROMPT
   );
 
+  // Optionally include cumulative narrative for a specific student
+  let narrative: { narrative: string; key_themes: string[]; sessions_included: number } | null = null;
+  if (studentId) {
+    const { data: narr } = await admin
+      .from("patient_narratives")
+      .select("narrative, key_themes, sessions_included")
+      .eq("student_id", studentId)
+      .eq("ai_patient_id", id)
+      .maybeSingle();
+    if (narr) narrative = narr;
+  }
+
   // Return as JSON (client will format as PDF)
   return NextResponse.json({
     patient: {
@@ -95,5 +109,6 @@ Country: ${patient.country || "Chile"}
       country: patient.country,
     },
     content: fichaContent,
+    narrative,
   });
 }
