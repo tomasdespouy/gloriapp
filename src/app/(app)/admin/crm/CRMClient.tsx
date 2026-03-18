@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, Plus, Download, Filter, Building2, Globe, Mail,
   Phone, ChevronDown, ChevronUp, X, ExternalLink, MessageSquare,
-  Calendar, Trash2, Edit3, Save, MapPin,
+  Calendar, Trash2, Edit3, Save, MapPin, Send, Loader2,
 } from "lucide-react";
 
 type University = {
@@ -380,6 +380,25 @@ export default function CRMClient({ universities: initial }: { universities: Uni
                         <button onClick={() => loadActivities(u.id)} className={`p-1.5 rounded hover:bg-gray-100 ${expanded === u.id ? "text-[#4A55A2]" : "text-gray-500"}`} title="Notas">
                           <MessageSquare size={14} />
                         </button>
+                        {u.contact_email && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!confirm(`¿Enviar email a ${u.contact_email}?`)) return;
+                              const res = await fetch(`/api/admin/crm/${u.id}/email`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({}),
+                              });
+                              if (res.ok) { alert("Email enviado"); router.refresh(); }
+                              else alert("Error al enviar email");
+                            }}
+                            className="p-1.5 rounded hover:bg-blue-50 text-gray-500 hover:text-blue-600"
+                            title="Enviar email"
+                          >
+                            <Send size={14} />
+                          </button>
+                        )}
                         <button onClick={() => openEdit(u)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500" title="Editar">
                           <Edit3 size={14} />
                         </button>
