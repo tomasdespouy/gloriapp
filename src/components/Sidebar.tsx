@@ -4,7 +4,7 @@ import {
   Home, User, History, BarChart3, BookOpen, Info,
   Users, ClipboardCheck, LayoutDashboard, Building2,
   Accessibility, LifeBuoy, FlaskConical, DollarSign, Activity, FileText,
-  Briefcase,
+  Briefcase, Rocket,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -38,6 +38,7 @@ const adminNav = (isSuperadmin: boolean) => [
   ...(isSuperadmin ? [{ icon: FlaskConical, label: "Investigación y Fondos", href: "/admin/investigacion" }] : []),
   ...(isSuperadmin ? [{ icon: FileText, label: "Informes técnicos", href: "/admin/informes" }] : []),
   ...(isSuperadmin ? [{ icon: Briefcase, label: "CRM", href: "/admin/crm" }] : []),
+  ...(isSuperadmin ? [{ icon: Rocket, label: "Pilotos", href: "/admin/pilotos" }] : []),
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];
 
