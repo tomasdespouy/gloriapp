@@ -1,41 +1,43 @@
 import { Users, MessageCircle, TrendingUp } from "lucide-react";
 import ScrollReveal from "./ScrollReveal";
 
-const steps = [
-  {
-    number: "01",
-    icon: Users,
-    title: "Elige un paciente",
-    description:
-      "Selecciona entre pacientes con distintas historias, personalidades y niveles de dificultad clínica.",
-  },
-  {
-    number: "02",
-    icon: MessageCircle,
-    title: "Conversa en tiempo real",
-    description:
-      "Práctica tus habilidades terapéuticas en una conversación natural. El paciente reacciona a tu enfoque.",
-  },
-  {
-    number: "03",
-    icon: TrendingUp,
-    title: "Reflexiona y mejora",
-    description:
-      "Recibe retroalimentación sobre tu sesión y desarrolla tus competencias clínicas progresivamente.",
-  },
-];
+interface HowItWorksProps {
+  dict: Record<string, string>;
+}
 
-export default function HowItWorks() {
+export default function HowItWorks({ dict }: HowItWorksProps) {
+  const t = (key: string) => dict[key] || key;
+  const steps = [
+    {
+      number: "01",
+      icon: Users,
+      title: t("howItWorks.step1Title"),
+      description: t("howItWorks.step1Desc"),
+    },
+    {
+      number: "02",
+      icon: MessageCircle,
+      title: t("howItWorks.step2Title"),
+      description: t("howItWorks.step2Desc"),
+    },
+    {
+      number: "03",
+      icon: TrendingUp,
+      title: t("howItWorks.step3Title"),
+      description: t("howItWorks.step3Desc"),
+    },
+  ];
+
   return (
     <section id="como-funciona" className="bg-white py-12 lg:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollReveal>
           <div className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-              Como funciona
+              {t("howItWorks.title")}
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Tres pasos para comenzar a desarrollar tus habilidades clínicas
+              {t("howItWorks.subtitle")}
             </p>
           </div>
         </ScrollReveal>

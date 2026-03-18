@@ -3,63 +3,65 @@
 import { Brain, Shield, BarChart3 } from "lucide-react";
 import ScrollReveal from "./ScrollReveal";
 
-const features = [
-  {
-    icon: Brain,
-    title: "Pacientes con personalidad",
-    description:
-      "Cada paciente tiene rasgos de personalidad, mecanismos de defensa y respuestas emocionales únicas. Se abren si confian en ti, se cierran si te apuras.",
-    highlights: [
-      "Reacciones emocionales dinámicas",
-      "Resistencia clínica realista",
-      "Revelaciones graduales según la alianza",
-    ],
-    videoSlug: "lucia-mendoza",
-  },
-  {
-    icon: Shield,
-    title: "Entorno seguro para aprender",
-    description:
-      "Práctica sin miedo a equivocarte. Explora distintos enfoques terapéuticos, comete errores y aprende de ellos sin consecuencias reales.",
-    highlights: [
-      "Sin riesgo para pacientes reales",
-      "Práctica ilimitada las 24 horas",
-      "Ideal para complementar tu formación",
-    ],
-    videoSlug: "marcos-herrera",
-  },
-  {
-    icon: BarChart3,
-    title: "Retroalimentación inteligente",
-    description:
-      "Al finalizar cada sesión, recibe una reflexión sobre tu desempeno. Identifica fortalezas y areas de mejora en tus habilidades clínicas.",
-    highlights: [
-      "Analisis post-sesión con IA",
-      "Seguimiento de competencias",
-      "Mejora continua y medible",
-    ],
-    videoSlug: "carmen-torres",
-  },
-];
+interface FeaturesSectionProps {
+  dict: Record<string, string>;
+}
 
-export default function FeaturesSection() {
+export default function FeaturesSection({ dict }: FeaturesSectionProps) {
+  const t = (key: string) => dict[key] || key;
+  const features = [
+    {
+      icon: Brain,
+      title: t("features.feature1Title"),
+      description: t("features.feature1Desc"),
+      highlights: [
+        t("features.feature1Highlight1"),
+        t("features.feature1Highlight2"),
+        t("features.feature1Highlight3"),
+      ],
+      videoSlug: "lucia-mendoza",
+    },
+    {
+      icon: Shield,
+      title: t("features.feature2Title"),
+      description: t("features.feature2Desc"),
+      highlights: [
+        t("features.feature2Highlight1"),
+        t("features.feature2Highlight2"),
+        t("features.feature2Highlight3"),
+      ],
+      videoSlug: "marcos-herrera",
+    },
+    {
+      icon: BarChart3,
+      title: t("features.feature3Title"),
+      description: t("features.feature3Desc"),
+      highlights: [
+        t("features.feature3Highlight1"),
+        t("features.feature3Highlight2"),
+        t("features.feature3Highlight3"),
+      ],
+      videoSlug: "carmen-torres",
+    },
+  ];
+
   return (
     <section className="bg-white py-12 lg:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollReveal>
           <div className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-              Por que elegir GloriA
+              {t("features.title")}
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Herramientas disenadas para la formación clínica del siglo XXI
+              {t("features.subtitle")}
             </p>
           </div>
         </ScrollReveal>
 
         <div className="space-y-10">
           {features.map((feature, i) => (
-            <ScrollReveal key={feature.title}>
+            <ScrollReveal key={feature.videoSlug}>
               <div
                 className={`flex flex-col ${
                   i % 2 === 1 ? "lg:flex-row-reverse" : "lg:flex-row"

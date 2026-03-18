@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MessageSquare, Play, X } from "lucide-react";
+import { MessageSquare, Play, X, Volume2 } from "lucide-react";
 
 interface PatientCardProps {
   id: string;
@@ -14,6 +14,7 @@ interface PatientCardProps {
   tags?: string[];
   activeConversationId?: string;
   country?: string | null;
+  hasVoice?: boolean;
 }
 
 const countryFlagSrc: Record<string, string> = {
@@ -55,14 +56,13 @@ const tagEmojis: Record<string, string> = {
   social: "👥",
 };
 
-export default function PatientCard({ id, name, age, occupation, quote, difficultyLevel, tags, activeConversationId, country }: PatientCardProps) {
+export default function PatientCard({ id, name, age, occupation, quote, difficultyLevel, tags, activeConversationId, country, hasVoice }: PatientCardProps) {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const difficulty = difficultyLabels[difficultyLevel] || difficultyLabels.beginner;
   const videoSlug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
   const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2);
-  const cacheBust = typeof window !== "undefined" ? Math.floor(Date.now() / 60000) : "";
-  const videoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${videoSlug}.mp4?v=${cacheBust}`;
-  const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${videoSlug}.png?v=${cacheBust}`;
+  const videoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${videoSlug}.mp4`;
+  const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${videoSlug}.png`;
 
   const hasActiveSession = !!activeConversationId;
   const chatHref = hasActiveSession
@@ -77,14 +77,21 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
           {difficulty.label}
         </span>
 
-        {/* Country flag — top right, circular */}
+        {/* Voice icon — top left after difficulty */}
+        {hasVoice && (
+          <span title="Modo voz disponible" className="absolute top-3 left-[110px] text-sidebar opacity-60">
+            <Volume2 size={14} />
+          </span>
+        )}
+
+        {/* Country flag — top right */}
         {country && countryFlagSrc[country] && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={countryFlagSrc[country]}
             alt={country}
             title={country}
-            className="absolute top-3 right-3 w-6 h-6 rounded-full object-cover shadow-sm border border-gray-100"
+            className="absolute top-3 right-3 w-6 h-4 rounded-sm object-cover shadow-sm border border-gray-100"
           />
         )}
 
@@ -95,6 +102,7 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
         >
           <video
             src={videoUrl}
+            poster={imageUrl}
             autoPlay
             loop
             muted
@@ -102,25 +110,16 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
             className="w-full h-full object-cover"
             onError={(e) => {
               const target = e.currentTarget;
-              if (!target.dataset.fallback) {
-                target.dataset.fallback = "1";
-                target.src = `/patients/${videoSlug}.mp4`;
-              } else {
-                target.style.display = "none";
-                const img = document.createElement("img");
-                img.src = imageUrl;
-                img.alt = initials;
-                img.className = "w-full h-full object-cover";
-                img.onerror = () => {
-                  img.onerror = null;
-                  img.src = `/patients/${videoSlug}.png`;
-                  img.onerror = () => {
-                    img.style.display = "none";
-                    target.parentElement!.innerHTML = `<span class="text-white text-xl font-bold">${initials}</span>`;
-                  };
-                };
-                target.parentElement!.appendChild(img);
-              }
+              target.style.display = "none";
+              const img = document.createElement("img");
+              img.src = imageUrl;
+              img.alt = name;
+              img.className = "w-full h-full object-cover";
+              img.onerror = () => {
+                img.style.display = "none";
+                target.parentElement!.innerHTML = `<span class="text-white text-xl font-bold">${initials}</span>`;
+              };
+              target.parentElement!.appendChild(img);
             }}
           />
         </button>
@@ -159,6 +158,7 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
             <div className="rounded-2xl overflow-hidden" style={{ width: 300, height: 300 }}>
               <video
                 src={videoUrl}
+                poster={imageUrl}
                 autoPlay
                 loop
                 muted

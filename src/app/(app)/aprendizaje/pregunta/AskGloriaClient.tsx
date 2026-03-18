@@ -26,7 +26,8 @@ export default function AskGloriaClient({ studentName }: { studentName: string }
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    messagesEndRef.current?.scrollIntoView({ behavior: prefersReduced ? "instant" : "smooth" });
   }, [messages]);
 
   const sendMessage = async (text?: string) => {
@@ -107,9 +108,7 @@ export default function AskGloriaClient({ studentName }: { studentName: string }
           <ArrowLeft size={18} className="text-gray-500" />
         </Link>
         <div className="flex items-center gap-3 flex-1">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-sidebar to-[#354080] flex items-center justify-center">
-            <Sparkles size={16} className="text-white" />
-          </div>
+          <img src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/gloria-avatar.jpg`} alt="GlorIA" className="w-9 h-9 rounded-full object-cover" />
           <div>
             <h1 className="text-base font-bold text-gray-900">Pregúntale a GlorIA</h1>
             <p className="text-[11px] text-gray-500">Tutora pedagógica de competencias clínicas</p>
@@ -133,9 +132,7 @@ export default function AskGloriaClient({ studentName }: { studentName: string }
           {messages.length === 0 ? (
             /* Welcome + suggestions */
             <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-sidebar to-[#354080] flex items-center justify-center mx-auto mb-4">
-                <Sparkles size={28} className="text-white" />
-              </div>
+              <img src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/gloria-avatar.jpg`} alt="GlorIA" className="w-16 h-16 rounded-full object-cover mx-auto mb-4" />
               <h2 className="text-xl font-bold text-gray-900 mb-2">
                 Hola {studentName.split(" ")[0]}, soy GlorIA
               </h2>
@@ -162,9 +159,7 @@ export default function AskGloriaClient({ studentName }: { studentName: string }
                 <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[85%] ${msg.role === "user" ? "" : "flex gap-3"}`}>
                     {msg.role === "assistant" && (
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sidebar to-[#354080] flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Sparkles size={12} className="text-white" />
-                      </div>
+                      <img src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/gloria-avatar.jpg`} alt="GlorIA" className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5" />
                     )}
                     <div className={`rounded-2xl px-4 py-3 ${
                       msg.role === "user"
@@ -210,7 +205,7 @@ export default function AskGloriaClient({ studentName }: { studentName: string }
             <Send size={16} />
           </button>
         </div>
-        <p className="max-w-3xl mx-auto text-[10px] text-gray-300 mt-2 text-center">
+        <p className="max-w-3xl mx-auto text-[10px] text-gray-500 mt-2 text-center">
           GlorIA es una tutora pedagógica. No reemplaza la supervisión clínica humana.
         </p>
       </div>

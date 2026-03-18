@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import ScrollReveal from "./ScrollReveal";
 
+interface ImpactSectionProps {
+  dict: Record<string, string>;
+}
+
 function useCountUp(target: number, isVisible: boolean, duration = 1800) {
   const [count, setCount] = useState(0);
   useEffect(() => {
@@ -19,41 +23,42 @@ function useCountUp(target: number, isVisible: boolean, duration = 1800) {
   return count;
 }
 
-const metrics = [
-  { value: 24, suffix: "", label: "Sesiones simuladas", desc: "en estudio comparativo de 3 niveles" },
-  { value: 85, suffix: "%", label: "Ahorro en costos API", desc: "con estrategia de modelo dual" },
-  { value: 10, suffix: "", label: "Competencias evaluadas", desc: "instrumento UGM calibrado" },
-  { value: 5, suffix: "", label: "Países representados", desc: "con diversidad cultural y clínica" },
-];
+export default function ImpactSection({ dict }: ImpactSectionProps) {
+  const t = (key: string) => dict[key] || key;
+  const metrics = [
+    { value: 24, suffix: "", label: t("impact.metric1Label"), desc: t("impact.metric1Desc") },
+    { value: 85, suffix: "%", label: t("impact.metric2Label"), desc: t("impact.metric2Desc") },
+    { value: 10, suffix: "", label: t("impact.metric3Label"), desc: t("impact.metric3Desc") },
+    { value: 5, suffix: "", label: t("impact.metric4Label"), desc: t("impact.metric4Desc") },
+  ];
 
-const findings = [
-  {
-    stat: "3.5x",
-    color: "#22c55e",
-    title: "Mayor reducción de resistencia",
-    desc: "Terapeutas avanzados reducen la resistencia del paciente 3.5 veces más que terapeutas básicos en 8 sesiones.",
-  },
-  {
-    stat: "2.7x",
-    color: "#4A55A2",
-    title: "Mayor alianza terapéutica",
-    desc: "La alianza construida por terapeutas avanzados es 2.7 veces más fuerte que con intervenciones directivas.",
-  },
-  {
-    stat: "0%",
-    color: "#ef4444",
-    title: "Mejora con directividad",
-    desc: "Los terapeutas que dan consejos prematuros no mejoran la sintomatología del paciente en ninguna sesión.",
-  },
-  {
-    stat: "90s",
-    color: "#eab308",
-    title: "Reactividad del paciente",
-    desc: "El paciente reacciona si el terapeuta guarda silencio por más de 90 segundos, como en la vida real.",
-  },
-];
+  const findings = [
+    {
+      stat: "3.5x",
+      color: "#22c55e",
+      title: t("impact.finding1Title"),
+      desc: t("impact.finding1Desc"),
+    },
+    {
+      stat: "2.7x",
+      color: "#4A55A2",
+      title: t("impact.finding2Title"),
+      desc: t("impact.finding2Desc"),
+    },
+    {
+      stat: "0%",
+      color: "#ef4444",
+      title: t("impact.finding3Title"),
+      desc: t("impact.finding3Desc"),
+    },
+    {
+      stat: "90s",
+      color: "#eab308",
+      title: t("impact.finding4Title"),
+      desc: t("impact.finding4Desc"),
+    },
+  ];
 
-export default function ImpactSection() {
   const ref = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -74,14 +79,13 @@ export default function ImpactSection() {
         <ScrollReveal>
           <div className="text-center mb-12">
             <p className="text-xs font-semibold text-[#4A55A2] uppercase tracking-widest mb-2">
-              Evidencia de impacto
+              {t("impact.sectionLabel")}
             </p>
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-              Resultados que respaldan la plataforma
+              {t("impact.title")}
             </h2>
             <p className="text-gray-500 max-w-2xl mx-auto">
-              Datos reales de pilotos y estudios comparativos que demuestran
-              la efectividad del motor clínico adaptativo de GlorIA
+              {t("impact.subtitle")}
             </p>
           </div>
         </ScrollReveal>
@@ -109,10 +113,10 @@ export default function ImpactSection() {
           <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-8 py-6 border-b border-gray-100 bg-gray-50/50">
               <h3 className="text-lg font-bold text-gray-900">
-                Hallazgos del estudio comparativo
+                {t("impact.findingsTitle")}
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                3 niveles de terapeuta (básico, intermedio, avanzado) x 8 sesiones con el mismo paciente
+                {t("impact.findingsSubtitle")}
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
@@ -139,9 +143,7 @@ export default function ImpactSection() {
         {/* Bottom note */}
         <ScrollReveal delay={300}>
           <p className="text-center text-xs text-gray-400 mt-8 max-w-xl mx-auto">
-            Datos obtenidos del estudio comparativo de niveles terapéuticos con el paciente
-            Roberto Salas (52 años, duelo) usando el motor adaptativo de GlorIA con clasificador
-            NLP de intervenciones, RAG semántico y Memory-Context Processing (MCP).
+            {t("impact.footnote")}
           </p>
         </ScrollReveal>
       </div>

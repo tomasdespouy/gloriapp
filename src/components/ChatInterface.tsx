@@ -44,6 +44,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [voiceSpeaking, setVoiceSpeaking] = useState(false); // true = audio playing, hide text
+  const [showDisconnect, setShowDisconnect] = useState(false);
+  const [showVoiceConsent, setShowVoiceConsent] = useState(false);
   const voiceModeRef = useRef(false);
   const messagesRef = useRef<Message[]>(initialMessages);
   const isStreamingRef = useRef(false);
@@ -56,6 +58,112 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [playingIdx, setPlayingIdx] = useState<number | null>(null);
   const [loadingTtsIdx, setLoadingTtsIdx] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Streaming TTS queue for voice mode
+  const ttsQueueRef = useRef<string[]>([]);
+  const ttsPlayingRef = useRef(false);
+  const ttsSentenceBufferRef = useRef("");
+  const ttsStreamDoneRef = useRef(false);
+
+  const fetchTtsBlob = async (text: string): Promise<Blob | null> => {
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voiceId: patient.voice_id }),
+      });
+      if (!res.ok) return null;
+      return await res.blob();
+    } catch { return null; }
+  };
+
+  // Play queued TTS chunks sequentially
+  const drainTtsQueue = async () => {
+    if (ttsPlayingRef.current) return;
+    ttsPlayingRef.current = true;
+
+    while (ttsQueueRef.current.length > 0) {
+      const sentence = ttsQueueRef.current.shift()!;
+      const blob = await fetchTtsBlob(sentence);
+      if (!blob) continue;
+
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      await new Promise<void>((resolve) => {
+        audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+        audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+        audio.play().catch(() => resolve());
+      });
+    }
+
+    audioRef.current = null;
+    ttsPlayingRef.current = false;
+
+    // If stream is done and queue is empty, finish voice mode playback
+    if (ttsStreamDoneRef.current) {
+      setPlayingIdx(null);
+      setVoiceSpeaking(false);
+      ttsStreamDoneRef.current = false;
+
+      // Type text gradually after audio finishes
+      const fullText = lastAssistantMsgRef.current;
+      if (fullText) {
+        let charIdx = 0;
+        const typeInterval = setInterval(() => {
+          charIdx += 2;
+          const partial = fullText.substring(0, charIdx);
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === "assistant") {
+              updated[updated.length - 1] = { ...last, content: partial };
+            }
+            return updated;
+          });
+          if (charIdx >= fullText.length) {
+            clearInterval(typeInterval);
+            if (voiceModeRef.current && voiceRecognitionRef.current) {
+              setTimeout(() => {
+                try { voiceRecognitionRef.current?.start(); setIsRecording(true); } catch {}
+              }, 500);
+            }
+          }
+        }, CHAR_DELAY_MS);
+      }
+    }
+  };
+
+  // Push a sentence to TTS queue and start draining
+  const queueTtsSentence = (sentence: string) => {
+    const clean = sentence.trim();
+    if (!clean) return;
+    ttsQueueRef.current.push(clean);
+    if (!ttsPlayingRef.current) drainTtsQueue();
+  };
+
+  // Check sentence buffer for complete sentences and queue them
+  const flushSentenceBuffer = (force: boolean = false) => {
+    const buf = ttsSentenceBufferRef.current;
+    // Match sentences ending with . ? ! ... or stage directions [...]
+    const sentenceEnd = /([.!?]+|\.\.\.)(\s|$)/g;
+    let lastIdx = 0;
+    let match;
+    while ((match = sentenceEnd.exec(buf)) !== null) {
+      const endPos = match.index + match[0].length;
+      const sentence = buf.slice(lastIdx, endPos).trim();
+      if (sentence) queueTtsSentence(sentence);
+      lastIdx = endPos;
+    }
+    ttsSentenceBufferRef.current = buf.slice(lastIdx);
+
+    // If force flush (stream done), send remaining text
+    if (force && ttsSentenceBufferRef.current.trim()) {
+      queueTtsSentence(ttsSentenceBufferRef.current);
+      ttsSentenceBufferRef.current = "";
+    }
+  };
 
   const playTts = async (text: string, idx: number) => {
     // If already playing this message, stop it
@@ -75,15 +183,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
     setLoadingTtsIdx(idx);
     try {
-      const res = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voiceId: patient.voice_id }),
-      });
+      const blob = await fetchTtsBlob(text);
+      if (!blob) throw new Error("TTS failed");
 
-      if (!res.ok) throw new Error("TTS failed");
-
-      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
 
@@ -110,6 +212,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         audioRef.current.pause();
         audioRef.current = null;
       }
+      ttsQueueRef.current = [];
+      ttsPlayingRef.current = false;
     };
   }, []);
 
@@ -118,17 +222,12 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { isStreamingRef.current = isStreaming; }, [isStreaming]);
 
-  // Auto-play TTS function (for voice mode)
+  // Auto-play TTS function (for voice mode) — kept for non-streaming uses
   const autoPlayTts = async (text: string, idx: number) => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     try {
-      const res = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voiceId: patient.voice_id }),
-      });
-      if (!res.ok) return;
-      const blob = await res.blob();
+      const blob = await fetchTtsBlob(text);
+      if (!blob) return;
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audio.onended = () => { setPlayingIdx(null); audioRef.current = null; URL.revokeObjectURL(url); };
@@ -142,13 +241,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const autoPlayTtsWithCallback = async (text: string, idx: number, onDone: () => void) => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     try {
-      const res = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voiceId: patient.voice_id }),
-      });
-      if (!res.ok) { onDone(); return; }
-      const blob = await res.blob();
+      const blob = await fetchTtsBlob(text);
+      if (!blob) { onDone(); return; }
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audio.onended = () => {
@@ -169,9 +263,6 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // Session time tracking — real elapsed time, resuming from DB value
   const sessionStartRef = useRef(Date.now());
   const activeSecondsRef = useRef(initialActiveSeconds);
-  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const silenceFiredRef = useRef(false);
-  const SILENCE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
   // Token buffer for slow typing effect
   const tokenBufferRef = useRef<string>("");
@@ -291,7 +382,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const initials = patient.name.split(" ").map((n) => n[0]).join("").slice(0, 2);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    messagesEndRef.current?.scrollIntoView({ behavior: prefersReduced ? "instant" : "smooth" });
   }, [messages]);
 
   // Session timer — real elapsed time (counts even when tab is hidden)
@@ -330,47 +422,75 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     };
   }, [conversationId]);
 
-  // Silence timer — patient reacts after 5 min without USER sending a message
+  // Multi-stage silence timers
+  // Text mode: 90s → 3min → 5min | Voice mode: 30s → 90s → 2min
+  const SILENCE_TIMERS_TEXT = [90_000, 180_000, 300_000];
+  const SILENCE_TIMERS_VOICE = [30_000, 90_000, 120_000];
   const lastUserMsgCount = useRef(0);
+  const silenceStageRef = useRef(0);
+  const silenceTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clearSilenceTimers = () => {
+    silenceTimersRef.current.forEach((t) => clearTimeout(t));
+    silenceTimersRef.current = [];
+  };
+
+  const fireSilenceStage = async (stage: number) => {
+    if (!conversationId || isStreamingRef.current) return;
+
+    try {
+      const res = await fetch("/api/chat/silence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patientId: patient.id, conversationId, stage }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.message) {
+          setMessages((prev) => [...prev, {
+            role: "assistant",
+            content: data.message,
+            created_at: new Date().toISOString(),
+          }]);
+
+          // In voice mode, play TTS for silence messages
+          if (voiceModeRef.current && patient.voice_id) {
+            const msgIdx = messagesRef.current.length;
+            autoPlayTts(data.message, msgIdx);
+          }
+
+          // Stage 3: session closed by patient — show disconnect modal
+          if (data.sessionClosed) {
+            if (voiceModeRef.current) stopVoiceMode();
+            clearSilenceTimers();
+            setShowDisconnect(true);
+          }
+        }
+      }
+    } catch { /* silence timer is optional */ }
+  };
+
+  const startSilenceTimers = () => {
+    clearSilenceTimers();
+    silenceStageRef.current = 0;
+    const timers = voiceModeRef.current ? SILENCE_TIMERS_VOICE : SILENCE_TIMERS_TEXT;
+
+    timers.forEach((delay, i) => {
+      const t = setTimeout(() => fireSilenceStage(i + 1), delay);
+      silenceTimersRef.current.push(t);
+    });
+  };
 
   useEffect(() => {
-    // Count user messages only
     const userMsgCount = messages.filter((m) => m.role === "user").length;
 
-    // Only reset timer when the USER sends a new message (not when patient responds)
     if (userMsgCount > lastUserMsgCount.current) {
       lastUserMsgCount.current = userMsgCount;
-      silenceFiredRef.current = false;
-
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-
-      silenceTimerRef.current = setTimeout(async () => {
-        if (silenceFiredRef.current || !conversationId || isStreaming) return;
-        silenceFiredRef.current = true;
-
-        try {
-          const res = await fetch("/api/chat/silence", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ patientId: patient.id, conversationId }),
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            if (data.message) {
-              setMessages((prev) => [...prev, {
-                role: "assistant",
-                content: data.message,
-                created_at: new Date().toISOString(),
-              }]);
-            }
-          }
-        } catch { /* silence timer is optional */ }
-      }, SILENCE_TIMEOUT_MS);
+      startSilenceTimers();
     }
-    // Only clean up on unmount, not on every re-render
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, conversationId, patient.id, isStreaming]);
+  }, [messages.length, conversationId, patient.id]);
 
   // Ctrl hold to record
   useEffect(() => {
@@ -398,67 +518,42 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       const chunk = tokenBufferRef.current.slice(0, 2);
       tokenBufferRef.current = tokenBufferRef.current.slice(chunk.length);
 
-      setMessages((prev) => {
-        const updated = [...prev];
-        const last = updated[updated.length - 1];
-        if (last?.role === "assistant") {
-          const newContent = last.content + chunk;
-          updated[updated.length - 1] = { ...last, content: newContent };
-          lastAssistantMsgRef.current = newContent;
-        }
-        return updated;
-      });
+      // In voice mode: accumulate text silently, don't show it
+      if (voiceModeRef.current && patient.voice_id) {
+        lastAssistantMsgRef.current += chunk;
+      } else {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last?.role === "assistant") {
+            const newContent = last.content + chunk;
+            updated[updated.length - 1] = { ...last, content: newContent };
+            lastAssistantMsgRef.current = newContent;
+          }
+          return updated;
+        });
+      }
 
       drainTimerRef.current = setTimeout(drainBuffer, CHAR_DELAY_MS);
     } else if (streamDoneRef.current) {
       setPhase("idle");
       setIsStreaming(false);
-      // Voice mode: play audio FIRST, then type text gradually AFTER
+      // Voice mode: streaming TTS already started during GPT streaming
       if (voiceModeRef.current && lastAssistantMsgRef.current && patient.voice_id) {
-        const fullText = lastAssistantMsgRef.current;
         const msgIdx = messagesRef.current.length - 1;
 
-        // Hide text during audio, show "Hablando..."
+        // Show "Hablando..." indicator (text stays empty until audio finishes)
         setVoiceSpeaking(true);
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last?.role === "assistant") {
-            updated[updated.length - 1] = { ...last, content: "" };
-          }
-          return updated;
-        });
+        setPlayingIdx(msgIdx);
 
-        // Play TTS, then type text gradually when audio ends
-        setTimeout(async () => {
-          await autoPlayTtsWithCallback(fullText, msgIdx, () => {
-            setVoiceSpeaking(false);
+        // Flush remaining sentence buffer and signal stream done
+        flushSentenceBuffer(true);
+        ttsStreamDoneRef.current = true;
 
-            // Type text gradually (like normal chat typing effect)
-            let charIdx = 0;
-            const typeInterval = setInterval(() => {
-              charIdx += 2; // 2 chars at a time
-              const partial = fullText.substring(0, charIdx);
-              setMessages((prev) => {
-                const updated = [...prev];
-                const last = updated[updated.length - 1];
-                if (last?.role === "assistant") {
-                  updated[updated.length - 1] = { ...last, content: partial };
-                }
-                return updated;
-              });
-              if (charIdx >= fullText.length) {
-                clearInterval(typeInterval);
-                // Resume mic after typing finishes
-                if (voiceModeRef.current && voiceRecognitionRef.current) {
-                  setTimeout(() => {
-                    try { voiceRecognitionRef.current?.start(); setIsRecording(true); } catch {}
-                  }, 500);
-                }
-              }
-            }, CHAR_DELAY_MS);
-          });
-        }, 200);
+        // If TTS queue is already empty (all sentences already played), trigger finish
+        if (!ttsPlayingRef.current && ttsQueueRef.current.length === 0) {
+          drainTtsQueue();
+        }
       }
     } else {
       drainTimerRef.current = setTimeout(drainBuffer, CHAR_DELAY_MS);
@@ -555,10 +650,16 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sendMessageRef = useRef<(text?: string) => Promise<void>>(null as any);
 
-  const startVoiceMode = () => {
+  const requestVoiceMode = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { alert("Tu navegador no soporta reconocimiento de voz."); return; }
+    setShowVoiceConsent(true);
+  };
 
+  const startVoiceMode = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    setShowVoiceConsent(false);
     setVoiceMode(true);
 
     const recognition = new SR();
@@ -689,6 +790,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     tokenBufferRef.current = "";
     lastAssistantMsgRef.current = "";
 
+    // Reset streaming TTS state
+    ttsQueueRef.current = [];
+    ttsSentenceBufferRef.current = "";
+    ttsStreamDoneRef.current = false;
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    ttsPlayingRef.current = false;
+
     // Add empty assistant message with timestamp
     setMessages((prev) => [...prev, { role: "assistant", content: "", created_at: new Date().toISOString() }]);
 
@@ -732,8 +840,17 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             // First token received → switch from "thinking" to "writing"
             if (phase === "thinking" || tokenBufferRef.current.length === 0) {
               setPhase("writing");
+              // In voice mode, show "Hablando..." immediately from first token
+              if (voiceModeRef.current && patient.voice_id) {
+                setVoiceSpeaking(true);
+              }
             }
             tokenBufferRef.current += data.value;
+            // Feed tokens to TTS sentence buffer in voice mode
+            if (voiceModeRef.current && patient.voice_id) {
+              ttsSentenceBufferRef.current += data.value;
+              flushSentenceBuffer();
+            }
           } else if (data.type === "error") {
             tokenBufferRef.current = "";
             setMessages((prev) => {
@@ -866,7 +983,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {patient.voice_id && (
             <button
-              onClick={() => voiceMode ? stopVoiceMode() : startVoiceMode()}
+              onClick={() => voiceMode ? stopVoiceMode() : requestVoiceMode()}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors ${
                 voiceMode
                   ? "bg-green-500 text-white animate-pulse"
@@ -944,6 +1061,73 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 Continuar sesión
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Voice mode consent modal */}
+      {showVoiceConsent && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setShowVoiceConsent(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4 animate-pop"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center">
+                <Mic size={20} className="text-sidebar" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900">Activar modo voz</h3>
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Al activar el modo voz, tu micrófono se encenderá y todo lo que digas se enviará directamente al paciente, sin posibilidad de editar el texto antes del envío.
+            </p>
+            <p className="text-xs text-gray-400">
+              Puedes desactivar el modo voz en cualquier momento.
+            </p>
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                onClick={startVoiceMode}
+                className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-sidebar-hover transition-colors"
+              >
+                Aceptar y activar
+              </button>
+              <button
+                onClick={() => setShowVoiceConsent(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Patient disconnected modal */}
+      {showDisconnect && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-8 space-y-5 animate-pop text-center">
+            {/* Patient photo */}
+            <div className="w-20 h-20 rounded-full overflow-hidden mx-auto border-2 border-gray-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageSrc}
+                alt={patient.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">{patient.name} se ha desconectado</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Debido a que no hubo respuesta por un tiempo prolongado, el paciente decidió retirarse de la sesión.
+            </p>
+            <p className="text-xs text-gray-400">
+              Esto puede afectar el vínculo terapéutico en futuras sesiones.
+            </p>
+            <button
+              onClick={() => router.push(`/review/${conversationId}`)}
+              className="w-full bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-sidebar-hover transition-colors"
+            >
+              Ver resumen de sesión
+            </button>
           </div>
         </div>
       )}

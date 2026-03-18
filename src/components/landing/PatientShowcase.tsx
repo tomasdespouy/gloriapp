@@ -15,7 +15,13 @@ function slugify(name: string) {
   return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
 }
 
-export default function PatientShowcase({ patients }: { patients: Patient[] }) {
+interface PatientShowcaseProps {
+  patients: Patient[];
+  dict: Record<string, string>;
+}
+
+export default function PatientShowcase({ patients, dict }: PatientShowcaseProps) {
+  const t = (key: string) => dict[key] || key;
   const trackRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -81,11 +87,10 @@ export default function PatientShowcase({ patients }: { patients: Patient[] }) {
         <ScrollReveal>
           <div className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-              Conoce a los pacientes
+              {t("patients.title")}
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              {patients.length} pacientes con historias únicas, personalidad definida y
-              reacciones realistas ante distintos enfoques terapéuticos
+              {t("patients.subtitle").replace("{count}", String(patients.length))}
             </p>
           </div>
         </ScrollReveal>
@@ -157,7 +162,7 @@ export default function PatientShowcase({ patients }: { patients: Patient[] }) {
                     <div className="absolute bottom-0 inset-x-0 p-3 sm:p-4 text-white">
                       <h3 className="text-sm sm:text-base font-bold leading-tight">{patient.name}</h3>
                       <p className="text-xs sm:text-sm text-white/80 mt-0.5">
-                        {patient.age} años{country ? ` · ${country}` : ""}
+                        {patient.age} {t("patients.years")}{country ? ` · ${country}` : ""}
                       </p>
                     </div>
                   </div>

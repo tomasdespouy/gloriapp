@@ -61,7 +61,7 @@ async function generateInsights() {
     // Find highest and lowest competencies
     const avgs: Record<string, number> = {};
     keys.forEach(k => {
-      const vals = comps.map(c => c[k] as number).filter(v => v > 0);
+      const vals = comps.map(c => (c as Record<string, number>)[k]).filter(v => v > 0);
       avgs[k] = vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
     });
 

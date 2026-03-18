@@ -3,12 +3,22 @@
 import { useEffect, useRef, useState } from "react";
 import ScrollReveal from "./ScrollReveal";
 
-const stats = [
-  { value: 5, suffix: "", label: "Universidades aliadas", prefix: "" },
-  { value: 10, suffix: "", label: "Competencias evaluadas", prefix: "" },
-  { value: 5, suffix: "", label: "Países representados", prefix: "" },
-  { value: 99, suffix: "%", label: "Ahorro vs actores", prefix: "" },
-];
+interface StatsSectionProps {
+  patients?: number;
+  sessions?: number;
+  countries?: number;
+  dict: Record<string, string>;
+}
+
+function buildStats(props: StatsSectionProps) {
+  const t = (key: string) => props.dict[key] || key;
+  return [
+    { value: props.patients || 34, suffix: "+", label: t("stats.patients"), prefix: "" },
+    { value: props.sessions || 0, suffix: "+", label: t("stats.sessions"), prefix: "" },
+    { value: props.countries || 7, suffix: "", label: t("stats.countries"), prefix: "" },
+    { value: 10, suffix: "", label: t("stats.competencies"), prefix: "" },
+  ];
+}
 
 function useCountUp(target: number, isVisible: boolean, duration = 1500) {
   const [count, setCount] = useState(0);
@@ -59,7 +69,8 @@ function StatItem({
   );
 }
 
-export default function StatsSection() {
+export default function StatsSection(props: StatsSectionProps) {
+  const stats = buildStats(props);
   const ref = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
 

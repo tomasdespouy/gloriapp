@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import HistorialClient from "./HistorialClient";
 
@@ -35,22 +34,6 @@ export default async function HistorialPage() {
   const completedCount = sessions?.filter((s) => s.status === "completed").length || 0;
   const patientCount = new Set(sessions?.map(s => s.ai_patient_id)).size;
 
-  // Get all messages for completed sessions (for transcript view)
-  const completedIds = sessions?.filter(s => s.status === "completed").map(s => s.id) || [];
-  let messagesMap: Record<string, { role: string; content: string; created_at: string }[]> = {};
-  if (completedIds.length > 0) {
-    const { data: msgs } = await supabase
-      .from("messages")
-      .select("conversation_id, role, content, created_at")
-      .in("conversation_id", completedIds)
-      .neq("role", "system")
-      .order("created_at", { ascending: true });
-    msgs?.forEach(m => {
-      if (!messagesMap[m.conversation_id]) messagesMap[m.conversation_id] = [];
-      messagesMap[m.conversation_id].push({ role: m.role, content: m.content, created_at: m.created_at });
-    });
-  }
-
   return (
     <div className="min-h-screen">
       <header className="px-4 sm:px-8 py-5">
@@ -60,7 +43,7 @@ export default async function HistorialPage() {
         </p>
       </header>
       <div className="px-4 sm:px-8 pb-8">
-        <HistorialClient sessions={sessions || []} summaryMap={summaryMap} messagesMap={messagesMap} />
+        <HistorialClient sessions={sessions || []} summaryMap={summaryMap} />
       </div>
     </div>
   );

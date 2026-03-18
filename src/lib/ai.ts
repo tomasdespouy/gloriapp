@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 
 // --- Provider config ---
-const provider = process.env.LLM_PROVIDER || "gemini";
+const provider = process.env.LLM_PROVIDER || "openai";
 
 // --- Model config ---
 // CHAT_MODEL: used for patient conversations (fast, cheap)

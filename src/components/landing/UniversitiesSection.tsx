@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ScrollReveal from "./ScrollReveal";
 
@@ -44,7 +45,12 @@ const universities = [
   },
 ];
 
-export default function UniversitiesSection() {
+interface UniversitiesSectionProps {
+  dict: Record<string, string>;
+}
+
+export default function UniversitiesSection({ dict }: UniversitiesSectionProps) {
+  const t = (key: string) => dict[key] || key;
   const [current, setCurrent] = useState(0);
 
   const prev = () => setCurrent((c) => (c === 0 ? universities.length - 1 : c - 1));
@@ -67,13 +73,13 @@ export default function UniversitiesSection() {
         <ScrollReveal>
           <div className="text-center mb-10">
             <p className="text-xs font-semibold text-[#4A55A2] uppercase tracking-widest mb-2">
-              Red de instituciones
+              {t("universities.sectionLabel")}
             </p>
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-              {universities.length} universidades confían en GlorIA
+              {t("universities.title").replace("{count}", String(universities.length))}
             </h2>
             <p className="text-gray-500 max-w-xl mx-auto text-sm">
-              Instituciones líderes en formación de psicología en Latinoamérica
+              {t("universities.subtitle")}
             </p>
           </div>
         </ScrollReveal>
@@ -95,25 +101,35 @@ export default function UniversitiesSection() {
                 key={uni.short}
                 className="flex flex-col items-center gap-3 py-6 px-4 rounded-2xl border border-gray-100 hover:border-[#4A55A2]/20 hover:shadow-md transition-all duration-300"
               >
-                <div className="w-28 h-28 rounded-2xl bg-white border border-gray-200 flex items-center justify-center p-4 overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={uni.logo}
-                    alt={uni.name}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      target.style.display = "none";
-                      const parent = target.parentElement;
-                      if (parent && !parent.querySelector("span")) {
-                        const span = document.createElement("span");
-                        span.className = "text-xl font-bold";
-                        span.style.color = uni.color;
-                        span.textContent = uni.short;
-                        parent.appendChild(span);
-                      }
-                    }}
-                  />
+                <div className="w-28 h-28 rounded-2xl bg-white border border-gray-200 flex items-center justify-center p-4 overflow-hidden relative">
+                  {uni.logo.startsWith("/") ? (
+                    <Image
+                      src={uni.logo}
+                      alt={uni.name}
+                      width={80}
+                      height={80}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={uni.logo}
+                      alt={uni.name}
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = "none";
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector("span")) {
+                          const span = document.createElement("span");
+                          span.className = "text-xl font-bold";
+                          span.style.color = uni.color;
+                          span.textContent = uni.short;
+                          parent.appendChild(span);
+                        }
+                      }}
+                    />
+                  )}
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-semibold text-gray-900">{uni.name}</p>

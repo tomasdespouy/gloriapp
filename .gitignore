@@ -54,6 +54,17 @@ imagenes/
 # patient videos (stored in Supabase Storage)
 public/patients/*.mp4
 
+# temp/test images and videos
+_test_*
+_v4_*
+_check_*
+_videos_v3/
+.luma-gen-ids.json
+.tmp_*
+*.csv
+scripts/__pycache__/
+public/learning/originals/
+
 # simulation data (not needed in prod)
 public/*.json
 public/*.txt

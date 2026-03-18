@@ -27,7 +27,7 @@ export default async function PacientesPage() {
   // Fetch active patients, filtered by country if student has one
   let query = supabase
     .from("ai_patients")
-    .select("id, name, age, occupation, quote, difficulty_level, tags, country")
+    .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
     .eq("is_active", true);
 
   if (studentCountry) {

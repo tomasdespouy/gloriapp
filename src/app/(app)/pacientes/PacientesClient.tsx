@@ -13,6 +13,7 @@ interface Patient {
   difficulty_level: string;
   tags: string[] | null;
   country: string[] | null;
+  voice_id: string | null;
 }
 
 interface Props {
@@ -198,6 +199,7 @@ export default function PacientesClient({ patients, activeSessionMap }: Props) {
               tags={patient.tags || undefined}
               activeConversationId={activeSessionMap[patient.id]}
               country={patient.country?.[0] || null}
+              hasVoice={!!patient.voice_id}
             />
           ))}
         </div>

@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Bell, User, LogOut, Settings, ChevronDown } from "lucide-react";
-import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -100,9 +99,6 @@ export default function TopHeader({ userName, userEmail, userRole }: Props) {
 
   return (
     <header className="h-12 bg-[#2D3561] flex items-center justify-end pl-3 sm:pl-5 pr-3 sm:pr-5 gap-2">
-      {/* Theme toggle */}
-      <ThemeToggle />
-
       {/* Notifications */}
       <div ref={notifRef} className="relative">
         <button

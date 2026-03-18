@@ -73,7 +73,7 @@ export default function CRMClient({ universities: initial }: { universities: Uni
   const [activities, setActivities] = useState<Activity[]>([]);
   const [newActivity, setNewActivity] = useState({ type: "nota", description: "" });
   const [formData, setFormData] = useState({
-    name: "", country: "", city: "", website: "", type: "privada" as const,
+    name: "", country: "", city: "", website: "", type: "privada" as "pública" | "privada",
     program_name: "Psicología", contact_email: "", contact_name: "", contact_phone: "",
     estimated_students: "", status: "prospecto", priority: "media", notes: "",
     next_followup: "", google_sheets_url: "",

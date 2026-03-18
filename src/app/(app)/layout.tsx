@@ -20,7 +20,7 @@ export default async function AppLayout({
       <Sidebar role={role} />
       <div className="ml-0 md:ml-[260px] flex-1 flex flex-col min-h-0">
         <TopHeader userName={fullName} userEmail={email} userRole={role} />
-        <main className="flex-1 bg-bg-main min-h-0 overflow-auto">
+        <main id="main-content" className="flex-1 bg-bg-main min-h-0 overflow-auto">
           {children}
         </main>
       </div>

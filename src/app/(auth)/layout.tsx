@@ -57,7 +57,7 @@ export default function AuthLayout({
       <footer className="bg-[#0B1425] text-white/50 text-xs text-center py-3 px-4 flex items-center justify-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/branding/ugm-logo.png" alt="Universidad Gabriela Mistral" className="h-5 w-auto opacity-70" />
-        <span>&mdash; 2024. Todos los derechos reservados.</span>
+        <span>&mdash; 2026. Todos los derechos reservados.</span>
       </footer>
     </div>
   );

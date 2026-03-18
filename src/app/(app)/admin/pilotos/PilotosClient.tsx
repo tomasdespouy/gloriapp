@@ -292,12 +292,26 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
     if (!formData.name.trim() || !formData.institution.trim() || csvRows.length === 0) return;
     setCreating(true);
 
+    // Auto-add contact as instructor if not already in list
+    let finalRows = [...csvRows];
+    if (formData.contact_email?.trim() && formData.contact_name?.trim()) {
+      const contactEmail = formData.contact_email.trim().toLowerCase();
+      if (!finalRows.some((r) => r.email.toLowerCase() === contactEmail)) {
+        finalRows = [...finalRows, {
+          email: contactEmail,
+          full_name: formData.contact_name.trim(),
+          role: "instructor",
+        }];
+        setCsvRows(finalRows);
+      }
+    }
+
     const res = await fetch("/api/admin/pilots", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...formData,
-        csv_data: csvRows,
+        csv_data: finalRows,
       }),
     });
 
@@ -306,7 +320,8 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
       setPilots((prev) => [{ ...pilot, participant_count: csvRows.length }, ...prev]);
       await openPilot(pilot, 1);
     } else {
-      setCsvError("Error al crear el piloto. Intenta de nuevo.");
+      const errData = await res.json().catch(() => null);
+      setCsvError(errData?.error || `Error al crear el piloto (${res.status}). Intenta de nuevo.`);
     }
     setCreating(false);
   };
@@ -553,6 +568,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
           formData={formData}
           setFormData={setFormData}
           csvRows={csvRows}
+          setCsvRows={setCsvRows}
           csvError={csvError}
           creating={creating}
           fileInputRef={fileInputRef}
@@ -597,12 +613,13 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
 // ════════════════════════════════════════════
 
 function Step1Upload({
-  formData, setFormData, csvRows, csvError, creating, fileInputRef,
+  formData, setFormData, csvRows, setCsvRows, csvError, creating, fileInputRef,
   onFileDrop, onFileSelect, onCreatePilot, isEditing,
 }: {
   formData: { name: string; institution: string; country: string; contact_name: string; contact_email: string };
   setFormData: (fn: (prev: typeof formData) => typeof formData) => void;
   csvRows: CsvRow[];
+  setCsvRows: (rows: CsvRow[]) => void;
   csvError: string;
   creating: boolean;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -611,7 +628,50 @@ function Step1Upload({
   onCreatePilot: () => void;
   isEditing: boolean;
 }) {
+  const [manualForm, setManualForm] = useState({ first_name: "", last_name: "", email: "", role: "student" });
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<CsvRow>({ email: "", full_name: "", role: "student" });
+  const [createError, setCreateError] = useState("");
   const canCreate = formData.name.trim() && formData.institution.trim() && csvRows.length > 0;
+
+  const handleAddManual = () => {
+    if (!manualForm.first_name.trim() || !manualForm.last_name.trim() || !manualForm.email.trim()) return;
+    const email = manualForm.email.trim().toLowerCase();
+    // Check duplicate
+    if (csvRows.some((r) => r.email.toLowerCase() === email)) {
+      setCreateError(`El email ${email} ya está en la lista.`);
+      return;
+    }
+    setCreateError("");
+    const newRow: CsvRow = {
+      email,
+      full_name: `${manualForm.first_name.trim()} ${manualForm.last_name.trim()}`,
+      role: manualForm.role,
+    };
+    setCsvRows([...csvRows, newRow]);
+    setManualForm({ first_name: "", last_name: "", email: "", role: "student" });
+  };
+
+  const handleRemoveRow = (index: number) => {
+    setCsvRows(csvRows.filter((_, i) => i !== index));
+  };
+
+  const startEdit = (index: number) => {
+    setEditingIdx(index);
+    setEditForm({ ...csvRows[index] });
+  };
+
+  const saveEdit = () => {
+    if (editingIdx === null) return;
+    const updated = [...csvRows];
+    updated[editingIdx] = { ...editForm, email: editForm.email.trim().toLowerCase() };
+    setCsvRows(updated);
+    setEditingIdx(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingIdx(null);
+  };
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -725,26 +785,62 @@ function Step1Upload({
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Email</th>
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Nombre</th>
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Rol</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {csvRows.slice(0, 50).map((row, i) => (
                     <tr key={i} className="border-t border-gray-100">
-                      <td className="px-3 py-2 text-gray-400">{i + 1}</td>
-                      <td className="px-3 py-2 text-gray-700">{row.email}</td>
-                      <td className="px-3 py-2 text-gray-700">{row.full_name}</td>
-                      <td className="px-3 py-2">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                          row.role === "instructor" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                        }`}>
-                          {row.role === "instructor" ? "Docente" : "Estudiante"}
-                        </span>
-                      </td>
+                      {editingIdx === i ? (
+                        <>
+                          <td className="px-3 py-2 text-gray-400">{i + 1}</td>
+                          <td className="px-2 py-1">
+                            <input value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                              className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-sidebar/30" />
+                          </td>
+                          <td className="px-2 py-1">
+                            <input value={editForm.full_name} onChange={(e) => setEditForm((f) => ({ ...f, full_name: e.target.value }))}
+                              className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-sidebar/30" />
+                          </td>
+                          <td className="px-2 py-1">
+                            <select value={editForm.role} onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+                              className="border border-gray-200 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-sidebar/30">
+                              <option value="student">Estudiante</option>
+                              <option value="instructor">Docente</option>
+                            </select>
+                          </td>
+                          <td className="px-3 py-2 flex gap-1">
+                            <button onClick={saveEdit} className="text-green-500 hover:text-green-700"><Check size={14} /></button>
+                            <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600"><XCircle size={14} /></button>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-3 py-2 text-gray-400">{i + 1}</td>
+                          <td className="px-3 py-2 text-gray-700">{row.email}</td>
+                          <td className="px-3 py-2 text-gray-700">{row.full_name}</td>
+                          <td className="px-3 py-2">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                              row.role === "instructor" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                            }`}>
+                              {row.role === "instructor" ? "Docente" : "Estudiante"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 flex gap-1">
+                            <button onClick={() => startEdit(i)} className="text-gray-300 hover:text-sidebar transition-colors">
+                              <Eye size={14} />
+                            </button>
+                            <button onClick={() => handleRemoveRow(i)} className="text-gray-300 hover:text-red-500 transition-colors">
+                              <XCircle size={14} />
+                            </button>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   ))}
                   {csvRows.length > 50 && (
                     <tr className="border-t border-gray-100">
-                      <td colSpan={4} className="px-3 py-2 text-center text-gray-400">
+                      <td colSpan={5} className="px-3 py-2 text-center text-gray-400">
                         ... y {csvRows.length - 50} más
                       </td>
                     </tr>
@@ -754,6 +850,68 @@ function Step1Upload({
             </div>
           </div>
         )}
+      </div>
+
+      {/* Manual participant entry */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="text-sm font-semibold text-gray-900 mb-4">Agregar participante manualmente</h3>
+        {createError && (
+          <div className="mb-3 flex items-start gap-2 p-3 bg-red-50 rounded-lg">
+            <AlertCircle size={14} className="text-red-500 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-red-600">{createError}</p>
+          </div>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Nombre *</label>
+            <input
+              type="text"
+              value={manualForm.first_name}
+              onChange={(e) => setManualForm((f) => ({ ...f, first_name: e.target.value }))}
+              placeholder="María"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Apellido *</label>
+            <input
+              type="text"
+              value={manualForm.last_name}
+              onChange={(e) => setManualForm((f) => ({ ...f, last_name: e.target.value }))}
+              placeholder="González"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Email *</label>
+            <input
+              type="email"
+              value={manualForm.email}
+              onChange={(e) => setManualForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="maria@universidad.edu"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Rol</label>
+            <select
+              value={manualForm.role}
+              onChange={(e) => setManualForm((f) => ({ ...f, role: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30 bg-white"
+            >
+              <option value="student">Estudiante</option>
+              <option value="instructor">Docente</option>
+            </select>
+          </div>
+          <button
+            onClick={handleAddManual}
+            disabled={!manualForm.first_name.trim() || !manualForm.last_name.trim() || !manualForm.email.trim()}
+            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+          >
+            <Plus size={14} />
+            Agregar
+          </button>
+        </div>
       </div>
 
       {/* Action */}

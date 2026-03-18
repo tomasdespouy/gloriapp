@@ -31,10 +31,9 @@ type Msg = { role: string; content: string; created_at: string };
 interface Props {
   sessions: Session[];
   summaryMap: Record<string, { summary: string; revelations: string[] }>;
-  messagesMap: Record<string, Msg[]>;
 }
 
-export default function HistorialClient({ sessions, summaryMap, messagesMap }: Props) {
+export default function HistorialClient({ sessions, summaryMap }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "completed" | "active">("all");
@@ -44,6 +43,22 @@ export default function HistorialClient({ sessions, summaryMap, messagesMap }: P
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [savingNotes, setSavingNotes] = useState<string | null>(null);
   const [showResumeModal, setShowResumeModal] = useState<Session | null>(null);
+  const [messagesMap, setMessagesMap] = useState<Record<string, Msg[]>>({});
+  const [loadingMessages, setLoadingMessages] = useState<string | null>(null);
+
+  const loadMessages = async (conversationId: string) => {
+    if (messagesMap[conversationId]) return; // already loaded
+    setLoadingMessages(conversationId);
+    try {
+      const res = await fetch(`/api/sessions/${conversationId}/messages`);
+      if (res.ok) {
+        const msgs: Msg[] = await res.json();
+        setMessagesMap(prev => ({ ...prev, [conversationId]: msgs }));
+      }
+    } finally {
+      setLoadingMessages(null);
+    }
+  };
 
   const patients = useMemo(() => {
     const map = new Map<string, string>();
@@ -122,6 +137,7 @@ export default function HistorialClient({ sessions, summaryMap, messagesMap }: P
       setShowResumeModal(session);
     } else {
       setDetailId(session.id);
+      loadMessages(session.id);
     }
   };
 
@@ -175,7 +191,15 @@ export default function HistorialClient({ sessions, summaryMap, messagesMap }: P
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Transcripción</p>
             </div>
             <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
-              {msgs.length > 0 ? msgs.map((msg, i) => {
+              {loadingMessages === session.id ? (
+                <div className="flex items-center justify-center py-12">
+                  <svg className="animate-spin w-5 h-5 text-sidebar mr-2" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  <span className="text-sm text-gray-400">Cargando transcripción...</span>
+                </div>
+              ) : msgs.length > 0 ? msgs.map((msg, i) => {
                 const isStudent = msg.role === "user";
                 return (
                   <div key={i} className={`flex ${isStudent ? "justify-end" : "justify-start"}`}>
