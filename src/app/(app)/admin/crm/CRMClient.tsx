@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, Plus, Download, Filter, Building2, Globe, Mail,
@@ -324,8 +324,8 @@ export default function CRMClient({ universities: initial }: { universities: Uni
             </thead>
             <tbody>
               {filtered.map((u) => (
-                <>
-                  <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
+                <React.Fragment key={u.id}>
+                  <tr className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{u.name}</div>
                       <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
@@ -470,7 +470,7 @@ export default function CRMClient({ universities: initial }: { universities: Uni
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               ))}
             </tbody>
           </table>
