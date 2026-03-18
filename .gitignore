@@ -47,6 +47,7 @@ next-env.d.ts
 *.xlsx
 *.jpg
 *.jpeg
+!public/branding/*.jpg
 avatares.*
 imagenes/
 
