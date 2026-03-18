@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import ScrollReveal from "./ScrollReveal";
 
 const stats = [
-  { value: 5, suffix: "", label: "Pacientes simulados", prefix: "" },
-  { value: 3, suffix: "", label: "Niveles de dificultad", prefix: "" },
-  { value: 100, suffix: "%", label: "Entorno seguro", prefix: "" },
-  { value: 500, suffix: "", label: "Sesiones realizadas", prefix: "+" },
+  { value: 5, suffix: "", label: "Universidades aliadas", prefix: "" },
+  { value: 10, suffix: "", label: "Competencias evaluadas", prefix: "" },
+  { value: 5, suffix: "", label: "Países representados", prefix: "" },
+  { value: 99, suffix: "%", label: "Ahorro vs actores", prefix: "" },
 ];
 
 function useCountUp(target: number, isVisible: boolean, duration = 1500) {

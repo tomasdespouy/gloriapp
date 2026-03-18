@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LEARNING_DATA } from "@/lib/learning-data";
 import { createClient } from "@/lib/supabase/server";
 import { GraduationCap, Lock } from "lucide-react";
+import AskGloriaBubble from "./AskGloriaBubble";
 
 export default async function AprendizajePage() {
   const supabase = await createClient();
@@ -38,14 +39,13 @@ export default async function AprendizajePage() {
             href="/aprendizaje/tutor"
             className="bg-white rounded-xl border-2 border-dashed border-emerald-300 overflow-hidden hover:border-emerald-500 hover:shadow-md transition-all group"
           >
-            <div className="aspect-[4/3] bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center relative">
-              <div className="text-center">
-                <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center mx-auto mb-3 group-hover:shadow-md transition-shadow">
-                  <GraduationCap size={32} className="text-emerald-600" />
-                </div>
-                <p className="text-xs font-semibold text-emerald-700 tracking-wide uppercase">
+            <div className="aspect-[4/3] overflow-hidden relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/learning/tutor.png" alt="Tutor" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              <div className="absolute top-2 left-2">
+                <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">
                   {tutorCompleted ? "Completado" : "Paso 1 — Obligatorio"}
-                </p>
+                </span>
               </div>
               {tutorCompleted && (
                 <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -64,7 +64,7 @@ export default async function AprendizajePage() {
                 Conversa con un paciente ficticio mientras un tutor clínico te guía en tiempo real.
               </p>
               <span className="text-xs font-medium text-emerald-600 group-hover:underline">
-                {tutorCompleted ? "Practicar de nuevo →" : "Iniciar sesión guiada →"}
+                {tutorCompleted ? "Practicar de nuevo" : "Iniciar sesión guiada"}
               </span>
             </div>
           </Link>
@@ -138,6 +138,7 @@ export default async function AprendizajePage() {
           })}
         </div>
       </div>
+      <AskGloriaBubble />
     </div>
   );
 }

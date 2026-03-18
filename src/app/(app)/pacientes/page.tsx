@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import PatientCard from "@/components/PatientCard";
+import PacientesClient from "./PacientesClient";
 
 export default async function PacientesPage() {
   const supabase = await createClient();
@@ -28,8 +28,7 @@ export default async function PacientesPage() {
   let query = supabase
     .from("ai_patients")
     .select("id, name, age, occupation, quote, difficulty_level, tags, country")
-    .eq("is_active", true)
-    .order("difficulty_level");
+    .eq("is_active", true);
 
   if (studentCountry) {
     query = query.contains("country", [studentCountry]);
@@ -37,43 +36,35 @@ export default async function PacientesPage() {
 
   const { data: patients } = await query;
 
+  // Fetch active conversations for this student
+  const { data: activeConversations } = await supabase
+    .from("conversations")
+    .select("id, ai_patient_id")
+    .eq("student_id", user.id)
+    .eq("status", "active");
+
+  // Build map as plain object (serializable)
+  const activeSessionMap: Record<string, string> = {};
+  if (activeConversations) {
+    for (const conv of activeConversations) {
+      activeSessionMap[conv.ai_patient_id] = conv.id;
+    }
+  }
+
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5">
-        <h1 className="text-2xl font-bold text-gray-900">Pacientes</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
+      <header className="px-4 sm:px-8 py-4 sm:py-5">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Pacientes</h1>
+        <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
           Elige un paciente para iniciar una sesión de práctica terapéutica
         </p>
       </header>
 
-      <div className="px-8 pb-8">
-        {/* Difficulty legend */}
-        <div className="flex gap-4 mb-6">
-          <span className="text-xs text-gray-500 flex items-center gap-1">🌱 Principiante</span>
-          <span className="text-xs text-gray-500 flex items-center gap-1">🌿 Intermedio</span>
-          <span className="text-xs text-gray-500 flex items-center gap-1">🌳 Avanzado</span>
-        </div>
-
-        {patients && patients.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {patients.map((patient) => (
-              <PatientCard
-                key={patient.id}
-                id={patient.id}
-                name={patient.name}
-                age={patient.age}
-                occupation={patient.occupation}
-                quote={patient.quote}
-                difficultyLevel={patient.difficulty_level}
-                tags={patient.tags}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-            <p className="text-sm text-gray-400">No hay pacientes disponibles para tu institución.</p>
-          </div>
-        )}
+      <div className="px-4 sm:px-8 pb-8">
+        <PacientesClient
+          patients={patients || []}
+          activeSessionMap={activeSessionMap}
+        />
       </div>
     </div>
   );

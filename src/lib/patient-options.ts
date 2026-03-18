@@ -93,6 +93,9 @@ export interface PatientFormData {
   gender: string;
   occupation: string;
   countries: string[];
+  countryOrigin: string;
+  countryResidence: string;
+  enabledCountries: string[];
   context: string;
   motivo: string;
   archetype: string;
@@ -102,6 +105,7 @@ export interface PatientFormData {
   sensitiveTopics: string[];
   variability: string;
   difficulty: string;
+  distinctiveFactor: string;
 }
 
 export interface GeneratedProfile {
@@ -137,3 +141,78 @@ export interface TestResult {
     suggestions: string[];
   };
 }
+
+// ══════════════════════════════════════════
+// 15-STEP WORKFLOW TYPES
+// ══════════════════════════════════════════
+
+export interface ShortNarrative {
+  historia_personal: string;
+  dinamica_familiar: string;
+  motivo_consulta: string;
+  patron_relacional: string;
+  momento_vital: string;
+}
+
+export interface ExtendedNarrative {
+  infancia_y_apego: string;
+  familia_de_origen: string;
+  desarrollo_adolescente: string;
+  relaciones_significativas: string;
+  historia_laboral_academica: string;
+  evento_precipitante: string;
+  estado_actual: string;
+  recursos_y_fortalezas: string;
+}
+
+export interface CoherenceReview {
+  score: number;
+  clinical_consistency: string[];
+  narrative_gaps: string[];
+  dsm5_alignment: string;
+  pdm2_alignment: string;
+  suggestions: string[];
+  approved: boolean;
+}
+
+export interface SessionProjection {
+  session_number: number;
+  focus: string;
+  patient_state: string;
+  expected_intervention: string;
+  key_moment: string;
+}
+
+export interface LevelProjection {
+  level: "principiante" | "intermedio" | "experto";
+  description: string;
+  sessions: SessionProjection[];
+}
+
+export interface Projections {
+  levels: LevelProjection[];
+}
+
+export interface GeneratedSystemPrompt {
+  system_prompt: string;
+  design_notes: string[];
+}
+
+export const NARRATIVE_SECTIONS: Record<keyof ShortNarrative, string> = {
+  historia_personal: "Historia personal",
+  dinamica_familiar: "Dinámica familiar",
+  motivo_consulta: "Motivo de consulta",
+  patron_relacional: "Patrón relacional",
+  momento_vital: "Momento vital",
+};
+
+export const EXTENDED_SECTIONS: Record<keyof ExtendedNarrative, string> = {
+  infancia_y_apego: "Infancia y apego",
+  familia_de_origen: "Familia de origen",
+  desarrollo_adolescente: "Desarrollo adolescente",
+  relaciones_significativas: "Relaciones significativas",
+  historia_laboral_academica: "Historia laboral/académica",
+  evento_precipitante: "Evento precipitante",
+  estado_actual: "Estado actual",
+  recursos_y_fortalezas: "Recursos y fortalezas",
+};

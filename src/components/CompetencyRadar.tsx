@@ -17,11 +17,11 @@ export default function CompetencyRadar({ scores, size = 400, version = 2 }: Pro
 }
 
 function RadarV2({ scores, size }: { scores: CompetencyScoresV2; size: number }) {
-  const pad = 70;
+  const pad = 85;
   const vb = size + pad * 2;
   const center = vb / 2;
-  const radius = size * 0.34;
-  const labelRadius = radius + 40;
+  const radius = size * 0.38;
+  const labelRadius = radius + 45;
   const gridLevels = 4; // 0-4 scale
   const keys = COMPETENCY_KEYS_V2;
   const n = keys.length;
@@ -84,20 +84,32 @@ function RadarV2({ scores, size }: { scores: CompetencyScoresV2; size: number })
 
         return (
           <g key={i}>
-            <text x={pos.x} y={pos.y - 8} textAnchor="middle" dominantBaseline="middle"
-              className="font-semibold" style={{ fontSize: "10px", fill: isDomain1 ? "#7C3AED" : "#4A55A2" }}>
+            <text x={pos.x} y={pos.y - 9} textAnchor="middle" dominantBaseline="middle"
+              className="font-bold" style={{ fontSize: "12.5px", fill: isDomain1 ? "#7C3AED" : "#4A55A2" }}>
               {COMPETENCY_LABELS_V2[key]}
             </text>
-            <text x={pos.x} y={pos.y + 7} textAnchor="middle" dominantBaseline="middle"
-              style={{ fontSize: "11px", fontWeight: 700, fill: score > 0 ? level.color : "#9ca3af" }}>
+            <text x={pos.x} y={pos.y + 8} textAnchor="middle" dominantBaseline="middle"
+              style={{ fontSize: "12px", fontWeight: 700, fill: score > 0 ? level.color : "#9ca3af" }}>
               {score > 0 ? score.toFixed(1) : "N/A"}
             </text>
           </g>
         );
       })}
 
+      {/* Domain legend */}
+      <g>
+        <circle cx={center - 90} cy={vb - 28} r="4" fill="#7C3AED" />
+        <text x={center - 82} y={vb - 24} style={{ fontSize: "11px", fontWeight: 600, fill: "#6b7280" }}>
+          Estructura de la sesión
+        </text>
+        <circle cx={center + 40} cy={vb - 28} r="4" fill="#4A55A2" />
+        <text x={center + 48} y={vb - 24} style={{ fontSize: "11px", fontWeight: 600, fill: "#6b7280" }}>
+          Actitudes terapéuticas
+        </text>
+      </g>
+
       {/* Scale legend */}
-      <text x={center} y={vb - 5} textAnchor="middle" style={{ fontSize: "8px", fill: "#9ca3af" }}>
+      <text x={center} y={vb - 5} textAnchor="middle" style={{ fontSize: "11px", fontWeight: 500, fill: "#6b7280" }}>
         Escala: 0 (N/A) · 1 (Deficiente) · 2 (Básico) · 3 (Adecuado) · 4 (Excelente)
       </text>
     </svg>

@@ -30,6 +30,9 @@ DOMINIO 2 — ACTITUDES TERAPÉUTICAS:
 
 El promedio general (overall_score_v2) se calcula SOLO con competencias que obtienen > 0.
 
+Para CADA competencia con puntaje > 0, incluye una cita textual del estudiante que justifique el puntaje.
+Si el puntaje es bajo, cita el momento donde falló o donde perdió una oportunidad.
+
 Responde ÚNICAMENTE con JSON válido (sin markdown, sin backticks):
 {
   "setting_terapeutico": 0.0,
@@ -45,7 +48,19 @@ Responde ÚNICAMENTE con JSON válido (sin markdown, sin backticks):
   "overall_score_v2": 0.0,
   "commentary": "Retroalimentación constructiva en 2-3 oraciones",
   "strengths": ["fortaleza 1", "fortaleza 2"],
-  "areas_to_improve": ["área 1", "área 2"]
+  "areas_to_improve": ["área 1", "área 2"],
+  "evidence": {
+    "setting_terapeutico": {"quote": "Cita textual del estudiante que justifica el puntaje", "observation": "Por qué esta intervención demuestra o no la competencia"},
+    "motivo_consulta": {"quote": "...", "observation": "..."},
+    "datos_contextuales": {"quote": "...", "observation": "..."},
+    "objetivos": {"quote": "...", "observation": "..."},
+    "escucha_activa": {"quote": "...", "observation": "..."},
+    "actitud_no_valorativa": {"quote": "...", "observation": "..."},
+    "optimismo": {"quote": "...", "observation": "..."},
+    "presencia": {"quote": "...", "observation": "..."},
+    "conducta_no_verbal": {"quote": "...", "observation": "..."},
+    "contencion_afectos": {"quote": "...", "observation": "..."}
+  }
 }`;
 
 export async function POST(
@@ -76,7 +91,7 @@ export async function POST(
   // Mark conversation as completed
   await supabase
     .from("conversations")
-    .update({ status: "completed" })
+    .update({ status: "completed", ended_at: new Date().toISOString() })
     .eq("id", conversationId);
 
   // Save reflection (if provided)
@@ -152,6 +167,7 @@ export async function POST(
     ai_commentary: evaluation.commentary,
     strengths: evaluation.strengths || [],
     areas_to_improve: evaluation.areas_to_improve || [],
+    evidence: evaluation.evidence || null,
   }, { onConflict: "conversation_id" });
 
   // Calculate XP (V2 scale 0-4)
@@ -285,6 +301,9 @@ export async function POST(
     }
   }
 
+  // Generate session summary for multi-session memory (non-blocking)
+  generateSessionSummary(admin, conversationId, conversation.student_id, conversation.ai_patient_id, transcript).catch(() => {});
+
   const levelUp = levelInfo.current.level > (progress?.level || 1);
 
   return NextResponse.json({
@@ -297,4 +316,62 @@ export async function POST(
     sessions_completed: newSessionsCompleted,
     streak: currentStreak,
   });
+}
+
+// --- Generate session summary for multi-session memory ---
+async function generateSessionSummary(
+  admin: ReturnType<typeof createAdminClient>,
+  conversationId: string,
+  studentId: string,
+  patientId: string,
+  transcript: string,
+) {
+  // Get session number
+  const { data: conv } = await admin
+    .from("conversations")
+    .select("session_number")
+    .eq("id", conversationId)
+    .single();
+
+  // Get final clinical state
+  const { data: finalState } = await admin
+    .from("clinical_state_log")
+    .select("resistencia, alianza, apertura_emocional, sintomatologia, disposicion_cambio")
+    .eq("conversation_id", conversationId)
+    .order("turn_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const summaryResponse = await chat(
+    [{ role: "user", content: `Resume esta sesión terapéutica para la memoria a largo plazo del paciente.
+
+TRANSCRIPCIÓN:
+${transcript}
+
+Responde SOLO con JSON válido:
+{
+  "summary": "Resumen narrativo de 80-120 palabras en primera persona del paciente. Qué se habló, qué sentí, cómo reaccioné. Incluir datos concretos mencionados (nombres, lugares, eventos).",
+  "key_revelations": ["Dato/secreto importante que revelé", "Otro dato relevante"],
+  "therapeutic_progress": "Una oración describiendo el estado de la relación terapéutica al final de esta sesión."
+}` }],
+    "Eres un asistente que genera resúmenes compactos de sesiones terapéuticas desde la perspectiva del paciente. Solo JSON."
+  );
+
+  try {
+    const cleaned = summaryResponse.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(cleaned);
+
+    await admin.from("session_summaries").upsert({
+      conversation_id: conversationId,
+      student_id: studentId,
+      ai_patient_id: patientId,
+      session_number: conv?.session_number || 1,
+      summary: parsed.summary,
+      key_revelations: parsed.key_revelations || [],
+      therapeutic_progress: parsed.therapeutic_progress || "",
+      final_clinical_state: finalState || null,
+    }, { onConflict: "conversation_id" });
+  } catch {
+    // Non-critical — session works without summary
+  }
 }

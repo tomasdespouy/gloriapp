@@ -174,30 +174,6 @@ export default async function Dashboard() {
           )}
         </div>
 
-        {/* Quick actions — horizontal */}
-        <div className="grid grid-cols-3 gap-3 animate-slide-up">
-          <Link
-            href="/pacientes"
-            className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-3.5 hover:border-sidebar/30 hover:shadow-sm hover:-translate-y-0.5 transition-all"
-          >
-            <span className="text-lg">🧑‍⚕️</span>
-            <span className="text-sm font-medium text-gray-900">Nueva sesión</span>
-          </Link>
-          <Link
-            href="/progreso"
-            className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-3.5 hover:border-sidebar/30 hover:shadow-sm hover:-translate-y-0.5 transition-all"
-          >
-            <span className="text-lg">📊</span>
-            <span className="text-sm font-medium text-gray-900">Mi progreso</span>
-          </Link>
-          <Link
-            href="/historial"
-            className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-3.5 hover:border-sidebar/30 hover:shadow-sm hover:-translate-y-0.5 transition-all"
-          >
-            <span className="text-lg">📋</span>
-            <span className="text-sm font-medium text-gray-900">Historial</span>
-          </Link>
-        </div>
       </div>
     </div>
   );

@@ -3,6 +3,26 @@ import { createClient } from "@/lib/supabase/server";
 import { chat } from "@/lib/ai";
 import type { PatientFormData } from "@/lib/patient-options";
 
+/** Escape raw control characters inside JSON string values so JSON.parse doesn't choke. */
+function escapeJsonControlChars(raw: string): string {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (escaped) { out += ch; escaped = false; continue; }
+    if (ch === "\\" && inString) { out += ch; escaped = true; continue; }
+    if (ch === '"') { inString = !inString; out += ch; continue; }
+    if (inString) {
+      if (ch === "\n") { out += "\\n"; continue; }
+      if (ch === "\r") { out += "\\r"; continue; }
+      if (ch === "\t") { out += "\\t"; continue; }
+    }
+    out += ch;
+  }
+  return out;
+}
+
 const EXAMPLE_PROMPT = `Eres Roberto, un hombre de 52 anos, ingeniero retirado.
 
 HISTORIA:
@@ -132,6 +152,9 @@ export async function POST(request: Request) {
     if (cleaned.startsWith("```")) {
       cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
     }
+
+    // Escape control characters inside JSON string values (LLM often outputs raw newlines/tabs)
+    cleaned = escapeJsonControlChars(cleaned);
 
     const profile = JSON.parse(cleaned);
     return NextResponse.json(profile);

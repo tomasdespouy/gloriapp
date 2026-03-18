@@ -6,6 +6,8 @@ import HeroSection from "@/components/landing/HeroSection";
 import HowItWorks from "@/components/landing/HowItWorks";
 import PatientShowcase from "@/components/landing/PatientShowcase";
 import FeaturesSection from "@/components/landing/FeaturesSection";
+import UniversitiesSection from "@/components/landing/UniversitiesSection";
+import ImpactSection from "@/components/landing/ImpactSection";
 import TestimonialsSection from "@/components/landing/TestimonialsSection";
 import StatsSection from "@/components/landing/StatsSection";
 import CTASection from "@/components/landing/CTASection";
@@ -36,21 +38,25 @@ export default async function LandingPage() {
 
   // Fetch active patients for showcase
   const admin = createAdminClient();
-  const { data: patients } = await admin
+  const { data: patientsRaw } = await admin
     .from("ai_patients")
     .select("name, age, country_origin, country_residence")
-    .eq("is_active", true)
-    .order("created_at", { ascending: true });
+    .eq("is_active", true);
+
+  // Shuffle randomly so the carousel isn't grouped by country
+  const patients = (patientsRaw || []).sort(() => Math.random() - 0.5);
 
   return (
     <div className="bg-white">
       <LandingNavbar />
       <HeroSection />
+      <StatsSection />
       <HowItWorks />
       <PatientShowcase patients={patients || []} />
       <FeaturesSection />
+      <ImpactSection />
       <TestimonialsSection />
-      <StatsSection />
+      <UniversitiesSection />
       <CTASection />
       <LandingFooter />
     </div>

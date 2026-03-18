@@ -4,7 +4,7 @@ import ScrollReveal from "./ScrollReveal";
 export default function CTASection() {
   return (
     <section
-      className="py-12 lg:py-16"
+      className="py-16 lg:py-24"
       style={{
         background:
           "linear-gradient(180deg, #FFFFFF 0%, #EEF0F9 50%, #E0E3F1 100%)",
@@ -12,20 +12,20 @@ export default function CTASection() {
     >
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <ScrollReveal>
-          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-            Comienza a practicar hoy
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+            Tu primera sesión está a un click
           </h2>
-          <p className="text-gray-600 mb-6 max-w-xl mx-auto">
+          <p className="text-gray-500 mb-8 max-w-xl mx-auto text-lg">
             Crea tu cuenta y empieza a entrenar tus habilidades clínicas con
             pacientes que responden como personas reales.
           </p>
           <Link
             href="/signup"
-            className="inline-flex items-center justify-center font-semibold text-white bg-[#4A55A2] px-8 py-3.5 rounded-xl hover:bg-[#3D4890] transition-colors text-lg shadow-lg shadow-[#4A55A2]/25"
+            className="inline-flex items-center justify-center font-semibold text-white bg-[#4A55A2] px-10 py-4 rounded-xl hover:bg-[#3D4890] transition-colors text-lg shadow-xl shadow-[#4A55A2]/25"
           >
-            Crear cuenta gratis
+            Comenzar gratis
           </Link>
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-4 text-sm text-gray-400">
             Ya tienes cuenta?{" "}
             <Link
               href="/login"

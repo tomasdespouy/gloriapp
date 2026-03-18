@@ -85,26 +85,25 @@ export default async function ProgresoPage() {
       </header>
 
       <div className="px-8 pb-8 space-y-6">
-        {/* Stats row */}
+        {/* Stats row — pedagogical metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-stagger">
-          {/* Level */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-5">
-            <LevelBadge totalXp={progress?.total_xp || 0} size="large" />
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
+            <p className="text-3xl font-bold text-gray-900">{progress?.sessions_completed || 0}</p>
+            <p className="text-xs text-gray-500 mt-1">Sesiones realizadas</p>
           </div>
-
-          {/* Avg score */}
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-100 p-5">
-            <ProgresoClient type="score" value={avgOverall} bestComp={bestComp} />
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
+            <p className="text-3xl font-bold text-sidebar">
+              {progress?.sessions_completed ? Math.round((progress.sessions_completed * 25) / 60) : 0}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Horas en sesión (aprox.)</p>
           </div>
-
-          {/* Streak */}
-          <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl border border-orange-100 p-5">
-            <ProgresoClient type="streak" value={streak} longestStreak={longestStreak} />
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
+            <p className="text-3xl font-bold text-green-600">{earnedCount > 0 ? earnedCount : 0}</p>
+            <p className="text-xs text-gray-500 mt-1">Sesiones evaluadas</p>
           </div>
-
-          {/* Achievements */}
-          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl border border-purple-100 p-5">
-            <ProgresoClient type="achievements" value={earnedCount} total={totalCount} />
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
+            <p className="text-3xl font-bold text-amber-500">0</p>
+            <p className="text-xs text-gray-500 mt-1">Nano cursos completados</p>
           </div>
         </div>
 
@@ -121,7 +120,7 @@ export default async function ProgresoPage() {
               </div>
             )}
             {hasData && (
-              <p className="text-xs text-gray-400 text-center mt-2">
+              <p className="text-sm text-gray-500 font-medium text-center mt-2">
                 Promedio de las últimas {recentScores?.length || 0} sesiones
               </p>
             )}
@@ -129,7 +128,16 @@ export default async function ProgresoPage() {
 
           {/* Competency breakdown */}
           <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Detalle por competencia</h3>
+            <div className="flex items-center gap-2 mb-4">
+              <h3 className="text-sm font-semibold text-gray-900">Detalle por competencia</h3>
+              <a
+                href="/sobre#respaldo-autores"
+                className="w-5 h-5 rounded-full bg-sidebar/10 text-sidebar flex items-center justify-center text-[10px] font-bold hover:bg-sidebar/20 transition-colors"
+                title="Instrumento UGM basado en Norcross & Wampold (2019), Hill (2014). Ver citas en Sobre GlorIA."
+              >
+                i
+              </a>
+            </div>
             {hasData ? (
               <ProgresoClient type="bars" compData={compData} />
             ) : (

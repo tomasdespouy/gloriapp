@@ -13,26 +13,32 @@ type Message = {
   hint?: string;
 };
 
-type Phase = "select" | "practice" | "feedback";
+type Phase = "welcome" | "select" | "practice" | "feedback";
 
 const COMP_EMOJIS: Record<string, string> = {
-  empathy: "💛",
-  active_listening: "👂",
-  open_questions: "❓",
-  reformulation: "🔄",
-  confrontation: "🪞",
-  silence_management: "🤫",
-  rapport: "🤝",
+  setting_terapeutico: "🏠",
+  motivo_consulta: "🔍",
+  datos_contextuales: "📋",
+  objetivos: "🎯",
+  escucha_activa: "👂",
+  actitud_no_valorativa: "🫶",
+  optimismo: "🌱",
+  presencia: "🧘",
+  conducta_no_verbal: "🤲",
+  contencion_afectos: "🫂",
 };
 
 const COMP_DESCRIPTIONS: Record<string, string> = {
-  empathy: "Comprender y comunicar la experiencia emocional del paciente",
-  active_listening: "Atender con todos los sentidos: palabras, tono y silencios",
-  open_questions: "Invitar a explorar y reflexionar sin dirigir",
-  reformulation: "Devolver lo dicho con nuevas palabras que amplíen la perspectiva",
-  confrontation: "Señalar incongruencias de forma respetuosa y oportuna",
-  silence_management: "Tolerar las pausas como espacio de procesamiento",
-  rapport: "Construir y mantener la alianza terapéutica",
+  setting_terapeutico: "Explicitar encuadre, confidencialidad y roles",
+  motivo_consulta: "Indagar motivo manifiesto y latente, explorar recursos",
+  datos_contextuales: "Integrar contextos familiares, laborales y culturales",
+  objetivos: "Co-construir metas terapéuticas con el paciente",
+  escucha_activa: "Atender lo verbal y no verbal con respuesta congruente",
+  actitud_no_valorativa: "Aceptación incondicional sin juicios",
+  optimismo: "Transmitir esperanza integrada con intervenciones técnicas",
+  presencia: "Atención sostenida, flexibilidad y sintonía",
+  conducta_no_verbal: "Leer e integrar señales corporales del paciente",
+  contencion_afectos: "Sostener emociones intensas con calidez y empatía",
 };
 
 export default function TutorClient({
@@ -40,7 +46,7 @@ export default function TutorClient({
 }: {
   competencies: { key: string; label: string }[];
 }) {
-  const [phase, setPhase] = useState<Phase>("select");
+  const [phase, setPhase] = useState<Phase>("welcome");
   const [selectedComps, setSelectedComps] = useState<string[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -191,6 +197,72 @@ export default function TutorClient({
     .filter(Boolean);
 
   // ═════════════════════════════════════════════
+  // WELCOME PHASE — Sesión 0: Bienvenida
+  // ═════════════════════════════════════════════
+  if (phase === "welcome") {
+    return (
+      <div className="min-h-screen">
+        <header className="px-8 py-5">
+          <Link href="/aprendizaje" className="text-xs text-sidebar hover:underline mb-3 inline-block">
+            &larr; Volver a Aprendizaje
+          </Link>
+        </header>
+
+        <div className="px-8 pb-12 max-w-2xl mx-auto">
+          <div className="text-center mb-8">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/learning/tutor.png" alt="Tutor" className="w-32 h-32 rounded-3xl object-cover mx-auto mb-6 shadow-lg" />
+            <h1 className="text-3xl font-bold text-gray-900 mb-3">Bienvenido/a a GlorIA</h1>
+            <p className="text-sm text-gray-500 max-w-lg mx-auto leading-relaxed">
+              Esta es tu plataforma de entrenamiento clínico con inteligencia artificial.
+              Aquí practicarás entrevistas terapéuticas con pacientes simulados que reaccionan
+              de forma realista según tus intervenciones.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4 mb-8">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-sidebar/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-sm font-bold text-sidebar">1</span>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Sesión 0: Tutor guiado</p>
+                <p className="text-xs text-gray-500 mt-0.5">Primero practicarás con un paciente ficticio mientras un tutor clínico te da retroalimentación en tiempo real. Esto te prepara para las sesiones reales.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-sidebar/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-sm font-bold text-sidebar">2</span>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Aprendizaje por competencias</p>
+                <p className="text-xs text-gray-500 mt-0.5">Después del tutor, desbloquearás 10 módulos de competencias clínicas con ejemplos interactivos de diálogos terapéuticos.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-sidebar/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-sm font-bold text-sidebar">3</span>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Práctica con pacientes IA</p>
+                <p className="text-xs text-gray-500 mt-0.5">Finalmente, podrás conversar con pacientes simulados que tienen historias, personalidades y reacciones únicas. Tu docente revisará tu desempeño.</p>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setPhase("select")}
+            className="w-full bg-gradient-to-r from-sidebar to-[#354080] text-white py-3.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-md"
+          >
+            <Sparkles size={18} />
+            Comenzar sesión con tutor
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═════════════════════════════════════════════
   // SELECTION PHASE
   // ═════════════════════════════════════════════
   if (phase === "select") {
@@ -205,10 +277,9 @@ export default function TutorClient({
         <div className="px-8 pb-12 max-w-3xl mx-auto">
           {/* Hero */}
           <div className="text-center mb-10">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-sidebar to-[#354080] flex items-center justify-center mx-auto mb-5 shadow-lg">
-              <GraduationCap size={36} className="text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Práctica con tutor</h1>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/learning/tutor.png" alt="Tutor" className="w-20 h-20 rounded-2xl object-cover mx-auto mb-5 shadow-lg" />
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Sesión con tutor</h1>
             <p className="text-gray-500 max-w-md mx-auto">
               Conversa con un paciente ficticio mientras un tutor clínico te guía en tiempo real con sugerencias personalizadas.
             </p>

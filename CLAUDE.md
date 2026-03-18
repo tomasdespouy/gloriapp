@@ -113,6 +113,7 @@ Required in `.env.local` (see `.env.local.example`):
 
 ## Coding Conventions
 
+- **Spanish text MUST include proper accents** (tildes, ñ): "enfermería" not "enfermeria", "psicóloga" not "psicologa", "señora" not "senora". This applies to ALL user-facing text: database seed data, migrations, UI labels, system prompts, and any content visible to users. Use only fonts that support full Latin character set (accented vowels, ñ, ü).
 - Language: TypeScript strict mode
 - Path alias: `@/*` maps to `src/*`
 - Components: functional components, no class components

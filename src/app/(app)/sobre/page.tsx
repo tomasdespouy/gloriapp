@@ -27,7 +27,7 @@ export default function SobrePage() {
         {/* Qué es GlorIA */}
         <section>
           <h2 className="text-lg font-bold text-gray-900 mb-3">
-            Qué es GlorIA
+            ¿Qué es GlorIA?
           </h2>
           <p className="text-sm text-gray-700 leading-relaxed mb-3">
             GlorIA es una plataforma de entrenamiento clínico basada en Inteligencia Artificial, diseñada para que estudiantes de psicologia practiquen conversaciones terapéuticas en un entorno seguro y controlado.
@@ -76,7 +76,7 @@ export default function SobrePage() {
             {[
               {
                 title: "Ficción clínica fundamentada",
-                desc: "Cada paciente es completamente ficticio. No representa ni esta basado en ningún paciente real. Los perfiles se construyen a partir de literatura clínica y supervisión académica.",
+                desc: "Cada paciente es completamente ficticio. No representa ni está basado en ningún paciente real. Los perfiles se construyen a partir de literatura clínica y supervisión académica.",
               },
               {
                 title: "Diversidad representativa",
@@ -89,6 +89,22 @@ export default function SobrePage() {
               {
                 title: "Sin estereotipos dañinos",
                 desc: "Se evitan representaciones estigmatizantes de condiciones de salud mental. Los pacientes son personas complejas, no reducidas a su diagnóstico.",
+              },
+              {
+                title: "Retroalimentación con supervisión humana",
+                desc: "Toda evaluación generada por la IA es revisada y aprobada por un docente supervisor antes de ser visible para el estudiante. La IA complementa, nunca reemplaza, el juicio clínico humano.",
+              },
+              {
+                title: "Límites en situaciones extremas",
+                desc: "Los pacientes virtuales no incurrirán en situaciones de riesgo vital real (autolesión activa, violencia hacia terceros). En escenarios de crisis simulada, el sistema prioriza la seguridad pedagógica y alerta al docente.",
+              },
+              {
+                title: "Consentimiento informado",
+                desc: "Los estudiantes son informados de que interactúan con una IA. Las conversaciones son confidenciales y se usan exclusivamente con fines formativos, bajo las políticas de la institución.",
+              },
+              {
+                title: "Sesgo y calibración continua",
+                desc: "Los modelos de evaluación son auditados periódicamente para detectar y corregir sesgos culturales, de género o socioeconómicos en la retroalimentación al estudiante.",
               },
             ].map((card, i) => (
               <div key={i} className="bg-white rounded-lg border border-gray-200 p-4">
@@ -143,6 +159,97 @@ export default function SobrePage() {
           </div>
         </section>
 
+        {/* Respaldo de autores */}
+        <section>
+          <h2 className="text-lg font-bold text-gray-900 mb-3">
+            Respaldo de autores
+          </h2>
+          <p className="text-sm text-gray-700 leading-relaxed mb-4">
+            GlorIA ha basado la construcción de sus pacientes virtuales y su sistema de evaluación en literatura científica especializada. Cada variable clínica utilizada en la plataforma — desde los arquetipos de resistencia hasta los mecanismos de defensa — está respaldada por investigación académica validada internacionalmente.
+          </p>
+
+          <div className="space-y-4">
+            {[
+              {
+                area: "Arquetipos clínicos de resistencia",
+                refs: [
+                  "Otani, A. (1989). Client Resistance in Counseling: Its Theoretical Rationale and Taxonomic Classification. Journal of Counseling & Development, 67(8), 458-461.",
+                  "Beutler, L.E., Moleiro, C. & Talebi, H. (2002). Resistance in Psychotherapy: What Conclusions Are Supported by Research. Journal of Clinical Psychology, 58(2), 207-217.",
+                  "Safran, J.D. & Muran, J.C. (2000). Negotiating the Therapeutic Alliance: A Relational Treatment Guide. Guilford Press.",
+                  "Leahy, R.L. (2001). Overcoming Resistance in Cognitive Therapy. Guilford Press.",
+                ],
+              },
+              {
+                area: "Rasgos de personalidad",
+                refs: [
+                  "Costa, P.T. & McCrae, R.R. (1992). Revised NEO Personality Inventory (NEO-PI-R) Professional Manual. Psychological Assessment Resources.",
+                  "Widiger, T.A. & Trull, T.J. (2013). Dimensional Models of Personality: The FFM and the DSM-5. Dialogues in Clinical Neuroscience, 15(2), 135-146.",
+                  "Millon, T. (2011). Disorders of Personality: Introducing a DSM/ICD Spectrum from Normal to Abnormal. Wiley.",
+                  "Krueger, R.F. et al. (2012). Initial Construction of a Maladaptive Personality Trait Model for DSM-5. Psychological Medicine, 42(9), 1879-1890.",
+                ],
+              },
+              {
+                area: "Mecanismos de defensa",
+                refs: [
+                  "Freud, A. (1936). The Ego and the Mechanisms of Defence. Hogarth Press.",
+                  "Vaillant, G.E. (1992). Ego Mechanisms of Defense: A Guide for Clinicians and Researchers. American Psychiatric Press.",
+                  "Perry, J.C. (1990). Defense Mechanism Rating Scales (DMRS). 5th Edition.",
+                  "Bond, M., Andrews, G. & Singh, M. (1993). The Defense Style Questionnaire. Journal of Nervous and Mental Disease, 181(4), 246-256.",
+                  "Cramer, P. (2006). Protecting the Self: Defense Mechanisms in Action. Guilford Press.",
+                ],
+              },
+              {
+                area: "Temas sensibles en psicoterapia",
+                refs: [
+                  "Pope, K.S., Sonne, J.L. & Greene, B. (2006). What Therapists Don't Talk About and Why. APA.",
+                  "Farber, B.A. (2006). Self-Disclosure in Psychotherapy. Guilford Press.",
+                  "Farber, B.A., Blanchard, M. & Love, M. (2020). Disclosure, Concealment, and Dishonesty in Psychotherapy. Journal of Clinical Psychology, 76(2), 251-257.",
+                ],
+              },
+              {
+                area: "Configuración de sesión",
+                refs: [
+                  "Jourard, S.M. (1971). The Transparent Self. Van Nostrand Reinhold.",
+                  "Gross, J.J. (1998). The Emerging Field of Emotion Regulation: An Integrative Review. Review of General Psychology, 2(3), 271-299.",
+                  "Greenberg, L.S. (2015). Emotion-Focused Therapy. APA.",
+                  "Hill, C.E. (2014). Helping Skills: Facilitating Exploration, Insight, and Action. APA.",
+                  "Prochaska, J.O. & DiClemente, C.C. (1992). In Search of How People Change. American Psychologist, 47(9), 1102-1114.",
+                ],
+              },
+              {
+                area: "Diagnóstico y coherencia clínica",
+                refs: [
+                  "American Psychiatric Association (2022). DSM-5-TR. American Psychiatric Publishing.",
+                  "Lingiardi, V. & McWilliams, N. (2017). Psychodynamic Diagnostic Manual: PDM-2. Guilford Press.",
+                  "McWilliams, N. (2011). Psychoanalytic Diagnosis: Understanding Personality Structure. Guilford Press.",
+                  "Kernberg, O.F. (1984). Severe Personality Disorders: Psychotherapeutic Strategies. Yale University Press.",
+                  "Persons, J.B. (2008). The Case Formulation Approach to Cognitive-Behavior Therapy. Guilford Press.",
+                  "Eells, T.D. (2007). Handbook of Psychotherapy Case Formulation. Guilford Press.",
+                ],
+              },
+              {
+                area: "Evaluación de competencias clínicas",
+                refs: [
+                  "Norcross, J.C. & Wampold, B.E. (2019). Psychotherapy Relationships That Work. Oxford University Press.",
+                  "Beutler, L.E., Clarkin, J.F. & Bongar, B. (2000). Guidelines for the Systematic Treatment of the Depressed Patient. Oxford University Press.",
+                  "Evans, S.C. et al. (2015). Vignette Methodologies for Studying Clinicians' Decision-Making. International Journal of Clinical and Health Psychology, 15(2), 160-170.",
+                ],
+              },
+            ].map((section, i) => (
+              <div key={i} className="bg-white rounded-lg border border-gray-200 p-4">
+                <p className="text-sm font-semibold text-gray-900 mb-2">{section.area}</p>
+                <ul className="space-y-1">
+                  {section.refs.map((ref, j) => (
+                    <li key={j} className="text-xs text-gray-600 leading-relaxed pl-3 border-l-2 border-sidebar/20">
+                      {ref}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Limitaciones */}
         <section>
           <h2 className="text-lg font-bold text-gray-900 mb-3">
@@ -174,7 +281,7 @@ export default function SobrePage() {
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <div className="flex items-center mb-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/branding/ugm-logo.png" alt="Universidad Gabriela Mistral" className="h-12 w-auto" />
+              <img src="/branding/ugm-full-logo.png" alt="Universidad Gabriela Mistral" className="h-14 w-auto" />
             </div>
             <p className="text-sm text-gray-700 leading-relaxed mb-3">
               GlorIA es un proyecto desarrollado en la Universidad Gabriela Mistral, Santiago de Chile.

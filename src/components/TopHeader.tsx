@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Bell, User, LogOut, Settings, ChevronDown } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -30,6 +31,7 @@ export default function TopHeader({ userName, userEmail, userRole }: Props) {
   const notifRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+  const [clickedNotifId, setClickedNotifId] = useState<string | null>(null);
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const loadNotifications = useCallback(async () => {
@@ -40,8 +42,22 @@ export default function TopHeader({ userName, userEmail, userRole }: Props) {
     }
   }, []);
 
-  // Load notifications on mount
-  useEffect(() => { loadNotifications(); }, [loadNotifications]);
+  // Load notifications on mount + subscribe to Realtime for new ones
+  useEffect(() => {
+    loadNotifications();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("notifications-bell")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications" },
+        () => { loadNotifications(); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [loadNotifications]);
 
   const markAllRead = async () => {
     await fetch("/api/notifications", {
@@ -83,7 +99,10 @@ export default function TopHeader({ userName, userEmail, userRole }: Props) {
   };
 
   return (
-    <header className="h-12 bg-[#2D3561] flex items-center justify-end px-5 gap-2">
+    <header className="h-12 bg-[#2D3561] flex items-center justify-end pl-14 md:pl-5 pr-5 gap-2">
+      {/* Theme toggle */}
+      <ThemeToggle />
+
       {/* Notifications */}
       <div ref={notifRef} className="relative">
         <button
@@ -113,26 +132,39 @@ export default function TopHeader({ userName, userEmail, userRole }: Props) {
                 notifications.map((n) => (
                   <button
                     key={n.id}
+                    disabled={clickedNotifId === n.id}
                     onClick={() => {
-                      // Mark as read (fire and forget)
+                      setClickedNotifId(n.id);
+                      // Mark as read
                       fetch("/api/notifications", {
                         method: "PATCH",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ id: n.id }),
                       });
                       setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: true } : x));
-                      setNotifOpen(false);
-                      // Navigate — use window.location for guaranteed navigation
+                      // Navigate
                       if (n.href) window.location.href = n.href;
                     }}
                     className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${
-                      n.is_read ? "" : "bg-sidebar/5"
-                    }`}
+                      clickedNotifId === n.id ? "opacity-60" : ""
+                    } ${n.is_read ? "" : "bg-sidebar/5"}`}
                   >
                     <div className="flex items-start gap-2">
-                      {!n.is_read && <span className="w-2 h-2 rounded-full bg-sidebar flex-shrink-0 mt-1.5" />}
+                      {!n.is_read && clickedNotifId !== n.id && (
+                        <span className="w-2 h-2 rounded-full bg-sidebar flex-shrink-0 mt-1.5" />
+                      )}
+                      {clickedNotifId === n.id && (
+                        <svg className="animate-spin w-3 h-3 text-sidebar flex-shrink-0 mt-1" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      )}
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs truncate ${n.is_read ? "text-gray-600" : "font-semibold text-gray-900"}`}>
+                        <p className={`text-xs truncate ${
+                          clickedNotifId === n.id
+                            ? "text-gray-400"
+                            : n.is_read ? "text-gray-600" : "font-semibold text-gray-900"
+                        }`}>
                           {n.title}
                         </p>
                         {n.body && <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-2">{n.body}</p>}

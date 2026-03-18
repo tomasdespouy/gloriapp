@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, ArrowLeft, LogOut, Mic, MicOff } from "lucide-react";
+import { Send, ArrowLeft, LogOut, Mic, MicOff, Volume2, Square, Loader2, Clock, X, Phone, PhoneOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -12,6 +12,7 @@ interface Patient {
   occupation: string | null;
   presenting_problem: string;
   difficulty_level: string;
+  voice_id?: string | null;
 }
 
 interface Message {
@@ -24,13 +25,14 @@ interface ChatInterfaceProps {
   patient: Patient;
   conversationId?: string;
   initialMessages: Message[];
+  initialActiveSeconds?: number;
 }
 
 type Phase = "idle" | "thinking" | "writing";
 
 const CHAR_DELAY_MS = 35;
 
-export function ChatInterface({ patient, conversationId: initialConvId, initialMessages }: ChatInterfaceProps) {
+export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -38,14 +40,135 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [isRecording, setIsRecording] = useState(false);
+  const [displaySeconds, setDisplaySeconds] = useState(initialActiveSeconds);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [voiceSpeaking, setVoiceSpeaking] = useState(false); // true = audio playing, hide text
+  const voiceModeRef = useRef(false);
+  const messagesRef = useRef<Message[]>(initialMessages);
+  const isStreamingRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const router = useRouter();
 
-  // Active time tracking (only counts when tab is visible)
-  const activeSecondsRef = useRef(0);
-  const lastTickRef = useRef(Date.now());
+  // TTS (ElevenLabs)
+  const [playingIdx, setPlayingIdx] = useState<number | null>(null);
+  const [loadingTtsIdx, setLoadingTtsIdx] = useState<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const playTts = async (text: string, idx: number) => {
+    // If already playing this message, stop it
+    if (playingIdx === idx) {
+      audioRef.current?.pause();
+      audioRef.current = null;
+      setPlayingIdx(null);
+      return;
+    }
+
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setPlayingIdx(null);
+    }
+
+    setLoadingTtsIdx(idx);
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voiceId: patient.voice_id }),
+      });
+
+      if (!res.ok) throw new Error("TTS failed");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+
+      audio.onended = () => {
+        setPlayingIdx(null);
+        audioRef.current = null;
+        URL.revokeObjectURL(url);
+      };
+
+      audioRef.current = audio;
+      setPlayingIdx(idx);
+      setLoadingTtsIdx(null);
+      await audio.play();
+    } catch {
+      setLoadingTtsIdx(null);
+      setPlayingIdx(null);
+    }
+  };
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  // Sync refs
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { isStreamingRef.current = isStreaming; }, [isStreaming]);
+
+  // Auto-play TTS function (for voice mode)
+  const autoPlayTts = async (text: string, idx: number) => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voiceId: patient.voice_id }),
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => { setPlayingIdx(null); audioRef.current = null; URL.revokeObjectURL(url); };
+      audioRef.current = audio;
+      setPlayingIdx(idx);
+      await audio.play();
+    } catch { /* TTS failed silently */ }
+  };
+
+  // Auto-play TTS with callback when audio finishes
+  const autoPlayTtsWithCallback = async (text: string, idx: number, onDone: () => void) => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voiceId: patient.voice_id }),
+      });
+      if (!res.ok) { onDone(); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => {
+        setPlayingIdx(null);
+        audioRef.current = null;
+        URL.revokeObjectURL(url);
+        onDone();
+      };
+      audio.onerror = () => { onDone(); };
+      audioRef.current = audio;
+      setPlayingIdx(idx);
+      await audio.play();
+    } catch {
+      onDone();
+    }
+  };
+
+  // Session time tracking — real elapsed time, resuming from DB value
+  const sessionStartRef = useRef(Date.now());
+  const activeSecondsRef = useRef(initialActiveSeconds);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const silenceFiredRef = useRef(false);
   const SILENCE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
@@ -72,11 +195,17 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     import("@/lib/supabase/realtime-chat").then(({ subscribeToConversation }) => {
       unsubscribe = subscribeToConversation(conversationId, (event) => {
         if (event.type === "interrupt" || event.type === "reaction") {
-          setMessages((prev) => [...prev, {
-            role: "assistant",
-            content: event.content,
-            created_at: new Date().toISOString(),
-          }]);
+          // Prevent duplicates: check if this content already exists in recent messages
+          setMessages((prev) => {
+            const lastFew = prev.slice(-3);
+            const isDuplicate = lastFew.some(m => m.role === "assistant" && m.content === event.content);
+            if (isDuplicate) return prev;
+            return [...prev, {
+              role: "assistant",
+              content: event.content,
+              created_at: new Date().toISOString(),
+            }];
+          });
         }
       });
       realtimeUnsubRef.current = unsubscribe;
@@ -95,7 +224,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     // Reset "typing too long" timer (fires after 60s of typing without sending)
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() => {
-      if (isStreaming || interruptFiredRef.current) return;
+      if (isStreaming || interruptFiredRef.current || voiceModeRef.current) return;
       interruptFiredRef.current = true;
       fetch("/api/chat/interrupt", {
         method: "POST",
@@ -129,7 +258,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
 
     idleTimerRef.current = setTimeout(() => {
-      if (isStreaming || interruptFiredRef.current) return;
+      // Don't interrupt in voice mode (mic is active, user is engaged)
+      if (isStreaming || interruptFiredRef.current || voiceModeRef.current) return;
       interruptFiredRef.current = true;
       fetch("/api/chat/interrupt", {
         method: "POST",
@@ -150,37 +280,33 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, conversationId, isStreaming, patient.id]);
 
-  // Patient avatar (PNG)
+  // Patient media
   const avatarSlug = patient.name
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, "-");
-  const avatarSrc = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${avatarSlug}.png`;
+  const videoSrc = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${avatarSlug}.mp4`;
+  const imageSrc = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${avatarSlug}.png`;
   const initials = patient.name.split(" ").map((n) => n[0]).join("").slice(0, 2);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Active time tracker — only counts when tab is visible
+  // Session timer — real elapsed time (counts even when tab is hidden)
   useEffect(() => {
+    const start = sessionStartRef.current;
+
     const tick = () => {
-      if (!document.hidden) {
-        const now = Date.now();
-        const delta = Math.round((now - lastTickRef.current) / 1000);
-        if (delta > 0 && delta < 10) { // ignore large jumps (tab was hidden)
-          activeSecondsRef.current += delta;
-        }
-        lastTickRef.current = now;
-      } else {
-        lastTickRef.current = Date.now(); // reset on visibility change
-      }
+      const elapsed = initialActiveSeconds + Math.round((Date.now() - start) / 1000);
+      activeSecondsRef.current = elapsed;
+      setDisplaySeconds(elapsed);
     };
 
     const interval = setInterval(tick, 1000);
 
-    // Persist active time every 30 seconds
+    // Persist every 15 seconds
     const persistInterval = setInterval(() => {
       if (conversationId && activeSecondsRef.current > 0) {
         fetch(`/api/sessions/${conversationId}/active-time`, {
@@ -189,15 +315,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           body: JSON.stringify({ active_seconds: activeSecondsRef.current }),
         }).catch(() => {});
       }
-    }, 30000);
-
-    const handleVisibility = () => { lastTickRef.current = Date.now(); };
-    document.addEventListener("visibilitychange", handleVisibility);
+    }, 15000);
 
     return () => {
       clearInterval(interval);
       clearInterval(persistInterval);
-      document.removeEventListener("visibilitychange", handleVisibility);
       // Final persist on unmount
       if (conversationId && activeSecondsRef.current > 0) {
         navigator.sendBeacon?.(
@@ -291,6 +413,53 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     } else if (streamDoneRef.current) {
       setPhase("idle");
       setIsStreaming(false);
+      // Voice mode: play audio FIRST, then type text gradually AFTER
+      if (voiceModeRef.current && lastAssistantMsgRef.current && patient.voice_id) {
+        const fullText = lastAssistantMsgRef.current;
+        const msgIdx = messagesRef.current.length - 1;
+
+        // Hide text during audio, show "Hablando..."
+        setVoiceSpeaking(true);
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last?.role === "assistant") {
+            updated[updated.length - 1] = { ...last, content: "" };
+          }
+          return updated;
+        });
+
+        // Play TTS, then type text gradually when audio ends
+        setTimeout(async () => {
+          await autoPlayTtsWithCallback(fullText, msgIdx, () => {
+            setVoiceSpeaking(false);
+
+            // Type text gradually (like normal chat typing effect)
+            let charIdx = 0;
+            const typeInterval = setInterval(() => {
+              charIdx += 2; // 2 chars at a time
+              const partial = fullText.substring(0, charIdx);
+              setMessages((prev) => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last?.role === "assistant") {
+                  updated[updated.length - 1] = { ...last, content: partial };
+                }
+                return updated;
+              });
+              if (charIdx >= fullText.length) {
+                clearInterval(typeInterval);
+                // Resume mic after typing finishes
+                if (voiceModeRef.current && voiceRecognitionRef.current) {
+                  setTimeout(() => {
+                    try { voiceRecognitionRef.current?.start(); setIsRecording(true); } catch {}
+                  }, 500);
+                }
+              }
+            }, CHAR_DELAY_MS);
+          });
+        }, 200);
+      }
     } else {
       drainTimerRef.current = setTimeout(drainBuffer, CHAR_DELAY_MS);
     }
@@ -373,9 +542,131 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     }
   };
 
-  const sendMessage = async () => {
-    const trimmed = input.trim();
+  // ═══ VOICE MODE — continuous speech-to-text + auto-send + TTS response ═══
+  const voiceAutoSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceRecognitionRef = useRef<SpeechRecognition | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sendMessageRef = useRef<(text?: string) => Promise<void>>(null as any);
+
+  const startVoiceMode = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert("Tu navegador no soporta reconocimiento de voz."); return; }
+
+    setVoiceMode(true);
+
+    const recognition = new SR();
+    recognition.lang = "es-CL";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    let transcript = "";
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = "";
+      let finalText = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalText += event.results[i][0].transcript;
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      if (finalText) transcript += finalText;
+      setInput(transcript + interim);
+
+      // Auto-send after 2s of silence (reset timer on each result)
+      if (voiceAutoSendTimerRef.current) clearTimeout(voiceAutoSendTimerRef.current);
+      if (transcript.trim()) {
+        voiceAutoSendTimerRef.current = setTimeout(() => {
+          const textToSend = transcript.trim();
+          if (textToSend && !isStreamingRef.current && sendMessageRef.current) {
+            transcript = "";
+            setInput("");
+            // Stop recognition before sending
+            try { recognition.stop(); } catch {}
+            // Auto-correct before sending (adds ¿? and tildes)
+            fetch("/api/chat/correct", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: textToSend }),
+            })
+              .then(r => r.ok ? r.json() : null)
+              .then(data => {
+                const corrected = data?.corrected || textToSend;
+                sendMessageRef.current(corrected);
+              })
+              .catch(() => {
+                sendMessageRef.current(textToSend);
+              });
+          }
+        }, 2000);
+      }
+    };
+
+    recognition.onend = () => {
+      // Restart if voice mode is still active and not streaming
+      if (voiceModeRef.current && !isStreamingRef.current) {
+        setTimeout(() => {
+          try { recognition.start(); } catch { /* already started */ }
+        }, 300);
+      }
+    };
+
+    recognition.onerror = (e) => {
+      console.log("Voice recognition error:", (e as Event & { error?: string }).error);
+      if (voiceModeRef.current && !isStreamingRef.current) {
+        setTimeout(() => { try { recognition.start(); } catch {} }, 1000);
+      }
+    };
+
+    voiceRecognitionRef.current = recognition;
+    try { recognition.start(); } catch {}
+    setIsRecording(true);
+  };
+
+  const stopVoiceMode = () => {
+    setVoiceMode(false);
+    if (voiceAutoSendTimerRef.current) clearTimeout(voiceAutoSendTimerRef.current);
+    voiceRecognitionRef.current?.stop();
+    voiceRecognitionRef.current = null;
+    setIsRecording(false);
+    setInput("");
+  };
+
+  // Restart voice recognition after TTS playback ends (voice mode)
+  const autoPlayTtsAndResumeMic = async (text: string, idx: number) => {
+    // Pause mic during TTS
+    voiceRecognitionRef.current?.stop();
+    setIsRecording(false);
+
+    await autoPlayTts(text, idx);
+
+    // Wait for audio to finish, then restart mic
+    if (audioRef.current) {
+      audioRef.current.onended = () => {
+        setPlayingIdx(null);
+        audioRef.current = null;
+        // Restart mic if voice mode still active
+        if (voiceModeRef.current) {
+          setTimeout(() => {
+            if (voiceRecognitionRef.current && voiceModeRef.current) {
+              try { voiceRecognitionRef.current.start(); setIsRecording(true); } catch {}
+            }
+          }, 500);
+        }
+      };
+    }
+  };
+
+  const sendMessage = async (overrideText?: string) => {
+    const trimmed = (overrideText || input).trim();
     if (!trimmed || isStreaming) return;
+
+    // Pause voice recognition during streaming
+    if (voiceMode) {
+      voiceRecognitionRef.current?.stop();
+      setIsRecording(false);
+    }
 
     const now = new Date().toISOString();
 
@@ -470,6 +761,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     streamDoneRef.current = true;
   };
 
+  // Keep ref updated for voice mode closure
+  sendMessageRef.current = sendMessage;
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -477,13 +771,34 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     }
   };
 
-  const handleEndSession = () => {
+  const handleEndSession = async () => {
     if (!conversationId) return;
+
+    // Stop voice mode and any audio playback before navigating
+    if (voiceMode) stopVoiceMode();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setPlayingIdx(null);
+    }
+
+    // Persist final active time BEFORE navigating to review
+    if (activeSecondsRef.current > 0) {
+      try {
+        await fetch(`/api/sessions/${conversationId}/active-time`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ active_seconds: activeSecondsRef.current }),
+        });
+      } catch { /* navigate anyway */ }
+    }
+
     router.push(`/review/${conversationId}`);
   };
 
   const renderContent = (content: string) => {
-    return content.replace(/\[([^\]]+)\]/g, '<em class="text-gray-400">[$1]</em>');
+    // Render non-verbal cues as subtle italic text
+    return content.replace(/\[([^\]]*)\]/g, '<span class="text-gray-400 italic text-xs">[$1]</span>');
   };
 
   const formatTime = (isoString?: string) => {
@@ -509,51 +824,88 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const showThinkingBubble = phase === "thinking" && lastMsg?.role === "assistant" && !lastMsg.content;
   const showWritingSubtext = phase === "writing" && lastMsg?.role === "assistant" && !!lastMsg.content;
 
-  // Header status
-  const headerStatus = phase === "thinking"
-    ? "Pensando"
-    : phase === "writing"
-    ? "Escribiendo"
-    : null;
+  // Format timer display
+  const formatTimer = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const s = (seconds % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
-        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600 transition-colors">
-          <ArrowLeft size={20} />
+      <header className="bg-white border-b border-gray-200 px-2 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-3 flex-shrink-0">
+        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 sm:p-2 -ml-1 rounded-lg hover:bg-gray-100">
+          <ArrowLeft size={20} className="sm:hidden" strokeWidth={2.5} />
+          <ArrowLeft size={24} className="hidden sm:block" strokeWidth={2.5} />
         </Link>
 
-        <PatientAvatar src={avatarSrc} initials={initials} size={40} />
+        {/* Patient video avatar — clickable */}
+        <button
+          onClick={() => setShowVideoModal(true)}
+          className="flex-shrink-0 rounded-full overflow-hidden bg-sidebar w-10 h-10 sm:w-12 sm:h-12"
+        >
+          <PatientVideo videoSrc={videoSrc} imageSrc={imageSrc} initials={initials} size={48} />
+        </button>
 
-        <div className="flex-1">
-          <h2 className="font-bold text-gray-900">{patient.name}</h2>
-          <p className="text-xs text-gray-500">
+        <div className="flex-1 min-w-0">
+          <h2 className="font-bold text-gray-900 truncate text-sm sm:text-base">{patient.name}</h2>
+          <p className="text-[10px] sm:text-xs text-gray-500 truncate">
             {patient.age} años, {patient.occupation}
-            {headerStatus && (
-              <span className="ml-2 text-sidebar">
-                &middot; {headerStatus}
-                <span className="inline-flex gap-0.5 ml-1 align-middle">
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                </span>
-              </span>
-            )}
           </p>
         </div>
 
-        {/* End session button */}
-        {conversationId && messages.length >= 2 && !isStreaming && (
-          <button
-            onClick={() => setShowEndConfirm(true)}
-            className="end-session-btn flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-lg text-xs font-semibold"
-          >
-            <LogOut size={14} />
-            Finalizar sesión
-          </button>
-        )}
+        {/* Voice mode toggle + Session timer + End session button */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          {patient.voice_id && (
+            <button
+              onClick={() => voiceMode ? stopVoiceMode() : startVoiceMode()}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors ${
+                voiceMode
+                  ? "bg-green-500 text-white animate-pulse"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              }`}
+              title={voiceMode ? "Desactivar modo voz" : "Activar conversación por voz"}
+            >
+              {voiceMode ? <Phone size={13} /> : <Mic size={13} />}
+              <span className="hidden sm:inline">{voiceMode ? "Voz activa" : "Modo voz"}</span>
+            </button>
+          )}
+
+          <span className="flex items-center gap-1.5 text-xs text-gray-400 tabular-nums">
+            <Clock size={13} />
+            {formatTimer(displaySeconds)}
+          </span>
+
+          {conversationId && messages.length >= 2 && !isStreaming && (
+            <button
+              onClick={() => setShowEndConfirm(true)}
+              className="end-session-btn flex items-center gap-2 bg-red-500 text-white px-3 md:px-4 py-2 rounded-lg text-xs font-semibold"
+            >
+              <LogOut size={14} />
+              <span className="hidden sm:inline">Finalizar sesión</span>
+              <span className="sm:hidden">Salir</span>
+            </button>
+          )}
+        </div>
       </header>
+
+      {/* Video modal — fullscreen preview */}
+      {showVideoModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70" onClick={() => setShowVideoModal(false)}>
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowVideoModal(false)}
+              className="absolute -top-10 right-0 text-white/80 hover:text-white"
+            >
+              <X size={24} />
+            </button>
+            <div className="rounded-2xl overflow-hidden" style={{ width: 300, height: 300 }}>
+              <PatientVideo videoSrc={videoSrc} imageSrc={imageSrc} initials={initials} size={300} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* End session confirmation modal */}
       {showEndConfirm && (
@@ -590,11 +942,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-3">
         {messages.length === 0 && (
           <div className="text-center text-gray-400 mt-20">
             <p className="text-lg font-medium mb-2">Sesión con {patient.name}</p>
-            <p className="text-sm">{patient.presenting_problem}</p>
+            {patient.difficulty_level === "beginner" && (
+              <p className="text-sm">{patient.presenting_problem}</p>
+            )}
             <p className="text-sm mt-4">Escribe tu primera intervención como terapeuta.</p>
           </div>
         )}
@@ -626,11 +980,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 {/* Patient avatar (assistant messages only) */}
                 {msg.role === "assistant" && (
                   <div className="flex-shrink-0 mt-1">
-                    <PatientAvatar src={avatarSrc} initials={initials} size={32} />
+                    <PatientAvatar src={imageSrc} initials={initials} size={32} />
                   </div>
                 )}
 
-                <div className="flex flex-col max-w-[70%]">
+                <div className="flex flex-col max-w-[85%] md:max-w-[70%]">
                   <div
                     className={`px-4 py-3 rounded-2xl text-sm leading-relaxed break-words ${
                       msg.role === "user"
@@ -646,16 +1000,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                     {msg.role === "user" ? msg.content : undefined}
                   </div>
 
-                  {/* Timestamp */}
-                  {msg.created_at && (
-                    <span
-                      className={`text-[10px] text-gray-400 mt-1 ${
-                        msg.role === "user" ? "text-right" : "text-left"
-                      }`}
-                    >
-                      {formatTime(msg.created_at)}
-                    </span>
-                  )}
+                  {/* Timestamp + TTS button */}
+                  <div className={`flex items-center gap-1.5 mt-1 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    {msg.created_at && (
+                      <span className="text-[10px] text-gray-400">
+                        {formatTime(msg.created_at)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -666,7 +1018,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         {showThinkingBubble && (
           <div className="flex justify-start gap-2.5 animate-msg-left">
             <div className="flex-shrink-0 mt-1">
-              <PatientAvatar src={avatarSrc} initials={initials} size={32} />
+              <PatientAvatar src={imageSrc} initials={initials} size={32} />
             </div>
             <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
               <div className="flex items-center gap-2">
@@ -676,6 +1028,21 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   <span className="typing-dot" />
                   <span className="typing-dot" />
                 </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Voice speaking bubble — audio playing, text hidden */}
+        {voiceSpeaking && (
+          <div className="flex justify-start gap-2.5 animate-msg-left">
+            <div className="flex-shrink-0 mt-1">
+              <PatientAvatar src={imageSrc} initials={initials} size={32} />
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2">
+                <Volume2 size={14} className="text-green-600 animate-pulse" />
+                <span className="text-xs text-green-700 font-medium">Hablando...</span>
               </div>
             </div>
           </div>
@@ -699,7 +1066,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       </div>
 
       {/* Input */}
-      <div className="bg-white border-t border-gray-200 px-6 py-4">
+      <div className="bg-white border-t border-gray-200 px-3 sm:px-6 py-3 sm:py-4">
         {isRecording && (
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -718,7 +1085,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             value={input}
             onChange={(e) => { setInput(e.target.value); handleTypingActivity(); }}
             onKeyDown={handleKeyDown}
-            placeholder="Escribe en texto acá o deja apretado la tecla Ctrl para transcribir tu voz"
+            placeholder="Escribe tu mensaje..."
             rows={1}
             className="flex-1 resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar"
             disabled={false}
@@ -739,7 +1106,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           </button>
 
           <button
-            onClick={sendMessage}
+            data-send-btn
+            onClick={() => sendMessage()}
             disabled={isStreaming || !input.trim()}
             className="bg-sidebar hover:bg-[#354080] text-white p-3 rounded-xl transition-colors disabled:opacity-50"
           >
@@ -774,6 +1142,53 @@ function PatientAvatar({ src, initials, size }: { src: string; initials: string;
           {initials}
         </span>
       )}
+    </div>
+  );
+}
+
+// ——— Patient Video (MP4) ———
+
+function PatientVideo({ videoSrc, imageSrc, initials, size }: { videoSrc: string; imageSrc: string; initials: string; size: number }) {
+  const [videoFailed, setVideoFailed] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
+
+  if (!videoFailed) {
+    return (
+      // eslint-disable-next-line jsx-a11y/media-has-caption
+      <video
+        src={videoSrc}
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="w-full h-full object-cover"
+        style={{ width: size, height: size }}
+        onError={() => setVideoFailed(true)}
+      />
+    );
+  }
+
+  if (!imgFailed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={imageSrc}
+        alt={initials}
+        className="w-full h-full object-cover"
+        style={{ width: size, height: size }}
+        onError={() => setImgFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div
+      className="flex items-center justify-center bg-sidebar"
+      style={{ width: size, height: size }}
+    >
+      <span className="text-white font-bold" style={{ fontSize: size * 0.35 }}>
+        {initials}
+      </span>
     </div>
   );
 }

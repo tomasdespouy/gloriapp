@@ -16,11 +16,11 @@ export default async function AppLayout({
   const email = profile?.email || "";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar role={role} />
-      <div className="ml-[260px] flex-1 flex flex-col">
+      <div className="ml-0 md:ml-[260px] flex-1 flex flex-col min-h-0">
         <TopHeader userName={fullName} userEmail={email} userRole={role} />
-        <main className="flex-1 bg-bg-main">
+        <main className="flex-1 bg-bg-main min-h-0 overflow-auto">
           {children}
         </main>
       </div>

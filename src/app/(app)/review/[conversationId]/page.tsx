@@ -13,10 +13,10 @@ export default async function ReviewPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Get conversation with patient info + active time
+  // Get conversation with patient info + active time + timestamps
   const { data: conversation } = await supabase
     .from("conversations")
-    .select("id, session_number, ai_patient_id, active_seconds, ai_patients(name, age, occupation, difficulty_level)")
+    .select("id, session_number, ai_patient_id, active_seconds, started_at, ended_at, ai_patients(name, age, occupation, difficulty_level)")
     .eq("id", conversationId)
     .single();
 
@@ -59,6 +59,20 @@ export default async function ReviewPage({
 
   const feedbackStatus = (existingEval?.feedback_status as "pending" | "approved") || null;
 
+  // Get teacher feedback (comment + score)
+  const { data: teacherFeedback } = await supabase
+    .from("session_feedback")
+    .select("teacher_comment, teacher_score")
+    .eq("conversation_id", conversationId)
+    .single();
+
+  // Get action items for this conversation
+  const { data: actionItems } = await supabase
+    .from("action_items")
+    .select("id, content, resource_link, status, student_comment, created_at")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true });
+
   return (
     <ReviewClient
       conversationId={conversationId}
@@ -69,6 +83,12 @@ export default async function ReviewPage({
       feedbackStatus={feedbackStatus}
       tooShort={tooShort}
       durationMinutes={durationMinutes}
+      activeSeconds={activeSeconds}
+      teacherComment={teacherFeedback?.teacher_comment || null}
+      teacherScore={teacherFeedback?.teacher_score || null}
+      startedAt={conversation.started_at || null}
+      endedAt={conversation.ended_at || null}
+      actionItems={actionItems || []}
     />
   );
 }

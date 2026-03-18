@@ -3,7 +3,7 @@
 import {
   Home, User, History, BarChart3, BookOpen, Info,
   Users, ClipboardCheck, LayoutDashboard, Building2,
-  Accessibility, LifeBuoy,
+  Accessibility, LifeBuoy, FlaskConical, DollarSign, Activity, FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,19 +21,21 @@ const studentNav = [
 
 const instructorNav = [
   { icon: LayoutDashboard, label: "Panel docente", href: "/docente/dashboard" },
-  { icon: Users, label: "Mis alumnos", href: "/docente/dashboard" },
-  { icon: ClipboardCheck, label: "Sesiones", href: "/docente/dashboard#sesiones" },
   { icon: User, label: "Pacientes", href: "/perfiles" },
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];
 
 const adminNav = (isSuperadmin: boolean) => [
-  { icon: LayoutDashboard, label: "Panel admin", href: "/admin/dashboard" },
+  { icon: LayoutDashboard, label: "Panel", href: "/admin/dashboard" },
   ...(isSuperadmin ? [{ icon: Building2, label: "Instituciones", href: "/admin/establecimientos" }] : []),
   { icon: Users, label: "Usuarios", href: "/admin/usuarios" },
-  { icon: BarChart3, label: "Métricas", href: "/admin/metricas" },
-  { icon: BookOpen, label: "Retroalimentación", href: "/admin/retroalimentacion" },
   { icon: User, label: "Pacientes IA", href: "/perfiles" },
+  { icon: BookOpen, label: "Retroalimentación", href: "/admin/retroalimentacion" },
+  { icon: BarChart3, label: "Métricas", href: "/admin/metricas" },
+  ...(isSuperadmin ? [{ icon: DollarSign, label: "Costos", href: "/admin/costos" }] : []),
+  ...(isSuperadmin ? [{ icon: Activity, label: "Monitoreo", href: "/admin/monitoreo" }] : []),
+  ...(isSuperadmin ? [{ icon: FlaskConical, label: "Investigación y Fondos", href: "/admin/investigacion" }] : []),
+  ...(isSuperadmin ? [{ icon: FileText, label: "Informes técnicos", href: "/admin/informes" }] : []),
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];
 
@@ -44,12 +46,17 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
   const navItems = isAdmin ? adminNav(role === "superadmin") : isInstructor ? instructorNav : studentNav;
   const [showAccessibility, setShowAccessibility] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  return (
-    <aside className="fixed left-0 top-0 h-screen w-[260px] bg-sidebar flex flex-col text-white z-50">
+  // Close mobile drawer on route change
+  const currentPath = pathname;
+  useState(() => { setMobileOpen(false); });
+
+  const sidebarContent = (
+    <>
       {/* Logo */}
       <div className="px-6 pt-6 mb-10">
-        <Link href={isAdmin ? "/admin/dashboard" : isInstructor ? "/docente/dashboard" : "/dashboard"}>
+        <Link href={isAdmin ? "/admin/dashboard" : isInstructor ? "/docente/dashboard" : "/dashboard"} onClick={() => setMobileOpen(false)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/branding/gloria-side-logo.png" alt="GlorIA" className="h-9 w-auto" />
         </Link>
@@ -67,11 +74,12 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
       {/* Navigation */}
       <nav className="flex flex-col gap-2 px-6">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const isActive = currentPath === item.href || currentPath.startsWith(item.href + "/");
           return (
             <Link
               key={item.label}
               href={item.href}
+              onClick={() => setMobileOpen(false)}
               className={`sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium w-full text-left ${
                 isActive ? "active text-white" : "text-white/70"
               }`}
@@ -85,7 +93,6 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
 
       {/* Footer */}
       <div className="mt-auto px-6 pb-6 space-y-3">
-        {/* Accessibility button — above support */}
         <button
           onClick={() => setShowAccessibility(true)}
           className="sidebar-btn sidebar-btn-access flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-white/15 bg-white/5 text-white/70 text-sm"
@@ -94,7 +101,6 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
           <span className="font-medium">Accesibilidad</span>
         </button>
 
-        {/* Support button — below accessibility */}
         <button
           onClick={() => setShowSupport(true)}
           className="sidebar-btn sidebar-btn-support flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-white/10 text-white/70 text-sm"
@@ -103,14 +109,43 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
           <span className="font-medium">Soporte t&eacute;cnico</span>
         </button>
 
-        {/* UGM Logo */}
         <div className="flex items-center justify-center pt-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/branding/ugm-logo.png" alt="Universidad Gabriela Mistral" className="h-12 w-auto" />
         </div>
       </div>
+    </>
+  );
 
-      {/* Modals rendered via Portal (outside aside to avoid z-index/overflow issues) */}
+  return (
+    <>
+      {/* Desktop sidebar — hidden on mobile */}
+      <aside className="hidden md:flex fixed left-0 top-0 h-screen w-[260px] bg-sidebar flex-col text-white z-50">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile overlay + drawer */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
+          <aside className="absolute left-0 top-0 h-full w-[280px] bg-sidebar flex flex-col text-white animate-slide-in-left">
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+
+      {/* Mobile hamburger button — fixed top-left */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed top-3 left-3 z-40 w-10 h-10 rounded-lg bg-sidebar text-white flex items-center justify-center shadow-lg"
+        aria-label="Abrir menú"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </button>
+
+      {/* Modals */}
       {showAccessibility && (
         <Portal>
           <AccessibilityModal onClose={() => setShowAccessibility(false)} />
@@ -121,7 +156,7 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
           <SupportModal onClose={() => setShowSupport(false)} />
         </Portal>
       )}
-    </aside>
+    </>
   );
 }
 

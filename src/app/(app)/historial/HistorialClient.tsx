@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-  ChevronDown, ChevronRight, ChevronLeft, ArrowRight, MessageSquare,
-  BookOpen, GraduationCap, Brain, Clock, CheckCircle, XCircle, ListChecks,
-  ExternalLink,
+  Search, ChevronRight, Brain, Clock, CheckCircle2,
+  MessageSquare, List, LayoutGrid, TrendingUp, Save, ArrowLeft,
+  GraduationCap, Sparkles,
 } from "lucide-react";
 
 interface Session {
@@ -14,540 +15,438 @@ interface Session {
   session_number: number;
   status: string;
   created_at: string;
+  ended_at: string | null;
+  active_seconds: number | null;
+  student_notes_v2: string | null;
   ai_patients: unknown;
   session_competencies: unknown;
   session_feedback: unknown;
 }
 
-interface ActionItem {
-  id: string;
-  conversation_id: string;
-  content: string;
-  resource_link: string | null;
-  status: "pending" | "accepted" | "rejected";
-  student_comment: string | null;
-  created_at: string;
-  responded_at: string | null;
-  profiles: { full_name: string }[] | { full_name: string } | null;
+type Comp = { overall_score_v2: number; eval_version: number; ai_commentary: string; strengths: string[]; areas_to_improve: string[]; feedback_status: string } & Record<string, number>;
+type Fb = { teacher_comment: string | null; teacher_score: number | null };
+type Patient = { name: string; age: number; occupation: string; difficulty_level: string; country: string };
+type Msg = { role: string; content: string; created_at: string };
+
+interface Props {
+  sessions: Session[];
+  summaryMap: Record<string, { summary: string; revelations: string[] }>;
+  messagesMap: Record<string, Msg[]>;
 }
 
-const DAYS_ES = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"];
-const MONTHS_ES = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-];
+export default function HistorialClient({ sessions, summaryMap, messagesMap }: Props) {
+  const router = useRouter();
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "completed" | "active">("all");
+  const [filterPatient, setFilterPatient] = useState<string>("all");
+  const [view, setView] = useState<"list" | "grouped">("list");
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [savingNotes, setSavingNotes] = useState<string | null>(null);
+  const [showResumeModal, setShowResumeModal] = useState<Session | null>(null);
 
-export default function HistorialClient({ sessions, actionItems }: { sessions: Session[]; actionItems: ActionItem[] }) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [items, setItems] = useState<ActionItem[]>(actionItems);
-  const [respondingId, setRespondingId] = useState<string | null>(null);
-  const [commentText, setCommentText] = useState("");
-
-  // Group action items by conversation
-  const itemsByConversation = useMemo(() => {
-    const map: Record<string, ActionItem[]> = {};
-    for (const item of items) {
-      if (!map[item.conversation_id]) map[item.conversation_id] = [];
-      map[item.conversation_id].push(item);
-    }
-    return map;
-  }, [items]);
-
-  const handleRespond = useCallback(async (itemId: string, status: "accepted" | "rejected") => {
-    setRespondingId(itemId);
-    try {
-      const res = await fetch("/api/action-items/respond", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: itemId, status, comment: commentText || undefined }),
-      });
-      if (res.ok) {
-        setItems((prev) =>
-          prev.map((i) =>
-            i.id === itemId
-              ? { ...i, status, student_comment: commentText || null, responded_at: new Date().toISOString() }
-              : i
-          )
-        );
-        setCommentText("");
-      }
-    } finally {
-      setRespondingId(null);
-    }
-  }, [commentText]);
-
-  // Calendar state
-  const now = new Date();
-  const [calMonth, setCalMonth] = useState(now.getMonth());
-  const [calYear, setCalYear] = useState(now.getFullYear());
-
-  // Map of date strings to session count
-  const sessionDates = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const s of sessions) {
-      const d = new Date(s.created_at).toLocaleDateString("en-CA"); // YYYY-MM-DD
-      map[d] = (map[d] || 0) + 1;
-    }
-    return map;
+  const patients = useMemo(() => {
+    const map = new Map<string, string>();
+    sessions.forEach(s => { const p = s.ai_patients as Patient | null; if (p) map.set(s.ai_patient_id, p.name); });
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [sessions]);
 
-  // Calendar grid
-  const calendarDays = useMemo(() => {
-    const firstDay = new Date(calYear, calMonth, 1);
-    const lastDay = new Date(calYear, calMonth + 1, 0);
-    let startDow = firstDay.getDay() - 1; // Mon=0
-    if (startDow < 0) startDow = 6;
+  const filtered = useMemo(() => {
+    return sessions.filter(s => {
+      const p = s.ai_patients as Patient | null;
+      if (search && !(p?.name || "").toLowerCase().includes(search.toLowerCase())) return false;
+      if (filterStatus === "completed" && s.status !== "completed") return false;
+      if (filterStatus === "active" && s.status !== "active") return false;
+      if (filterPatient !== "all" && s.ai_patient_id !== filterPatient) return false;
+      return true;
+    });
+  }, [sessions, search, filterStatus, filterPatient]);
 
-    const days: (number | null)[] = [];
-    for (let i = 0; i < startDow; i++) days.push(null);
-    for (let d = 1; d <= lastDay.getDate(); d++) days.push(d);
-    return days;
-  }, [calMonth, calYear]);
+  // Group by date
+  const groupedByDate = useMemo(() => {
+    const map = new Map<string, Session[]>();
+    filtered.forEach(s => {
+      const d = new Date(s.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(s);
+    });
+    return Array.from(map.entries());
+  }, [filtered]);
 
-  // Filtered sessions
-  const filteredSessions = selectedDate
-    ? sessions.filter((s) => new Date(s.created_at).toLocaleDateString("en-CA") === selectedDate)
-    : sessions;
+  // Group by patient
+  const groupedByPatient = useMemo(() => {
+    const map = new Map<string, Session[]>();
+    filtered.forEach(s => {
+      if (!map.has(s.ai_patient_id)) map.set(s.ai_patient_id, []);
+      map.get(s.ai_patient_id)!.push(s);
+    });
+    return Array.from(map.entries());
+  }, [filtered]);
 
-  const prevMonth = () => {
-    if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); }
-    else setCalMonth(calMonth - 1);
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
   };
-  const nextMonth = () => {
-    if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); }
-    else setCalMonth(calMonth + 1);
+
+  const formatDateLabel = (key: string) => {
+    const d = new Date(key + "T12:00:00");
+    const today = new Date();
+    const months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    if (d.toDateString() === today.toDateString()) return "Hoy";
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return "Ayer";
+    return `${d.getDate()} de ${months[d.getMonth()]} ${d.getFullYear()}`;
   };
 
-  const todayStr = now.toLocaleDateString("en-CA");
+  const formatDuration = (sec: number | null) => {
+    if (!sec) return null;
+    return `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")} min`;
+  };
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
-      {/* Calendar */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 h-fit lg:sticky lg:top-4">
-        {/* Month nav */}
-        <div className="flex items-center justify-between mb-3">
-          <button onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded">
-            <ChevronLeft size={16} className="text-gray-500" />
-          </button>
-          <p className="text-sm font-semibold text-gray-900">
-            {MONTHS_ES[calMonth]} {calYear}
-          </p>
-          <button onClick={nextMonth} className="p-1 hover:bg-gray-100 rounded">
-            <ChevronRight size={16} className="text-gray-500" />
-          </button>
+  const saveNote = async (sessionId: string) => {
+    setSavingNotes(sessionId);
+    await fetch(`/api/sessions/${sessionId}/notes`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes: notes[sessionId] || "" }),
+    });
+    setSavingNotes(null);
+  };
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const getSlug = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
+
+  const handleSessionClick = (session: Session) => {
+    if (session.status === "active") {
+      setShowResumeModal(session);
+    } else {
+      setDetailId(session.id);
+    }
+  };
+
+  // ══════════════════════════════════════
+  // DETAIL VIEW — 2 columns: transcript left, summary+notes right
+  // ══════════════════════════════════════
+  if (detailId) {
+    const session = sessions.find(s => s.id === detailId);
+    if (!session) { setDetailId(null); return null; }
+    const patient = session.ai_patients as Patient | null;
+    const comp = ((session.session_competencies as Comp[] | null)?.[0]) ?? null;
+    const fb = ((session.session_feedback as Fb[] | null)?.[0]) ?? null;
+    const summary = summaryMap[session.id];
+    const msgs = messagesMap[session.id] || [];
+    const slug = getSlug(patient?.name || "");
+    const currentNotes = notes[session.id] ?? session.student_notes_v2 ?? "";
+
+    return (
+      <div className="animate-fade-in">
+        <button onClick={() => setDetailId(null)} className="flex items-center gap-1.5 text-xs text-sidebar hover:underline mb-4">
+          <ArrowLeft size={14} /> Volver al historial
+        </button>
+
+        {/* Header */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex items-center gap-4">
+          <div className="w-11 h-11 rounded-full bg-sidebar overflow-hidden flex-shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`${supabaseUrl}/storage/v1/object/public/patients/${slug}.png`} alt="" className="w-full h-full object-cover" />
+          </div>
+          <div className="flex-1">
+            <p className="text-base font-bold text-gray-900">Sesión #{session.session_number} con {patient?.name}</p>
+            <p className="text-xs text-gray-500">
+              {formatDateLabel(session.created_at.substring(0, 10))} {formatTime(session.created_at)}
+              {session.active_seconds ? ` · ${formatDuration(session.active_seconds)}` : ""}
+            </p>
+          </div>
+          {comp && Number(comp.eval_version) === 2 && (
+            <div className="flex items-center gap-1">
+              <Brain size={14} className="text-sidebar" />
+              <span className="text-lg font-bold text-sidebar">{Number(comp.overall_score_v2).toFixed(1)}</span>
+              <span className="text-xs text-gray-400">/4</span>
+            </div>
+          )}
         </div>
 
-        {/* Day headers */}
-        <div className="grid grid-cols-7 gap-0.5 mb-1">
-          {DAYS_ES.map((d) => (
-            <div key={d} className="text-center text-[10px] font-medium text-gray-400 py-1">
-              {d}
+        {/* 2 column layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4">
+          {/* Left: Transcript */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Transcripción</p>
+            </div>
+            <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
+              {msgs.length > 0 ? msgs.map((msg, i) => {
+                const isStudent = msg.role === "user";
+                return (
+                  <div key={i} className={`flex ${isStudent ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
+                      isStudent ? "bg-sidebar text-white rounded-br-md" : "bg-gray-100 text-gray-800 rounded-bl-md"
+                    }`}>
+                      <p className={`text-[10px] font-medium mb-0.5 ${isStudent ? "text-white/60" : "text-gray-400"}`}>
+                        {isStudent ? "Tú" : patient?.name}
+                      </p>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                      <p className={`text-[9px] mt-1 ${isStudent ? "text-white/40" : "text-gray-300"}`}>
+                        {formatTime(msg.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              }) : (
+                <p className="text-sm text-gray-400 text-center py-8">Sin mensajes disponibles</p>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Summary + Notes */}
+          <div className="space-y-4">
+            {/* Summary */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles size={14} className="text-sidebar" />
+                <p className="text-xs font-semibold text-gray-500 uppercase">Resumen de la sesión</p>
+              </div>
+              {summary ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-700 leading-relaxed">{summary.summary}</p>
+                  {summary.revelations.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Temas abordados</p>
+                      {summary.revelations.map((r, i) => (
+                        <p key={i} className="text-xs text-gray-600 mb-0.5">&#8226; {r}</p>
+                      ))}
+                    </div>
+                  )}
+                  {fb?.teacher_comment && (
+                    <div className="bg-purple-50 rounded-lg p-3 mt-2">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <GraduationCap size={11} className="text-purple-600" />
+                        <p className="text-[10px] font-semibold text-purple-700">
+                          Docente{fb.teacher_score != null ? ` · ${Number(fb.teacher_score).toFixed(0)}/10` : ""}
+                        </p>
+                      </div>
+                      <p className="text-xs text-purple-700 leading-relaxed">{fb.teacher_comment}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 text-center py-4">
+                  {session.status === "completed" ? "Resumen no disponible" : "Se genera al completar la sesión"}
+                </p>
+              )}
+            </div>
+
+            {/* Notes */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Mis apuntes</p>
+              <textarea
+                value={currentNotes}
+                onChange={(e) => setNotes(prev => ({ ...prev, [session.id]: e.target.value }))}
+                placeholder="Preguntas para la próxima sesión, observaciones, ideas..."
+                rows={6}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+              />
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-[10px] text-gray-300">Solo tú puedes ver estos apuntes</p>
+                <button
+                  onClick={() => saveNote(session.id)}
+                  disabled={savingNotes === session.id}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-sidebar text-white text-xs font-medium rounded-lg hover:bg-[#354080] disabled:opacity-50"
+                >
+                  <Save size={11} />
+                  {savingNotes === session.id ? "Guardando..." : "Guardar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════
+  // LIST / GROUPED VIEW
+  // ══════════════════════════════════════
+
+  const renderSessionCard = (session: Session) => {
+    const patient = session.ai_patients as Patient | null;
+    const comp = ((session.session_competencies as Comp[] | null)?.[0]) ?? null;
+    const fb = ((session.session_feedback as Fb[] | null)?.[0]) ?? null;
+    const isCompleted = session.status === "completed";
+    const isApproved = comp?.feedback_status === "approved";
+    const score = comp && Number(comp.eval_version) === 2 ? Number(comp.overall_score_v2) : null;
+    const summary = summaryMap[session.id];
+    const slug = getSlug(patient?.name || "");
+
+    return (
+      <button
+        key={session.id}
+        onClick={() => handleSessionClick(session)}
+        className={`w-full text-left bg-white rounded-xl border overflow-hidden hover:shadow-md transition-all ${
+          !isCompleted ? "border-gray-100" : isApproved ? "border-gray-200" : "border-amber-200"
+        }`}
+      >
+        <div className="flex items-start gap-3 p-4">
+          <div className="w-10 h-10 rounded-full bg-sidebar overflow-hidden flex-shrink-0 mt-0.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`${supabaseUrl}/storage/v1/object/public/patients/${slug}.png`} alt="" className="w-full h-full object-cover" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-gray-900">Sesión #{session.session_number} &middot; {patient?.name}</p>
+            <p className="text-[11px] text-gray-400 flex items-center gap-1 mt-0.5">
+              <Clock size={10} /> {formatTime(session.created_at)}
+              {session.active_seconds ? ` · ${formatDuration(session.active_seconds)}` : ""}
+            </p>
+            {summary && (
+              <p className="text-[11px] text-gray-500 mt-1.5 line-clamp-2 leading-relaxed">{summary.summary}</p>
+            )}
+          </div>
+          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+            {score != null && score > 0 && (
+              <div className="flex items-center gap-1">
+                <Brain size={12} className="text-sidebar" />
+                <span className="text-sm font-bold text-sidebar">{score.toFixed(1)}</span>
+              </div>
+            )}
+            {isApproved ? (
+              <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <CheckCircle2 size={9} /> Revisada
+              </span>
+            ) : isCompleted ? (
+              <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Pendiente</span>
+            ) : (
+              <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">En curso</span>
+            )}
+            <ChevronRight size={14} className="text-gray-300" />
+          </div>
+        </div>
+      </button>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Resume modal */}
+      {showResumeModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={() => setShowResumeModal(null)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
+            <p className="text-base font-bold text-gray-900 mb-2">Retomar sesión</p>
+            <p className="text-sm text-gray-600 mb-4">
+              ¿Quieres retomar la conversación con <strong>{(showResumeModal.ai_patients as Patient)?.name}</strong>?
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowResumeModal(null)} className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button
+                onClick={() => router.push(`/chat/${showResumeModal.ai_patient_id}?conversationId=${showResumeModal.id}`)}
+                className="flex-1 px-4 py-2.5 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-[#354080]"
+              >
+                Retomar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-[200px] relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar paciente..."
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
+        </div>
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as "all" | "completed" | "active")}
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">
+          <option value="all">Todos</option>
+          <option value="completed">Completadas</option>
+          <option value="active">En curso</option>
+        </select>
+        <select value={filterPatient} onChange={(e) => setFilterPatient(e.target.value)}
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">
+          <option value="all">Todos los pacientes</option>
+          {patients.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
+        <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+          <button onClick={() => setView("list")} className={`px-3 py-2 ${view === "list" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><List size={14} /></button>
+          <button onClick={() => setView("grouped")} className={`px-3 py-2 ${view === "grouped" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><LayoutGrid size={14} /></button>
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-16">
+          <MessageSquare size={40} className="mx-auto text-gray-300 mb-3" />
+          <p className="text-gray-500 font-medium">Sin sesiones encontradas</p>
+          <Link href="/pacientes" className="inline-block mt-4 bg-sidebar text-white py-2 px-6 rounded-lg text-sm font-medium">Ir a pacientes</Link>
+        </div>
+      ) : view === "list" ? (
+        /* LIST — grouped by date with subtitles */
+        <div className="space-y-6">
+          {groupedByDate.map(([dateKey, dateSessions]) => (
+            <div key={dateKey}>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
+                {formatDateLabel(dateKey)}
+              </p>
+              <div className="space-y-2">
+                {dateSessions.map(s => renderSessionCard(s))}
+              </div>
             </div>
           ))}
         </div>
-
-        {/* Day grid */}
-        <div className="grid grid-cols-7 gap-0.5">
-          {calendarDays.map((day, i) => {
-            if (day === null) return <div key={i} />;
-            const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-            const count = sessionDates[dateStr] || 0;
-            const isToday = dateStr === todayStr;
-            const isSelected = dateStr === selectedDate;
+      ) : (
+        /* GROUPED by patient */
+        <div className="space-y-4">
+          {groupedByPatient.map(([patientId, patientSessions]) => {
+            const patient = patientSessions[0].ai_patients as Patient | null;
+            const slug = getSlug(patient?.name || "");
+            const scores = patientSessions.map(s => ((s.session_competencies as Comp[] | null)?.[0])).filter(c => c && Number(c.eval_version) === 2).map(c => Number(c!.overall_score_v2)).filter(v => v > 0);
+            const trend = scores.length >= 2 ? ((scores[0] - scores[scores.length - 1]) / scores[scores.length - 1] * 100) : null;
 
             return (
-              <button
-                key={i}
-                onClick={() => {
-                  if (count > 0) setSelectedDate(isSelected ? null : dateStr);
-                }}
-                className={`relative flex flex-col items-center justify-center py-1.5 rounded text-xs transition-colors ${
-                  isSelected
-                    ? "bg-sidebar text-white"
-                    : isToday
-                    ? "bg-blue-50 text-sidebar font-bold"
-                    : count > 0
-                    ? "hover:bg-gray-100 text-gray-900 cursor-pointer font-medium"
-                    : "text-gray-400"
-                }`}
-              >
-                {day}
-                {count > 0 && !isSelected && (
-                  <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-sidebar" />
-                )}
-                {count > 0 && isSelected && (
-                  <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-white" />
-                )}
-              </button>
+              <div key={patientId} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="flex items-center gap-4 p-4 border-b border-gray-100">
+                  <div className="w-10 h-10 rounded-full bg-sidebar overflow-hidden flex-shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`${supabaseUrl}/storage/v1/object/public/patients/${slug}.png`} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-gray-900">{patient?.name}</p>
+                    <p className="text-[11px] text-gray-400">{patientSessions.length} sesiones</p>
+                  </div>
+                  {trend !== null && (
+                    <div className={`flex items-center gap-1 text-xs font-medium ${trend >= 0 ? "text-green-600" : "text-red-500"}`}>
+                      <TrendingUp size={12} /> {trend >= 0 ? "+" : ""}{trend.toFixed(0)}%
+                    </div>
+                  )}
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {patientSessions.map(s => {
+                    const comp = ((s.session_competencies as Comp[] | null)?.[0]) ?? null;
+                    const score = comp && Number(comp.eval_version) === 2 ? Number(comp.overall_score_v2) : null;
+                    const isApproved = comp?.feedback_status === "approved";
+                    return (
+                      <button key={s.id} onClick={() => handleSessionClick(s)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
+                        <span className="text-xs text-gray-600 w-20">Sesión #{s.session_number}</span>
+                        <span className="text-[11px] text-gray-400 flex-1">{formatTime(s.created_at)} {formatDuration(s.active_seconds) ? `· ${formatDuration(s.active_seconds)}` : ""}</span>
+                        <span className="text-xs font-medium text-sidebar w-10">{score && score > 0 ? score.toFixed(1) : "—"}</span>
+                        {isApproved ? (
+                          <span className="text-[10px] text-green-600">Revisada</span>
+                        ) : s.status === "completed" ? (
+                          <span className="text-[10px] text-amber-600">Pendiente</span>
+                        ) : (
+                          <span className="text-[10px] text-gray-400">En curso</span>
+                        )}
+                        <ChevronRight size={12} className="text-gray-300" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </div>
-
-        {/* Filter indicator */}
-        {selectedDate && (
-          <div className="mt-3 flex items-center justify-between">
-            <p className="text-xs text-gray-500">
-              {new Date(selectedDate + "T12:00:00").toLocaleDateString("es-CL", {
-                weekday: "long", day: "numeric", month: "long",
-              })}
-            </p>
-            <button
-              onClick={() => setSelectedDate(null)}
-              className="text-xs text-sidebar hover:underline"
-            >
-              Ver todo
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Session list */}
-      <div>
-        {filteredSessions.length === 0 ? (
-          <div className="text-center py-16">
-            <MessageSquare size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-500 font-medium">
-              {selectedDate ? "Sin sesiones este día" : "Sin sesiones aún"}
-            </p>
-            {!selectedDate && (
-              <>
-                <p className="text-gray-400 text-sm mt-1">Inicia una conversación con un paciente.</p>
-                <Link href="/pacientes" className="inline-block mt-4 bg-sidebar hover:bg-[#354080] text-white py-2 px-6 rounded-lg text-sm font-medium transition-colors">
-                  Ver pacientes
-                </Link>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-1.5">
-            {filteredSessions.map((session) => {
-              const patient = session.ai_patients as { name: string; age: number; occupation: string } | null;
-              type Comp = { empathy: number; active_listening: number; open_questions: number; reformulation: number; confrontation: number; silence_management: number; rapport: number; overall_score: number; ai_commentary?: string; strengths?: string[]; areas_to_improve?: string[]; feedback_status?: string };
-              type Fb = { discomfort_moment?: string; would_redo?: string; clinical_note?: string; teacher_comment?: string; teacher_score?: number };
-              const rawComp: Comp | null = ((session.session_competencies as Comp[] | null)?.[0]) ?? null;
-              const isApproved = rawComp?.feedback_status === "approved";
-              const comp = isApproved ? rawComp : null; // Only show if approved
-              const feedback: Fb | null = ((session.session_feedback as Fb[] | null)?.[0]) ?? null;
-              const score = isApproved && rawComp?.overall_score != null ? Number(rawComp.overall_score) : null;
-              const isCompleted = session.status === "completed";
-              const isExpanded = expandedId === session.id;
-              const isPending = isCompleted && rawComp && !isApproved;
-              const hasActionItems = (itemsByConversation[session.id]?.length || 0) > 0;
-              const hasDetail = isCompleted && (comp !== null || feedback !== null || isPending || hasActionItems);
-
-              const initials = patient?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?";
-              const date = new Date(session.created_at).toLocaleDateString("es-CL", {
-                day: "numeric", month: "short",
-              });
-              const time = new Date(session.created_at).toLocaleTimeString("es-CL", {
-                hour: "2-digit", minute: "2-digit",
-              });
-
-              return (
-                <div key={session.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                  {/* Row */}
-                  <div
-                    className={`flex items-center gap-3 px-4 py-3 ${hasDetail ? "cursor-pointer hover:bg-gray-50" : ""}`}
-                    onClick={() => hasDetail && setExpandedId(isExpanded ? null : session.id)}
-                  >
-                    <div className="w-4 flex-shrink-0">
-                      {hasDetail && (
-                        isExpanded
-                          ? <ChevronDown size={14} className="text-gray-400" />
-                          : <ChevronRight size={14} className="text-gray-400" />
-                      )}
-                    </div>
-
-                    <div className="w-8 h-8 rounded-full bg-sidebar flex items-center justify-center flex-shrink-0">
-                      <span className="text-white text-xs font-bold">{initials}</span>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {patient?.name} <span className="text-gray-400 font-normal">#{session.session_number}</span>
-                      </p>
-                      <p className="text-[11px] text-gray-400">{date} &middot; {time}</p>
-                    </div>
-
-                    {score != null && (
-                      <div className="text-center px-2">
-                        <p className="text-sm font-bold text-sidebar">{score.toFixed(1)}</p>
-                      </div>
-                    )}
-
-                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold flex-shrink-0 ${
-                      !isCompleted
-                        ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
-                        : isApproved
-                        ? "bg-green-50 text-green-700 border border-green-200"
-                        : "bg-amber-50 text-amber-700 border border-amber-200"
-                    }`}>
-                      {!isCompleted
-                        ? "En curso"
-                        : isApproved
-                        ? "Evaluada"
-                        : "Pendiente revisión"}
-                    </span>
-
-                    <Link
-                      href={isCompleted ? `/review/${session.id}` : `/chat/${session.ai_patient_id}?conversationId=${session.id}`}
-                      className="text-gray-400 hover:text-sidebar transition-colors flex-shrink-0"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <ArrowRight size={16} />
-                    </Link>
-                  </div>
-
-                  {/* Expanded detail */}
-                  {isExpanded && hasDetail ? (
-                    <div className="border-t border-gray-100 animate-fade-in">
-                      {/* Pending approval notice */}
-                      {isPending && (
-                        <div className="px-4 py-4 border-b border-gray-100 bg-amber-50">
-                          <div className="flex items-center gap-2 text-amber-700">
-                            <Clock size={14} />
-                            <span className="text-xs font-medium">Retroalimentación pendiente de aprobación docente</span>
-                          </div>
-                          <p className="text-[11px] text-amber-600 mt-1">
-                            Recibirás una notificación cuando tu docente haya revisado y aprobado tus resultados.
-                          </p>
-                        </div>
-                      )}
-                      {/* AI Evaluation (only shown if approved) */}
-                      {comp != null ? (
-                        <div className="px-4 py-3 border-b border-gray-100">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Brain size={14} className="text-sidebar" />
-                            <p className="text-[11px] font-semibold text-sidebar uppercase tracking-wide">
-                              Evaluación IA
-                            </p>
-                          </div>
-
-                          {/* Score bars */}
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-3">
-                            {[
-                              ["Empatía", comp.empathy],
-                              ["Escucha activa", comp.active_listening],
-                              ["Preguntas abiertas", comp.open_questions],
-                              ["Reformulación", comp.reformulation],
-                              ["Confrontación", comp.confrontation],
-                              ["Silencios", comp.silence_management],
-                              ["Rapport", comp.rapport],
-                            ].map(([label, val]) => (
-                              <div key={String(label)} className="flex items-center gap-2">
-                                <span className="text-[10px] text-gray-500 w-24 truncate">{String(label)}</span>
-                                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-sidebar rounded-full"
-                                    style={{ width: `${(Number(val) / 10) * 100}%` }}
-                                  />
-                                </div>
-                                <span className="text-[10px] font-medium text-gray-700 w-6 text-right">
-                                  {Number(val).toFixed(1)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Commentary */}
-                          {comp.ai_commentary && (
-                            <p className="text-xs text-gray-600 leading-relaxed bg-blue-50 rounded-lg px-3 py-2">
-                              {String(comp.ai_commentary)}
-                            </p>
-                          )}
-
-                          {/* Strengths & Areas */}
-                          <div className="grid grid-cols-2 gap-3 mt-2">
-                            {(comp.strengths)?.length ? (
-                              <div>
-                                <p className="text-[10px] font-medium text-green-700 mb-1">Fortalezas</p>
-                                {(comp.strengths!).map((s, i) => (
-                                  <p key={i} className="text-[11px] text-green-600">+ {s}</p>
-                                ))}
-                              </div>
-                            ) : null}
-                            {(comp.areas_to_improve)?.length ? (
-                              <div>
-                                <p className="text-[10px] font-medium text-amber-700 mb-1">Áreas de mejora</p>
-                                {(comp.areas_to_improve!).map((s, i) => (
-                                  <p key={i} className="text-[11px] text-amber-600">→ {s}</p>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                      ) : null}
-
-                      {/* Student reflection */}
-                      {feedback && (feedback.discomfort_moment || feedback.would_redo || feedback.clinical_note) && (
-                        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                          <div className="flex items-center gap-2 mb-2">
-                            <BookOpen size={14} className="text-gray-500" />
-                            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
-                              Mi autorreflexión
-                            </p>
-                          </div>
-                          <div className="space-y-2">
-                            {feedback.discomfort_moment && (
-                              <div>
-                                <p className="text-[10px] text-gray-400 font-medium">Momento de incomodidad</p>
-                                <p className="text-xs text-gray-700">{String(feedback.discomfort_moment)}</p>
-                              </div>
-                            )}
-                            {feedback.would_redo && (
-                              <div>
-                                <p className="text-[10px] text-gray-400 font-medium">Qué haría diferente</p>
-                                <p className="text-xs text-gray-700">{String(feedback.would_redo)}</p>
-                              </div>
-                            )}
-                            {feedback.clinical_note && (
-                              <div>
-                                <p className="text-[10px] text-gray-400 font-medium">Nota clínica</p>
-                                <p className="text-xs text-gray-700">{String(feedback.clinical_note)}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Teacher evaluation */}
-                      {feedback && (feedback.teacher_comment || feedback.teacher_score != null) ? (
-                        <div className="px-4 py-3 bg-purple-50/50">
-                          <div className="flex items-center gap-2 mb-2">
-                            <GraduationCap size={14} className="text-purple-600" />
-                            <p className="text-[11px] font-semibold text-purple-600 uppercase tracking-wide">
-                              Evaluación del docente
-                            </p>
-                          </div>
-                          <div className="space-y-2">
-                            {feedback.teacher_score != null && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-purple-700 font-medium">Nota:</span>
-                                <span className="text-sm font-bold text-purple-800">
-                                  {Number(feedback.teacher_score).toFixed(1)}/10
-                                </span>
-                              </div>
-                            )}
-                            {feedback.teacher_comment && (
-                              <p className="text-xs text-purple-800 leading-relaxed bg-purple-100/50 rounded-lg px-3 py-2">
-                                {String(feedback.teacher_comment)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ) : isCompleted ? (
-                        <div className="px-4 py-3 bg-gray-50/30">
-                          <div className="flex items-center gap-2">
-                            <GraduationCap size={14} className="text-gray-300" />
-                            <p className="text-[11px] text-gray-400">
-                              Sin evaluación del docente aún
-                            </p>
-                          </div>
-                        </div>
-                      ) : null}
-
-                      {/* Action Items / Accionables */}
-                      {(() => {
-                        const sessionItems = itemsByConversation[session.id];
-                        if (!sessionItems || sessionItems.length === 0) return null;
-                        const prof = sessionItems[0]?.profiles;
-                        const teacherName = (Array.isArray(prof) ? prof[0]?.full_name : prof?.full_name) || "Docente";
-                        return (
-                          <div className="px-4 py-3 border-t border-gray-100 bg-indigo-50/30">
-                            <div className="flex items-center gap-2 mb-3">
-                              <ListChecks size={14} className="text-indigo-600" />
-                              <p className="text-[11px] font-semibold text-indigo-600 uppercase tracking-wide">
-                                Acuerdos con {teacherName}
-                              </p>
-                            </div>
-                            <div className="space-y-2">
-                              {sessionItems.map((item) => (
-                                <div
-                                  key={item.id}
-                                  className={`rounded-lg border px-3 py-2.5 ${
-                                    item.status === "accepted"
-                                      ? "bg-green-50 border-green-200"
-                                      : item.status === "rejected"
-                                      ? "bg-red-50 border-red-200"
-                                      : "bg-white border-gray-200"
-                                  }`}
-                                >
-                                  <p className="text-xs text-gray-800 leading-relaxed">{item.content}</p>
-
-                                  {item.resource_link && (
-                                    <a
-                                      href={item.resource_link}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 text-[10px] text-indigo-600 hover:underline mt-1"
-                                    >
-                                      <ExternalLink size={10} /> Recurso sugerido
-                                    </a>
-                                  )}
-
-                                  {item.status === "pending" ? (
-                                    <div className="mt-2">
-                                      <textarea
-                                        placeholder="Comentario opcional..."
-                                        value={respondingId === item.id ? commentText : ""}
-                                        onChange={(e) => {
-                                          setRespondingId(item.id);
-                                          setCommentText(e.target.value);
-                                        }}
-                                        onFocus={() => setRespondingId(item.id)}
-                                        className="w-full text-xs border border-gray-200 rounded-md px-2.5 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-300 mb-2"
-                                        rows={2}
-                                      />
-                                      <div className="flex gap-2">
-                                        <button
-                                          onClick={() => handleRespond(item.id, "accepted")}
-                                          disabled={respondingId === item.id && respondingId !== item.id}
-                                          className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-[11px] font-medium rounded-md transition-colors disabled:opacity-50"
-                                        >
-                                          <CheckCircle size={12} /> Aceptar
-                                        </button>
-                                        <button
-                                          onClick={() => handleRespond(item.id, "rejected")}
-                                          disabled={respondingId === item.id && respondingId !== item.id}
-                                          className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[11px] font-medium rounded-md transition-colors disabled:opacity-50"
-                                        >
-                                          <XCircle size={12} /> Rechazar
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="mt-1.5 flex items-center gap-2">
-                                      <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${
-                                        item.status === "accepted" ? "text-green-700" : "text-red-600"
-                                      }`}>
-                                        {item.status === "accepted" ? (
-                                          <><CheckCircle size={10} /> Aceptado</>
-                                        ) : (
-                                          <><XCircle size={10} /> Rechazado</>
-                                        )}
-                                      </span>
-                                      {item.student_comment && (
-                                        <span className="text-[10px] text-gray-500 italic">
-                                          &mdash; {item.student_comment}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

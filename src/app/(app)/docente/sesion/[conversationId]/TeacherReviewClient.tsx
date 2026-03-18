@@ -7,6 +7,7 @@ import {
   ArrowLeft, Brain, BookOpen, GraduationCap, Send, CheckCircle,
   MessageSquare, Clock, User as UserIcon, Sparkles, Loader2,
 } from "lucide-react";
+import CompetencyTooltip from "@/components/CompetencyTooltip";
 
 interface Message {
   id: string;
@@ -41,6 +42,7 @@ interface Competencies {
   ai_commentary?: string;
   strengths?: string[];
   areas_to_improve?: string[];
+  evidence?: Record<string, { quote: string; observation: string }>;
 }
 
 interface Feedback {
@@ -103,6 +105,7 @@ export default function TeacherReviewClient({
   const [editedAreas, setEditedAreas] = useState<string[]>(competencies?.areas_to_improve || []);
   const [savingEdits, setSavingEdits] = useState(false);
   const [generatingComment, setGeneratingComment] = useState(false);
+  const [selectedEvidence, setSelectedEvidence] = useState<string | null>(null);
 
   const saveAIEdits = async () => {
     setSavingEdits(true);
@@ -191,26 +194,41 @@ export default function TeacherReviewClient({
       {/* Header */}
       <header className="px-8 py-5 border-b border-gray-100">
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push("/docente/dashboard")}
+          <Link
+            href={`/docente/alumno/${student.id}`}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeft size={18} className="text-gray-500" />
-          </button>
+          </Link>
           <div className="flex-1">
-            <h1 className="text-lg font-bold text-gray-900">
-              Revisión de sesión
-            </h1>
-            <p className="text-sm text-gray-500">
-              {student.full_name} &middot; Sesión #{sessionNumber} con {patient.name} &middot; {date}
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-gray-900">
+                {student.full_name}
+              </h1>
+              <span className="text-xs text-gray-400">Sesión #{sessionNumber} &middot; {date}</span>
+            </div>
+            <p className="text-xs text-gray-500">
+              Paciente: {patient.name} ({patient.age} años, {patient.occupation}) &middot;{" "}
+              <span className={
+                patient.difficulty_level === "beginner" ? "text-green-600" :
+                patient.difficulty_level === "intermediate" ? "text-amber-600" : "text-red-600"
+              }>
+                {difficultyLabel[patient.difficulty_level] || patient.difficulty_level}
+              </span>
             </p>
           </div>
-          <Link
-            href={`/docente/alumno/${student.id}`}
-            className="text-xs text-sidebar hover:underline"
-          >
-            Ver perfil del alumno
-          </Link>
+          {!isApproved && (
+            <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full flex items-center gap-1">
+              <Clock size={10} />
+              Pendiente de aprobación
+            </span>
+          )}
+          {isApproved && (
+            <span className="text-[10px] font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full flex items-center gap-1">
+              <CheckCircle size={10} />
+              Aprobada
+            </span>
+          )}
         </div>
       </header>
 
@@ -220,11 +238,30 @@ export default function TeacherReviewClient({
           <div className="space-y-6">
             {/* Patient info bar */}
             <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-sidebar flex items-center justify-center">
-                <span className="text-white text-sm font-bold">
-                  {patient.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                </span>
-              </div>
+              {(() => {
+                const patientSlug = patient.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
+                const imgUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${patientSlug}.png`;
+                return (
+                  <div className="w-10 h-10 rounded-full bg-sidebar flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imgUrl}
+                      alt={patient.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        el.style.display = "none";
+                        if (el.parentElement) {
+                          const span = document.createElement("span");
+                          span.className = "text-white text-sm font-bold";
+                          span.textContent = patient.name.split(" ").map(n => n[0]).join("").slice(0, 2);
+                          el.parentElement.appendChild(span);
+                        }
+                      }}
+                    />
+                  </div>
+                );
+              })()}
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-900">
                   {patient.name}, {patient.age} años
@@ -267,9 +304,10 @@ export default function TeacherReviewClient({
                         <p className={`text-[9px] mt-1 ${
                           isStudent ? "text-white/40" : "text-gray-300"
                         }`}>
-                          {new Date(msg.created_at).toLocaleTimeString("es-CL", {
-                            hour: "2-digit", minute: "2-digit",
-                          })}
+                          {(() => {
+                            const d = new Date(msg.created_at);
+                            return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+                          })()}
                         </p>
                       </div>
                     </div>
@@ -277,10 +315,40 @@ export default function TeacherReviewClient({
                 })}
               </div>
             </div>
+
+            {/* Student reflection — visible in main area */}
+            {feedback && (feedback.discomfort_moment || feedback.would_redo || feedback.clinical_note) && (
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <BookOpen size={16} className="text-gray-500" />
+                  <h3 className="text-sm font-semibold text-gray-900">Reflexión del alumno</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {feedback.discomfort_moment && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-[10px] text-gray-400 font-medium mb-1">Momento incómodo</p>
+                      <p className="text-xs text-gray-700 leading-relaxed">{feedback.discomfort_moment}</p>
+                    </div>
+                  )}
+                  {feedback.would_redo && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-[10px] text-gray-400 font-medium mb-1">Qué haría distinto</p>
+                      <p className="text-xs text-gray-700 leading-relaxed">{feedback.would_redo}</p>
+                    </div>
+                  )}
+                  {feedback.clinical_note && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-[10px] text-gray-400 font-medium mb-1">Nota clínica</p>
+                      <p className="text-xs text-gray-700 leading-relaxed">{feedback.clinical_note}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right: Evaluation panel */}
-          <div className="space-y-4">
+          <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
             {/* AI Evaluation */}
             {competencies && (
               <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -304,7 +372,15 @@ export default function TeacherReviewClient({
                         const isEdited = editedScores[key] !== undefined && editedScores[key] !== origVal;
                         return (
                           <div key={key} className="flex items-center gap-2">
-                            <span className="text-[10px] text-gray-500 w-32 truncate">{label}</span>
+                            <button
+                              onClick={() => setSelectedEvidence(selectedEvidence === key ? null : key)}
+                              className={`text-[10px] w-32 truncate text-left flex items-center gap-1 ${
+                                selectedEvidence === key ? "text-sidebar font-bold" : "text-gray-500 hover:text-sidebar"
+                              }`}
+                            >
+                              {label}
+                              <CompetencyTooltip compKey={key} />
+                            </button>
                             {editingAI ? (
                               <input
                                 type="range" min="0" max="4" step="0.5" value={val}
@@ -331,6 +407,23 @@ export default function TeacherReviewClient({
                     </div>
                   </div>
                 ))}
+
+                {/* Evidence panel (Proposal B — click to show) */}
+                {selectedEvidence && competencies.evidence && (
+                  <div className="mb-3 bg-sidebar/5 rounded-lg p-3 border border-sidebar/10 animate-fade-in">
+                    <p className="text-[10px] font-bold text-sidebar uppercase mb-1.5">Evidencia textual</p>
+                    {(() => {
+                      const ev = (competencies.evidence as Record<string, { quote: string; observation: string }>)[selectedEvidence];
+                      if (!ev?.quote) return <p className="text-[11px] text-gray-400 italic">Sin evidencia registrada para esta competencia.</p>;
+                      return (
+                        <>
+                          <p className="text-xs text-gray-700 italic mb-1">&ldquo;{ev.quote}&rdquo;</p>
+                          {ev.observation && <p className="text-[11px] text-gray-500">{ev.observation}</p>}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
 
                 {/* AI commentary — editable */}
                 <div className="mb-3">
@@ -390,36 +483,6 @@ export default function TeacherReviewClient({
                       editedAreas.map((s, i) => <p key={i} className="text-[11px] text-amber-600">{s}</p>)
                     )}
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* Student reflection */}
-            {feedback && (feedback.discomfort_moment || feedback.would_redo || feedback.clinical_note) && (
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <BookOpen size={16} className="text-gray-500" />
-                  <h3 className="text-sm font-semibold text-gray-900">Autorreflexión del alumno</h3>
-                </div>
-                <div className="space-y-3">
-                  {feedback.discomfort_moment && (
-                    <div>
-                      <p className="text-[10px] text-gray-400 font-medium mb-0.5">Momento de incomodidad</p>
-                      <p className="text-xs text-gray-700">{feedback.discomfort_moment}</p>
-                    </div>
-                  )}
-                  {feedback.would_redo && (
-                    <div>
-                      <p className="text-[10px] text-gray-400 font-medium mb-0.5">Qué haría diferente</p>
-                      <p className="text-xs text-gray-700">{feedback.would_redo}</p>
-                    </div>
-                  )}
-                  {feedback.clinical_note && (
-                    <div>
-                      <p className="text-[10px] text-gray-400 font-medium mb-0.5">Nota clínica</p>
-                      <p className="text-xs text-gray-700">{feedback.clinical_note}</p>
-                    </div>
-                  )}
                 </div>
               </div>
             )}

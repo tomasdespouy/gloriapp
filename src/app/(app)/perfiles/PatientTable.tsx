@@ -34,8 +34,8 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<SortKey>("created");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -116,6 +116,9 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-100">
+              <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider px-3 py-3 w-10">
+                #
+              </th>
               <th className={thClass} onClick={() => handleSort("name")}>
                 Paciente <SortIcon col="name" />
               </th>
@@ -137,7 +140,7 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {sorted.map((p) => {
+            {sorted.map((p, idx) => {
               const diff = difficultyLabels[p.difficulty_level] || difficultyLabels.beginner;
               const isLoading = loading === p.id;
               const slug = p.name
@@ -148,13 +151,16 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
 
               return (
                 <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${isLoading ? "opacity-50" : ""}`}>
+                  <td className="px-3 py-4 text-center">
+                    <span className="text-xs text-gray-400">{idx + 1}</span>
+                  </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
+                    <Link href={`/perfiles/${p.id}`} className="flex items-center gap-3 group">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${slug}.png?v=${new Date(p.updated_at || p.created_at).getTime()}`}
                         alt={p.name}
-                        className="w-9 h-9 rounded-full object-cover bg-gray-100"
+                        className="w-9 h-9 rounded-full object-cover bg-gray-100 group-hover:ring-2 group-hover:ring-sidebar/30 transition-all"
                         onError={(e) => {
                           const img = e.currentTarget as HTMLImageElement;
                           if (!img.dataset.fallback) {
@@ -166,7 +172,7 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
                         }}
                       />
                       <div className="min-w-0">
-                        <p className="font-medium text-gray-900">{p.name}</p>
+                        <p className="font-medium text-gray-900 group-hover:text-sidebar transition-colors">{p.name}</p>
                         <p className="text-xs text-gray-500">
                           {p.age ? `${p.age} años` : ""}{p.occupation ? `, ${p.occupation}` : ""}
                         </p>
@@ -176,7 +182,7 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
                           </p>
                         )}
                       </div>
-                    </div>
+                    </Link>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${diff.color}`}>

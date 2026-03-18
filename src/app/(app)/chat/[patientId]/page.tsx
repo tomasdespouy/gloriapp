@@ -16,13 +16,15 @@ export default async function ChatPage({
 
   const { data: patient } = await supabase
     .from("ai_patients")
-    .select("id, name, age, occupation, presenting_problem, difficulty_level")
+    .select("id, name, age, occupation, presenting_problem, difficulty_level, voice_id")
     .eq("id", patientId)
     .single();
 
   if (!patient) notFound();
 
   let initialMessages: { role: string; content: string; created_at?: string }[] = [];
+  let initialActiveSeconds = 0;
+
   if (conversationId) {
     const { data } = await supabase
       .from("messages")
@@ -30,13 +32,23 @@ export default async function ChatPage({
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true });
     initialMessages = data || [];
+
+    const { data: conv } = await supabase
+      .from("conversations")
+      .select("active_seconds")
+      .eq("id", conversationId)
+      .single();
+    initialActiveSeconds = conv?.active_seconds || 0;
   }
 
   return (
-    <ChatInterface
-      patient={patient}
-      conversationId={conversationId}
-      initialMessages={initialMessages}
-    />
+    <div className="h-full overflow-hidden">
+      <ChatInterface
+        patient={patient}
+        conversationId={conversationId}
+        initialMessages={initialMessages}
+        initialActiveSeconds={initialActiveSeconds}
+      />
+    </div>
   );
 }

@@ -12,10 +12,13 @@ export async function POST(request: Request) {
 
   const corrected = await chat(
     [{ role: "user", content: text }],
-    `Corrige la ortografía y gramática del siguiente texto en español.
+    `Corrige la ortografía y gramática del siguiente texto transcrito por voz en español.
 Reglas:
 - Mantén EXACTAMENTE el mismo sentido y tono
-- Solo corrige errores ortográficos, tildes faltantes, y puntuación básica
+- Corrige errores ortográficos, tildes faltantes
+- IMPORTANTE: Agrega signos de interrogación (¿?) cuando la frase es claramente una pregunta. Ejemplos: "como te sientes" → "¿Cómo te sientes?", "que te trae por aquí" → "¿Qué te trae por aquí?"
+- Agrega signos de exclamación cuando corresponda
+- Agrega puntos y comas donde falten
 - NO cambies las palabras ni la estructura
 - NO agregues contenido nuevo
 - Si el texto ya está correcto, devuélvelo igual

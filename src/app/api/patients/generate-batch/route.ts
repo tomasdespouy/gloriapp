@@ -3,6 +3,26 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat } from "@/lib/ai";
 
+/** Escape raw control characters inside JSON string values so JSON.parse doesn't choke. */
+function escapeJsonControlChars(raw: string): string {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (escaped) { out += ch; escaped = false; continue; }
+    if (ch === "\\" && inString) { out += ch; escaped = true; continue; }
+    if (ch === '"') { inString = !inString; out += ch; continue; }
+    if (inString) {
+      if (ch === "\n") { out += "\\n"; continue; }
+      if (ch === "\r") { out += "\\r"; continue; }
+      if (ch === "\t") { out += "\\t"; continue; }
+    }
+    out += ch;
+  }
+  return out;
+}
+
 const COUNTRY_PROFILES: Record<string, { demonym: string; cities: string[]; names_m: string[]; names_f: string[]; surnames: string[]; cultural_notes: string }> = {
   Chile: {
     demonym: "chileno/a",
@@ -158,7 +178,11 @@ REGLAS:
       [{ role: "user", content: prompt }],
       "Eres un experto en psicología clínica y simulación de pacientes. Responde SOLO con JSON válido."
     );
-    const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+    let jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+
+    // Escape control characters inside JSON string values (LLM often outputs raw newlines/tabs)
+    jsonStr = escapeJsonControlChars(jsonStr);
+
     generatedProfiles = JSON.parse(jsonStr);
   } catch (err) {
     return NextResponse.json({ error: "Error generando perfiles: " + (err instanceof Error ? err.message : "unknown") }, { status: 500 });

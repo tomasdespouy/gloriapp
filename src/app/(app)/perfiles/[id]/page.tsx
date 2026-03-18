@@ -2,8 +2,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
 import ExportFichaButton from "./ExportFichaButton";
+import PatientImageModal from "./PatientImageModal";
 
 export default async function PatientDetailPage({
   params,
@@ -43,21 +44,70 @@ export default async function PatientDetailPage({
     .select("id", { count: "exact", head: true })
     .eq("ai_patient_id", id);
 
+  // Navigation: get prev/next patient IDs (sorted by name asc)
+  const { data: allPatients } = await admin
+    .from("ai_patients")
+    .select("id, name")
+    .order("name", { ascending: true });
+
+  let prevId: string | null = null;
+  let nextId: string | null = null;
+  let currentIndex = -1;
+  if (allPatients) {
+    currentIndex = allPatients.findIndex(p => p.id === id);
+    if (currentIndex > 0) prevId = allPatients[currentIndex - 1].id;
+    if (currentIndex >= 0 && currentIndex < allPatients.length - 1) nextId = allPatients[currentIndex + 1].id;
+  }
+
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
-        <Link href="/perfiles" className="inline-flex items-center gap-1.5 text-xs text-sidebar hover:underline mb-4">
-          <ArrowLeft size={14} /> Volver a perfiles
-        </Link>
+        <div className="flex items-center justify-between mb-4">
+          <Link href="/perfiles" className="inline-flex items-center gap-1.5 text-xs text-sidebar hover:underline">
+            <ArrowLeft size={14} /> Volver a perfiles
+          </Link>
+          <div className="flex items-center gap-2">
+            {allPatients && currentIndex >= 0 && (
+              <span className="text-[10px] text-gray-400 mr-2">
+                {currentIndex + 1} de {allPatients.length}
+              </span>
+            )}
+            {prevId ? (
+              <Link
+                href={`/perfiles/${prevId}`}
+                className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:text-sidebar hover:border-sidebar/30 transition-colors"
+                title="Paciente anterior"
+              >
+                <ChevronLeft size={16} />
+              </Link>
+            ) : (
+              <div className="w-8 h-8 rounded-full border border-gray-100 flex items-center justify-center text-gray-200">
+                <ChevronLeft size={16} />
+              </div>
+            )}
+            {nextId ? (
+              <Link
+                href={`/perfiles/${nextId}`}
+                className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:text-sidebar hover:border-sidebar/30 transition-colors"
+                title="Paciente siguiente"
+              >
+                <ChevronRight size={16} />
+              </Link>
+            ) : (
+              <div className="w-8 h-8 rounded-full border border-gray-100 flex items-center justify-center text-gray-200">
+                <ChevronRight size={16} />
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Header */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
           <div className="flex items-start gap-5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <PatientImageModal
               src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${slug}.png?v=${new Date(patient.updated_at).getTime()}`}
+              videoSrc={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${slug}.mp4?v=${new Date(patient.updated_at).getTime()}`}
               alt={patient.name}
-              className="w-24 h-24 rounded-2xl object-cover bg-gray-100 shadow-sm"
             />
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-1">

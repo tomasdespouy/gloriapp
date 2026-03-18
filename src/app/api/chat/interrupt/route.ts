@@ -69,13 +69,27 @@ Han pasado unos 3 minutos sin que el terapeuta hable. El silencio se ha extendid
 Elige UNA reacción breve. Sé auténtico con tu personalidad.`,
   };
 
-  const recentContents = history.filter(m => m.role === "assistant").map(m => m.content).join(" ");
+  // Check if the last message is already an interrupt (avoid stacking)
+  const lastMsg = history[history.length - 1];
+  const secondLastMsg = history.length > 1 ? history[history.length - 2] : null;
+  if (lastMsg?.role === "assistant" && secondLastMsg?.role === "assistant") {
+    // Two assistant messages in a row = already interrupted, don't stack another
+    return NextResponse.json({ message: null });
+  }
+
+  const recentAssistant = history.filter(m => m.role === "assistant").map(m => m.content);
   const reactionPrompt = `${patient.system_prompt}
 
 [REGLA ANTI-REPETICIÓN ABSOLUTA]
-NUNCA repitas algo que ya dijiste. Las respuestas anteriores del paciente incluyen:
-${recentContents.slice(0, 500)}
-Tu próxima respuesta DEBE ser completamente diferente en contenido y forma.
+Estas son TODAS tus respuestas anteriores en esta sesión:
+${recentAssistant.map((c, i) => `${i + 1}. "${c}"`).join("\n")}
+
+Tu próxima respuesta DEBE ser COMPLETAMENTE diferente en:
+- Palabras usadas (no repitas "agradezco", "estoy aquí para", "conversar")
+- Estructura de la oración
+- Tono o enfoque
+
+Si no tienes nada nuevo que decir, responde SOLO con lenguaje no verbal entre corchetes, por ejemplo: [mira al suelo en silencio]
 
 ${triggerPrompts[trigger] || triggerPrompts.idle_short}`;
 

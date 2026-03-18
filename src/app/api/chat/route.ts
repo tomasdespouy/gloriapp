@@ -170,9 +170,34 @@ TU ROL COMO PACIENTE:
     }
   }
 
-  const currentState: ClinicalState = lastState
-    ? lastState.state
-    : INITIAL_STATE;
+  // If no state in current conversation, try to inherit from last session (same student)
+  let currentState: ClinicalState;
+  if (lastState) {
+    currentState = lastState.state;
+  } else {
+    // Try to inherit from last completed session's final state
+    const { data: prevSummary } = await admin
+      .from("session_summaries")
+      .select("final_clinical_state")
+      .eq("student_id", user.id)
+      .eq("ai_patient_id", patientId)
+      .order("session_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (prevSummary?.final_clinical_state) {
+      const ps = prevSummary.final_clinical_state as Record<string, number>;
+      currentState = {
+        resistencia: ps.resistencia ?? INITIAL_STATE.resistencia,
+        alianza: ps.alianza ?? INITIAL_STATE.alianza,
+        apertura_emocional: ps.apertura_emocional ?? INITIAL_STATE.apertura_emocional,
+        sintomatologia: ps.sintomatologia ?? INITIAL_STATE.sintomatologia,
+        disposicion_cambio: ps.disposicion_cambio ?? INITIAL_STATE.disposicion_cambio,
+      };
+    } else {
+      currentState = INITIAL_STATE;
+    }
+  }
 
   const turnNumber = (lastState?.turn || 0) + 1;
 
@@ -225,6 +250,35 @@ TU ROL COMO PACIENTE:
 
   const streamStart = Date.now();
 
+  // Sanitize historical messages: convert first-person brackets to third person
+  // so the LLM doesn't copy old patterns like [me siento incómoda]
+  const sanitizedHistory = (chronological as ChatMessage[]).map((m) => {
+    if (m.role !== "assistant") return m;
+    return {
+      ...m,
+      content: m.content.replace(/\[([^\]]+)\]/g, (match, inner) => {
+        // Convert first-person to third person inside brackets
+        let fixed = inner
+          .replace(/\bme\s+/gi, "se ")
+          .replace(/\bmi\s+/gi, "su ")
+          .replace(/\bmis\s+/gi, "sus ")
+          .replace(/\bmiro\b/gi, "mira")
+          .replace(/\bsuspiro\b/gi, "suspira")
+          .replace(/\bsonrío\b/gi, "sonríe")
+          .replace(/\bsiento\b/gi, "siente")
+          .replace(/\bestoy\b/gi, "está")
+          .replace(/\bjuego\b/gi, "juega")
+          .replace(/\bencojo\b/gi, "encoge")
+          .replace(/\bacomodo\b/gi, "acomoda")
+          .replace(/\bcruzo\b/gi, "cruza")
+          .replace(/\bmuerdo\b/gi, "muerde")
+          .replace(/\btoco\b/gi, "toca")
+          .replace(/\bagarro\b/gi, "agarra");
+        return `[${fixed}]`;
+      }),
+    };
+  });
+
   // 8. Stream LLM response (array accumulator — O(n) instead of O(n²))
   const chunks: string[] = [];
   const encoder = new TextEncoder();
@@ -236,7 +290,7 @@ TU ROL COMO PACIENTE:
           encoder.encode(`data: ${JSON.stringify({ type: "conversation_id", value: conversationId })}\n\n`)
         );
 
-        const reader = chatStream(chronological as ChatMessage[], systemPrompt).getReader();
+        const reader = chatStream(sanitizedHistory, systemPrompt).getReader();
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -298,13 +352,22 @@ TU ROL COMO PACIENTE:
   });
 }
 
-// --- Load previous session memory ---
+// --- Load multi-session memory (summaries + last session detail) ---
 async function loadMemory(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   patientId: string,
   now: Date,
 ): Promise<string> {
+  // Load ALL session summaries for this student+patient
+  const { data: summaries } = await supabase
+    .from("session_summaries")
+    .select("session_number, summary, key_revelations, therapeutic_progress, created_at")
+    .eq("student_id", userId)
+    .eq("ai_patient_id", patientId)
+    .order("session_number", { ascending: true });
+
+  // Also load last session's raw messages for recent detail
   const { data: last } = await supabase
     .from("conversations")
     .select("id, created_at")
@@ -315,33 +378,61 @@ async function loadMemory(
     .limit(1)
     .maybeSingle();
 
-  if (!last) return "";
+  if (!summaries?.length && !last) return "";
 
-  const { data: msgs } = await supabase
-    .from("messages")
-    .select("role, content, created_at")
-    .eq("conversation_id", last.id)
-    .order("created_at", { ascending: true })
-    .limit(MAX_PREV_SESSION);
+  let memory = "\n\n[MEMORIA A LARGO PLAZO — SESIONES ANTERIORES CON ESTE TERAPEUTA]\n";
 
-  if (!msgs?.length) return "";
+  // Multi-session summaries (compact, all sessions)
+  if (summaries && summaries.length > 0) {
+    memory += `Has tenido ${summaries.length} sesión(es) previa(s) con este terapeuta.\n\n`;
 
-  const lastDate = new Date(last.created_at);
-  const diff = formatTimeDifference(lastDate, now);
-  const dateStr = lastDate.toLocaleString("es-CL", {
-    timeZone: "America/Santiago",
-    weekday: "long", day: "numeric", month: "long", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+    for (const s of summaries) {
+      const sessionDate = new Date(s.created_at);
+      const ago = formatTimeDifference(sessionDate, now);
+      memory += `--- Sesión ${s.session_number} (${ago}) ---\n`;
+      memory += `${s.summary}\n`;
+      if (s.key_revelations?.length) {
+        memory += `Revelaciones clave: ${s.key_revelations.join("; ")}\n`;
+      }
+      if (s.therapeutic_progress) {
+        memory += `Estado de la relación: ${s.therapeutic_progress}\n`;
+      }
+      memory += "\n";
+    }
+  }
 
-  const transcript = msgs.map((m) => {
-    const t = new Date(m.created_at).toLocaleTimeString("es-CL", {
-      timeZone: "America/Santiago", hour: "2-digit", minute: "2-digit",
-    });
-    return `[${t}] ${m.role === "user" ? "TERAPEUTA" : "TU (PACIENTE)"}: ${m.content}`;
-  }).join("\n");
+  // Last session raw detail (for recent conversational continuity)
+  if (last) {
+    const { data: msgs } = await supabase
+      .from("messages")
+      .select("role, content, created_at")
+      .eq("conversation_id", last.id)
+      .order("created_at", { ascending: true })
+      .limit(MAX_PREV_SESSION);
 
-  return `\n\n[MEMORIA DE SESIÓN ANTERIOR]\nTu última sesión con este terapeuta fue el ${dateStr} (${diff}).\nConversación:\n${transcript}\n[FIN MEMORIA]\n\nIMPORTANTE sobre la memoria:\n- La última sesión fue ${diff}. Si preguntan cuándo hablaron, di "${diff}".\n- Recuerda lo compartido y evoluciona naturalmente.\n- ADVERTENCIA: Si en la sesión anterior cometiste el error de actuar como terapeuta (decir "estoy aquí para escucharte", ofrecer apoyo, hacer preguntas terapéuticas), NO lo repitas. Eso fue un error. Tú eres el PACIENTE, no el terapeuta.`;
+    if (msgs?.length) {
+      const lastDate = new Date(last.created_at);
+      const diff = formatTimeDifference(lastDate, now);
+
+      const transcript = msgs.map((m) => {
+        const t = new Date(m.created_at).toLocaleTimeString("es-CL", {
+          timeZone: "America/Santiago", hour: "2-digit", minute: "2-digit",
+        });
+        return `[${t}] ${m.role === "user" ? "TERAPEUTA" : "TU (PACIENTE)"}: ${m.content}`;
+      }).join("\n");
+
+      memory += `--- Detalle de la última sesión (${diff}) ---\n${transcript}\n`;
+    }
+  }
+
+  memory += "[FIN MEMORIA]\n\n";
+  memory += `INSTRUCCIONES SOBRE TU MEMORIA:
+- Recuerda TODO lo compartido en sesiones anteriores y evoluciona naturalmente.
+- Si el terapeuta menciona algo de sesiones pasadas, responde con coherencia.
+- Puedes hacer referencias espontáneas a lo hablado antes: "la otra vez le conté que...", "¿se acuerda que le dije...?"
+- ADVERTENCIA: Si en sesiones anteriores actuaste como terapeuta (ofrecer apoyo, hacer preguntas terapéuticas), NO lo repitas. Tú eres el PACIENTE.`;
+
+  return memory;
 }
 
 function formatTimeDifference(pastDate: Date, now: Date): string {

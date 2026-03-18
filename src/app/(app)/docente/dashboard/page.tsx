@@ -38,7 +38,7 @@ export default async function DocenteDashboard() {
     .from("conversations")
     .select(`
       id, student_id, ai_patient_id, session_number, status, created_at,
-      ai_patients(name),
+      ai_patients(name, tags),
       session_feedback(teacher_comment, teacher_score),
       session_competencies(overall_score)
     `)
@@ -202,19 +202,26 @@ export default async function DocenteDashboard() {
               {sessionsToReview.length > 0 ? (
                 <div className="space-y-1">
                   {sessionsToReview.slice(0, 8).map((session) => {
-                    const patient = session.ai_patients as unknown as { name: string } | null;
+                    const patient = session.ai_patients as unknown as { name: string; tags: string[] | null } | null;
                     const studentName = students?.find((s) => s.id === session.student_id)?.full_name || "Alumno";
                     const comp = (session.session_competencies as CompRow[] | null)?.[0];
                     const date = new Date(session.created_at).toLocaleDateString("es-CL", {
                       day: "numeric", month: "short",
                     });
+                    const riskTags = ["ideacion", "suicida", "autolesion", "crisis", "riesgo"];
+                    const hasRisk = (patient?.tags || []).some(t => riskTags.some(r => t.toLowerCase().includes(r)));
 
                     return (
                       <Link
                         key={session.id}
                         href={`/docente/sesion/${session.id}`}
-                        className="flex items-center gap-3 py-2 px-2 -mx-1 rounded-lg hover:bg-gray-50 transition-colors group"
+                        className={`flex items-center gap-3 py-2 px-2 -mx-1 rounded-lg hover:bg-gray-50 transition-colors group ${
+                          hasRisk ? "bg-red-50/50 border border-red-200 rounded-lg" : ""
+                        }`}
                       >
+                        {hasRisk && (
+                          <AlertTriangle size={13} className="text-red-500 flex-shrink-0" />
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-gray-900 truncate">
                             {studentName.split(" ")[0]} → {patient?.name}
