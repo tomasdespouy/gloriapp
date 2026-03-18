@@ -47,7 +47,7 @@ export default async function EstablecimientosPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="flex justify-between items-center px-8 py-5">
+      <header className="flex justify-between items-center px-4 sm:px-8 py-5">
         <div className="flex items-center gap-3">
           <Building2 size={24} className="text-gray-400" />
           <h1 className="text-2xl font-bold text-gray-900">Instituciones</h1>
@@ -63,7 +63,7 @@ export default async function EstablecimientosPage() {
         )}
       </header>
 
-      <div className="px-8 pb-8">
+      <div className="px-4 sm:px-8 pb-8">
         <InstitutionList institutions={estMetrics} isSuperadmin={ctx.isSuperadmin} />
       </div>
     </div>

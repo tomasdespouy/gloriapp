@@ -30,7 +30,7 @@ export default async function CompetencyPage({
 
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5">
+      <header className="px-4 sm:px-8 py-5">
         <Link
           href="/aprendizaje"
           className="text-xs text-sidebar hover:underline mb-3 inline-block"
@@ -56,7 +56,7 @@ export default async function CompetencyPage({
         </div>
       </header>
 
-      <div className="px-8 pb-8">
+      <div className="px-4 sm:px-8 pb-8">
         <ExampleAccordion
           examples={data.examples}
           competencyKey={competency}

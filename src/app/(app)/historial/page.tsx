@@ -53,13 +53,13 @@ export default async function HistorialPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5">
+      <header className="px-4 sm:px-8 py-5">
         <h1 className="text-2xl font-bold text-gray-900">Mi historial</h1>
         <p className="text-sm text-gray-500 mt-0.5">
           {completedCount} sesiones completadas &middot; {patientCount} pacientes
         </p>
       </header>
-      <div className="px-8 pb-8">
+      <div className="px-4 sm:px-8 pb-8">
         <HistorialClient sessions={sessions || []} summaryMap={summaryMap} messagesMap={messagesMap} />
       </div>
     </div>

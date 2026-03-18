@@ -10,7 +10,7 @@ export default function MetricsTabs({ children }: { children: React.ReactNode })
 
   return (
     <div>
-      <div className="flex border-b border-gray-200 mb-6 px-8">
+      <div className="flex border-b border-gray-200 mb-6 px-4 sm:px-8">
         <button
           onClick={() => setTab("live")}
           className={`tab-btn flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
@@ -42,13 +42,13 @@ export default function MetricsTabs({ children }: { children: React.ReactNode })
       </div>
 
       {tab === "live" && (
-        <div className="px-8 pb-8">
+        <div className="px-4 sm:px-8 pb-8">
           <LiveMetrics />
         </div>
       )}
       {tab === "historic" && children}
       {tab === "system" && (
-        <div className="px-8 pb-8">
+        <div className="px-4 sm:px-8 pb-8">
           <SystemMetrics />
         </div>
       )}

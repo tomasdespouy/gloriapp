@@ -499,7 +499,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     };
 
     recognition.onend = () => setIsRecording(false);
-    recognition.onerror = () => setIsRecording(false);
+    recognition.onerror = (e: Event & { error?: string }) => {
+      setIsRecording(false);
+      if (e.error === "not-allowed") {
+        alert("Permiso de micrófono denegado. Habilita el micrófono en la configuración de tu navegador.");
+      } else if (e.error === "network") {
+        alert("Error de red en el reconocimiento de voz. Verifica tu conexión a internet.");
+      }
+    };
 
     recognitionRef.current = recognition;
     recognition.start();
@@ -900,7 +907,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             >
               <X size={24} />
             </button>
-            <div className="rounded-2xl overflow-hidden" style={{ width: 300, height: 300 }}>
+            <div className="rounded-2xl overflow-hidden w-[min(300px,85vw)] h-[min(300px,85vw)]">
               <PatientVideo videoSrc={videoSrc} imageSrc={imageSrc} initials={initials} size={300} />
             </div>
           </div>
@@ -984,7 +991,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   </div>
                 )}
 
-                <div className="flex flex-col max-w-[85%] md:max-w-[70%]">
+                <div className="flex flex-col max-w-[92%] sm:max-w-[85%] md:max-w-[70%]">
                   <div
                     className={`px-4 py-3 rounded-2xl text-sm leading-relaxed break-words ${
                       msg.role === "user"
@@ -1095,7 +1102,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           <button
             onClick={toggleRecording}
             disabled={isStreaming}
-            className={`p-3 rounded-xl transition-colors flex-shrink-0 ${
+            className={`p-3 min-w-[44px] min-h-[44px] rounded-xl transition-colors flex-shrink-0 ${
               isRecording
                 ? "bg-red-500 hover:bg-red-600 text-white"
                 : "border border-gray-300 text-gray-500 hover:text-sidebar hover:border-sidebar/30"

@@ -42,7 +42,7 @@ export default async function ChatPage({
   }
 
   return (
-    <div className="h-full overflow-hidden">
+    <div className="h-full overflow-hidden flex flex-col" style={{ height: "calc(100dvh - 48px)" }}>
       <ChatInterface
         patient={patient}
         conversationId={conversationId}

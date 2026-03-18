@@ -192,7 +192,7 @@ export default function TeacherReviewClient({
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="px-8 py-5 border-b border-gray-100">
+      <header className="px-4 sm:px-8 py-5 border-b border-gray-100">
         <div className="flex items-center gap-4">
           <Link
             href={`/docente/alumno/${student.id}`}
@@ -232,7 +232,7 @@ export default function TeacherReviewClient({
         </div>
       </header>
 
-      <div className="px-8 py-6">
+      <div className="px-4 sm:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
           {/* Left: Chat transcript */}
           <div className="space-y-6">

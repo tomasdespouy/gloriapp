@@ -74,14 +74,14 @@ export default function CostosClient({ establishments }: { establishments: Estab
 
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5">
+      <header className="px-4 sm:px-8 py-5">
         <h1 className="text-2xl font-bold text-gray-900">Costos estimados</h1>
         <p className="text-sm text-gray-500 mt-0.5">
           Estimación de consumo de APIs basado en interacciones de la plataforma
         </p>
       </header>
 
-      <div className="px-8 pb-8">
+      <div className="px-4 sm:px-8 pb-8">
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3 mb-6">
           <div className="flex items-center gap-2">

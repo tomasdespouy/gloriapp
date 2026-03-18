@@ -204,14 +204,14 @@ export default function ResearchClient() {
 
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5">
+      <header className="px-4 sm:px-8 py-5">
         <h1 className="text-2xl font-bold text-gray-900">Investigación y Fondos</h1>
         <p className="text-sm text-gray-500 mt-0.5">
           Oportunidades de publicación, fondos concursables e información de respaldo de GlorIA
         </p>
       </header>
 
-      <div className="px-8 pb-8">
+      <div className="px-4 sm:px-8 pb-8">
         {/* Tabs */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">

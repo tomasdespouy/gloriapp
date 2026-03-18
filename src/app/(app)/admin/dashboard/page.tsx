@@ -140,7 +140,7 @@ export default async function AdminDashboard() {
 
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5">
+      <header className="px-4 sm:px-8 py-5">
         <h1 className="text-2xl font-bold text-gray-900">
           {ctx.isSuperadmin ? "Centro de Control" : "GlorIA Analytics"}
         </h1>
@@ -149,7 +149,7 @@ export default async function AdminDashboard() {
         </p>
       </header>
 
-      <div className="px-8 pb-8 space-y-6">
+      <div className="px-4 sm:px-8 pb-8 space-y-6">
         {/* KPIs row */}
         <div className={`grid gap-4 ${ctx.isSuperadmin ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-6" : "grid-cols-2 md:grid-cols-3 lg:grid-cols-5"}`}>
           <div className="bg-white rounded-xl border border-gray-200 p-4">

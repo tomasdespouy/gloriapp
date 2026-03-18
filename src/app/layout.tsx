@@ -5,6 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "GloriA",
   description: "Plataforma de Pacientes IA - Universidad Gabriela Mistral",
+  viewport: "width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1",
 };
 
 export default function RootLayout({

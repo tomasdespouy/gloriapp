@@ -52,13 +52,13 @@ export default function RetroClient({ surveys, responses, establishments, course
 
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5">
+      <header className="px-4 sm:px-8 py-5">
         <h1 className="text-2xl font-bold text-gray-900">Retroalimentación</h1>
         <p className="text-sm text-gray-500 mt-0.5">Encuestas NPS y satisfacción de usuarios</p>
       </header>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 px-8 mb-6">
+      <div className="flex border-b border-gray-200 px-4 sm:px-8 mb-6">
         {[
           { key: "overview", label: "Consolidado" },
           { key: "surveys", label: "Encuestas" },
@@ -71,7 +71,7 @@ export default function RetroClient({ surveys, responses, establishments, course
         ))}
       </div>
 
-      <div className="px-8 pb-8">
+      <div className="px-4 sm:px-8 pb-8">
         {tab === "overview" && (
           <div className="space-y-6">
             {/* Filters */}

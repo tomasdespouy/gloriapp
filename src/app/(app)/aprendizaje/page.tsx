@@ -25,14 +25,14 @@ export default async function AprendizajePage() {
 
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5">
+      <header className="px-4 sm:px-8 py-5">
         <h1 className="text-2xl font-bold text-gray-900">Aprendizaje</h1>
         <p className="text-sm text-gray-500 mt-0.5">
           Completa una sesión con el tutor para desbloquear los módulos de competencias
         </p>
       </header>
 
-      <div className="px-8 pb-8">
+      <div className="px-4 sm:px-8 pb-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {/* Tutor card — FIRST position */}
           <Link

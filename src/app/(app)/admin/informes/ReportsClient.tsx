@@ -163,7 +163,7 @@ export default function ReportsClient() {
 
   return (
     <div
-      className="px-8 py-6 max-w-5xl min-h-[calc(100vh-4rem)] relative"
+      className="px-4 sm:px-8 py-6 max-w-5xl min-h-[calc(100vh-4rem)] relative"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}

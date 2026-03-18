@@ -1,7 +1,7 @@
 export default function SobrePage() {
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5">
+      <header className="px-4 sm:px-8 py-5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/branding/gloria-logo.png" alt="GlorIA" className="h-10 w-auto mb-3" />
         <h1 className="text-2xl font-bold text-gray-900">Sobre GlorIA</h1>
@@ -10,7 +10,7 @@ export default function SobrePage() {
         </p>
       </header>
 
-      <div className="px-8 pb-12 max-w-4xl space-y-10">
+      <div className="px-4 sm:px-8 pb-12 max-w-4xl space-y-10">
         {/* Video */}
         <section>
           <div className="rounded-xl overflow-hidden shadow-md aspect-video">

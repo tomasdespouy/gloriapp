@@ -58,14 +58,14 @@ export default async function MonitoreoPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5">
+      <header className="px-4 sm:px-8 py-5">
         <h1 className="text-2xl font-bold text-gray-900">Monitoreo</h1>
         <p className="text-sm text-gray-500 mt-0.5">
           Estado de la plataforma, latencia y errores recientes
         </p>
       </header>
 
-      <div className="px-8 pb-8 space-y-6">
+      <div className="px-4 sm:px-8 pb-8 space-y-6">
         {/* Status cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl border border-gray-200 p-5">

@@ -147,7 +147,7 @@ export default async function MetricasPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5">
+      <header className="px-4 sm:px-8 py-5">
         <h1 className="text-2xl font-bold text-gray-900">Métricas</h1>
         <p className="text-sm text-gray-500 mt-0.5">Monitoreo en vivo y análisis histórico</p>
       </header>

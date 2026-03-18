@@ -99,7 +99,7 @@ export default function TopHeader({ userName, userEmail, userRole }: Props) {
   };
 
   return (
-    <header className="h-12 bg-[#2D3561] flex items-center justify-end pl-14 md:pl-5 pr-5 gap-2">
+    <header className="h-12 bg-[#2D3561] flex items-center justify-end pl-3 sm:pl-5 pr-3 sm:pr-5 gap-2">
       {/* Theme toggle */}
       <ThemeToggle />
 
@@ -118,7 +118,7 @@ export default function TopHeader({ userName, userEmail, userRole }: Props) {
         </button>
 
         {notifOpen && (
-          <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+          <div className="absolute right-0 top-full mt-2 w-[calc(100vw-24px)] sm:w-80 max-w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
               <p className="text-xs font-semibold text-gray-700">Notificaciones</p>
               {unreadCount > 0 && (

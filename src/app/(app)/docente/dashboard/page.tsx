@@ -89,7 +89,7 @@ export default async function DocenteDashboard() {
 
   return (
     <div className="min-h-screen">
-      <header className="flex justify-between items-center px-8 py-5">
+      <header className="flex justify-between items-center px-4 sm:px-8 py-5">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Panel de supervisión
@@ -100,7 +100,7 @@ export default async function DocenteDashboard() {
         </div>
       </header>
 
-      <div className="px-8 pb-8 space-y-6">
+      <div className="px-4 sm:px-8 pb-8 space-y-6">
         {/* Stats row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-4">

@@ -47,7 +47,7 @@ export default async function Dashboard() {
 
   return (
     <div className="min-h-screen">
-      <header className="flex justify-between items-center px-8 py-5 animate-fade-in">
+      <header className="flex justify-between items-center px-4 sm:px-8 py-5 animate-fade-in">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Bienvenido, {firstName}
@@ -61,7 +61,7 @@ export default async function Dashboard() {
         </div>
       </header>
 
-      <div className="px-8 pb-8 space-y-6">
+      <div className="px-4 sm:px-8 pb-8 space-y-6">
         {/* Stats row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-stagger">
           {/* Level — hero card */}

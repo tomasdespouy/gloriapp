@@ -77,14 +77,14 @@ export default async function ProgresoPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5 animate-fade-in">
+      <header className="px-4 sm:px-8 py-5 animate-fade-in">
         <h1 className="text-2xl font-bold text-gray-900">Mi progreso</h1>
         <p className="text-sm text-gray-500 mt-0.5">
           Tu desarrollo de competencias clínicas
         </p>
       </header>
 
-      <div className="px-8 pb-8 space-y-6">
+      <div className="px-4 sm:px-8 pb-8 space-y-6">
         {/* Stats row — pedagogical metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-stagger">
           <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">

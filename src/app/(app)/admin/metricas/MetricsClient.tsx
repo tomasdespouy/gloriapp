@@ -48,7 +48,7 @@ export default function MetricsClient({
 
   return (
     <div>
-      <div className="flex justify-end px-8 mb-4">
+      <div className="flex justify-end px-4 sm:px-8 mb-4">
         <button
           onClick={handleExport}
           className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
@@ -58,7 +58,7 @@ export default function MetricsClient({
         </button>
       </div>
 
-      <div className="px-8 pb-8 space-y-6">
+      <div className="px-4 sm:px-8 pb-8 space-y-6">
         {/* Filters */}
         <div className="flex items-center gap-3">
           {(isSuperadmin || establishments.length > 1) && (

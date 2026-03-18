@@ -102,7 +102,7 @@ export default function AskGloriaClient({ studentName }: { studentName: string }
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="px-8 py-4 border-b border-gray-100 flex items-center gap-4">
+      <header className="px-4 sm:px-8 py-4 border-b border-gray-100 flex items-center gap-4">
         <Link href="/aprendizaje" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <ArrowLeft size={18} className="text-gray-500" />
         </Link>
@@ -128,7 +128,7 @@ export default function AskGloriaClient({ studentName }: { studentName: string }
       </header>
 
       {/* Chat area */}
-      <div className="flex-1 overflow-y-auto px-8 py-6">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6">
         <div className="max-w-3xl mx-auto">
           {messages.length === 0 ? (
             /* Welcome + suggestions */
@@ -190,7 +190,7 @@ export default function AskGloriaClient({ studentName }: { studentName: string }
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-100 px-8 py-4">
+      <div className="border-t border-gray-100 px-4 sm:px-8 py-4">
         <div className="max-w-3xl mx-auto flex gap-3">
           <textarea
             ref={textareaRef}

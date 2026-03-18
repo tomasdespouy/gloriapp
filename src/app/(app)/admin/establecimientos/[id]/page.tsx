@@ -55,7 +55,7 @@ export default async function EstablishmentDetailPage({
 
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5">
+      <header className="px-4 sm:px-8 py-5">
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
           <Link href="/admin/establecimientos" className="hover:text-sidebar transition-colors">
             Instituciones
@@ -79,7 +79,7 @@ export default async function EstablishmentDetailPage({
         </div>
       </header>
 
-      <div className="px-8 pb-8">
+      <div className="px-4 sm:px-8 pb-8">
         <InstitutionTabs
           establishment={establishment}
           assignedAdmins={assignedAdmins}

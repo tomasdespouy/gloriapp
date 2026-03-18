@@ -131,7 +131,7 @@ export default async function DocenteAlumnoPage({ params }: Props) {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="px-8 py-5 border-b border-gray-100">
+      <header className="px-4 sm:px-8 py-5 border-b border-gray-100">
         <div className="flex items-center gap-4">
           <Link href="/docente/dashboard" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <ArrowLeft size={18} className="text-gray-500" />
@@ -158,7 +158,7 @@ export default async function DocenteAlumnoPage({ params }: Props) {
         </div>
       </header>
 
-      <div className="px-8 py-6 space-y-6">
+      <div className="px-4 sm:px-8 py-6 space-y-6">
         {/* Competency snapshot bars (header card) */}
         {allComps.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-5">

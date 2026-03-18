@@ -202,13 +202,13 @@ export default function TutorClient({
   if (phase === "welcome") {
     return (
       <div className="min-h-screen">
-        <header className="px-8 py-5">
+        <header className="px-4 sm:px-8 py-5">
           <Link href="/aprendizaje" className="text-xs text-sidebar hover:underline mb-3 inline-block">
             &larr; Volver a Aprendizaje
           </Link>
         </header>
 
-        <div className="px-8 pb-12 max-w-2xl mx-auto">
+        <div className="px-4 sm:px-8 pb-12 max-w-2xl mx-auto">
           <div className="text-center mb-8">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/learning/tutor.png" alt="Tutor" className="w-32 h-32 rounded-3xl object-cover mx-auto mb-6 shadow-lg" />
@@ -268,13 +268,13 @@ export default function TutorClient({
   if (phase === "select") {
     return (
       <div className="min-h-screen">
-        <header className="px-8 py-5">
+        <header className="px-4 sm:px-8 py-5">
           <Link href="/aprendizaje" className="text-xs text-sidebar hover:underline mb-3 inline-block">
             &larr; Volver a Aprendizaje
           </Link>
         </header>
 
-        <div className="px-8 pb-12 max-w-3xl mx-auto">
+        <div className="px-4 sm:px-8 pb-12 max-w-3xl mx-auto">
           {/* Hero */}
           <div className="text-center mb-10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -367,7 +367,7 @@ export default function TutorClient({
   if (phase === "feedback" && feedback) {
     return (
       <div className="min-h-screen">
-        <header className="px-8 py-5">
+        <header className="px-4 sm:px-8 py-5">
           <Link href="/aprendizaje" className="text-xs text-sidebar hover:underline mb-3 inline-block">
             &larr; Volver a Aprendizaje
           </Link>
@@ -384,7 +384,7 @@ export default function TutorClient({
           </div>
         </header>
 
-        <div className="px-8 pb-8 max-w-3xl space-y-6">
+        <div className="px-4 sm:px-8 pb-8 max-w-3xl space-y-6">
           <div className="bg-white rounded-2xl border border-gray-200 p-6">
             <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
               {feedback}

@@ -57,7 +57,7 @@ export default async function UserDetailPage({
 
   return (
     <div className="min-h-screen">
-      <header className="px-8 py-5">
+      <header className="px-4 sm:px-8 py-5">
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
           <Link href="/admin/usuarios" className="hover:text-sidebar transition-colors">
             Usuarios
@@ -71,7 +71,7 @@ export default async function UserDetailPage({
         </div>
       </header>
 
-      <div className="px-8 pb-8 space-y-6">
+      <div className="px-4 sm:px-8 pb-8 space-y-6">
         {/* Info card */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <dl className="grid grid-cols-2 md:grid-cols-4 gap-4">

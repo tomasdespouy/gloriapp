@@ -112,7 +112,7 @@ export default function UsuariosClient({ users, establishments, isSuperadmin }: 
 
   return (
     <div className="min-h-screen">
-      <header className="flex justify-between items-center px-8 py-5">
+      <header className="flex justify-between items-center px-4 sm:px-8 py-5">
         <div className="flex items-center gap-3">
           <Users size={24} className="text-gray-400" />
           <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
@@ -124,7 +124,7 @@ export default function UsuariosClient({ users, establishments, isSuperadmin }: 
         </button>
       </header>
 
-      <div className="px-8 pb-8 space-y-4">
+      <div className="px-4 sm:px-8 pb-8 space-y-4">
         {showCreateForm && <CreateUserForm establishments={establishments} isSuperadmin={isSuperadmin} onClose={() => setShowCreateForm(false)} />}
 
         {/* Filters */}
