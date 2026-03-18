@@ -2,7 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import ExportFichaButton from "./ExportFichaButton";
 import PatientImageModal from "./PatientImageModal";
 
@@ -128,21 +128,15 @@ export default async function PatientDetailPage({
                 }`}>
                   {diffLabels[patient.difficulty_level] || patient.difficulty_level}
                 </span>
-                {patient.country_origin && (
-                  <span className="text-xs text-gray-500">
-                    Origen: <strong>{patient.country_origin}</strong>
-                  </span>
-                )}
-                {patient.country_residence && patient.country_residence !== patient.country_origin && (
-                  <span className="text-xs text-gray-500">
-                    Reside en: <strong>{patient.country_residence}</strong>
-                  </span>
-                )}
-                {patient.country && (
-                  <span className="text-xs text-gray-400">
-                    Visible: {Array.isArray(patient.country) ? patient.country.join(", ") : patient.country}
-                  </span>
-                )}
+                <span className="text-xs text-gray-500">
+                  Origen: <strong>{patient.country_origin || "Sin definir"}</strong>
+                </span>
+                <span className="text-xs text-gray-500">
+                  Residencia: <strong>{patient.country_residence || "Sin definir"}</strong>
+                </span>
+                <span className="text-xs text-gray-400">
+                  Visible para: {Array.isArray(patient.country) ? patient.country.join(", ") : (patient.country || "Todos")}
+                </span>
                 <span className="text-xs text-gray-400">{count || 0} sesiones</span>
                 <span className="text-xs text-gray-400">
                   Creado {new Date(patient.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
@@ -150,6 +144,13 @@ export default async function PatientDetailPage({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <a
+                href={`/perfiles/${id}/ficha`}
+                className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                <FileText size={14} />
+                Ver ficha
+              </a>
               <ExportFichaButton patientId={id} patientName={patient.name} />
               {canEdit && (
                 <Link
@@ -170,6 +171,15 @@ export default async function PatientDetailPage({
             <div>
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Motivo de consulta</h3>
               <p className="text-sm text-gray-800 leading-relaxed">{patient.presenting_problem}</p>
+              {(patient.tags || []).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {(patient.tags || []).map((tag: string) => (
+                    <span key={tag} className="text-[11px] bg-sidebar/10 text-sidebar px-2 py-0.5 rounded-full font-medium">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Historia</h3>
@@ -216,7 +226,36 @@ export default async function PatientDetailPage({
           {/* Personality & tags */}
           <div className="space-y-6">
             <div className="bg-white rounded-2xl border border-gray-200 p-6">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Rasgos de personalidad</h3>
+              <div className="flex items-center gap-2 mb-3">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Rasgos de personalidad</h3>
+                <div className="group relative">
+                  <button className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-[10px] font-bold flex items-center justify-center hover:bg-sidebar hover:text-white transition-colors">i</button>
+                  <div className="absolute left-6 top-0 z-50 hidden group-hover:block w-80 bg-white border border-gray-200 rounded-xl shadow-lg p-4 text-xs text-gray-700 leading-relaxed">
+                    <p className="font-semibold text-gray-900 mb-2">Fuentes te&oacute;ricas</p>
+                    <p className="mb-2">Los rasgos combinan tres marcos de referencia:</p>
+                    <p className="font-medium text-gray-900 mt-2 mb-1">Big Five (Costa &amp; McCrae, 1992)</p>
+                    <ul className="space-y-1 ml-2">
+                      <li><span className="font-medium">Apertura:</span> Curiosidad intelectual, disposici&oacute;n a nuevas experiencias.</li>
+                      <li><span className="font-medium">Neuroticismo:</span> Inestabilidad emocional, vulnerabilidad al estr&eacute;s.</li>
+                      <li><span className="font-medium">Extroversi&oacute;n:</span> Sociabilidad, asertividad, b&uacute;squeda de estimulaci&oacute;n.</li>
+                      <li><span className="font-medium">Amabilidad:</span> Cooperaci&oacute;n, empat&iacute;a, confianza interpersonal.</li>
+                      <li><span className="font-medium">Responsabilidad:</span> Autodisciplina, orientaci&oacute;n al logro.</li>
+                    </ul>
+                    <p className="font-medium text-gray-900 mt-3 mb-1">Reactancia (Beutler &amp; Harwood, 2000)</p>
+                    <ul className="ml-2">
+                      <li><span className="font-medium">Resistencia:</span> Nivel de oposici&oacute;n al proceso terap&eacute;utico. Determina si usar intervenciones directivas o no directivas.</li>
+                    </ul>
+                    <p className="font-medium text-gray-900 mt-3 mb-1">Descriptor cl&iacute;nico</p>
+                    <ul className="ml-2">
+                      <li><span className="font-medium">Estilo comunicacional:</span> Patr&oacute;n predominante de interacci&oacute;n verbal en sesi&oacute;n (no basado en un instrumento estandarizado).</li>
+                    </ul>
+                    <div className="mt-3 pt-2 border-t border-gray-100 text-[10px] text-gray-400 space-y-0.5">
+                      <p>Costa, P. T., &amp; McCrae, R. R. (1992). <em>Revised NEO Personality Inventory</em>. PAR.</p>
+                      <p>Beutler, L. E., &amp; Harwood, T. M. (2000). <em>Prescriptive Psychotherapy</em>. Oxford University Press.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div className="space-y-2">
                 {Object.entries(patient.personality_traits || {}).map(([key, val]) => {
                   const traitLabels: Record<string, string> = {
@@ -238,6 +277,17 @@ export default async function PatientDetailPage({
                     low: "Baja",
                     high: "Alta",
                     medium: "Media",
+                    anxious_but_open: "Ansioso/a pero abierto/a",
+                    reserved: "Reservado/a",
+                    defensive: "Defensivo/a",
+                    verbose: "Verborrágico/a",
+                    intellectualizing: "Intelectualizador/a",
+                    avoidant: "Evitativo/a",
+                    confrontational: "Confrontacional",
+                    compliant: "Complaciente",
+                    silent: "Silencioso/a",
+                    demanding: "Demandante",
+                    distrustful: "Desconfiado/a",
                   };
                   const label = traitLabels[key] || key.replace(/_/g, " ");
                   const value = typeof val === "number" ? val.toFixed(1) : (valLabels[String(val)] || String(val));
@@ -251,28 +301,6 @@ export default async function PatientDetailPage({
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Etiquetas</h3>
-              <div className="flex flex-wrap gap-1.5">
-                {(patient.tags || []).map((tag: string) => (
-                  <span key={tag} className="text-[11px] bg-sidebar/10 text-sidebar px-2 py-0.5 rounded-full font-medium">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-              {(patient.skills_practiced || []).length > 0 && (
-                <>
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-4">Habilidades practicadas</h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(patient.skills_practiced || []).map((s: string) => (
-                      <span key={s} className="text-[11px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
           </div>
         </div>
 
