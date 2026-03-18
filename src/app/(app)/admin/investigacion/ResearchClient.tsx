@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Search, Loader2, ExternalLink, FileText, Upload, Trash2, Pencil, X, Check,
   ChevronDown, ChevronUp, BookOpen, Send, Sparkles, FileUp, GraduationCap,
+  BarChart3, Lightbulb, Brain, TrendingUp, Zap,
 } from "lucide-react";
 
 type Opportunity = {
@@ -70,7 +71,23 @@ const paperTypeLabels: Record<string, { label: string; color: string }> = {
   grant_application: { label: "Postulación fondo", color: "bg-emerald-100 text-emerald-700" },
 };
 
-type TabKey = "opportunities" | "funds" | "papers";
+type TabKey = "opportunities" | "funds" | "papers" | "data";
+
+type Insight = {
+  id: string;
+  title: string;
+  category: string;
+  hypothesis: string;
+  findings: string;
+  data_source: string;
+  sample_size: number | null;
+  statistical_sig: string | null;
+  suggested_venues: string[];
+  suggested_paper_type: string | null;
+  status: string;
+  priority: string;
+  created_at: string;
+};
 
 export default function ResearchClient() {
   const [tab, setTab] = useState<TabKey>("opportunities");
@@ -78,6 +95,9 @@ export default function ResearchClient() {
   const [fundScanResult, setFundScanResult] = useState<string | null>(null);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [papers, setPapers] = useState<Paper[]>([]);
+  const [insights, setInsights] = useState<Insight[]>([]);
+  const [generatingInsights, setGeneratingInsights] = useState(false);
+  const [expandedInsight, setExpandedInsight] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -89,12 +109,14 @@ export default function ResearchClient() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadData = useCallback(async () => {
-    const [opp, pap] = await Promise.all([
+    const [opp, pap, ins] = await Promise.all([
       fetch("/api/admin/research/scan").then(r => r.json()),
       fetch("/api/admin/research/papers").then(r => r.json()),
+      fetch("/api/admin/research/insights").then(r => r.json()).catch(() => []),
     ]);
     if (Array.isArray(opp)) setOpportunities(opp);
     if (Array.isArray(pap)) setPapers(pap);
+    if (Array.isArray(ins)) setInsights(ins);
     setLoading(false);
   }, []);
 
@@ -229,6 +251,11 @@ export default function ResearchClient() {
               className={`flex items-center justify-center gap-2 text-sm font-medium py-2 px-4 rounded-md transition-colors ${tab === "papers" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}>
               <BookOpen size={15} />
               Información de respaldo ({papers.length})
+            </button>
+            <button onClick={() => setTab("data")}
+              className={`flex items-center justify-center gap-2 text-sm font-medium py-2 px-4 rounded-md transition-colors ${tab === "data" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}>
+              <BarChart3 size={15} />
+              Data ({insights.length})
             </button>
           </div>
 
@@ -431,6 +458,137 @@ export default function ResearchClient() {
               </div>
             ) : (
               <OpportunitiesTimeline opportunities={fundOpps} />
+            )}
+          </div>
+        )}
+
+        {/* ════════ DATA / INSIGHTS TAB ════════ */}
+        {tab === "data" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">
+                  La plataforma analiza la base de datos para detectar relaciones semánticas, correlaciones y tendencias relevantes para publicaciones académicas.
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  setGeneratingInsights(true);
+                  const res = await fetch("/api/admin/research/insights", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "generate" }),
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data)) setInsights(prev => [...data, ...prev]);
+                  }
+                  setGeneratingInsights(false);
+                }}
+                disabled={generatingInsights}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-[#4A55A2] text-white rounded-lg hover:bg-[#3d4789] transition-colors disabled:opacity-50 flex-shrink-0"
+              >
+                {generatingInsights ? <Loader2 size={15} className="animate-spin" /> : <Brain size={15} />}
+                {generatingInsights ? "Analizando..." : "Generar insights"}
+              </button>
+            </div>
+
+            {insights.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                <Brain size={40} className="mx-auto mb-3 text-gray-300" />
+                <p className="text-gray-500 font-medium">Sin insights generados</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Haz click en &ldquo;Generar insights&rdquo; para analizar la base de datos y encontrar hallazgos publicables
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {insights.map((ins) => {
+                  const catIcons: Record<string, typeof Lightbulb> = {
+                    competencias: BarChart3, uso_plataforma: TrendingUp, correlación: Zap,
+                    varianza: BarChart3, causalidad: Brain, tendencia: TrendingUp, comparación: Sparkles,
+                  };
+                  const catColors: Record<string, string> = {
+                    competencias: "border-l-blue-500 bg-blue-50/30",
+                    uso_plataforma: "border-l-green-500 bg-green-50/30",
+                    correlación: "border-l-purple-500 bg-purple-50/30",
+                    varianza: "border-l-orange-500 bg-orange-50/30",
+                    causalidad: "border-l-red-500 bg-red-50/30",
+                    tendencia: "border-l-emerald-500 bg-emerald-50/30",
+                    comparación: "border-l-indigo-500 bg-indigo-50/30",
+                  };
+                  const Icon = catIcons[ins.category] || Lightbulb;
+                  const isExpanded = expandedInsight === ins.id;
+
+                  return (
+                    <div
+                      key={ins.id}
+                      className={`bg-white rounded-xl border border-gray-200 border-l-4 ${catColors[ins.category] || "border-l-gray-500"} overflow-hidden cursor-pointer hover:shadow-md transition-all`}
+                      onClick={() => setExpandedInsight(isExpanded ? null : ins.id)}
+                    >
+                      <div className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                            <Icon size={18} className="text-gray-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wide">
+                                {ins.category.replace("_", " ")}
+                              </span>
+                              {ins.sample_size && (
+                                <span className="text-[10px] text-gray-400">n={ins.sample_size}</span>
+                              )}
+                            </div>
+                            <h3 className="text-sm font-semibold text-gray-900 leading-snug">{ins.title}</h3>
+                          </div>
+                          {isExpanded ? <ChevronUp size={16} className="text-gray-400 mt-1" /> : <ChevronDown size={16} className="text-gray-400 mt-1" />}
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-3">
+                          <div>
+                            <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Hipótesis</p>
+                            <p className="text-sm text-gray-700 leading-relaxed">{ins.hypothesis}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Hallazgos</p>
+                            <p className="text-sm text-gray-700 leading-relaxed">{ins.findings}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {ins.statistical_sig && (
+                              <span className="text-[10px] px-2 py-0.5 bg-yellow-50 text-yellow-700 rounded-full border border-yellow-200">
+                                {ins.statistical_sig}
+                              </span>
+                            )}
+                            {ins.suggested_paper_type && (
+                              <span className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-200">
+                                {ins.suggested_paper_type}
+                              </span>
+                            )}
+                          </div>
+                          {ins.suggested_venues.length > 0 && (
+                            <div>
+                              <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Venues sugeridos</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {ins.suggested_venues.map((v, vi) => (
+                                  <span key={vi} className="text-[10px] px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200">
+                                    {v}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="text-[10px] text-gray-400">
+                            Fuente: {ins.data_source} | {new Date(ins.created_at).toLocaleDateString("es-CL")}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
