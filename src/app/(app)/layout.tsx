@@ -2,6 +2,7 @@ import Sidebar from "@/components/Sidebar";
 import TopHeader from "@/components/TopHeader";
 import WelcomeVideoModal from "@/components/WelcomeVideoModal";
 import SurveyModal from "@/components/SurveyModal";
+import PlatformActivityTracker from "@/components/PlatformActivityTracker";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 
 export default async function AppLayout({
@@ -26,6 +27,7 @@ export default async function AppLayout({
       </div>
       <WelcomeVideoModal />
       <SurveyModal />
+      <PlatformActivityTracker />
     </div>
   );
 }

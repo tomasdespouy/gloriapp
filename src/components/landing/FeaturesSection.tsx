@@ -3,43 +3,38 @@
 import { Brain, Shield, BarChart3 } from "lucide-react";
 import ScrollReveal from "./ScrollReveal";
 
-interface FeaturesSectionProps {
-  dict: Record<string, string>;
-}
-
-export default function FeaturesSection({ dict }: FeaturesSectionProps) {
-  const t = (key: string) => dict[key] || key;
+export default function FeaturesSection() {
   const features = [
     {
       icon: Brain,
-      title: t("features.feature1Title"),
-      description: t("features.feature1Desc"),
+      title: "Pacientes con personalidad",
+      description: "Cada paciente tiene rasgos de personalidad, mecanismos de defensa y respuestas emocionales \u00fanicas. Se abren si confian en ti, se cierran si te apuras.",
       highlights: [
-        t("features.feature1Highlight1"),
-        t("features.feature1Highlight2"),
-        t("features.feature1Highlight3"),
+        "Reacciones emocionales din\u00e1micas",
+        "Resistencia cl\u00ednica realista",
+        "Revelaciones graduales seg\u00fan la alianza",
       ],
       videoSlug: "lucia-mendoza",
     },
     {
       icon: Shield,
-      title: t("features.feature2Title"),
-      description: t("features.feature2Desc"),
+      title: "Entorno seguro para aprender",
+      description: "Pr\u00e1ctica sin miedo a equivocarte. Explora distintos enfoques terap\u00e9uticos, comete errores y aprende de ellos sin consecuencias reales.",
       highlights: [
-        t("features.feature2Highlight1"),
-        t("features.feature2Highlight2"),
-        t("features.feature2Highlight3"),
+        "Sin riesgo para pacientes reales",
+        "Pr\u00e1ctica ilimitada las 24 horas",
+        "Ideal para complementar tu formaci\u00f3n",
       ],
       videoSlug: "marcos-herrera",
     },
     {
       icon: BarChart3,
-      title: t("features.feature3Title"),
-      description: t("features.feature3Desc"),
+      title: "Retroalimentaci\u00f3n inteligente",
+      description: "Al finalizar cada sesi\u00f3n, recibe una reflexi\u00f3n sobre tu desempeno. Identifica fortalezas y areas de mejora en tus habilidades cl\u00ednicas.",
       highlights: [
-        t("features.feature3Highlight1"),
-        t("features.feature3Highlight2"),
-        t("features.feature3Highlight3"),
+        "Analisis post-sesi\u00f3n con IA",
+        "Seguimiento de competencias",
+        "Mejora continua y medible",
       ],
       videoSlug: "carmen-torres",
     },
@@ -51,10 +46,10 @@ export default function FeaturesSection({ dict }: FeaturesSectionProps) {
         <ScrollReveal>
           <div className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-              {t("features.title")}
+              Por que elegir GloriA
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              {t("features.subtitle")}
+              Herramientas disenadas para la formaci&oacute;n cl&iacute;nica del siglo XXI
             </p>
           </div>
         </ScrollReveal>

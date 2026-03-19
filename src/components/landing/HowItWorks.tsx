@@ -1,30 +1,25 @@
 import { Users, MessageCircle, TrendingUp } from "lucide-react";
 import ScrollReveal from "./ScrollReveal";
 
-interface HowItWorksProps {
-  dict: Record<string, string>;
-}
-
-export default function HowItWorks({ dict }: HowItWorksProps) {
-  const t = (key: string) => dict[key] || key;
+export default function HowItWorks() {
   const steps = [
     {
       number: "01",
       icon: Users,
-      title: t("howItWorks.step1Title"),
-      description: t("howItWorks.step1Desc"),
+      title: "Elige un paciente",
+      description: "Selecciona entre pacientes con distintas historias, personalidades y niveles de dificultad cl\u00ednica.",
     },
     {
       number: "02",
       icon: MessageCircle,
-      title: t("howItWorks.step2Title"),
-      description: t("howItWorks.step2Desc"),
+      title: "Conversa en tiempo real",
+      description: "Pr\u00e1ctica tus habilidades terap\u00e9uticas en una conversaci\u00f3n natural. El paciente reacciona a tu enfoque.",
     },
     {
       number: "03",
       icon: TrendingUp,
-      title: t("howItWorks.step3Title"),
-      description: t("howItWorks.step3Desc"),
+      title: "Reflexiona y mejora",
+      description: "Recibe retroalimentaci\u00f3n sobre tu sesi\u00f3n y desarrolla tus competencias cl\u00ednicas progresivamente.",
     },
   ];
 
@@ -34,10 +29,10 @@ export default function HowItWorks({ dict }: HowItWorksProps) {
         <ScrollReveal>
           <div className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-              {t("howItWorks.title")}
+              Como funciona
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              {t("howItWorks.subtitle")}
+              Tres pasos para comenzar a desarrollar tus habilidades cl&iacute;nicas
             </p>
           </div>
         </ScrollReveal>

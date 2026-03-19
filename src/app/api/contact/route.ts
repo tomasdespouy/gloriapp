@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   try {
     const resend = getResend();
     await resend.emails.send({
-      from: "GlorIA <noreply@send.glor-ia.com>",
+      from: "GlorIA <noreply@glor-ia.com>",
       to: "info@glor-ia.com",
       subject: `Nuevo contacto institucional: ${institution.trim()}`,
       html: `

@@ -7,16 +7,14 @@ interface StatsSectionProps {
   patients?: number;
   sessions?: number;
   countries?: number;
-  dict: Record<string, string>;
 }
 
 function buildStats(props: StatsSectionProps) {
-  const t = (key: string) => props.dict[key] || key;
   return [
-    { value: props.patients || 34, suffix: "+", label: t("stats.patients"), prefix: "" },
-    { value: props.sessions || 0, suffix: "+", label: t("stats.sessions"), prefix: "" },
-    { value: props.countries || 7, suffix: "", label: t("stats.countries"), prefix: "" },
-    { value: 10, suffix: "", label: t("stats.competencies"), prefix: "" },
+    { value: props.patients || 34, suffix: "+", label: "Pacientes IA disponibles", prefix: "" },
+    { value: props.sessions || 0, suffix: "+", label: "Sesiones realizadas", prefix: "" },
+    { value: props.countries || 7, suffix: "", label: "Pa\u00edses representados", prefix: "" },
+    { value: 10, suffix: "", label: "Competencias evaluadas", prefix: "" },
   ];
 }
 

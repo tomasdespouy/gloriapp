@@ -95,7 +95,7 @@ function generateDefaultEmail(university: {
   return `
     <div style="font-family: Calibri, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1A1A1A;">
       <div style="padding: 24px 0; border-bottom: 3px solid #4A55A2;">
-        <img src="https://gloriapp.vercel.app/branding/gloria-logo.png" alt="GlorIA" style="height: 40px;" />
+        <img src="https://ndwmnxlwbfqfwwtekjun.supabase.co/storage/v1/object/public/patients/gloria-logo-email.png" alt="GlorIA" style="height: 40px;" />
       </div>
 
       <div style="padding: 32px 0;">

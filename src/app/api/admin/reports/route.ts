@@ -19,7 +19,7 @@ export async function GET() {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("technical_reports")
-    .select("id, title, summary, file_url, file_name, file_size, notes, uploaded_by, created_at, updated_at")
+    .select("id, title, summary, file_url, file_name, file_size, notes, category, uploaded_by, created_at, updated_at")
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
   const file = formData.get("file") as File | null;
   const title = formData.get("title") as string || "";
   const summary = formData.get("summary") as string || "";
+  const category = formData.get("category") as string || "general";
 
   if (!file) return NextResponse.json({ error: "Archivo requerido" }, { status: 400 });
 
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
     file_url: urlData.publicUrl,
     file_name: file.name,
     file_size: file.size,
+    category,
     uploaded_by: auth.user.id,
   }).select().single();
 

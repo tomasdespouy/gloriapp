@@ -17,11 +17,9 @@ function slugify(name: string) {
 
 interface PatientShowcaseProps {
   patients: Patient[];
-  dict: Record<string, string>;
 }
 
-export default function PatientShowcase({ patients, dict }: PatientShowcaseProps) {
-  const t = (key: string) => dict[key] || key;
+export default function PatientShowcase({ patients }: PatientShowcaseProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -87,10 +85,10 @@ export default function PatientShowcase({ patients, dict }: PatientShowcaseProps
         <ScrollReveal>
           <div className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-              {t("patients.title")}
+              Conoce a los pacientes
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              {t("patients.subtitle").replace("{count}", String(patients.length))}
+              {`${patients.length} pacientes con historias \u00fanicas, personalidad definida y reacciones realistas ante distintos enfoques terap\u00e9uticos`}
             </p>
           </div>
         </ScrollReveal>
@@ -162,7 +160,7 @@ export default function PatientShowcase({ patients, dict }: PatientShowcaseProps
                     <div className="absolute bottom-0 inset-x-0 p-3 sm:p-4 text-white">
                       <h3 className="text-sm sm:text-base font-bold leading-tight">{patient.name}</h3>
                       <p className="text-xs sm:text-sm text-white/80 mt-0.5">
-                        {patient.age} {t("patients.years")}{country ? ` · ${country}` : ""}
+                        {patient.age} a&ntilde;os{country ? ` \u00b7 ${country}` : ""}
                       </p>
                     </div>
                   </div>

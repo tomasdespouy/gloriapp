@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { unstable_cache } from "next/cache";
-import { getDictionary } from "@/i18n/get-dictionary";
 import LandingNavbar from "@/components/landing/LandingNavbar";
 import HeroSection from "@/components/landing/HeroSection";
 import HowItWorks from "@/components/landing/HowItWorks";
@@ -42,10 +41,9 @@ export default async function LandingPage() {
   );
 
   const supabase = await createClient();
-  const [{ data: { user } }, landingData, dict] = await Promise.all([
+  const [{ data: { user } }, landingData] = await Promise.all([
     supabase.auth.getUser(),
     getLandingData(),
-    getDictionary("es"),
   ]);
 
   const { patientsRaw, patientCount, sessionCount, countriesData } = landingData;
@@ -74,26 +72,25 @@ export default async function LandingPage() {
 
   return (
     <div id="main-content" className="bg-white">
-      <LandingNavbar dict={dict} locale="es" />
-      <HeroSection dict={dict} locale="es" />
+      <LandingNavbar />
+      <HeroSection />
       <StatsSection
         patients={patientCount || 34}
         sessions={sessionCount || 0}
         countries={uniqueCountries.size || 7}
-        dict={dict}
       />
-      <HowItWorks dict={dict} />
-      <PatientShowcase patients={patients || []} dict={dict} />
-      <FeaturesSection dict={dict} />
-      <ComparisonSection dict={dict} />
-      <ImpactSection dict={dict} />
-      <TestimonialsSection dict={dict} />
-      <UniversitiesSection dict={dict} />
-      <PressSection dict={dict} />
-      <FAQSection dict={dict} />
-      <ContactSection dict={dict} locale="es" />
-      <CTASection dict={dict} locale="es" />
-      <LandingFooter dict={dict} locale="es" />
+      <HowItWorks />
+      <PatientShowcase patients={patients || []} />
+      <FeaturesSection />
+      <ComparisonSection />
+      <ImpactSection />
+      <TestimonialsSection />
+      <UniversitiesSection />
+      <PressSection />
+      <FAQSection />
+      <ContactSection />
+      <CTASection />
+      <LandingFooter />
     </div>
   );
 }

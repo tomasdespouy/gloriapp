@@ -11,22 +11,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 
-interface LandingNavbarProps {
-  dict: Record<string, string>;
-  locale?: string;
-}
-
-export default function LandingNavbar({ dict, locale = "es" }: LandingNavbarProps) {
-  const t = (key: string) => dict[key] || key;
+export default function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const prefix = locale === "es" ? "" : `/${locale}`;
-
   const navLinks = [
-    { label: t("nav.howItWorks"), href: "#como-funciona" },
-    { label: t("nav.patients"), href: "#pacientes" },
-    { label: t("nav.testimonials"), href: "#testimonios" },
+    { label: "Como funciona", href: "#como-funciona" },
+    { label: "Pacientes", href: "#pacientes" },
+    { label: "Testimonios", href: "#testimonios" },
   ];
 
   useEffect(() => {
@@ -46,13 +38,6 @@ export default function LandingNavbar({ dict, locale = "es" }: LandingNavbarProp
     document.getElementById(id)?.scrollIntoView({ behavior: prefersReduced ? "instant" : "smooth" });
   };
 
-  // Build locale switcher links based on current path
-  const localeLinks = [
-    { code: "es", label: "ES", href: "/" },
-    { code: "en", label: "EN", href: "/en" },
-    { code: "pt", label: "PT", href: "/pt" },
-  ];
-
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -64,7 +49,7 @@ export default function LandingNavbar({ dict, locale = "es" }: LandingNavbarProp
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href={prefix || "/"} className="flex items-center">
+          <Link href="/" className="flex items-center">
             <Image src="/branding/gloria-logo.png" alt="GlorIA" width={120} height={32} className="h-8 w-auto" />
           </Link>
 
@@ -81,34 +66,17 @@ export default function LandingNavbar({ dict, locale = "es" }: LandingNavbarProp
               </a>
             ))}
 
-            {/* Language switcher */}
-            <div className="flex items-center gap-1 text-xs text-gray-400">
-              {localeLinks.map((l, i) => (
-                <span key={l.code} className="flex items-center">
-                  {i > 0 && <span className="mx-1">|</span>}
-                  <Link
-                    href={l.href}
-                    className={`hover:text-gray-900 transition-colors ${
-                      locale === l.code ? "text-gray-900 font-bold" : ""
-                    }`}
-                  >
-                    {l.label}
-                  </Link>
-                </span>
-              ))}
-            </div>
-
             <Link
               href="/login"
               className="text-sm font-medium text-[#4A55A2] border border-[#4A55A2] px-4 py-2 rounded-lg hover:bg-[#4A55A2]/5 transition-colors"
             >
-              {t("nav.login")}
+              Iniciar Sesi&oacute;n
             </Link>
             <Link
               href="/signup"
               className="text-sm font-medium text-white bg-[#4A55A2] px-4 py-2 rounded-lg hover:bg-[#3D4890] transition-colors"
             >
-              {t("nav.signup")}
+              Comenzar
             </Link>
           </div>
 
@@ -121,7 +89,7 @@ export default function LandingNavbar({ dict, locale = "es" }: LandingNavbarProp
                 </button>
               </SheetTrigger>
               <SheetContent side="right" className="w-[280px] bg-white">
-                <SheetTitle className="sr-only">{t("nav.mobileMenuTitle")}</SheetTitle>
+                <SheetTitle className="sr-only">Menu de navegaci&oacute;n</SheetTitle>
                 <div className="flex flex-col gap-6 mt-8">
                   {navLinks.map((link) => (
                     <a
@@ -134,38 +102,20 @@ export default function LandingNavbar({ dict, locale = "es" }: LandingNavbarProp
                     </a>
                   ))}
 
-                  {/* Mobile language switcher */}
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    {localeLinks.map((l, i) => (
-                      <span key={l.code} className="flex items-center">
-                        {i > 0 && <span className="mx-1">|</span>}
-                        <Link
-                          href={l.href}
-                          onClick={() => setOpen(false)}
-                          className={`hover:text-gray-900 transition-colors ${
-                            locale === l.code ? "text-gray-900 font-bold" : ""
-                          }`}
-                        >
-                          {l.label}
-                        </Link>
-                      </span>
-                    ))}
-                  </div>
-
                   <hr className="border-gray-200" />
                   <Link
                     href="/login"
                     className="text-base font-medium text-[#4A55A2]"
                     onClick={() => setOpen(false)}
                   >
-                    {t("nav.login")}
+                    Iniciar Sesi&oacute;n
                   </Link>
                   <Link
                     href="/signup"
                     className="text-center font-medium text-white bg-[#4A55A2] px-4 py-3 rounded-lg hover:bg-[#3D4890] transition-colors"
                     onClick={() => setOpen(false)}
                   >
-                    {t("nav.signup")}
+                    Comenzar
                   </Link>
                 </div>
               </SheetContent>

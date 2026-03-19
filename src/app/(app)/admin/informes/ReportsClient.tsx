@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { FileText, Upload, Trash2, ExternalLink, X, Save, Clock, Pencil, StickyNote, Sparkles, Loader2 } from "lucide-react";
+import { FileText, Upload, Trash2, ExternalLink, X, Save, Clock, Pencil, StickyNote, Sparkles, Loader2, Tag } from "lucide-react";
 
 type Report = {
   id: string;
@@ -11,10 +11,25 @@ type Report = {
   file_name: string;
   file_size: number;
   notes: string;
+  category: string;
   uploaded_by: string;
   created_at: string;
   updated_at: string;
 };
+
+const CATEGORIES: { value: string; label: string; color: string }[] = [
+  { value: "técnico", label: "Técnico", color: "bg-blue-100 text-blue-700" },
+  { value: "pacientes", label: "Pacientes", color: "bg-purple-100 text-purple-700" },
+  { value: "validación", label: "Validación", color: "bg-emerald-100 text-emerald-700" },
+  { value: "paper", label: "Paper", color: "bg-amber-100 text-amber-700" },
+  { value: "reporte", label: "Reporte", color: "bg-indigo-100 text-indigo-700" },
+  { value: "general", label: "General", color: "bg-gray-100 text-gray-600" },
+];
+
+const categoryColor = (cat: string) =>
+  CATEGORIES.find((c) => c.value === cat)?.color || "bg-gray-100 text-gray-600";
+const categoryLabel = (cat: string) =>
+  CATEGORIES.find((c) => c.value === cat)?.label || cat;
 
 export default function ReportsClient() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -28,10 +43,12 @@ export default function ReportsClient() {
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [filterCategory, setFilterCategory] = useState<string>("");
 
   // Upload form
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadSummary, setUploadSummary] = useState("");
+  const [uploadCategory, setUploadCategory] = useState("general");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const fetchReports = async () => {
@@ -57,6 +74,7 @@ export default function ReportsClient() {
     formData.append("file", file);
     formData.append("title", uploadTitle || file.name.replace(/\.[^.]+$/, ""));
     formData.append("summary", uploadSummary);
+    formData.append("category", uploadCategory);
 
     const res = await fetch("/api/admin/reports", { method: "POST", body: formData });
     if (res.ok) {
@@ -70,6 +88,7 @@ export default function ReportsClient() {
     setShowUpload(false);
     setUploadTitle("");
     setUploadSummary("");
+    setUploadCategory("general");
     setSelectedFile(null);
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -242,6 +261,27 @@ export default function ReportsClient() {
                 />
               </div>
 
+              {/* Category */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.value}
+                      type="button"
+                      onClick={() => setUploadCategory(cat.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        uploadCategory === cat.value
+                          ? cat.color + " ring-2 ring-offset-1 ring-current"
+                          : "bg-gray-50 text-gray-400 hover:bg-gray-100"
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Summary with AI suggestion */}
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -287,6 +327,36 @@ export default function ReportsClient() {
         </div>
       )}
 
+      {/* Category filter tabs */}
+      {!loading && reports.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-4">
+          <button
+            onClick={() => setFilterCategory("")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              !filterCategory ? "bg-sidebar text-white" : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+            }`}
+          >
+            Todos ({reports.length})
+          </button>
+          {CATEGORIES.filter((cat) => reports.some((r) => r.category === cat.value)).map((cat) => {
+            const count = reports.filter((r) => r.category === cat.value).length;
+            return (
+              <button
+                key={cat.value}
+                onClick={() => setFilterCategory(filterCategory === cat.value ? "" : cat.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  filterCategory === cat.value
+                    ? cat.color + " ring-1 ring-current"
+                    : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                }`}
+              >
+                {cat.label} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Reports list */}
       {loading ? (
         <div className="text-center py-12 text-gray-400 text-sm">Cargando informes...</div>
@@ -301,7 +371,7 @@ export default function ReportsClient() {
         </div>
       ) : (
         <div className="space-y-3">
-          {reports.map(report => (
+          {reports.filter((r) => !filterCategory || r.category === filterCategory).map(report => (
             <div key={report.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
               <div className="p-5">
                 <div className="flex items-start justify-between gap-4">
@@ -309,6 +379,9 @@ export default function ReportsClient() {
                     <div className="flex items-center gap-2 mb-1">
                       <FileText size={16} className="text-sidebar flex-shrink-0" />
                       <h3 className="text-sm font-bold text-gray-900 truncate">{report.title}</h3>
+                      <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${categoryColor(report.category)}`}>
+                        {categoryLabel(report.category)}
+                      </span>
                     </div>
                     {report.summary && (
                       <p className="text-xs text-gray-500 leading-relaxed mb-2 line-clamp-2">{report.summary}</p>

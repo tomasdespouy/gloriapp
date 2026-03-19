@@ -83,7 +83,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STEPS = [
-  { label: "Subir CSV", icon: Upload },
+  { label: "Ingresar usuarios", icon: Upload },
   { label: "Validar", icon: CheckCircle2 },
   { label: "Previsualizar", icon: Mail },
   { label: "Dashboard", icon: BarChart3 },
@@ -112,6 +112,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
   const [pilots, setPilots] = useState(initialPilots);
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
   const [step, setStep] = useState(0);
+  const [showWizard, setShowWizard] = useState(false);
   const [creating, setCreating] = useState(false);
 
   // Step 1 state
@@ -159,6 +160,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
 
   const resetWizard = () => {
     setStep(0);
+    setShowWizard(false);
     setCreating(false);
     setCsvRows([]);
     setFormData({ name: "", institution: "", country: "", contact_name: "", contact_email: "" });
@@ -198,6 +200,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
       } else {
         setStep(0);
       }
+      setShowWizard(false);
       setCreating(false);
     }
   };
@@ -414,7 +417,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
   // Pilot list view
   // ────────────────────────────────
 
-  if (!selectedPilot && !creating && step === 0) {
+  if (!selectedPilot && !showWizard && step === 0) {
     return (
       <div className="min-h-screen">
         <header className="px-4 sm:px-8 py-5 flex items-center justify-between">
@@ -425,7 +428,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
             </p>
           </div>
           <button
-            onClick={() => { resetWizard(); setCreating(true); }}
+            onClick={() => { resetWizard(); setShowWizard(true); }}
             className="flex items-center gap-2 px-4 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors"
           >
             <Plus size={16} />
@@ -439,7 +442,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
               <Rocket size={48} className="text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 text-sm">No hay pilotos creados aún</p>
               <button
-                onClick={() => { resetWizard(); setCreating(true); }}
+                onClick={() => { resetWizard(); setShowWizard(true); }}
                 className="mt-4 px-4 py-2 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors"
               >
                 Crear primer piloto
@@ -522,7 +525,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
           Volver a pilotos
         </button>
         <h1 className="text-2xl font-bold text-gray-900">
-          {creating ? "Nuevo piloto" : selectedPilot?.name || "Piloto"}
+          {showWizard && !selectedPilot ? "Nuevo piloto" : selectedPilot?.name || "Piloto"}
         </h1>
         {selectedPilot && (
           <p className="text-sm text-gray-500 mt-0.5">
@@ -544,7 +547,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
                 onClick={() => {
                   if (selectedPilot && i <= step + 1) setStep(i);
                 }}
-                disabled={creating && i > 0}
+                disabled={(showWizard && !selectedPilot && i > 0) || creating}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${
                   isActive
                     ? "bg-sidebar text-white"
@@ -576,10 +579,12 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
           onFileSelect={handleFileSelect}
           onCreatePilot={handleCreatePilot}
           isEditing={!!selectedPilot}
+          onNext={() => setStep(1)}
         />}
 
         {step === 1 && <Step2Validate
           csvRows={csvRows}
+          setCsvRows={setCsvRows}
           validating={validating}
           validationResult={validationResult}
           onValidate={handleValidate}
@@ -614,7 +619,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
 
 function Step1Upload({
   formData, setFormData, csvRows, setCsvRows, csvError, creating, fileInputRef,
-  onFileDrop, onFileSelect, onCreatePilot, isEditing,
+  onFileDrop, onFileSelect, onCreatePilot, isEditing, onNext,
 }: {
   formData: { name: string; institution: string; country: string; contact_name: string; contact_email: string };
   setFormData: (fn: (prev: typeof formData) => typeof formData) => void;
@@ -627,6 +632,7 @@ function Step1Upload({
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onCreatePilot: () => void;
   isEditing: boolean;
+  onNext?: () => void;
 }) {
   const [manualForm, setManualForm] = useState({ first_name: "", last_name: "", email: "", role: "student" });
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
@@ -915,8 +921,17 @@ function Step1Upload({
       </div>
 
       {/* Action */}
-      {!isEditing && (
-        <div className="flex justify-end">
+      <div className="flex justify-end">
+        {isEditing ? (
+          <button
+            onClick={() => onNext?.()}
+            disabled={csvRows.length === 0}
+            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+          >
+            <ArrowRight size={16} />
+            Siguiente
+          </button>
+        ) : (
           <button
             onClick={onCreatePilot}
             disabled={!canCreate || creating}
@@ -925,8 +940,8 @@ function Step1Upload({
             {creating ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
             Crear piloto
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -936,14 +951,28 @@ function Step1Upload({
 // ════════════════════════════════════════════
 
 function Step2Validate({
-  csvRows, validating, validationResult, onValidate, onNext,
+  csvRows, setCsvRows, validating, validationResult, onValidate, onNext,
 }: {
   csvRows: CsvRow[];
+  setCsvRows: (rows: CsvRow[]) => void;
   validating: boolean;
   validationResult: { valid_count: number; error_count: number; errors: ValidationError[] } | null;
   onValidate: () => void;
   onNext: () => void;
 }) {
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editRow, setEditRow] = useState<CsvRow>({ email: "", full_name: "", role: "student" });
+
+  const startEdit = (i: number) => { setEditIdx(i); setEditRow({ ...csvRows[i] }); };
+  const saveEdit = () => {
+    if (editIdx === null) return;
+    const updated = [...csvRows];
+    updated[editIdx] = { ...editRow, email: editRow.email.trim().toLowerCase() };
+    setCsvRows(updated);
+    setEditIdx(null);
+  };
+  const removeRow = (i: number) => setCsvRows(csvRows.filter((_, idx) => idx !== i));
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -958,6 +987,45 @@ function Step2Validate({
             {validating ? "Validando..." : "Validar datos"}
           </button>
         </div>
+
+        {/* Pre-validation summary */}
+        {!validationResult && (
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-700 mb-3">
+                Se validarán <strong>{csvRows.length} participantes</strong> — verificando formato de email, duplicados y existencia en la base de datos.
+              </p>
+              <div className="border border-gray-200 rounded-lg overflow-hidden max-h-[300px] overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="text-left px-3 py-2 text-gray-500 font-medium w-10">#</th>
+                      <th className="text-left px-3 py-2 text-gray-500 font-medium">Email</th>
+                      <th className="text-left px-3 py-2 text-gray-500 font-medium">Nombre</th>
+                      <th className="text-left px-3 py-2 text-gray-500 font-medium">Rol</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {csvRows.map((row, i) => (
+                      <tr key={i} className="border-t border-gray-100">
+                        <td className="px-3 py-2 text-gray-400">{i + 1}</td>
+                        <td className="px-3 py-2 text-gray-700">{row.email}</td>
+                        <td className="px-3 py-2 text-gray-700">{row.full_name}</td>
+                        <td className="px-3 py-2">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            row.role === "instructor" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                          }`}>
+                            {row.role === "instructor" ? "Docente" : "Estudiante"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Validation results */}
         {validationResult && (
@@ -995,29 +1063,71 @@ function Step2Validate({
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Email</th>
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Nombre</th>
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Rol</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium w-10">Estado</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-medium">Estado</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-medium w-16"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {csvRows.map((row, i) => {
                     const rowErrors = validationResult.errors.filter((e) => e.row === i + 1);
                     const hasError = rowErrors.length > 0;
+                    const isEditing = editIdx === i;
                     return (
                       <tr key={i} className={`border-t border-gray-100 ${hasError ? "bg-red-50" : ""}`}>
                         <td className="px-3 py-2 text-gray-400">{i + 1}</td>
-                        <td className="px-3 py-2 text-gray-700">{row.email}</td>
-                        <td className="px-3 py-2 text-gray-700">{row.full_name}</td>
-                        <td className="px-3 py-2 text-gray-500">{row.role}</td>
-                        <td className="px-3 py-2">
-                          {hasError ? (
-                            <div className="flex items-center gap-1">
-                              <XCircle size={14} className="text-red-500" />
-                              <span className="text-red-500">{rowErrors[0].message}</span>
-                            </div>
-                          ) : (
-                            <CheckCircle2 size={14} className="text-green-500" />
-                          )}
-                        </td>
+                        {isEditing ? (
+                          <>
+                            <td className="px-2 py-1">
+                              <input value={editRow.email} onChange={(e) => setEditRow(r => ({ ...r, email: e.target.value }))}
+                                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-sidebar/30" />
+                            </td>
+                            <td className="px-2 py-1">
+                              <input value={editRow.full_name} onChange={(e) => setEditRow(r => ({ ...r, full_name: e.target.value }))}
+                                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-sidebar/30" />
+                            </td>
+                            <td className="px-2 py-1">
+                              <select value={editRow.role} onChange={(e) => setEditRow(r => ({ ...r, role: e.target.value }))}
+                                className="border border-gray-300 rounded px-2 py-1 text-xs bg-white">
+                                <option value="student">Estudiante</option>
+                                <option value="instructor">Docente</option>
+                              </select>
+                            </td>
+                            <td className="px-3 py-2"></td>
+                            <td className="px-3 py-2 flex gap-1">
+                              <button onClick={saveEdit} className="text-green-500 hover:text-green-700"><Check size={14} /></button>
+                              <button onClick={() => setEditIdx(null)} className="text-gray-400 hover:text-gray-600"><XCircle size={14} /></button>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="px-3 py-2 text-gray-700">{row.email}</td>
+                            <td className="px-3 py-2 text-gray-700">{row.full_name}</td>
+                            <td className="px-3 py-2 text-gray-500">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                row.role === "instructor" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                              }`}>
+                                {row.role === "instructor" ? "Docente" : "Estudiante"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2">
+                              {hasError ? (
+                                <span className="text-red-500 text-[10px]">{rowErrors[0].message}</span>
+                              ) : (
+                                <CheckCircle2 size={14} className="text-green-500" />
+                              )}
+                            </td>
+                            <td className="px-3 py-2 flex gap-1">
+                              {hasError && (
+                                <button onClick={() => startEdit(i)} className="text-amber-500 hover:text-amber-700" title="Editar">
+                                  <Eye size={14} />
+                                </button>
+                              )}
+                              <button onClick={() => removeRow(i)} className="text-gray-300 hover:text-red-500" title="Eliminar">
+                                <XCircle size={14} />
+                              </button>
+                            </td>
+                          </>
+                        )}
                       </tr>
                     );
                   })}
@@ -1068,23 +1178,33 @@ function Step3Preview({
         <div className="mb-4 space-y-3">
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-500 w-20">De:</span>
-            <span className="text-xs text-gray-700 font-medium">GlorIA &lt;info@gloria-app.cl&gt;</span>
+            <span className="text-xs text-gray-700 font-medium">GlorIA &lt;noreply@glor-ia.com&gt;</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-500 w-20">Asunto:</span>
-            <span className="text-xs text-gray-700 font-medium">Bienvenido/a a GlorIA — Tus credenciales de acceso</span>
+            <span className="text-xs text-gray-700 font-medium">Bienvenidos a GlorIA — Tus credenciales de acceso</span>
           </div>
         </div>
 
         {/* Email mockup */}
         <div className="border border-gray-200 rounded-lg overflow-hidden">
           <div style={{ background: "#4A55A2", padding: "20px 28px", borderRadius: "8px 8px 0 0" }}>
-            <p style={{ color: "white", margin: 0, fontSize: "18px", fontWeight: 700 }}>
-              Bienvenido/a a GlorIA
-            </p>
-            <p style={{ color: "rgba(255,255,255,0.7)", margin: "4px 0 0", fontSize: "12px" }}>
-              Plataforma de Entrenamiento Clínico con IA
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p style={{ color: "white", margin: 0, fontSize: "18px", fontWeight: 700 }}>
+                  Bienvenidos a GlorIA
+                </p>
+                <p style={{ color: "rgba(255,255,255,0.7)", margin: "4px 0 0", fontSize: "12px" }}>
+                  Plataforma de Entrenamiento Clínico con IA
+                </p>
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://ndwmnxlwbfqfwwtekjun.supabase.co/storage/v1/object/public/patients/gloria-side-logo.png"
+                alt="GlorIA"
+                style={{ height: 36 }}
+              />
+            </div>
           </div>
           <div className="p-6 bg-gray-50 text-sm text-gray-700 leading-relaxed">
             <p>Hola <strong>[Nombre del participante]</strong>,</p>
@@ -1092,9 +1212,19 @@ function Step3Preview({
               Has sido invitado/a a participar en el piloto <strong>{pilot?.name || "—"}</strong>{" "}
               de <strong>{pilot?.institution || "—"}</strong> como <strong>[Rol]</strong>.
             </p>
+
+            <div className="my-4 bg-indigo-50 border-l-4 border-sidebar rounded-r-lg px-4 py-3">
+              <p className="text-sm text-sidebar font-semibold leading-relaxed">
+                La evidencia muestra que la práctica con simulación clínica mejora
+                hasta un 40% las competencias terapéuticas en el primer año.
+                Con GlorIA, cada sesión cuenta.
+              </p>
+            </div>
+
             <p className="mt-3">
-              GlorIA es una plataforma de simulación terapéutica donde podrás practicar
-              entrevistas clínicas con pacientes virtuales impulsados por inteligencia artificial.
+              Practicarás entrevistas clínicas con pacientes virtuales impulsados por
+              inteligencia artificial, recibiendo retroalimentación inmediata sobre tus
+              competencias terapéuticas. Sin riesgos, sin presiones, las veces que necesites.
             </p>
 
             <div className="bg-white border border-gray-200 rounded-lg p-4 my-4">
@@ -1123,6 +1253,14 @@ function Step3Preview({
               <li>Escribe tu email y la contraseña temporal indicada arriba</li>
               <li>Explora los pacientes virtuales y comienza tu primera sesión</li>
             </ol>
+
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <p className="text-sm text-gray-600">Con entusiasmo,</p>
+              <p className="text-sm text-gray-900 font-bold mt-0.5">Equipo GlorIA</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                Si tienes problemas para acceder, escríbenos a soporte@glor-ia.com
+              </p>
+            </div>
           </div>
         </div>
       </div>

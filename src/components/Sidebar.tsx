@@ -4,7 +4,7 @@ import {
   Home, User, History, BarChart3, BookOpen, Info,
   Users, ClipboardCheck, LayoutDashboard, Building2,
   Accessibility, LifeBuoy, FlaskConical, DollarSign, Activity, FileText,
-  Briefcase, Rocket,
+  Briefcase, Rocket, Bell,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -39,6 +39,7 @@ const adminNav = (isSuperadmin: boolean) => [
   ...(isSuperadmin ? [{ icon: FileText, label: "Informes técnicos", href: "/admin/informes" }] : []),
   ...(isSuperadmin ? [{ icon: Briefcase, label: "CRM", href: "/admin/crm" }] : []),
   ...(isSuperadmin ? [{ icon: Rocket, label: "Pilotos", href: "/admin/pilotos" }] : []),
+  ...(isSuperadmin ? [{ icon: Bell, label: "Notificaciones", href: "/admin/notificaciones" }] : []),
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];
 
@@ -56,9 +57,9 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
   useState(() => { setMobileOpen(false); });
 
   const sidebarContent = (
-    <>
+    <div className="flex flex-col h-full overflow-y-auto">
       {/* Logo */}
-      <div className="px-6 pt-6 mb-10">
+      <div className="px-6 pt-6 mb-10 flex-shrink-0">
         <Link href={isAdmin ? "/admin/dashboard" : isInstructor ? "/docente/dashboard" : "/dashboard"} onClick={() => setMobileOpen(false)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/branding/gloria-side-logo.png" alt="GlorIA" className="h-9 w-auto" />
@@ -117,13 +118,13 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
           <img src="/branding/ugm-logo.png" alt="Universidad Gabriela Mistral" className="h-12 w-auto" />
         </div>
       </div>
-    </>
+    </div>
   );
 
   return (
     <>
       {/* Desktop sidebar — hidden on mobile */}
-      <aside className="hidden md:flex fixed left-0 top-0 h-screen w-[260px] bg-sidebar flex-col text-white z-50">
+      <aside className="hidden md:flex fixed left-0 top-0 h-screen w-[260px] bg-sidebar flex-col text-white z-50 overflow-hidden">
         {sidebarContent}
       </aside>
 

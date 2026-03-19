@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { MessageSquare, Play, X, Volume2 } from "lucide-react";
 
@@ -58,7 +58,21 @@ const tagEmojis: Record<string, string> = {
 
 export default function PatientCard({ id, name, age, occupation, quote, difficultyLevel, tags, activeConversationId, country, hasVoice }: PatientCardProps) {
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
   const difficulty = difficultyLabels[difficultyLevel] || difficultyLabels.beginner;
+
+  // Only load video when card is visible in viewport
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.disconnect(); } },
+      { rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const videoSlug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
   const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2);
   const videoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${videoSlug}.mp4`;
@@ -71,7 +85,7 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 flex flex-col items-center relative">
+      <div ref={cardRef} className="bg-white rounded-xl shadow-sm p-4 sm:p-6 flex flex-col items-center relative">
         {/* Difficulty badge — top left */}
         <span className={`absolute top-3 left-3 text-[10px] px-2 py-0.5 rounded-full font-medium ${difficulty.color}`}>
           {difficulty.label}
@@ -100,28 +114,34 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
           onClick={() => setShowVideoModal(true)}
           className="w-24 h-24 rounded-full overflow-hidden bg-sidebar flex items-center justify-center mb-4 cursor-pointer hover:ring-2 hover:ring-sidebar/30 transition-all"
         >
-          <video
-            src={videoUrl}
-            poster={imageUrl}
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              const target = e.currentTarget;
-              target.style.display = "none";
-              const img = document.createElement("img");
-              img.src = imageUrl;
-              img.alt = name;
-              img.className = "w-full h-full object-cover";
-              img.onerror = () => {
-                img.style.display = "none";
-                target.parentElement!.innerHTML = `<span class="text-white text-xl font-bold">${initials}</span>`;
-              };
-              target.parentElement!.appendChild(img);
-            }}
-          />
+          {isVisible ? (
+            <video
+              src={videoUrl}
+              poster={imageUrl}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = "none";
+                const img = document.createElement("img");
+                img.src = imageUrl;
+                img.alt = name;
+                img.className = "w-full h-full object-cover";
+                img.onerror = () => {
+                  img.style.display = "none";
+                  target.parentElement!.innerHTML = `<span class="text-white text-xl font-bold">${initials}</span>`;
+                };
+                target.parentElement!.appendChild(img);
+              }}
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
+          )}
         </button>
 
         {/* Name & Age */}

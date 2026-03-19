@@ -118,9 +118,9 @@ export async function POST(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "GlorIA <info@gloria-app.cl>",
+          from: "GlorIA <noreply@glor-ia.com>",
           to: participant.email,
-          subject: `Bienvenido/a a GlorIA — Tus credenciales de acceso`,
+          subject: "Bienvenidos a GlorIA — Tus credenciales de acceso",
           html: emailHtml,
         }),
       });
@@ -171,14 +171,20 @@ function generateInviteEmail(opts: {
   pilotName: string;
   appUrl: string;
 }) {
+  const logoUrl = "https://ndwmnxlwbfqfwwtekjun.supabase.co/storage/v1/object/public/patients/gloria-side-logo.png";
+
   return `
     <div style="font-family: Calibri, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1A1A1A;">
       <div style="background: #4A55A2; padding: 24px 32px; border-radius: 12px 12px 0 0;">
-        <img src="${opts.appUrl}/branding/gloria-logo.png" alt="GlorIA" style="height: 36px; margin-bottom: 8px;" />
-        <h1 style="color: white; margin: 0; font-size: 22px;">Bienvenido/a a GlorIA</h1>
-        <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 13px;">
-          Plataforma de Entrenamiento Cl\u00ednico con IA
-        </p>
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <h1 style="color: white; margin: 0; font-size: 22px;">Bienvenidos a GlorIA</h1>
+            <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 13px;">
+              Plataforma de Entrenamiento Cl\u00ednico con IA
+            </p>
+          </div>
+          <img src="${logoUrl}" alt="GlorIA" style="height: 40px;" />
+        </div>
       </div>
 
       <div style="background: #FAFAFA; padding: 32px; border: 1px solid #E5E5E5; border-top: none; border-radius: 0 0 12px 12px;">
@@ -191,9 +197,18 @@ function generateInviteEmail(opts: {
           de <strong>${opts.institution}</strong> como <strong>${opts.roleLabel}</strong>.
         </p>
 
+        <div style="background: #F0F0FF; border-left: 4px solid #4A55A2; border-radius: 0 8px 8px 0; padding: 16px 20px; margin: 20px 0;">
+          <p style="font-size: 14px; color: #4A55A2; margin: 0; font-weight: 600; line-height: 1.5;">
+            La evidencia muestra que la pr\u00e1ctica con simulaci\u00f3n cl\u00ednica mejora
+            hasta un 40% las competencias terap\u00e9uticas en el primer a\u00f1o.
+            Con GlorIA, cada sesi\u00f3n cuenta.
+          </p>
+        </div>
+
         <p style="font-size: 14px; color: #555; line-height: 1.6;">
-          GlorIA es una plataforma de simulaci\u00f3n terap\u00e9utica donde podr\u00e1s practicar
-          entrevistas cl\u00ednicas con pacientes virtuales impulsados por inteligencia artificial.
+          Practicar\u00e1s entrevistas cl\u00ednicas con pacientes virtuales impulsados por
+          inteligencia artificial, recibiendo retroalimentaci\u00f3n inmediata sobre tus
+          competencias terap\u00e9uticas. Sin riesgos, sin presiones, las veces que necesites.
         </p>
 
         <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin: 24px 0;">
@@ -233,14 +248,21 @@ function generateInviteEmail(opts: {
           </p>
         </div>
 
-        <p style="font-size: 13px; color: #999; margin-top: 24px; border-top: 1px solid #eee; padding-top: 16px;">
-          Si tienes problemas para acceder, contacta al equipo coordinador del piloto
-          o escribe a soporte desde la plataforma.
-        </p>
+        <div style="margin-top: 28px; border-top: 1px solid #eee; padding-top: 20px;">
+          <p style="font-size: 14px; color: #555; margin: 0;">
+            Con entusiasmo,
+          </p>
+          <p style="font-size: 14px; color: #333; margin: 4px 0 0; font-weight: 700;">
+            Equipo GlorIA
+          </p>
+          <p style="font-size: 12px; color: #999; margin: 4px 0 0;">
+            Si tienes problemas para acceder, escr\u00edbenos a soporte@glor-ia.com
+          </p>
+        </div>
       </div>
 
-      <div style="text-align: center; padding: 16px 0; font-size: 11px; color: #ccc;">
-        GlorIA — Universidad Gabriela Mistral
+      <div style="text-align: center; padding: 16px 0; font-size: 11px; color: #bbb;">
+        GlorIA — Simulaci\u00f3n cl\u00ednica con inteligencia artificial
       </div>
     </div>
   `;

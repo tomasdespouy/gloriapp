@@ -25,14 +25,14 @@ const universities = [
   {
     name: "Universidad Peruana de Ciencias Aplicadas",
     short: "UPC",
-    country: "Perú",
+    country: "Per\u00fa",
     logo: `${supabaseUrl}/storage/v1/object/public/universities/upc-peru.png`,
     color: "#E31837",
   },
   {
-    name: "Universidad de San Martín de Porres",
+    name: "Universidad de San Mart\u00edn de Porres",
     short: "USMP",
-    country: "Perú",
+    country: "Per\u00fa",
     logo: `${supabaseUrl}/storage/v1/object/public/universities/usmp.png`,
     color: "#003366",
   },
@@ -45,12 +45,7 @@ const universities = [
   },
 ];
 
-interface UniversitiesSectionProps {
-  dict: Record<string, string>;
-}
-
-export default function UniversitiesSection({ dict }: UniversitiesSectionProps) {
-  const t = (key: string) => dict[key] || key;
+export default function UniversitiesSection() {
   const [current, setCurrent] = useState(0);
 
   const prev = () => setCurrent((c) => (c === 0 ? universities.length - 1 : c - 1));
@@ -73,13 +68,13 @@ export default function UniversitiesSection({ dict }: UniversitiesSectionProps) 
         <ScrollReveal>
           <div className="text-center mb-10">
             <p className="text-xs font-semibold text-[#4A55A2] uppercase tracking-widest mb-2">
-              {t("universities.sectionLabel")}
+              Red de instituciones
             </p>
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-              {t("universities.title").replace("{count}", String(universities.length))}
+              {`${universities.length} universidades conf\u00edan en GlorIA`}
             </h2>
             <p className="text-gray-500 max-w-xl mx-auto text-sm">
-              {t("universities.subtitle")}
+              {"Instituciones l\u00edderes en formaci\u00f3n de psicolog\u00eda en Latinoam\u00e9rica"}
             </p>
           </div>
         </ScrollReveal>
