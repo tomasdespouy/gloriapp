@@ -685,27 +685,29 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       // Auto-send after 2s of silence (reset timer on each result)
       if (voiceAutoSendTimerRef.current) clearTimeout(voiceAutoSendTimerRef.current);
       if (transcript.trim()) {
-        voiceAutoSendTimerRef.current = setTimeout(() => {
+        voiceAutoSendTimerRef.current = setTimeout(async () => {
           const textToSend = transcript.trim();
           if (textToSend && !isStreamingRef.current && sendMessageRef.current) {
             transcript = "";
             setInput("");
-            // Stop recognition before sending
+            // Stop recognition and prevent restart until send completes
+            isStreamingRef.current = true;
             try { recognition.stop(); } catch {}
             // Auto-correct before sending (adds ¿? and tildes)
-            fetch("/api/chat/correct", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: textToSend }),
-            })
-              .then(r => r.ok ? r.json() : null)
-              .then(data => {
-                const corrected = data?.corrected || textToSend;
-                sendMessageRef.current(corrected);
-              })
-              .catch(() => {
-                sendMessageRef.current(textToSend);
+            try {
+              const r = await fetch("/api/chat/correct", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: textToSend }),
               });
+              const data = r.ok ? await r.json() : null;
+              const corrected = data?.corrected || textToSend;
+              isStreamingRef.current = false;
+              sendMessageRef.current(corrected);
+            } catch {
+              isStreamingRef.current = false;
+              sendMessageRef.current(textToSend);
+            }
           }
         }, 2000);
       }
