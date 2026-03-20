@@ -37,20 +37,18 @@ Reglas:
 
 /**
  * Split a large audio blob into chunks under the Whisper size limit.
- * Returns an array of File objects ready for the API.
+ * Returns an array of Blob objects ready for the API.
  */
-function splitAudioBlob(buffer: Buffer, mimeType: string, chunkSize: number): File[] {
-  const chunks: File[] = [];
+function splitAudioBlob(buffer: Buffer, mimeType: string, chunkSize: number): Blob[] {
+  const chunks: Blob[] = [];
   let offset = 0;
-  let idx = 0;
 
   while (offset < buffer.length) {
     const end = Math.min(offset + chunkSize, buffer.length);
-    const slice = buffer.subarray(offset, end);
-    const file = new File([slice], `chunk-${idx}.webm`, { type: mimeType });
-    chunks.push(file);
+    // Copy to a new ArrayBuffer to avoid SharedArrayBuffer TS issues
+    const ab = buffer.buffer.slice(buffer.byteOffset + offset, buffer.byteOffset + end) as ArrayBuffer;
+    chunks.push(new Blob([ab], { type: mimeType }));
     offset = end;
-    idx++;
   }
 
   return chunks;
@@ -88,9 +86,10 @@ export async function POST(request: NextRequest) {
       const chunks = splitAudioBlob(audioBuffer, audioFile.type || "audio/webm", MAX_CHUNK_SIZE);
       const transcriptions: string[] = [];
 
-      for (const chunk of chunks) {
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkFile = new File([chunks[i]], `chunk-${i}.webm`, { type: chunks[i].type });
         const result = await openai.audio.transcriptions.create({
-          file: chunk,
+          file: chunkFile,
           model: "whisper-1",
           language: "es",
         });

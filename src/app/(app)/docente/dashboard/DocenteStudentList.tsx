@@ -141,7 +141,7 @@ export default function DocenteStudentList({ students, defaultFilter }: Props) {
                 </div>
                 <div className="flex items-center gap-2">
                   {isInactive && (
-                    <Clock size={12} className="text-amber-400" title="Inactivo" />
+                    <span title="Inactivo"><Clock size={12} className="text-amber-400" /></span>
                   )}
                   {student.pending_count > 0 && (
                     <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
