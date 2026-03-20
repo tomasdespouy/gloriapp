@@ -2,15 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Settings, ShieldCheck, BookOpen, GraduationCap, Users,
   Plus, Trash2, ChevronDown, ChevronRight, UserPlus, X,
+  UserRound, Check, Globe, Star,
 } from "lucide-react";
 import EstablishmentForm from "../EstablishmentForm";
 
 type Profile = { id: string; full_name: string | null; email: string; role?: string; course_id?: string | null; section_id?: string | null };
 type Course = { id: string; name: string; code: string | null; establishment_id: string; is_active: boolean };
 type Section = { id: string; name: string; course_id: string; is_active: boolean };
+type Patient = { id: string; name: string; age: number | null; occupation: string | null; difficulty_level: string | null; country: string[] | null; is_active: boolean; tags: string[] | null; country_origin: string | null; country_residence: string | null };
 
 type Props = {
   establishment: Record<string, unknown>;
@@ -21,10 +24,14 @@ type Props = {
   instructors: Profile[];
   students: Profile[];
   isSuperadmin: boolean;
+  allPatients: Patient[];
+  assignedPatientIds: string[];
+  estCountry: string | null;
 };
 
 const TABS = [
   { key: "general", label: "General", icon: Settings },
+  { key: "patients", label: "Pacientes", icon: UserRound },
   { key: "admins", label: "Administradores", icon: ShieldCheck },
   { key: "courses", label: "Asignaturas", icon: BookOpen },
   { key: "instructors", label: "Docentes", icon: GraduationCap },
@@ -55,6 +62,7 @@ export default function InstitutionTabs(props: Props) {
       </div>
 
       {tab === "general" && <TabGeneral establishment={props.establishment} isSuperadmin={props.isSuperadmin} />}
+      {tab === "patients" && <TabPatients estId={String(props.establishment.id)} allPatients={props.allPatients} assignedPatientIds={props.assignedPatientIds} estCountry={props.estCountry} isSuperadmin={props.isSuperadmin} />}
       {tab === "admins" && <TabAdmins estId={String(props.establishment.id)} assigned={props.assignedAdmins} available={props.availableAdmins} />}
       {tab === "courses" && <TabCourses estId={String(props.establishment.id)} courses={props.courses} courseSections={props.courseSections} />}
       {tab === "instructors" && <TabInstructors estId={String(props.establishment.id)} instructors={props.instructors} courses={props.courses} courseSections={props.courseSections} />}
@@ -102,40 +110,62 @@ function TabAdmins({ estId, assigned, available }: { estId: string; assigned: Pr
 
   const assign = async (adminId: string) => {
     setLoading(true);
-    await fetch(`/api/admin/establishments/${estId}/admins`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ admin_id: adminId, _action: "add" }),
-    });
-    setLoading(false);
-    router.refresh();
+    try {
+      const res = await fetch(`/api/admin/establishments/${estId}/admins`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_id: adminId, _action: "add" }),
+      });
+      if (!res.ok) throw new Error("Error del servidor");
+      toast.success("Administrador asignado");
+      router.refresh();
+    } catch {
+      toast.error("Error al asignar administrador");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const remove = async (adminId: string) => {
     setLoading(true);
-    await fetch(`/api/admin/establishments/${estId}/admins`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ admin_id: adminId, _action: "remove" }),
-    });
-    setLoading(false);
-    router.refresh();
+    try {
+      const res = await fetch(`/api/admin/establishments/${estId}/admins`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_id: adminId, _action: "remove" }),
+      });
+      if (!res.ok) throw new Error("Error del servidor");
+      toast.success("Administrador removido");
+      router.refresh();
+    } catch {
+      toast.error("Error al remover administrador");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const createAndAssign = async () => {
     if (!newEmail.trim() || !newName.trim()) return;
     setCreating(true); setError("");
-    const res = await fetch("/api/admin/users/create", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: newEmail, full_name: newName, role: "admin", establishment_id: estId }),
-    });
-    if (!res.ok) { const d = await res.json(); setError(d.error || "Error al crear"); setCreating(false); return; }
-    const data = await res.json();
-    // Assign to this institution
-    await fetch(`/api/admin/establishments/${estId}/admins`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ admin_id: data.user?.user?.id, _action: "add" }),
-    });
-    setCreating(false); setShowCreate(false); setNewEmail(""); setNewName("");
-    router.refresh();
+    try {
+      const res = await fetch("/api/admin/users/create", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: newEmail, full_name: newName, role: "admin", establishment_id: estId }),
+      });
+      if (!res.ok) { const d = await res.json(); setError(d.error || "Error al crear"); setCreating(false); return; }
+      const data = await res.json();
+      // Assign to this institution
+      const assignRes = await fetch(`/api/admin/establishments/${estId}/admins`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_id: data.user?.user?.id, _action: "add" }),
+      });
+      if (!assignRes.ok) throw new Error("Error al asignar");
+      toast.success("Administrador creado y asignado");
+      setShowCreate(false); setNewEmail(""); setNewName("");
+      router.refresh();
+    } catch {
+      toast.error("Error al crear administrador");
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -223,28 +253,52 @@ function TabCourses({ estId, courses, courseSections }: { estId: string; courses
   const createCourse = async () => {
     if (!newCourse.trim()) return;
     setLoading(true);
-    await fetch("/api/admin/courses", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newCourse.trim(), establishment_id: estId }),
-    });
-    setNewCourse(""); setLoading(false); router.refresh();
+    try {
+      const res = await fetch("/api/admin/courses", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCourse.trim(), establishment_id: estId }),
+      });
+      if (!res.ok) throw new Error("Error del servidor");
+      toast.success("Asignatura creada");
+      setNewCourse(""); router.refresh();
+    } catch {
+      toast.error("Error al crear la asignatura");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const deleteCourse = async (id: string) => {
     if (!confirm("¿Eliminar esta asignatura y todas sus secciones?")) return;
     setLoading(true);
-    await fetch(`/api/admin/courses`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-    setLoading(false); router.refresh();
+    try {
+      const res = await fetch(`/api/admin/courses`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      if (!res.ok) throw new Error("Error del servidor");
+      toast.success("Asignatura eliminada");
+      router.refresh();
+    } catch {
+      toast.error("Error al eliminar la asignatura");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const createSection = async (courseId: string) => {
     if (!newSectionName.trim()) return;
     setLoading(true);
-    await fetch("/api/admin/sections", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newSectionName.trim(), course_id: courseId }),
-    });
-    setNewSectionName(""); setNewSectionFor(null); setLoading(false); router.refresh();
+    try {
+      const res = await fetch("/api/admin/sections", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newSectionName.trim(), course_id: courseId }),
+      });
+      if (!res.ok) throw new Error("Error del servidor");
+      toast.success("Sección creada");
+      setNewSectionName(""); setNewSectionFor(null); router.refresh();
+    } catch {
+      toast.error("Error al crear la sección");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -330,21 +384,28 @@ function TabInstructors({ estId, instructors, courses, courseSections }: { estId
   const handleCreate = async () => {
     if (!email.trim() || !name.trim()) return;
     setCreating(true); setError("");
-    const res = await fetch("/api/admin/users/create", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, full_name: name, role: "instructor", establishment_id: estId }),
-    });
-    if (!res.ok) { const d = await res.json(); setError(d.error); setCreating(false); return; }
-    const data = await res.json();
-    const userId = data.user?.user?.id;
-    if (userId && (courseId || sectionId)) {
-      await fetch(`/api/admin/users/${userId}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ course_id: courseId || null, section_id: sectionId || null }),
+    try {
+      const res = await fetch("/api/admin/users/create", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, full_name: name, role: "instructor", establishment_id: estId }),
       });
+      if (!res.ok) { const d = await res.json(); setError(d.error); setCreating(false); return; }
+      const data = await res.json();
+      const userId = data.user?.user?.id;
+      if (userId && (courseId || sectionId)) {
+        await fetch(`/api/admin/users/${userId}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ course_id: courseId || null, section_id: sectionId || null }),
+        });
+      }
+      toast.success("Docente creado");
+      setShowCreate(false); setEmail(""); setName(""); setCourseId(""); setSectionId("");
+      router.refresh();
+    } catch {
+      toast.error("Error al crear docente");
+    } finally {
+      setCreating(false);
     }
-    setCreating(false); setShowCreate(false); setEmail(""); setName(""); setCourseId(""); setSectionId("");
-    router.refresh();
   };
 
   return (
@@ -447,21 +508,28 @@ function TabStudents({ estId, students, courses, courseSections }: { estId: stri
   const handleCreate = async () => {
     if (!email.trim() || !name.trim()) return;
     setCreating(true); setError("");
-    const res = await fetch("/api/admin/users/create", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, full_name: name, role: "student", establishment_id: estId }),
-    });
-    if (!res.ok) { const d = await res.json(); setError(d.error); setCreating(false); return; }
-    const data = await res.json();
-    const userId = data.user?.user?.id;
-    if (userId && (courseId || sectionId)) {
-      await fetch(`/api/admin/users/${userId}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ course_id: courseId || null, section_id: sectionId || null }),
+    try {
+      const res = await fetch("/api/admin/users/create", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, full_name: name, role: "student", establishment_id: estId }),
       });
+      if (!res.ok) { const d = await res.json(); setError(d.error); setCreating(false); return; }
+      const data = await res.json();
+      const userId = data.user?.user?.id;
+      if (userId && (courseId || sectionId)) {
+        await fetch(`/api/admin/users/${userId}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ course_id: courseId || null, section_id: sectionId || null }),
+        });
+      }
+      toast.success("Alumno creado");
+      setShowCreate(false); setEmail(""); setName(""); setCourseId(""); setSectionId("");
+      router.refresh();
+    } catch {
+      toast.error("Error al crear alumno");
+    } finally {
+      setCreating(false);
     }
-    setCreating(false); setShowCreate(false); setEmail(""); setName(""); setCourseId(""); setSectionId("");
-    router.refresh();
   };
 
   const handleBulkCreate = async () => {
@@ -470,33 +538,42 @@ function TabStudents({ estId, students, courses, courseSections }: { estId: stri
     setBulkLoading(true); setBulkResult("");
     let created = 0; let failed = 0;
 
-    for (const line of lines) {
-      const parts = line.split(/[,;\t]+/).map((s) => s.trim());
-      const lineEmail = parts.find((p) => p.includes("@"));
-      const lineName = parts.find((p) => !p.includes("@")) || lineEmail?.split("@")[0] || "";
-      if (!lineEmail) { failed++; continue; }
+    try {
+      for (const line of lines) {
+        const parts = line.split(/[,;\t]+/).map((s) => s.trim());
+        const lineEmail = parts.find((p) => p.includes("@"));
+        const lineName = parts.find((p) => !p.includes("@")) || lineEmail?.split("@")[0] || "";
+        if (!lineEmail) { failed++; continue; }
 
-      const res = await fetch("/api/admin/users/create", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: lineEmail, full_name: lineName, role: "student", establishment_id: estId }),
-      });
+        const res = await fetch("/api/admin/users/create", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: lineEmail, full_name: lineName, role: "student", establishment_id: estId }),
+        });
 
-      if (res.ok) {
-        created++;
-        const data = await res.json();
-        const userId = data.user?.user?.id;
-        if (userId && (bulkCourseId || bulkSectionId)) {
-          await fetch(`/api/admin/users/${userId}`, {
-            method: "PATCH", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ course_id: bulkCourseId || null, section_id: bulkSectionId || null }),
-          });
-        }
-      } else { failed++; }
+        if (res.ok) {
+          created++;
+          const data = await res.json();
+          const userId = data.user?.user?.id;
+          if (userId && (bulkCourseId || bulkSectionId)) {
+            await fetch(`/api/admin/users/${userId}`, {
+              method: "PATCH", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ course_id: bulkCourseId || null, section_id: bulkSectionId || null }),
+            });
+          }
+        } else { failed++; }
+      }
+
+      setBulkResult(`${created} creados, ${failed} con error`);
+      if (created > 0) {
+        toast.success(`${created} alumnos creados`);
+        router.refresh();
+      }
+      if (failed > 0) toast.error(`${failed} alumnos con error`);
+    } catch {
+      toast.error("Error durante la carga masiva");
+    } finally {
+      setBulkLoading(false);
     }
-
-    setBulkLoading(false);
-    setBulkResult(`${created} creados, ${failed} con error`);
-    if (created > 0) router.refresh();
   };
 
   return (
@@ -609,6 +686,283 @@ function TabStudents({ estId, students, courses, courseSections }: { estId: stri
             </button>
             <button onClick={() => setShowBulk(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
+// TAB: Pacientes
+// ════════════════════════════════════════════
+const DIFFICULTY_COLORS: Record<string, string> = {
+  principiante: "bg-green-100 text-green-700",
+  intermedio: "bg-yellow-100 text-yellow-700",
+  avanzado: "bg-red-100 text-red-700",
+};
+
+function TabPatients({
+  estId, allPatients, assignedPatientIds, estCountry, isSuperadmin,
+}: {
+  estId: string; allPatients: Patient[]; assignedPatientIds: string[]; estCountry: string | null; isSuperadmin: boolean;
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [showAvailable, setShowAvailable] = useState(false);
+  const [filterOrigin, setFilterOrigin] = useState("");
+  const [filterLevel, setFilterLevel] = useState("");
+
+  // Derive unique values for filters
+  const origins = Array.from(new Set(allPatients.map((p) => p.country_origin).filter(Boolean))) as string[];
+  const levels = Array.from(new Set(allPatients.map((p) => p.difficulty_level).filter(Boolean))) as string[];
+
+  const assignedSet = new Set(assignedPatientIds);
+
+  // Patients visible by country default
+  const byCountry = allPatients.filter(
+    (p) => estCountry && p.country?.includes(estCountry)
+  );
+  const byCountryIds = new Set(byCountry.map((p) => p.id));
+
+  // Explicitly assigned patients (premium)
+  const explicitlyAssigned = allPatients.filter(
+    (p) => assignedSet.has(p.id) && !byCountryIds.has(p.id)
+  );
+
+  // All visible patients combined
+  const visiblePatients = [
+    ...byCountry.map((p) => ({ ...p, source: "country" as const })),
+    ...explicitlyAssigned.map((p) => ({ ...p, source: "assigned" as const })),
+  ].sort((a, b) => a.name.localeCompare(b.name));
+
+  // Available for assignment (not already visible)
+  const visibleIds = new Set(visiblePatients.map((p) => p.id));
+  const available = allPatients
+    .filter((p) => !visibleIds.has(p.id) && p.is_active)
+    .filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()))
+    .filter((p) => !filterOrigin || p.country_origin === filterOrigin)
+    .filter((p) => !filterLevel || p.difficulty_level === filterLevel);
+
+  const assign = async (patientId: string) => {
+    setLoading(patientId);
+    try {
+      const res = await fetch(`/api/admin/establishments/${estId}/patients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patient_id: patientId, _action: "add" }),
+      });
+      if (!res.ok) throw new Error("Error del servidor");
+      toast.success("Paciente asignado");
+      router.refresh();
+    } catch {
+      toast.error("Error al asignar paciente");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const remove = async (patientId: string) => {
+    setLoading(patientId);
+    try {
+      const res = await fetch(`/api/admin/establishments/${estId}/patients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patient_id: patientId, _action: "remove" }),
+      });
+      if (!res.ok) throw new Error("Error del servidor");
+      toast.success("Paciente removido");
+      router.refresh();
+    } catch {
+      toast.error("Error al remover paciente");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Visible patients */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">
+              Pacientes visibles ({visiblePatients.length})
+            </h3>
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              {byCountry.length} por pa&iacute;s ({estCountry || "sin pa\u00eds"})
+              {explicitlyAssigned.length > 0 && ` + ${explicitlyAssigned.length} asignados`}
+            </p>
+          </div>
+          {isSuperadmin && (
+            <button
+              onClick={() => setShowAvailable(!showAvailable)}
+              className="flex items-center gap-1.5 text-xs text-sidebar font-medium hover:underline"
+            >
+              <Plus size={14} /> Asignar pacientes
+            </button>
+          )}
+        </div>
+
+        {visiblePatients.length > 0 ? (
+          <div className="space-y-1.5 max-h-[500px] overflow-y-auto">
+            {visiblePatients.map((p) => (
+              <div
+                key={p.id}
+                className={`flex items-center justify-between py-2.5 px-3 rounded-xl transition-colors ${
+                  loading === p.id ? "opacity-50" : "hover:bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex-shrink-0">
+                    {p.source === "country" ? (
+                      <Globe size={14} className="text-gray-400" />
+                    ) : (
+                      <Star size={14} className="text-amber-500" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                      {p.difficulty_level && (
+                        <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${DIFFICULTY_COLORS[p.difficulty_level] || "bg-gray-100 text-gray-500"}`}>
+                          {p.difficulty_level}
+                        </span>
+                      )}
+                      {!p.is_active && (
+                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400">
+                          Inactivo
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-gray-400">
+                      {p.age && `${p.age} a\u00f1os`}
+                      {p.occupation && ` \u00b7 ${p.occupation}`}
+                      {p.country && ` \u00b7 ${p.country.join(", ")}`}
+                    </p>
+                  </div>
+                </div>
+                {isSuperadmin && p.source === "assigned" && (
+                  <button
+                    onClick={() => remove(p.id)}
+                    className="text-xs text-red-500 hover:text-red-700 flex-shrink-0"
+                  >
+                    Quitar
+                  </button>
+                )}
+                {p.source === "country" && (
+                  <span className="text-[9px] text-gray-300 flex-shrink-0">Por pa&iacute;s</span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400">
+            {estCountry
+              ? `No hay pacientes configurados para ${estCountry}. Asigna pacientes manualmente.`
+              : "Esta instituci\u00f3n no tiene pa\u00eds asignado. Configura el pa\u00eds en la pesta\u00f1a General o asigna pacientes manualmente."}
+          </p>
+        )}
+      </div>
+
+      {/* Available patients for assignment */}
+      {showAvailable && isSuperadmin && (
+        <div className="bg-white rounded-2xl border border-sidebar/20 p-6 animate-fade-in">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold text-gray-900">
+              Asignar pacientes adicionales
+            </h4>
+            <button onClick={() => setShowAvailable(false)}>
+              <X size={16} className="text-gray-400 hover:text-gray-600" />
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nombre..."
+              className="flex-1 min-w-[150px] border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            />
+            <select
+              value={filterOrigin}
+              onChange={(e) => setFilterOrigin(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600"
+            >
+              <option value="">Pa&iacute;s de origen</option>
+              {origins.sort().map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+            <select
+              value={filterLevel}
+              onChange={(e) => setFilterLevel(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600"
+            >
+              <option value="">Nivel</option>
+              {levels.map((l) => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
+            </select>
+          </div>
+          {available.length > 0 ? (
+            <>
+            {(filterOrigin || filterLevel) && available.length > 1 && (
+              <button
+                onClick={async () => {
+                  try {
+                    for (const p of available) {
+                      await fetch(`/api/admin/establishments/${estId}/patients`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ patient_id: p.id, _action: "add" }),
+                      });
+                    }
+                    toast.success(`${available.length} pacientes asignados`);
+                    router.refresh();
+                  } catch {
+                    toast.error("Error al asignar pacientes");
+                  }
+                }}
+                className="w-full text-xs text-sidebar font-medium hover:underline mb-2 text-left"
+              >
+                Asignar los {available.length} pacientes filtrados
+              </button>
+            )}
+            <div className="space-y-1 max-h-[300px] overflow-y-auto">
+              {available.map((p) => (
+                <div
+                  key={p.id}
+                  className={`flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors ${
+                    loading === p.id ? "opacity-50" : ""
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                      {p.difficulty_level && (
+                        <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${DIFFICULTY_COLORS[p.difficulty_level] || "bg-gray-100 text-gray-500"}`}>
+                          {p.difficulty_level}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-gray-400">
+                      {p.age && `${p.age} a\u00f1os`}
+                      {p.occupation && ` \u00b7 ${p.occupation}`}
+                      {p.country && ` \u00b7 ${p.country.join(", ")}`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => assign(p.id)}
+                    disabled={loading === p.id}
+                    className="flex items-center gap-1 text-xs text-sidebar font-medium hover:underline disabled:opacity-50 flex-shrink-0"
+                  >
+                    <Check size={12} /> Asignar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+          ) : (
+            <p className="text-xs text-gray-400 text-center py-4">
+              {search || filterOrigin || filterLevel ? "Sin resultados para los filtros aplicados" : "Todos los pacientes activos ya est\u00e1n visibles para esta instituci\u00f3n"}
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import InstructorOnboarding from "@/components/InstructorOnboarding";
 
 export default async function DocenteLayout({
   children,
@@ -23,5 +24,10 @@ export default async function DocenteLayout({
     redirect("/dashboard");
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      {profile?.role === "instructor" && <InstructorOnboarding />}
+    </>
+  );
 }

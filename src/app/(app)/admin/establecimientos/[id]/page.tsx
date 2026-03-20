@@ -29,6 +29,8 @@ export default async function EstablishmentDetailPage({
     { data: courses },
     { data: sections },
     { data: profiles },
+    { data: assignedPatientRows },
+    { data: allPatients },
   ] = await Promise.all([
     admin.from("admin_establishments").select("admin_id").eq("establishment_id", id),
     admin.from("profiles").select("id, full_name, email").eq("role", "admin"),
@@ -36,6 +38,8 @@ export default async function EstablishmentDetailPage({
     admin.from("sections").select("*").order("name"),
     admin.from("profiles").select("id, full_name, email, role, course_id, section_id")
       .eq("establishment_id", id).order("full_name"),
+    admin.from("establishment_patients").select("ai_patient_id").eq("establishment_id", id),
+    admin.from("ai_patients").select("id, name, age, occupation, difficulty_level, country, is_active, tags, country_origin, country_residence").order("name"),
   ]);
 
   const assignedAdminIds = new Set(assignments?.map((a) => a.admin_id) || []);
@@ -52,6 +56,9 @@ export default async function EstablishmentDetailPage({
 
   const instructors = (profiles || []).filter((p) => p.role === "instructor");
   const students = (profiles || []).filter((p) => p.role === "student");
+
+  const assignedPatientIds = new Set((assignedPatientRows || []).map((r) => r.ai_patient_id));
+  const estCountry = establishment.country || null;
 
   return (
     <div className="min-h-screen">
@@ -89,6 +96,9 @@ export default async function EstablishmentDetailPage({
           instructors={instructors}
           students={students}
           isSuperadmin={ctx.isSuperadmin}
+          allPatients={allPatients || []}
+          assignedPatientIds={Array.from(assignedPatientIds)}
+          estCountry={estCountry}
         />
       </div>
     </div>

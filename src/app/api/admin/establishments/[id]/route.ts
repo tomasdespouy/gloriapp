@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+import { logAdminAction } from "@/lib/audit";
 
 async function requireSuperadmin() {
   const supabase = await createClient();
@@ -47,6 +48,15 @@ export async function PATCH(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAdminAction({
+    adminId: auth.user.id,
+    action: "update_establishment",
+    entityType: "establishment",
+    entityId: id,
+    details: updates,
+  });
+
   return NextResponse.json(data);
 }
 
@@ -62,5 +72,13 @@ export async function DELETE(
   const { error } = await admin.from("establishments").delete().eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAdminAction({
+    adminId: auth.user.id,
+    action: "delete_establishment",
+    entityType: "establishment",
+    entityId: id,
+  });
+
   return NextResponse.json({ success: true });
 }

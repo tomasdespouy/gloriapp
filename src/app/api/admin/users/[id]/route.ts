@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+import { logAdminAction } from "@/lib/audit";
 
 export async function PATCH(
   request: Request,
@@ -47,6 +48,15 @@ export async function PATCH(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAdminAction({
+    adminId: user.id,
+    action: "update_user",
+    entityType: "user",
+    entityId: id,
+    details: updates,
+  });
+
   return NextResponse.json(data);
 }
 
@@ -77,6 +87,13 @@ export async function DELETE(
   // Delete auth user (cascades to profile and all related data)
   const { error } = await adminDel.auth.admin.deleteUser(id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAdminAction({
+    adminId: user.id,
+    action: "delete_user",
+    entityType: "user",
+    entityId: id,
+  });
 
   return NextResponse.json({ success: true });
 }

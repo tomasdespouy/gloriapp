@@ -9,6 +9,11 @@ export async function GET(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (profile?.role !== "instructor" && profile?.role !== "admin" && profile?.role !== "superadmin") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
   const conversationId = request.nextUrl.searchParams.get("conversation_id");
   const studentId = request.nextUrl.searchParams.get("student_id");
 

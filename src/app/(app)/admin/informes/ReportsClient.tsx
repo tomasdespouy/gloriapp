@@ -205,7 +205,7 @@ export default function ReportsClient() {
         </div>
         <button
           onClick={() => setShowUpload(true)}
-          className="flex items-center gap-2 bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#354080] transition-colors"
+          className="flex items-center gap-2 bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors"
         >
           <Upload size={15} />
           Subir informe
@@ -318,7 +318,7 @@ export default function ReportsClient() {
               <button
                 onClick={handleUpload}
                 disabled={uploading || !hasFile}
-                className="flex-1 px-4 py-2.5 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-[#354080] disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50"
               >
                 {uploading ? "Subiendo..." : "Subir"}
               </button>
@@ -445,7 +445,7 @@ export default function ReportsClient() {
                       <button onClick={() => setEditingNotes(null)} className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50 rounded-lg">
                         Cancelar
                       </button>
-                      <button onClick={() => saveNotes(report.id)} className="px-3 py-1.5 text-xs bg-sidebar text-white rounded-lg hover:bg-[#354080] flex items-center gap-1">
+                      <button onClick={() => saveNotes(report.id)} className="px-3 py-1.5 text-xs bg-sidebar text-white rounded-lg hover:bg-sidebar-hover flex items-center gap-1">
                         <Save size={11} />
                         Guardar
                       </button>

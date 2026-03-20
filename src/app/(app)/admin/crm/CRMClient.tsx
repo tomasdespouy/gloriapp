@@ -2,10 +2,11 @@
 
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Search, Plus, Download, Filter, Building2, Globe, Mail,
   Phone, ChevronDown, ChevronUp, X, ExternalLink, MessageSquare,
-  Calendar, Trash2, Edit3, Save, MapPin, Send, Loader2,
+  Calendar, Trash2, Edit3, Save, MapPin, Send, Loader2, FileText,
 } from "lucide-react";
 
 type University = {
@@ -34,6 +35,15 @@ type Activity = {
   type: string;
   description: string;
   created_at: string;
+};
+
+type EmailTemplate = {
+  id: string;
+  name: string;
+  subject: string;
+  body_html: string;
+  category: string;
+  is_default: boolean;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -72,6 +82,13 @@ export default function CRMClient({ universities: initial }: { universities: Uni
   const [saving, setSaving] = useState(false);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [newActivity, setNewActivity] = useState({ type: "nota", description: "" });
+  const [emailTarget, setEmailTarget] = useState<University | null>(null);
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [formData, setFormData] = useState({
     name: "", country: "", city: "", website: "", type: "privada" as "pública" | "privada",
     program_name: "Psicología", contact_email: "", contact_name: "", contact_phone: "",
@@ -154,61 +171,168 @@ export default function CRMClient({ universities: initial }: { universities: Uni
       google_sheets_url: formData.google_sheets_url || null,
     };
 
-    if (editingId) {
-      await fetch(`/api/admin/crm/${editingId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    } else {
-      await fetch("/api/admin/crm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    try {
+      const res = editingId
+        ? await fetch(`/api/admin/crm/${editingId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+        : await fetch("/api/admin/crm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+      if (!res.ok) throw new Error("Error del servidor");
+      toast.success(editingId ? "Universidad actualizada" : "Universidad creada");
+      setShowForm(false);
+      resetForm();
+      router.refresh();
+    } catch {
+      toast.error("Error al guardar la universidad");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    setShowForm(false);
-    resetForm();
-    router.refresh();
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    await fetch(`/api/admin/crm/${deleteTarget.id}`, { method: "DELETE" });
-    setDeleteTarget(null);
-    router.refresh();
+    try {
+      const res = await fetch(`/api/admin/crm/${deleteTarget.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Error del servidor");
+      toast.success("Universidad eliminada");
+      setDeleteTarget(null);
+      router.refresh();
+    } catch {
+      toast.error("Error al eliminar la universidad");
+      setDeleteTarget(null);
+    }
   };
 
   const handleStatusChange = async (id: string, status: string) => {
-    await fetch(`/api/admin/crm/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    router.refresh();
+    try {
+      const res = await fetch(`/api/admin/crm/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error("Error del servidor");
+      router.refresh();
+    } catch {
+      toast.error("Error al cambiar el estado");
+    }
   };
 
   const loadActivities = async (id: string) => {
     if (expanded === id) { setExpanded(null); return; }
     setExpanded(id);
-    const res = await fetch(`/api/admin/crm/${id}`);
-    const data = await res.json();
-    setActivities(data.activities || []);
+    try {
+      const res = await fetch(`/api/admin/crm/${id}`);
+      if (!res.ok) throw new Error("Error del servidor");
+      const data = await res.json();
+      setActivities(data.activities || []);
+    } catch {
+      toast.error("Error al cargar las actividades");
+      setExpanded(null);
+    }
   };
 
   const addActivity = async () => {
     if (!expanded || !newActivity.description.trim()) return;
-    await fetch(`/api/admin/crm/${expanded}/activities`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newActivity),
-    });
-    setNewActivity({ type: "nota", description: "" });
-    // Reload
-    const res = await fetch(`/api/admin/crm/${expanded}`);
-    const data = await res.json();
-    setActivities(data.activities || []);
+    try {
+      const res = await fetch(`/api/admin/crm/${expanded}/activities`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newActivity),
+      });
+      if (!res.ok) throw new Error("Error del servidor");
+      toast.success("Actividad agregada");
+      setNewActivity({ type: "nota", description: "" });
+      // Reload
+      const reloadRes = await fetch(`/api/admin/crm/${expanded}`);
+      const data = await reloadRes.json();
+      setActivities(data.activities || []);
+    } catch {
+      toast.error("Error al agregar la actividad");
+    }
+  };
+
+  const replaceTemplateVars = (text: string, university: University) => {
+    return text
+      .replace(/\{\{contact_name\}\}/g, university.contact_name || "Director/a de Carrera")
+      .replace(/\{\{institution\}\}/g, university.name)
+      .replace(/\{\{program_name\}\}/g, university.program_name)
+      .replace(/\{\{estimated_students\}\}/g, university.estimated_students?.toString() || "[N]")
+      .replace(/\{\{country\}\}/g, university.country)
+      .replace(/\{\{city\}\}/g, university.city);
+  };
+
+  const openEmailModal = async (university: University) => {
+    setEmailTarget(university);
+    setLoadingTemplates(true);
+    setSelectedTemplateId("");
+    setEmailSubject("");
+    setEmailBody("");
+    try {
+      const res = await fetch("/api/admin/crm/email-templates");
+      if (!res.ok) throw new Error("Error al cargar plantillas");
+      const data = await res.json();
+      setEmailTemplates(data.templates || []);
+      // Auto-select first template
+      if (data.templates?.length > 0) {
+        const first = data.templates[0];
+        setSelectedTemplateId(first.id);
+        setEmailSubject(replaceTemplateVars(first.subject, university));
+        setEmailBody(replaceTemplateVars(first.body_html, university));
+      }
+    } catch {
+      toast.error("Error al cargar las plantillas de email");
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    const template = emailTemplates.find((t) => t.id === templateId);
+    if (template && emailTarget) {
+      setEmailSubject(replaceTemplateVars(template.subject, emailTarget));
+      setEmailBody(replaceTemplateVars(template.body_html, emailTarget));
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailTarget || !emailSubject.trim() || !emailBody.trim()) return;
+    setSendingEmail(true);
+    try {
+      const res = await fetch(`/api/admin/crm/${emailTarget.id}/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: emailSubject,
+          html: emailBody,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Email enviado");
+        setEmailTarget(null);
+        router.refresh();
+      } else {
+        toast.error("Error al enviar email");
+      }
+    } catch {
+      toast.error("Error al enviar email");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    presentacion: "Presentación",
+    seguimiento: "Seguimiento",
+    propuesta: "Propuesta",
+    demo: "Demo",
+    general: "General",
   };
 
   return (
@@ -228,7 +352,7 @@ export default function CRMClient({ universities: initial }: { universities: Uni
           </a>
           <button
             onClick={() => { resetForm(); setShowForm(true); }}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-[#4A55A2] text-white rounded-lg hover:bg-[#3d4789] transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-sm bg-sidebar text-white rounded-lg hover:bg-sidebar-hover transition-colors"
           >
             <Plus size={16} /> Nueva universidad
           </button>
@@ -259,7 +383,7 @@ export default function CRMClient({ universities: initial }: { universities: Uni
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar universidad o ciudad..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
           />
         </div>
         <select
@@ -377,21 +501,14 @@ export default function CRMClient({ universities: initial }: { universities: Uni
                             <ExternalLink size={14} />
                           </a>
                         )}
-                        <button onClick={() => loadActivities(u.id)} className={`p-1.5 rounded hover:bg-gray-100 ${expanded === u.id ? "text-[#4A55A2]" : "text-gray-500"}`} title="Notas">
+                        <button onClick={() => loadActivities(u.id)} className={`p-1.5 rounded hover:bg-gray-100 ${expanded === u.id ? "text-sidebar" : "text-gray-500"}`} title="Notas">
                           <MessageSquare size={14} />
                         </button>
                         {u.contact_email && (
                           <button
-                            onClick={async (e) => {
+                            onClick={(e) => {
                               e.stopPropagation();
-                              if (!confirm(`¿Enviar email a ${u.contact_email}?`)) return;
-                              const res = await fetch(`/api/admin/crm/${u.id}/email`, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({}),
-                              });
-                              if (res.ok) { alert("Email enviado"); router.refresh(); }
-                              else alert("Error al enviar email");
+                              openEmailModal(u);
                             }}
                             className="p-1.5 rounded hover:bg-blue-50 text-gray-500 hover:text-blue-600"
                             title="Enviar email"
@@ -456,12 +573,12 @@ export default function CRMClient({ universities: initial }: { universities: Uni
                               value={newActivity.description}
                               onChange={(e) => setNewActivity({ ...newActivity, description: e.target.value })}
                               placeholder="Agregar nota de seguimiento..."
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30"
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
                               onKeyDown={(e) => e.key === "Enter" && addActivity()}
                             />
                             <button
                               onClick={addActivity}
-                              className="px-4 py-2 bg-[#4A55A2] text-white rounded-lg text-sm hover:bg-[#3d4789] transition-colors"
+                              className="px-4 py-2 bg-sidebar text-white rounded-lg text-sm hover:bg-sidebar-hover transition-colors"
                             >
                               Agregar
                             </button>
@@ -501,22 +618,22 @@ export default function CRMClient({ universities: initial }: { universities: Uni
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
                   <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">País</label>
                   <input type="text" value={formData.country} onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
                   <input type="text" value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Sitio web</label>
                   <input type="url" value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
@@ -529,12 +646,12 @@ export default function CRMClient({ universities: initial }: { universities: Uni
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Programa</label>
                   <input type="text" value={formData.program_name} onChange={(e) => setFormData({ ...formData, program_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Est. estudiantes</label>
                   <input type="number" value={formData.estimated_students} onChange={(e) => setFormData({ ...formData, estimated_students: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
                 </div>
 
                 <div className="col-span-2 border-t border-gray-200 pt-4 mt-2">
@@ -543,17 +660,17 @@ export default function CRMClient({ universities: initial }: { universities: Uni
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nombre contacto</label>
                   <input type="text" value={formData.contact_name} onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email contacto</label>
                   <input type="email" value={formData.contact_email} onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                   <input type="tel" value={formData.contact_phone} onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
                 </div>
 
                 <div className="col-span-2 border-t border-gray-200 pt-4 mt-2">
@@ -576,19 +693,19 @@ export default function CRMClient({ universities: initial }: { universities: Uni
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Próximo seguimiento</label>
                   <input type="date" value={formData.next_followup} onChange={(e) => setFormData({ ...formData, next_followup: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Google Sheets URL</label>
                   <input type="url" value={formData.google_sheets_url} onChange={(e) => setFormData({ ...formData, google_sheets_url: e.target.value })}
                     placeholder="https://docs.google.com/spreadsheets/d/..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
                   <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/30 resize-none" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30 resize-none" />
                 </div>
               </div>
             </div>
@@ -598,7 +715,7 @@ export default function CRMClient({ universities: initial }: { universities: Uni
                 Cancelar
               </button>
               <button onClick={handleSave} disabled={saving || !formData.name || !formData.country || !formData.city}
-                className="flex items-center gap-2 px-4 py-2 text-sm bg-[#4A55A2] text-white rounded-lg hover:bg-[#3d4789] transition-colors disabled:opacity-50">
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-sidebar text-white rounded-lg hover:bg-sidebar-hover transition-colors disabled:opacity-50">
                 <Save size={16} /> {saving ? "Guardando..." : editingId ? "Actualizar" : "Crear"}
               </button>
             </div>
@@ -620,6 +737,107 @@ export default function CRMClient({ universities: initial }: { universities: Uni
               </button>
               <button onClick={handleDelete} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">
                 Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Template Modal */}
+      {emailTarget && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEmailTarget(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-sidebar/10 rounded-xl flex items-center justify-center">
+                  <Mail size={20} className="text-sidebar" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Enviar email</h2>
+                  <p className="text-sm text-gray-500">
+                    {emailTarget.contact_name || emailTarget.name} — {emailTarget.contact_email}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setEmailTarget(null)} className="p-1 hover:bg-gray-100 rounded">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Template selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <span className="flex items-center gap-1.5"><FileText size={14} /> Plantilla</span>
+                </label>
+                {loadingTemplates ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
+                    <Loader2 size={14} className="animate-spin" /> Cargando plantillas...
+                  </div>
+                ) : (
+                  <select
+                    value={selectedTemplateId}
+                    onChange={(e) => handleTemplateSelect(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+                  >
+                    <option value="">Seleccionar plantilla...</option>
+                    {emailTemplates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({CATEGORY_LABELS[t.category] || t.category})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Subject */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Asunto</label>
+                <input
+                  type="text"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder="Asunto del email..."
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+                />
+              </div>
+
+              {/* Body editor */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Contenido (HTML)</label>
+                <textarea
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  rows={8}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sidebar/30 resize-none"
+                />
+              </div>
+
+              {/* Preview */}
+              {emailBody && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Vista previa</label>
+                  <div
+                    className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-sm"
+                    dangerouslySetInnerHTML={{ __html: emailBody }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setEmailTarget(null)}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSendEmail}
+                disabled={sendingEmail || !emailSubject.trim() || !emailBody.trim()}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-sidebar text-white rounded-lg hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+              >
+                <Send size={16} /> {sendingEmail ? "Enviando..." : "Enviar"}
               </button>
             </div>
           </div>

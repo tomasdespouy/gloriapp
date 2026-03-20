@@ -2,24 +2,44 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdminContext } from "@/lib/admin-helpers";
 import UsuariosClient from "./UsuariosClient";
 
-export default async function UsuariosPage() {
+export default async function UsuariosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; per_page?: string }>;
+}) {
+  const params = await searchParams;
+  const currentPage = Math.max(1, parseInt(params.page || "1", 10));
+  const perPage = Math.max(1, Math.min(200, parseInt(params.per_page || "50", 10)));
+
   const ctx = await getAdminContext();
   const supabase = await createClient();
 
-  // Fetch users scoped by establishment
-  const usersQuery = supabase
+  // Build scoping filter helper
+  const scopeFilter = ctx.isSuperadmin
+    ? null
+    : ctx.establishmentIds.length > 0
+      ? ctx.establishmentIds
+      : ["00000000-0000-0000-0000-000000000000"];
+
+  // Get total count first
+  let countQuery = supabase
+    .from("profiles")
+    .select("id", { count: "exact", head: true });
+  if (scopeFilter) countQuery = countQuery.in("establishment_id", scopeFilter);
+  const { count: totalCount } = await countQuery;
+
+  // Fetch paginated users scoped by establishment
+  const from = (currentPage - 1) * perPage;
+  const to = from + perPage - 1;
+
+  let usersQuery = supabase
     .from("profiles")
     .select("id, email, full_name, role, establishment_id, course_id, section_id, is_disabled, created_at")
-    .order("full_name");
+    .order("full_name")
+    .range(from, to);
+  if (scopeFilter) usersQuery = usersQuery.in("establishment_id", scopeFilter);
 
-  const { data: users } = ctx.isSuperadmin
-    ? await usersQuery
-    : await usersQuery.in(
-        "establishment_id",
-        ctx.establishmentIds.length > 0
-          ? ctx.establishmentIds
-          : ["00000000-0000-0000-0000-000000000000"]
-      );
+  const { data: users } = await usersQuery;
 
   // Fetch establishments for filter dropdown
   const { data: establishments } = ctx.isSuperadmin
@@ -69,6 +89,9 @@ export default async function UsuariosPage() {
       users={enrichedUsers}
       establishments={establishments || []}
       isSuperadmin={ctx.isSuperadmin}
+      totalCount={totalCount || 0}
+      currentPage={currentPage}
+      perPage={perPage}
     />
   );
 }

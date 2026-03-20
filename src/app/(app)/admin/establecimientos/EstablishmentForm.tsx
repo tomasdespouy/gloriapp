@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import HelpTip from "@/components/HelpTip";
 
 type Establishment = {
   id?: string;
@@ -52,33 +54,39 @@ export default function EstablishmentForm({
       : "/api/admin/establishments";
     const method = isEdit ? "PATCH" : "POST";
 
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        slug,
-        country: country || null,
-        logo_url: logoUrl || null,
-        website_url: websiteUrl || null,
-        contact_name: contactName || null,
-        contact_email: contactEmail || null,
-        is_active: isActive,
-      }),
-    });
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          slug,
+          country: country || null,
+          logo_url: logoUrl || null,
+          website_url: websiteUrl || null,
+          contact_name: contactName || null,
+          contact_email: contactEmail || null,
+          is_active: isActive,
+        }),
+      });
 
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "Error al guardar");
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Error al guardar");
+        setLoading(false);
+        return;
+      }
+
+      toast.success(isEdit ? "Institución actualizada" : "Institución creada");
+      router.refresh();
+      if (!isEdit) {
+        router.push("/admin/establecimientos");
+      }
+    } catch {
+      toast.error("Error de conexión al guardar");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    router.refresh();
-    if (!isEdit) {
-      router.push("/admin/establecimientos");
-    }
-    setLoading(false);
   };
 
   return (
@@ -93,7 +101,7 @@ export default function EstablishmentForm({
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" required placeholder="Universidad Gabriela Mistral" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Slug (identificador único)</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Slug (identificador único)<HelpTip text="Identificador único de la institución (sin espacios ni caracteres especiales)" /></label>
             <input type="text" value={slug}
               onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono" required placeholder="ugm" />
@@ -124,7 +132,7 @@ export default function EstablishmentForm({
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="https://www.ugm.cl" />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-gray-600 mb-1">URL del logo</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">URL del logo<HelpTip text="URL directa a la imagen del logotipo (PNG o SVG recomendado)" /></label>
             <input type="url" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="https://..." />
             {logoUrl && (

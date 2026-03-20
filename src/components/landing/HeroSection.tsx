@@ -10,16 +10,14 @@ export default function HeroSection() {
       {/* Background image */}
       <div className="absolute inset-0">
         <Image
-          src="/branding/login-bg.jpg"
+          src="/branding/hero-bg.jpg"
           alt=""
           fill
           priority
-          className="object-cover object-top"
+          className="object-cover"
         />
-        {/* Dark overlay with gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a3e]/80 via-[#1a1a3e]/75 to-[#2D3561]/90" />
-        {/* Subtle radial glow */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center_top,rgba(74,85,162,0.3),transparent_60%)]" />
+        {/* Light overlay to ensure readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#2D3561]/60 via-[#2D3561]/50 to-[#4A55A2]/40" />
       </div>
 
       {/* Content */}
@@ -28,11 +26,11 @@ export default function HeroSection() {
           {/* Title */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.08] mb-6">
             {"Formaci\u00f3n cl\u00ednica que el "}
-            <span className="text-[#8B95D4]">futuro necesita</span>
+            <span className="text-[#C5CAE9]">futuro necesita</span>
           </h1>
 
           {/* Subtitle */}
-          <p className="text-lg sm:text-xl text-white/70 max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-lg sm:text-xl text-white/80 max-w-2xl mx-auto mb-10 leading-relaxed">
             Pr&aacute;ctica terap&eacute;utica con pacientes simulados por IA. Un entorno seguro para aprender, equivocarte y crecer.
           </p>
 
@@ -40,7 +38,7 @@ export default function HeroSection() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center font-semibold text-white bg-[#4A55A2] px-8 py-3.5 rounded-xl hover:bg-[#5C6BB5] transition-colors text-base shadow-lg shadow-[#4A55A2]/30 border border-white/10"
+              className="inline-flex items-center justify-center font-semibold text-white bg-[#4A55A2] px-8 py-3.5 rounded-xl hover:bg-[#5C6BB5] transition-colors text-base shadow-lg shadow-[#4A55A2]/30"
             >
               Comienza tu Pr&aacute;ctica
               <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -48,15 +46,15 @@ export default function HeroSection() {
               </svg>
             </Link>
             <a
-              href="#como-funciona"
+              href="#contacto"
               onClick={(e) => {
                 e.preventDefault();
                 const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-                document.getElementById("como-funciona")?.scrollIntoView({ behavior: prefersReduced ? "instant" : "smooth" });
+                document.getElementById("contacto")?.scrollIntoView({ behavior: prefersReduced ? "instant" : "smooth" });
               }}
-              className="inline-flex items-center justify-center font-medium text-white/80 border border-white/20 px-8 py-3.5 rounded-xl hover:bg-white/10 transition-colors text-base"
+              className="inline-flex items-center justify-center font-medium text-white/90 border border-white/30 px-8 py-3.5 rounded-xl hover:bg-white/10 transition-colors text-base"
             >
-              {"Ver c\u00f3mo funciona"}
+              Solicitar demo
             </a>
           </div>
         </ScrollReveal>

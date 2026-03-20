@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "instructor" && profile?.role !== "admin") {
+  if (profile?.role !== "instructor" && profile?.role !== "admin" && profile?.role !== "superadmin") {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 

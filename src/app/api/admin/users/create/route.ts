@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { logAdminAction } from "@/lib/audit";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -127,6 +128,14 @@ export async function POST(request: Request) {
   } catch {
     // Email is optional — user was still created successfully
   }
+
+  await logAdminAction({
+    adminId: user.id,
+    action: "create_user",
+    entityType: "user",
+    entityId: newUser?.user?.id,
+    details: { email, role: role || "student", establishment_id },
+  });
 
   return NextResponse.json({
     success: true,

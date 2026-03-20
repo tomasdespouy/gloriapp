@@ -319,7 +319,7 @@ export default function ResearchClient() {
                   </p>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-2 bg-sidebar text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-[#354080] transition-colors"
+                    className="inline-flex items-center gap-2 bg-sidebar text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors"
                   >
                     <Upload size={16} /> Seleccionar archivos
                   </button>
@@ -486,7 +486,7 @@ export default function ResearchClient() {
                   setGeneratingInsights(false);
                 }}
                 disabled={generatingInsights}
-                className="flex items-center gap-2 px-4 py-2 text-sm bg-[#4A55A2] text-white rounded-lg hover:bg-[#3d4789] transition-colors disabled:opacity-50 flex-shrink-0"
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-sidebar text-white rounded-lg hover:bg-sidebar-hover transition-colors disabled:opacity-50 flex-shrink-0"
               >
                 {generatingInsights ? <Loader2 size={15} className="animate-spin" /> : <Brain size={15} />}
                 {generatingInsights ? "Analizando..." : "Generar insights"}

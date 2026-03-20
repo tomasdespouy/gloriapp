@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+import { logAdminAction } from "@/lib/audit";
 
 export async function POST(
   _request: Request,
@@ -40,6 +41,13 @@ export async function POST(
     longest_streak: 0,
     last_session_date: null,
   }).eq("student_id", id);
+
+  await logAdminAction({
+    adminId: user.id,
+    action: "reset_user_data",
+    entityType: "user",
+    entityId: id,
+  });
 
   return NextResponse.json({ success: true });
 }

@@ -19,6 +19,7 @@ export default function LandingNavbar() {
     { label: "Como funciona", href: "#como-funciona" },
     { label: "Pacientes", href: "#pacientes" },
     { label: "Testimonios", href: "#testimonios" },
+    { label: "Contacto", href: "#contacto" },
   ];
 
   useEffect(() => {

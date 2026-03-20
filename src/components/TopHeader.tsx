@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Bell, User, LogOut, Settings, ChevronDown } from "lucide-react";
+import { Bell, User, LogOut, ChevronDown, LifeBuoy, BarChart3, Info } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -19,11 +19,18 @@ interface Props {
   userName: string;
   userEmail: string;
   userRole: string;
+  avatarUrl?: string | null;
 }
 
-export default function TopHeader({ userName, userEmail, userRole }: Props) {
+export default function TopHeader({ userName, userEmail, userRole, avatarUrl }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [showSupport, setShowSupport] = useState(false);
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportBody, setSupportBody] = useState("");
+  const [supportSending, setSupportSending] = useState(false);
+  const [supportSent, setSupportSent] = useState(false);
+  const [supportError, setSupportError] = useState("");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notifLoaded, setNotifLoaded] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -181,14 +188,28 @@ export default function TopHeader({ userName, userEmail, userRole }: Props) {
         )}
       </div>
 
+      {/* Support */}
+      <button
+        onClick={() => { setShowSupport(true); setNotifOpen(false); setProfileOpen(false); }}
+        className="w-8 h-8 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
+        title="Soporte t&eacute;cnico"
+      >
+        <LifeBuoy size={16} />
+      </button>
+
       {/* Profile */}
       <div ref={profileRef} className="relative">
         <button
           onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }}
           className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 transition-all"
         >
-          <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
-            <span className="text-[10px] font-bold text-white">{initials}</span>
+          <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-[10px] font-bold text-white">{initials}</span>
+            )}
           </div>
           <span className="text-xs text-white/80 font-medium hidden sm:block max-w-[120px] truncate">
             {userName.split(" ")[0]}
@@ -210,17 +231,26 @@ export default function TopHeader({ userName, userEmail, userRole }: Props) {
             {/* Actions */}
             <div className="py-1">
               <button
-                onClick={() => { setProfileOpen(false); router.push("/progreso"); }}
+                onClick={() => { setProfileOpen(false); router.push("/mi-perfil"); }}
                 className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 <User size={15} className="text-gray-400" />
-                Mi progreso
+                Mi perfil
               </button>
+              {userRole !== "instructor" && (
+                <button
+                  onClick={() => { setProfileOpen(false); router.push("/progreso"); }}
+                  className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <BarChart3 size={15} className="text-gray-400" />
+                  Mi progreso
+                </button>
+              )}
               <button
                 onClick={() => { setProfileOpen(false); router.push("/sobre"); }}
                 className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
               >
-                <Settings size={15} className="text-gray-400" />
+                <Info size={15} className="text-gray-400" />
                 Sobre GlorIA
               </button>
             </div>
@@ -238,6 +268,74 @@ export default function TopHeader({ userName, userEmail, userRole }: Props) {
           </div>
         )}
       </div>
+
+      {/* Support modal */}
+      {showSupport && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setShowSupport(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
+                  <LifeBuoy size={22} className="text-amber-500" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Soporte t&eacute;cnico</h2>
+                  <p className="text-xs text-gray-500">Tu mensaje llegar&aacute; a idea@ugm.cl</p>
+                </div>
+              </div>
+              <button onClick={() => setShowSupport(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+            </div>
+
+            {supportSent ? (
+              <div className="text-center py-6">
+                <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-3">
+                  <span className="text-green-500 text-2xl">&#10003;</span>
+                </div>
+                <p className="text-sm font-medium text-gray-900">Mensaje enviado</p>
+                <p className="text-xs text-gray-500 mt-1">Te responderemos a la brevedad a tu correo.</p>
+                <button onClick={() => { setShowSupport(false); setSupportSent(false); setSupportSubject(""); setSupportBody(""); }}
+                  className="mt-4 bg-sidebar text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors">
+                  Cerrar
+                </button>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asunto</label>
+                  <input type="text" value={supportSubject} onChange={(e) => setSupportSubject(e.target.value)}
+                    placeholder="Describe brevemente el problema"
+                    className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Descripci&oacute;n</label>
+                  <textarea value={supportBody} onChange={(e) => setSupportBody(e.target.value)}
+                    placeholder="Describe tu problema o solicitud con el mayor detalle posible..."
+                    rows={5}
+                    className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-sidebar" />
+                </div>
+                {supportError && <p className="text-xs text-red-500">{supportError}</p>}
+                <div className="flex items-center gap-3">
+                  <button onClick={async () => {
+                    if (!supportSubject.trim() || !supportBody.trim()) return;
+                    setSupportSending(true); setSupportError("");
+                    const res = await fetch("/api/support", { method: "POST", headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ subject: supportSubject.trim(), body: supportBody.trim() }) });
+                    if (!res.ok) { const d = await res.json(); setSupportError(d.error || "Error al enviar"); setSupportSending(false); return; }
+                    setSupportSent(true); setSupportSending(false);
+                  }} disabled={!supportSubject.trim() || !supportBody.trim() || supportSending}
+                    className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors disabled:opacity-50">
+                    {supportSending ? "Enviando..." : "Enviar mensaje"}
+                  </button>
+                  <button onClick={() => setShowSupport(false)}
+                    className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }

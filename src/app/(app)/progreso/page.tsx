@@ -5,7 +5,9 @@ import CompetencyRadar from "@/components/CompetencyRadar";
 import LevelBadge from "@/components/LevelBadge";
 import AchievementCard from "@/components/AchievementCard";
 import ProgresoClient from "./ProgresoClient";
+import StudentDashboardClient from "../dashboard/StudentDashboardClient";
 import { EMPTY_SCORES_V2, COMPETENCY_LABELS_V2, COMPETENCY_KEYS_V2, type CompetencyScoresV2 } from "@/lib/gamification";
+import { LEARNING_DATA } from "@/lib/learning-data";
 
 export default async function ProgresoPage() {
   const userProfile = await getUserProfile();
@@ -19,12 +21,33 @@ export default async function ProgresoPage() {
     { data: recentScores },
     { data: allAchievements },
     { data: earnedAchievements },
+    { data: learningProgress },
+    { data: competencyHistory },
   ] = await Promise.all([
     supabase.from("student_progress").select("*").eq("student_id", userProfile.id).single(),
     supabase.from("session_competencies").select("setting_terapeutico, motivo_consulta, datos_contextuales, objetivos, escucha_activa, actitud_no_valorativa, optimismo, presencia, conducta_no_verbal, contencion_afectos, overall_score_v2, eval_version, overall_score, created_at").eq("student_id", userProfile.id).order("created_at", { ascending: false }).limit(10),
     supabase.from("achievements").select("*").order("xp_reward"),
     supabase.from("student_achievements").select("achievement_id, earned_at").eq("student_id", userProfile.id),
+    supabase.from("learning_progress").select("competency, example_id").eq("student_id", userProfile.id),
+    supabase
+      .from("session_competencies")
+      .select("overall_score_v2, setting_terapeutico, motivo_consulta, datos_contextuales, objetivos, escucha_activa, actitud_no_valorativa, optimismo, presencia, conducta_no_verbal, contencion_afectos, eval_version, created_at")
+      .eq("student_id", userProfile.id)
+      .eq("eval_version", 2)
+      .order("created_at", { ascending: true })
+      .limit(15),
   ]);
+
+  // Count completed nano courses (all examples read in a module)
+  const readByCompetency: Record<string, number> = {};
+  (learningProgress || []).forEach((p) => {
+    if (p.competency !== "tutor") {
+      readByCompetency[p.competency] = (readByCompetency[p.competency] || 0) + 1;
+    }
+  });
+  const completedModules = LEARNING_DATA.filter(
+    (m) => m.examples.length > 0 && (readByCompetency[m.key] || 0) >= m.examples.length
+  ).length;
 
   // Use V2 scores if available, fallback to V1
   const hasV2 = recentScores?.some((s) => Number(s.eval_version) === 2);
@@ -102,7 +125,7 @@ export default async function ProgresoPage() {
             <p className="text-xs text-gray-500 mt-1">Sesiones evaluadas</p>
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
-            <p className="text-3xl font-bold text-amber-500">0</p>
+            <p className="text-3xl font-bold text-amber-500">{completedModules}</p>
             <p className="text-xs text-gray-500 mt-1">Nano cursos completados</p>
           </div>
         </div>
@@ -147,6 +170,25 @@ export default async function ProgresoPage() {
             )}
           </div>
         </div>
+
+        {/* Evolution chart */}
+        {(() => {
+          const V2_KEYS = [
+            "setting_terapeutico", "motivo_consulta", "datos_contextuales", "objetivos",
+            "escucha_activa", "actitud_no_valorativa", "optimismo", "presencia", "conducta_no_verbal", "contencion_afectos",
+          ];
+          const evolutionData = (competencyHistory || []).map((row, idx) => {
+            const point: Record<string, number | string> = { session: `S${idx + 1}` };
+            V2_KEYS.forEach((key) => { point[key] = Number((row as Record<string, unknown>)[key]) || 0; });
+            point.overall = Number(row.overall_score_v2) || 0;
+            return point;
+          });
+          return (
+            <div className="animate-slide-up">
+              <StudentDashboardClient evolutionData={evolutionData} />
+            </div>
+          );
+        })()}
 
         {/* Achievements */}
         <div className="animate-slide-up">

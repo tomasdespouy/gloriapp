@@ -26,13 +26,16 @@ interface ChatInterfaceProps {
   conversationId?: string;
   initialMessages: Message[];
   initialActiveSeconds?: number;
+  userAvatarUrl?: string | null;
+  userName?: string;
 }
 
 type Phase = "idle" | "thinking" | "writing";
 
 const CHAR_DELAY_MS = 35;
 
-export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0 }: ChatInterfaceProps) {
+export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "" }: ChatInterfaceProps) {
+  const userInitials = userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -42,6 +45,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [isRecording, setIsRecording] = useState(false);
   const [displaySeconds, setDisplaySeconds] = useState(initialActiveSeconds);
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [sessionStarted, setSessionStarted] = useState(initialMessages.length > 0);
+  const [showTour, setShowTour] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
   const [voiceMode, setVoiceMode] = useState(false);
   const [voiceSpeaking, setVoiceSpeaking] = useState(false); // true = audio playing, hide text
   const [showDisconnect, setShowDisconnect] = useState(false);
@@ -260,8 +266,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     }
   };
 
-  // Session time tracking — real elapsed time, resuming from DB value
-  const sessionStartRef = useRef(Date.now());
+  // Session time tracking — starts when sessionStarted becomes true
+  const sessionStartRef = useRef(initialMessages.length > 0 ? Date.now() : 0);
   const activeSecondsRef = useRef(initialActiveSeconds);
 
   // Token buffer for slow typing effect
@@ -272,10 +278,6 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
   // ═══ REALTIME (WebSocket) — Patient interruptions & typing detection ═══
   const realtimeUnsubRef = useRef<(() => void) | null>(null);
-  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const interruptFiredRef = useRef(false);
-  const lastUserMsgIdRef = useRef(0); // tracks which user message started the idle cycle
 
   // Subscribe to Realtime channel when conversationId is available
   useEffect(() => {
@@ -286,10 +288,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     import("@/lib/supabase/realtime-chat").then(({ subscribeToConversation }) => {
       unsubscribe = subscribeToConversation(conversationId, (event) => {
         if (event.type === "interrupt" || event.type === "reaction") {
+          // Skip if currently streaming — the interrupt was already handled locally
+          if (isStreamingRef.current) return;
           // Prevent duplicates: check if this content already exists in recent messages
           setMessages((prev) => {
-            const lastFew = prev.slice(-3);
-            const isDuplicate = lastFew.some(m => m.role === "assistant" && m.content === event.content);
+            const isDuplicate = prev.some(m => m.role === "assistant" && m.content === event.content);
             if (isDuplicate) return prev;
             return [...prev, {
               role: "assistant",
@@ -308,68 +311,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     };
   }, [conversationId]);
 
-  // Typing detection — resets idle timer when user is actively typing
+  // Typing detection — resets silence timers when user is actively typing
   const handleTypingActivity = useCallback(() => {
-    if (isStreaming || !conversationId) return;
-
-    // Reset "typing too long" timer (fires after 60s of typing without sending)
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    typingTimerRef.current = setTimeout(() => {
-      if (isStreaming || interruptFiredRef.current || voiceModeRef.current) return;
-      interruptFiredRef.current = true;
-      fetch("/api/chat/interrupt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId: patient.id, conversationId, trigger: "typing_long" }),
-      }).then(r => r.json()).then(data => {
-        if (data.message) {
-          setMessages(prev => [...prev, {
-            role: "assistant", content: data.message, created_at: new Date().toISOString(),
-          }]);
-        }
-      }).catch(() => {});
-    }, 60000);
-
-    // Also reset idle timer since user is active
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-  }, [isStreaming, conversationId, patient.id]);
-
-  // Single idle timer: fires 90s after the LAST USER message's response arrives
-  // Only triggers ONCE per user message cycle (won't re-trigger from its own output)
-  useEffect(() => {
-    const userMsgCount = messages.filter(m => m.role === "user").length;
-    const lastMsg = messages[messages.length - 1];
-
-    // Only start idle timer when a NEW assistant response arrives after a user message
-    if (!lastMsg || lastMsg.role !== "assistant" || !conversationId || isStreaming) return;
-    if (userMsgCount === lastUserMsgIdRef.current) return; // same cycle, don't re-trigger
-    lastUserMsgIdRef.current = userMsgCount;
-    interruptFiredRef.current = false;
-
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-
-    idleTimerRef.current = setTimeout(() => {
-      // Don't interrupt in voice mode (mic is active, user is engaged)
-      if (isStreaming || interruptFiredRef.current || voiceModeRef.current) return;
-      interruptFiredRef.current = true;
-      fetch("/api/chat/interrupt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId: patient.id, conversationId, trigger: "idle_short" }),
-      }).then(r => r.json()).then(data => {
-        if (data.message) {
-          setMessages(prev => [...prev, {
-            role: "assistant", content: data.message, created_at: new Date().toISOString(),
-          }]);
-        }
-      }).catch(() => {});
-    }, 90000);
-
-    return () => {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    };
+    if (isStreamingRef.current || !conversationId) return;
+    // User is typing: reset all silence timers (they restart after next assistant response)
+    clearSilenceTimers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, conversationId, isStreaming, patient.id]);
+  }, [conversationId]);
 
   // Patient media
   const avatarSlug = patient.name
@@ -386,8 +334,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     messagesEndRef.current?.scrollIntoView({ behavior: prefersReduced ? "instant" : "smooth" });
   }, [messages]);
 
-  // Session timer — real elapsed time (counts even when tab is hidden)
+  // Session timer — wall-clock time, starts only when session is started
   useEffect(() => {
+    if (!sessionStarted) return;
+
+    // Set start time when session begins (if not already set from resume)
+    if (sessionStartRef.current === 0) {
+      sessionStartRef.current = Date.now();
+    }
     const start = sessionStartRef.current;
 
     const tick = () => {
@@ -420,12 +374,15 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         );
       }
     };
-  }, [conversationId]);
+  }, [conversationId, sessionStarted]);
 
-  // Multi-stage silence timers
-  // Text mode: 90s → 3min → 5min | Voice mode: 30s → 90s → 2min
-  const SILENCE_TIMERS_TEXT = [90_000, 180_000, 300_000];
-  const SILENCE_TIMERS_VOICE = [30_000, 90_000, 120_000];
+  // Multi-stage silence timers (from last assistant message)
+  // Stage 1 (60s):  saludo extrañado
+  // Stage 2 (90s):  pregunta si está ahí
+  // Stage 3 (180s): aviso de retiro
+  // Stage 4 (300s): cierre de sesión
+  const SILENCE_TIMERS_TEXT = [60_000, 90_000, 180_000, 300_000];
+  const SILENCE_TIMERS_VOICE = [30_000, 60_000, 90_000, 120_000];
   const lastUserMsgCount = useRef(0);
   const silenceStageRef = useRef(0);
   const silenceTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -482,34 +439,57 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     });
   };
 
+  // Start silence timers ONLY after a normal assistant response (not silence messages)
+  // Track user message count to know when a new "real" exchange happened
   useEffect(() => {
+    if (!conversationId || isStreaming) return;
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.role !== "assistant" || !lastMsg.content) return;
+
     const userMsgCount = messages.filter((m) => m.role === "user").length;
 
-    if (userMsgCount > lastUserMsgCount.current) {
-      lastUserMsgCount.current = userMsgCount;
-      startSilenceTimers();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, conversationId, patient.id]);
+    // Only restart timers when there's a NEW user message (real exchange)
+    // If userMsgCount hasn't changed, this is a silence/interrupt message — don't restart
+    if (userMsgCount <= lastUserMsgCount.current) return;
 
-  // Ctrl hold to record
+    lastUserMsgCount.current = userMsgCount;
+    startSilenceTimers();
+
+    return () => clearSilenceTimers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length, conversationId, isStreaming, patient.id]);
+
+  // Ctrl+Alt to toggle mic; double Ctrl+Alt to lock recording on
+  const micLastPressRef = useRef<number>(0);
+  const micLockedRef = useRef(false);
+  const [micLocked, setMicLocked] = useState(false);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Control" && !e.repeat && !isRecording && !isStreaming) {
-        startRecording();
-      }
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "Control" && isRecording) {
-        stopRecording();
+      // Ctrl+Alt combo (either order)
+      if (e.ctrlKey && e.altKey && !e.repeat && sessionStarted && !isStreaming) {
+        e.preventDefault();
+        const now = Date.now();
+        const timeSinceLast = now - micLastPressRef.current;
+        micLastPressRef.current = now;
+
+        if (isRecording) {
+          // If recording → stop (and unlock if locked)
+          micLockedRef.current = false;
+          setMicLocked(false);
+          stopRecording();
+        } else {
+          // Double press (< 500ms) → lock mode
+          if (timeSinceLast < 500) {
+            micLockedRef.current = true;
+            setMicLocked(true);
+          }
+          startRecording();
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isRecording, isStreaming]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Drain buffer character by character
@@ -610,15 +590,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
   const [correcting, setCorrecting] = useState(false);
 
-  const stopRecording = async () => {
+  const stopRecording = () => {
     recognitionRef.current?.stop();
     setIsRecording(false);
+  };
 
-    // Auto-correct transcription
-    await new Promise((r) => setTimeout(r, 300)); // Wait for final transcript
-    const currentText = (document.querySelector("textarea") as HTMLTextAreaElement)?.value?.trim();
+  const correctText = async () => {
+    const currentText = input.trim();
     if (!currentText) return;
-
     setCorrecting(true);
     try {
       const res = await fetch("/api/chat/correct", {
@@ -786,9 +765,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     setPhase("thinking");
     streamDoneRef.current = false;
     // Reset interrupt flags on new message
-    interruptFiredRef.current = false;
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    clearSilenceTimers();
     tokenBufferRef.current = "";
     lastAssistantMsgRef.current = "";
 
@@ -961,17 +938,12 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-2 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-3 flex-shrink-0">
-        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 sm:p-2 -ml-1 rounded-lg hover:bg-gray-100">
-          <ArrowLeft size={20} className="sm:hidden" strokeWidth={2.5} />
-          <ArrowLeft size={24} className="hidden sm:block" strokeWidth={2.5} />
-        </Link>
-
         {/* Patient video avatar — clickable */}
         <button
           onClick={() => setShowVideoModal(true)}
-          className="flex-shrink-0 rounded-full overflow-hidden bg-sidebar w-10 h-10 sm:w-12 sm:h-12"
+          className="flex-shrink-0 rounded-full overflow-hidden bg-sidebar w-11 h-11 sm:w-14 sm:h-14"
         >
-          <PatientVideo videoSrc={videoSrc} imageSrc={imageSrc} initials={initials} size={48} />
+          <PatientVideo videoSrc={videoSrc} imageSrc={imageSrc} initials={initials} size={56} />
         </button>
 
         <div className="flex-1 min-w-0">
@@ -981,8 +953,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           </p>
         </div>
 
-        {/* Voice mode toggle + Session timer + End session button */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+        {/* Voice mode toggle + Session timer + End session button — hidden until session starts */}
+        <div className={`flex items-center gap-2 sm:gap-3 flex-shrink-0 ${!sessionStarted ? "invisible" : ""}`}>
           {patient.voice_id && (
             <button
               onClick={() => voiceMode ? stopVoiceMode() : requestVoiceMode()}
@@ -1003,16 +975,24 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             {formatTimer(displaySeconds)}
           </span>
 
-          {conversationId && messages.length >= 2 && !isStreaming && (
-            <button
-              onClick={() => setShowEndConfirm(true)}
-              className="end-session-btn flex items-center gap-2 bg-red-500 text-white px-3 md:px-4 py-2 rounded-lg text-xs font-semibold"
-            >
-              <LogOut size={14} />
-              <span className="hidden sm:inline">Finalizar sesión</span>
-              <span className="sm:hidden">Salir</span>
-            </button>
-          )}
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+            title="Esto te permite volver en otro momento sin afectar la relaci\u00f3n con el paciente"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="3" width="4" height="18" rx="1" /><rect x="15" y="3" width="4" height="18" rx="1" /></svg>
+            <span className="hidden sm:inline">Pausar</span>
+          </button>
+
+          <button
+            onClick={() => setShowEndConfirm(true)}
+            disabled={isStreaming}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+          >
+            <LogOut size={13} />
+            <span className="hidden sm:inline">Finalizar sesi&oacute;n</span>
+            <span className="sm:hidden">Salir</span>
+          </button>
         </div>
       </header>
 
@@ -1041,26 +1021,61 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
-                <LogOut size={20} className="text-red-500" />
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${messages.length === 0 ? "bg-gray-100" : displaySeconds >= 300 ? "bg-red-50" : "bg-amber-50"}`}>
+                <LogOut size={20} className={messages.length === 0 ? "text-gray-400" : displaySeconds >= 300 ? "text-red-500" : "text-amber-500"} />
               </div>
-              <h3 className="text-base font-bold text-gray-900">¿Finalizar sesión?</h3>
+              <h3 className="text-base font-bold text-gray-900">
+                {messages.length === 0
+                  ? "\u00bfSalir de la sesi\u00f3n?"
+                  : displaySeconds >= 300
+                    ? "\u00bfFinalizar sesi\u00f3n?"
+                    : "Sesi\u00f3n con menos de 5 minutos"
+                }
+              </h3>
             </div>
-            <p className="text-sm text-gray-600 leading-relaxed">
-              La sesión se guardará y no podrás continuar esta conversación. Para seguir practicando deberás iniciar una nueva sesión con el paciente.
-            </p>
+
+            {messages.length === 0 ? (
+              <p className="text-sm text-gray-600 leading-relaxed">
+                A\u00fan no has enviado ning\u00fan mensaje. Si sales ahora, no se registrar\u00e1 nada.
+              </p>
+            ) : displaySeconds < 300 ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                <p className="text-sm text-amber-700 font-medium mb-1">
+                  Si cierras ahora, no se generar\u00e1 evaluaci\u00f3n de competencias.
+                </p>
+                <p className="text-xs text-amber-600">
+                  Para recibir retroalimentaci\u00f3n de la IA, necesitas al menos 5 minutos de conversaci\u00f3n y 6 intervenciones.
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600 leading-relaxed">
+                La sesi\u00f3n se guardar\u00e1 y recibir\u00e1s una evaluaci\u00f3n de tus competencias cl\u00ednicas.
+              </p>
+            )}
+
             <div className="flex items-center gap-3 pt-1">
               <button
-                onClick={handleEndSession}
-                className="end-session-btn flex-1 bg-red-500 text-white py-2.5 rounded-xl text-sm font-semibold"
+                onClick={messages.length === 0 ? () => router.push("/dashboard") : handleEndSession}
+                className={`end-session-btn flex-1 py-2.5 rounded-xl text-sm font-semibold ${
+                  messages.length === 0
+                    ? "bg-gray-500 text-white"
+                    : displaySeconds >= 300
+                      ? "bg-red-500 text-white"
+                      : "bg-amber-500 text-white"
+                }`}
               >
-                Sí, finalizar
+                {messages.length === 0
+                  ? "S\u00ed, salir"
+                  : displaySeconds >= 300
+                    ? "S\u00ed, finalizar"
+                    : "Cerrar sin evaluaci\u00f3n"
+                }
               </button>
               <button
                 onClick={() => setShowEndConfirm(false)}
                 className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               >
-                Continuar sesión
+                {messages.length === 0 ? "Quedarme" : "Continuar sesi\u00f3n"}
               </button>
             </div>
           </div>
@@ -1134,15 +1149,146 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         </div>
       )}
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-3">
-        {messages.length === 0 && (
-          <div className="text-center text-gray-400 mt-20">
-            <p className="text-lg font-medium mb-2">Sesión con {patient.name}</p>
-            {patient.difficulty_level === "beginner" && (
-              <p className="text-sm">{patient.presenting_problem}</p>
+      {/* Mini tour for first-time users */}
+      {showTour && (
+        <div className="fixed inset-0 z-[90] bg-black/40 flex items-start justify-center pt-16" onClick={() => { setShowTour(false); localStorage.setItem("gloria_chat_tour_done", "1"); }}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm mx-4 p-5 animate-pop" onClick={(e) => e.stopPropagation()}>
+            {tourStep === 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-sidebar/10 flex items-center justify-center">
+                    <Clock size={18} className="text-sidebar" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Temporizador</p>
+                    <p className="text-xs text-gray-500">Cuenta el tiempo de la sesi&oacute;n. Necesitas al menos 5 minutos para recibir evaluaci&oacute;n.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#6b7280"><rect x="5" y="3" width="4" height="18" rx="1" /><rect x="15" y="3" width="4" height="18" rx="1" /></svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Pausar</p>
+                    <p className="text-xs text-gray-500">Puedes salir y volver despu&eacute;s sin afectar la relaci&oacute;n con el paciente.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center">
+                    <LogOut size={16} className="text-red-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Finalizar sesi&oacute;n</p>
+                    <p className="text-xs text-gray-500">Cierra formalmente la sesi&oacute;n. Despu&eacute;s de 5 minutos recibir&aacute;s retroalimentaci&oacute;n.</p>
+                  </div>
+                </div>
+              </div>
             )}
-            <p className="text-sm mt-4">Escribe tu primera intervención como terapeuta.</p>
+            {tourStep === 1 && (
+              <div className="space-y-3">
+                {patient.voice_id && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-sidebar/10 flex items-center justify-center">
+                      <Mic size={16} className="text-sidebar" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Modo voz</p>
+                      <p className="text-xs text-gray-500">{"Este paciente soporta conversaci\u00f3n por voz. Activa el modo con el bot\u00f3n en la barra superior."}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-gray-500">Shift</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Dictado por voz</p>
+                    <p className="text-xs text-gray-500">{"Mant\u00e9n presionada la tecla Shift para dictar tu mensaje por voz."}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
+                    <Clock size={16} className="text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Silencios</p>
+                    <p className="text-xs text-gray-500">{"Si no respondes, el paciente reaccionar\u00e1 al silencio. Si pasan 5 minutos sin respuesta, se retirar\u00e1."}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+              <span className="text-[10px] text-gray-400">{tourStep + 1} de 2</span>
+              {tourStep === 0 ? (
+                <button onClick={() => setTourStep(1)} className="text-sm text-sidebar font-medium hover:underline">
+                  Siguiente &rarr;
+                </button>
+              ) : (
+                <button onClick={() => { setShowTour(false); localStorage.setItem("gloria_chat_tour_done", "1"); }} className="bg-sidebar text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-[#354080] transition-colors">
+                  Entendido
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-3 chat-pattern">
+        {!sessionStarted && messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center mt-10 sm:mt-16 animate-fade-in px-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 max-w-md w-full">
+              {/* Two avatars */}
+              <div className="flex items-center justify-center gap-8 mb-6">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={imageSrc} alt={patient.name} className="w-full h-full object-cover" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-700">{patient.name}</p>
+                  <p className="text-[11px] text-gray-500">{patient.age} {"a\u00f1os"}, {patient.occupation}</p>
+                </div>
+
+                <div className="w-10 h-px bg-gray-300 -mt-8" />
+
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center">
+                    {userAvatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl font-bold text-sidebar">{userInitials}</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium text-gray-700">{"T\u00fa"}</p>
+                  <p className="text-[11px] text-gray-500">Terapeuta</p>
+                </div>
+              </div>
+
+              {/* Rules reminder */}
+              <div className="bg-gray-50 rounded-xl p-4 mb-5 space-y-2">
+                <p className="text-xs font-semibold text-gray-700">Antes de comenzar, recuerda:</p>
+                <ul className="text-[11px] text-gray-500 space-y-1.5">
+                  <li className="flex gap-2"><span className="text-sidebar font-bold">1.</span> {"Esta es una simulaci\u00f3n con fines formativos, no una sesi\u00f3n real."}</li>
+                  <li className="flex gap-2"><span className="text-sidebar font-bold">2.</span> {"El paciente reacciona a tus intervenciones como lo har\u00eda en la vida real."}</li>
+                  <li className="flex gap-2"><span className="text-sidebar font-bold">3.</span> {"Intenta mantener al menos 5 minutos para recibir evaluaci\u00f3n."}</li>
+                  <li className="flex gap-2"><span className="text-sidebar font-bold">4.</span> {"Puedes pausar y retomar la sesi\u00f3n en cualquier momento."}</li>
+                </ul>
+              </div>
+
+              <button
+                onClick={() => {
+                  setSessionStarted(true);
+                  if (!initialConvId && !localStorage.getItem("gloria_chat_tour_done")) {
+                    setShowTour(true);
+                    setTourStep(0);
+                  }
+                }}
+                className="w-full bg-sidebar text-white py-3 rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors"
+              >
+                {"Iniciar sesi\u00f3n"}
+              </button>
+            </div>
           </div>
         )}
 
@@ -1202,6 +1348,20 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                     )}
                   </div>
                 </div>
+
+                {/* User avatar */}
+                {msg.role === "user" && (
+                  <div className="flex-shrink-0 mt-1">
+                    <div className="w-8 h-8 rounded-full bg-sidebar/20 flex items-center justify-center overflow-hidden">
+                      {userAvatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-[10px] font-bold text-sidebar">{userInitials}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -1214,14 +1374,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               <PatientAvatar src={imageSrc} initials={initials} size={32} />
             </div>
             <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400 animate-pulse">Pensando</span>
-                <span className="inline-flex gap-1">
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                </span>
-              </div>
+              <span className="inline-flex gap-1">
+                <span className="typing-dot" />
+                <span className="typing-dot" />
+                <span className="typing-dot" />
+              </span>
             </div>
           </div>
         )}
@@ -1263,7 +1420,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         {isRecording && (
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-xs text-red-500 font-medium">Grabando audio... (suelta Ctrl para detener)</span>
+            <span className="text-xs text-red-500 font-medium">
+              {micLocked
+                ? "Grabando audio (anclado) \u2014 Ctrl+Alt para detener"
+                : "Grabando audio... Ctrl+Alt para detener"}
+            </span>
           </div>
         )}
         {correcting && (
@@ -1273,16 +1434,39 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           </div>
         )}
         <div className="flex items-end gap-2">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => { setInput(e.target.value); handleTypingActivity(); }}
-            onKeyDown={handleKeyDown}
-            placeholder="Escribe tu mensaje..."
-            rows={1}
-            className="flex-1 resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar"
-            disabled={false}
-          />
+          <div className="flex-1 relative">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                handleTypingActivity();
+                const el = e.target;
+                el.style.height = "auto";
+                el.style.height = Math.min(el.scrollHeight, 160) + "px";
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder={sessionStarted ? "Escribe tu mensaje..." : "Presiona \"Iniciar sesi\u00f3n\" para comenzar"}
+              rows={1}
+              className="w-full resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar disabled:bg-gray-100 disabled:text-gray-400 overflow-hidden"
+              disabled={!sessionStarted}
+            />
+            {input.trim().length > 10 && !correcting && !isStreaming && sessionStarted && (
+              <button
+                onClick={correctText}
+                className="absolute right-2 bottom-1.5 text-[9px] text-gray-300 hover:text-sidebar font-medium transition-colors"
+                title={"Corregir ortograf\u00eda"}
+              >
+                Abc
+              </button>
+            )}
+            {correcting && (
+              <span className="absolute right-2 bottom-1.5 text-[9px] text-sidebar animate-pulse">
+                Corrigiendo...
+              </span>
+            )}
+          </div>
+
 
           {/* Mic button (right side) */}
           <button
@@ -1293,7 +1477,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 ? "bg-red-500 hover:bg-red-600 text-white"
                 : "border border-gray-300 text-gray-500 hover:text-sidebar hover:border-sidebar/30"
             } disabled:opacity-50`}
-            title={isRecording ? "Detener grabacion (soltar Ctrl)" : "Grabar audio (mantener Ctrl)"}
+            title={isRecording ? (micLocked ? "Anclado \u2014 Ctrl+Alt para detener" : "Ctrl+Alt para detener") : "Dictar por voz (Ctrl+Alt, doble para anclar)"}
           >
             {isRecording ? <MicOff size={18} /> : <Mic size={18} />}
           </button>

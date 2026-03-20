@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+import { logAdminAction } from "@/lib/audit";
 
 async function requireSuperadmin() {
   const supabase = await createClient();
@@ -81,5 +82,14 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAdminAction({
+    adminId: auth.user.id,
+    action: "create_establishment",
+    entityType: "establishment",
+    entityId: data.id,
+    details: { name, slug },
+  });
+
   return NextResponse.json(data, { status: 201 });
 }

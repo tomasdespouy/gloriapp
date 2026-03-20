@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Users,
   Activity,
@@ -267,17 +268,37 @@ const sumObj = (obj: Record<string, number>) =>
 /* ─────────────────────── Main ─────────────────────── */
 
 export default function AdminDashboardClient() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Filters
-  const [country, setCountry] = useState("");
-  const [establishment, setEstablishment] = useState("");
-  const [course, setCourse] = useState("");
-  const [section, setSection] = useState("");
-  const [dateFrom, setDateFrom] = useState(defaultFrom);
-  const [dateTo, setDateTo] = useState(defaultTo);
-  const [datePreset, setDatePreset] = useState("30d");
+  // Filters — initialize from URL params
+  const [country, setCountry] = useState(() => searchParams.get("country") || "");
+  const [establishment, setEstablishment] = useState(() => searchParams.get("establishment") || "");
+  const [course, setCourse] = useState(() => searchParams.get("course") || "");
+  const [section, setSection] = useState(() => searchParams.get("section") || "");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("from") || defaultFrom());
+  const [dateTo, setDateTo] = useState(() => searchParams.get("to") || defaultTo());
+  const [datePreset, setDatePreset] = useState(() => searchParams.get("preset") || "30d");
+
+  // Sync filters to URL params
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (country) params.set("country", country);
+    if (establishment) params.set("establishment", establishment);
+    if (course) params.set("course", course);
+    if (section) params.set("section", section);
+    if (datePreset !== "30d") params.set("preset", datePreset);
+    // Only persist dates if they differ from preset defaults
+    const presetFrom = defaultFrom();
+    const presetTo = defaultTo();
+    if (dateFrom !== presetFrom || datePreset !== "30d") params.set("from", dateFrom);
+    if (dateTo !== presetTo || datePreset !== "30d") params.set("to", dateTo);
+    const qs = params.toString();
+    router.replace(`/admin/dashboard${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [country, establishment, course, section, dateFrom, dateTo, datePreset, router]);
 
   // UI
   const [chartTab, setChartTab] = useState(0);
@@ -356,6 +377,21 @@ export default function AdminDashboardClient() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // ── Auto-refresh every 5 minutes ──
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchData();
+      setLastRefresh(new Date());
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  const handleManualRefresh = () => {
+    fetchData();
+    setLastRefresh(new Date());
+  };
 
   // ── Cascading ──
   const filteredEsts =
@@ -514,7 +550,20 @@ export default function AdminDashboardClient() {
               Bienvenido, {d.firstName}
             </p>
           </div>
-          {loading && <Loader2 size={16} className="animate-spin text-gray-400" />}
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-gray-400 hidden sm:block">
+              {lastRefresh.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+            <button
+              onClick={handleManualRefresh}
+              disabled={loading}
+              className="flex items-center gap-1.5 text-xs text-sidebar hover:bg-sidebar/5 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+              title="Actualizar datos"
+            >
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              {loading ? "" : "Actualizar"}
+            </button>
+          </div>
         </header>
 
         <div className="px-6 pb-8 space-y-6">

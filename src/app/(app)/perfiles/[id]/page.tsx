@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import ExportFichaButton from "./ExportFichaButton";
 import PatientImageModal from "./PatientImageModal";
+import TeacherNotesEditor from "./TeacherNotesEditor";
 
 export default async function PatientDetailPage({
   params,
@@ -315,6 +316,11 @@ export default async function PatientDetailPage({
             </pre>
           </details>
         )}
+
+        {/* Teacher notes editor — visible to instructors, admins, superadmins */}
+        <div className="mt-6">
+          <TeacherNotesEditor patientId={id} initialNotes={patient.teacher_notes ?? null} />
+        </div>
       </div>
     </div>
   );

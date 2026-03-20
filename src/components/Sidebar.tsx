@@ -4,7 +4,7 @@ import {
   Home, User, History, BarChart3, BookOpen, Info,
   Users, ClipboardCheck, LayoutDashboard, Building2,
   Accessibility, LifeBuoy, FlaskConical, DollarSign, Activity, FileText,
-  Briefcase, Rocket, Bell,
+  Briefcase, Rocket, Bell, Mic,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,13 +16,16 @@ const studentNav = [
   { icon: BarChart3, label: "Mi progreso", href: "/progreso" },
   { icon: BookOpen, label: "Aprendizaje", href: "/aprendizaje" },
   { icon: User, label: "Pacientes", href: "/pacientes" },
+  { icon: Mic, label: "Grabar sesi\u00f3n", href: "/grabar-sesion" },
   { icon: History, label: "Mi historial", href: "/historial" },
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];
 
 const instructorNav = [
   { icon: LayoutDashboard, label: "Panel docente", href: "/docente/dashboard" },
+  { icon: ClipboardCheck, label: "Revisiones", href: "/docente/revisiones" },
   { icon: User, label: "Pacientes", href: "/perfiles" },
+  { icon: BarChart3, label: "M\u00e9tricas", href: "/docente/metricas" },
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];
 
@@ -48,8 +51,6 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
   const isAdmin = role === "admin" || role === "superadmin";
   const isInstructor = role === "instructor";
   const navItems = isAdmin ? adminNav(role === "superadmin") : isInstructor ? instructorNav : studentNav;
-  const [showAccessibility, setShowAccessibility] = useState(false);
-  const [showSupport, setShowSupport] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Close mobile drawer on route change
@@ -96,23 +97,7 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
       </nav>
 
       {/* Footer */}
-      <div className="mt-auto px-6 pb-6 space-y-3">
-        <button
-          onClick={() => setShowAccessibility(true)}
-          className="sidebar-btn sidebar-btn-access flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-white/15 bg-white/5 text-white/70 text-sm"
-        >
-          <Accessibility size={20} />
-          <span className="font-medium">Accesibilidad</span>
-        </button>
-
-        <button
-          onClick={() => setShowSupport(true)}
-          className="sidebar-btn sidebar-btn-support flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-white/10 text-white/70 text-sm"
-        >
-          <LifeBuoy size={20} />
-          <span className="font-medium">Soporte t&eacute;cnico</span>
-        </button>
-
+      <div className="mt-auto px-6 pb-6">
         <div className="flex items-center justify-center pt-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/branding/ugm-logo.png" alt="Universidad Gabriela Mistral" className="h-12 w-auto" />
@@ -149,17 +134,6 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
         </svg>
       </button>
 
-      {/* Modals */}
-      {showAccessibility && (
-        <Portal>
-          <AccessibilityModal onClose={() => setShowAccessibility(false)} />
-        </Portal>
-      )}
-      {showSupport && (
-        <Portal>
-          <SupportModal onClose={() => setShowSupport(false)} />
-        </Portal>
-      )}
     </>
   );
 }

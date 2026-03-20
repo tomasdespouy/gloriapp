@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Brain, BookOpen, GraduationCap, Send, CheckCircle,
-  MessageSquare, Clock, User as UserIcon, Sparkles, Loader2,
+  MessageSquare, Clock, User as UserIcon, Sparkles, Loader2, Eye,
 } from "lucide-react";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import CompetencyTooltip from "@/components/CompetencyTooltip";
 
 interface Message {
@@ -106,22 +108,31 @@ export default function TeacherReviewClient({
   const [savingEdits, setSavingEdits] = useState(false);
   const [generatingComment, setGeneratingComment] = useState(false);
   const [selectedEvidence, setSelectedEvidence] = useState<string | null>(null);
+  const [showAllEvidence, setShowAllEvidence] = useState(false);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
 
   const saveAIEdits = async () => {
     setSavingEdits(true);
-    const updates: Record<string, unknown> = {
-      ai_commentary: aiCommentary,
-      strengths: editedStrengths,
-      areas_to_improve: editedAreas,
-    };
-    Object.entries(editedScores).forEach(([k, v]) => { updates[k] = v; });
-    await fetch("/api/docente/update-competencies", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversation_id: conversationId, updates }),
-    });
-    setSavingEdits(false);
-    setEditingAI(false);
+    try {
+      const updates: Record<string, unknown> = {
+        ai_commentary: aiCommentary,
+        strengths: editedStrengths,
+        areas_to_improve: editedAreas,
+      };
+      Object.entries(editedScores).forEach(([k, v]) => { updates[k] = v; });
+      const res = await fetch("/api/docente/update-competencies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId, updates }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Error al guardar");
+      toast.success("Cambios guardados");
+      setEditingAI(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al guardar los cambios de la IA");
+    } finally {
+      setSavingEdits(false);
+    }
   };
 
   const generateSupervisorComment = async () => {
@@ -145,7 +156,9 @@ export default function TeacherReviewClient({
         setComment(data.comment);
         setSaved(false);
       }
-    } catch { /* optional */ }
+    } catch {
+      toast.error("No se pudo generar el comentario. Intenta de nuevo.");
+    }
     setGeneratingComment(false);
   };
 
@@ -165,9 +178,11 @@ export default function TeacherReviewClient({
           teacher_score: numScore,
         }),
       });
-      if (res.ok) {
-        setSaved(true);
-      }
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Error al guardar");
+      setSaved(true);
+      toast.success("Evaluación guardada");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al guardar la evaluación");
     } finally {
       setSaving(false);
     }
@@ -408,8 +423,36 @@ export default function TeacherReviewClient({
                   </div>
                 ))}
 
-                {/* Evidence panel (Proposal B — click to show) */}
-                {selectedEvidence && competencies.evidence && (
+                {/* Show all evidence toggle */}
+                {competencies.evidence && (
+                  <button
+                    onClick={() => { setShowAllEvidence(!showAllEvidence); setSelectedEvidence(null); }}
+                    className="flex items-center gap-1 text-[10px] text-sidebar font-medium hover:underline mb-2"
+                  >
+                    <Eye size={11} />
+                    {showAllEvidence ? "Ocultar evidencia" : "Ver toda la evidencia"}
+                  </button>
+                )}
+
+                {/* All evidence expanded */}
+                {showAllEvidence && competencies.evidence && (
+                  <div className="mb-3 space-y-2 max-h-[300px] overflow-y-auto">
+                    {COMP_V2_LABELS.map(({ key, label }) => {
+                      const ev = (competencies.evidence as Record<string, { quote: string; observation: string }>)[key];
+                      if (!ev?.quote) return null;
+                      return (
+                        <div key={key} className="bg-sidebar/5 rounded-lg p-2.5 border border-sidebar/10">
+                          <p className="text-[9px] font-bold text-sidebar uppercase mb-1">{label}</p>
+                          <p className="text-[11px] text-gray-700 italic">&ldquo;{ev.quote}&rdquo;</p>
+                          {ev.observation && <p className="text-[10px] text-gray-500 mt-0.5">{ev.observation}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Evidence panel (single — click to show) */}
+                {!showAllEvidence && selectedEvidence && competencies.evidence && (
                   <div className="mb-3 bg-sidebar/5 rounded-lg p-3 border border-sidebar/10 animate-fade-in">
                     <p className="text-[10px] font-bold text-sidebar uppercase mb-1.5">Evidencia textual</p>
                     {(() => {
@@ -583,18 +626,7 @@ export default function TeacherReviewClient({
                       El estudiante NO puede ver la retroalimentación hasta que la apruebes.
                     </p>
                     <button
-                      onClick={async () => {
-                        setApproving(true);
-                        const res = await fetch("/api/docente/approve", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ conversation_id: conversationId }),
-                        });
-                        if (res.ok) {
-                          setIsApproved(true);
-                        }
-                        setApproving(false);
-                      }}
+                      onClick={() => setShowApproveConfirm(true)}
                       disabled={approving}
                       className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
@@ -608,6 +640,48 @@ export default function TeacherReviewClient({
                     <p className="text-[10px] text-amber-600 mt-2">
                       Se notificará al estudiante por la plataforma y por correo electrónico.
                     </p>
+
+                    {/* Confirmation dialog */}
+                    <Dialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>{"Confirmar aprobaci\u00f3n"}</DialogTitle>
+                          <DialogDescription>
+                            {"Al aprobar, el estudiante podr\u00e1 ver la retroalimentaci\u00f3n completa (evaluaci\u00f3n IA, tu comentario y nota). Esta acci\u00f3n no se puede deshacer."}
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="gap-2 sm:gap-0">
+                          <button
+                            onClick={() => setShowApproveConfirm(false)}
+                            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setShowApproveConfirm(false);
+                              setApproving(true);
+                              try {
+                                const res = await fetch("/api/docente/approve", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ conversation_id: conversationId }),
+                                });
+                                if (!res.ok) throw new Error("Error al aprobar");
+                                setIsApproved(true);
+                                toast.success("Retroalimentaci\u00f3n aprobada y enviada al estudiante");
+                              } catch {
+                                toast.error("Error al aprobar. Intenta de nuevo.");
+                              }
+                              setApproving(false);
+                            }}
+                            className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                          >
+                            Aprobar y liberar
+                          </button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </>
                 )}
               </div>
@@ -653,38 +727,47 @@ function ActionItemsPanel({ conversationId, studentId, studentName, competencies
 
   const generateSuggestions = async () => {
     setGenerating(true);
-    const evalSummary = competencies
-      ? "Puntaje general: " + Number(competencies.overall_score).toFixed(1) + "/10. " +
-        "Fortalezas: " + (competencies.strengths || []).join(", ") + ". " +
-        "Áreas de mejora: " + (competencies.areas_to_improve || []).join(", ") + ". " +
-        "Comentario IA: " + (competencies.ai_commentary || "")
-      : "Sin evaluación disponible.";
+    try {
+      const evalSummary = competencies
+        ? "Puntaje general: " + Number(competencies.overall_score).toFixed(1) + "/10. " +
+          "Fortalezas: " + (competencies.strengths || []).join(", ") + ". " +
+          "\u00c1reas de mejora: " + (competencies.areas_to_improve || []).join(", ") + ". " +
+          "Comentario IA: " + (competencies.ai_commentary || "")
+        : "Sin evaluaci\u00f3n disponible.";
 
-    const res = await fetch("/api/docente/action-items", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "suggest", conversation_id: conversationId, student_name: studentName, evaluation_summary: evalSummary }),
-    });
-    if (res.ok) {
+      const res = await fetch("/api/docente/action-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "suggest", conversation_id: conversationId, student_name: studentName, evaluation_summary: evalSummary }),
+      });
+      if (!res.ok) throw new Error("Error al generar sugerencias");
       const data = await res.json();
       setSuggestions(data.suggestions || []);
+    } catch {
+      toast.error("No se pudieron generar sugerencias. Intenta de nuevo.");
     }
     setGenerating(false);
   };
 
   const saveItems = async () => {
     setSaving(true);
-    const toSave = suggestions.map(s => ({ content: s }));
-    await fetch("/api/docente/action-items", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversation_id: conversationId, student_id: studentId, items: toSave }),
-    });
+    try {
+      const toSave = suggestions.map(s => ({ content: s }));
+      const res = await fetch("/api/docente/action-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId, student_id: studentId, items: toSave }),
+      });
+      if (!res.ok) throw new Error("Error al guardar accionables");
+      toast.success("Accionables enviados al estudiante");
+      setSuggestions([]);
+      // Reload
+      const r = await fetch("/api/docente/action-items?conversation_id=" + conversationId);
+      if (r.ok) setItems(await r.json());
+    } catch {
+      toast.error("Error al enviar los accionables. Intenta de nuevo.");
+    }
     setSaving(false);
-    setSuggestions([]);
-    // Reload
-    const res = await fetch("/api/docente/action-items?conversation_id=" + conversationId);
-    if (res.ok) setItems(await res.json());
   };
 
   const removeSuggestion = (idx: number) => {
