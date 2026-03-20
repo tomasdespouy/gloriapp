@@ -178,10 +178,11 @@ export default function StudentDashboardClient({ evolutionData }: Props) {
                 border: "1px solid #e5e5e5",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
               }}
-              formatter={(value: number | string | undefined, name: string | undefined) => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              formatter={(value: any, name: any) => {
                 const comp = COMPETENCIES.find((c) => c.key === name);
                 const label = name === "overall" ? "Puntaje general" : (comp?.label || name || "");
-                return [Number(value ?? 0).toFixed(1), label];
+                return [Number(value ?? 0).toFixed(1), label] as [string, string];
               }}
             />
 
