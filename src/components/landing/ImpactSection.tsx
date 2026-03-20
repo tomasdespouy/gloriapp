@@ -21,36 +21,36 @@ function useCountUp(target: number, isVisible: boolean, duration = 1800) {
 
 export default function ImpactSection() {
   const metrics = [
-    { value: 24, suffix: "", label: "Sesiones simuladas", desc: "en estudio comparativo de 3 niveles" },
-    { value: 85, suffix: "%", label: "Ahorro en costos API", desc: "con estrategia de modelo dual" },
+    { value: 119, suffix: "", label: "Participantes en pilotos", desc: "estudiantes y docentes de 4 universidades" },
+    { value: 97, suffix: "%", label: "Satisfacci\u00f3n global", desc: "declaran estar satisfechos con GlorIA" },
+    { value: 96, suffix: "%", label: "Lo recomendar\u00edan", desc: "a otros estudiantes de psicolog\u00eda" },
     { value: 10, suffix: "", label: "Competencias evaluadas", desc: "instrumento UGM calibrado" },
-    { value: 5, suffix: "", label: "Pa\u00edses representados", desc: "con diversidad cultural y cl\u00ednica" },
   ];
 
   const findings = [
     {
-      stat: "3.5x",
+      stat: "97%",
       color: "#22c55e",
-      title: "Mayor reducci\u00f3n de resistencia",
-      desc: "Terapeutas avanzados reducen la resistencia del paciente 3.5 veces m\u00e1s que terapeutas b\u00e1sicos en 8 sesiones.",
+      title: "Vali\u00f3 la pena para su aprendizaje",
+      desc: "El 97% de los participantes afirma que el tiempo dedicado a usar GlorIA vali\u00f3 la pena para su formaci\u00f3n cl\u00ednica.",
     },
     {
-      stat: "2.7x",
+      stat: "92%",
       color: "#4A55A2",
-      title: "Mayor alianza terap\u00e9utica",
-      desc: "La alianza construida por terapeutas avanzados es 2.7 veces m\u00e1s fuerte que con intervenciones directivas.",
+      title: "F\u00e1cil de usar",
+      desc: "Promedio de usabilidad y navegaci\u00f3n. El 97% dice que la plataforma es f\u00e1cil de navegar.",
     },
     {
-      stat: "0%",
-      color: "#ef4444",
-      title: "Mejora con directividad",
-      desc: "Los terapeutas que dan consejos prematuros no mejoran la sintomatolog\u00eda del paciente en ninguna sesi\u00f3n.",
-    },
-    {
-      stat: "90s",
+      stat: "88%",
       color: "#eab308",
-      title: "Reactividad del paciente",
-      desc: "El paciente reacciona si el terapeuta guarda silencio por m\u00e1s de 90 segundos, como en la vida real.",
+      title: "Realismo cl\u00ednico",
+      desc: "Los pacientes simulados generan una sensaci\u00f3n similar a una sesi\u00f3n cl\u00ednica real, con coherencia emocional y narrativa.",
+    },
+    {
+      stat: "3.5/5",
+      color: "#8b5cf6",
+      title: "V\u00ednculo terap\u00e9utico",
+      desc: "Puntaje promedio en la dimensi\u00f3n de v\u00ednculo terap\u00e9utico, destacando aceptaci\u00f3n e incondicionalidad (4.0/5).",
     },
   ];
 
@@ -74,13 +74,13 @@ export default function ImpactSection() {
         <ScrollReveal>
           <div className="text-center mb-12">
             <p className="text-xs font-semibold text-[#4A55A2] uppercase tracking-widest mb-2">
-              Evidencia de impacto
+              Pilotos internacionales 2025
             </p>
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
               Resultados que respaldan la plataforma
             </h2>
             <p className="text-gray-500 max-w-2xl mx-auto">
-              Datos reales de pilotos y estudios comparativos que demuestran la efectividad del motor cl&iacute;nico adaptativo de GlorIA
+              Datos de pilotos con universidades de Colombia, Per&uacute; y Rep. Dominicana entre noviembre y diciembre de 2025
             </p>
           </div>
         </ScrollReveal>
@@ -108,10 +108,10 @@ export default function ImpactSection() {
           <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-8 py-6 border-b border-gray-100 bg-gray-50/50">
               <h3 className="text-lg font-bold text-gray-900">
-                Hallazgos del estudio comparativo
+                Hallazgos de las experiencias piloto
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                {"3 niveles de terapeuta (b\u00e1sico, intermedio, avanzado) x 8 sesiones con el mismo paciente"}
+                {"Evaluaci\u00f3n de 119 usuarios en 4 universidades de 3 pa\u00edses latinoamericanos"}
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
@@ -138,7 +138,7 @@ export default function ImpactSection() {
         {/* Bottom note */}
         <ScrollReveal delay={300}>
           <p className="text-center text-xs text-gray-400 mt-8 max-w-xl mx-auto">
-            {"Datos obtenidos del estudio comparativo de niveles terap\u00e9uticos con el paciente Roberto Salas (52 a\u00f1os, duelo) usando el motor adaptativo de GlorIA con clasificador NLP de intervenciones, RAG sem\u00e1ntico y Memory-Context Processing (MCP)."}
+            {"Datos obtenidos de las experiencias piloto internacionales de GlorIA (nov-dic 2025) con la Universidad de San Buenaventura (Colombia), Universidad Peruana de Ciencias Aplicadas, Universidad de San Mart\u00edn de Porres (Per\u00fa) y Universidad del Caribe (Rep. Dominicana). 100% de participantes firm\u00f3 consentimiento informado."}
           </p>
         </ScrollReveal>
       </div>

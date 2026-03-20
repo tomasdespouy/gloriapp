@@ -231,10 +231,21 @@ TU ROL COMO PACIENTE:
   }
 
   // 9. Build system prompt WITH state + RAG
+  const firstTurnRule = turnNumber <= 2
+    ? `\n\n[INICIO DE SESI\u00d3N — TURNOS ${turnNumber}/2]
+Es el comienzo de la sesi\u00f3n. S\u00e9 BREVE y CAUTELOSO(A):
+- M\u00e1ximo 1-2 oraciones en tu respuesta.
+- No cuentes detalles de tu vida a\u00fan. Solo responde lo m\u00ednimo necesario.
+- Muestra incomodidad, timidez o desconfianza natural de un paciente que reci\u00e9n conoce a su terapeuta.
+- NO expliques tu problem\u00e1tica completa. Solo da pistas vagas si te preguntan directamente.
+- Espera a que el terapeuta genere confianza antes de abrirte.\n`
+    : "";
+
   const systemPrompt = patient.system_prompt + timeContext + therapistContext + memoryContext
     + statePrompt
+    + firstTurnRule
     + ragContext
-    + "\n\n[REGLA ANTI-REPETICIÓN]\nNUNCA repitas textualmente una respuesta que ya diste en esta conversación.\n";
+    + "\n\n[REGLA ANTI-REPETICI\u00d3N]\nNUNCA repitas textualmente una respuesta que ya diste en esta conversaci\u00f3n.\n";
 
   // Log session context
   logger.info("chat_message", {

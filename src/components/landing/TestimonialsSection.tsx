@@ -4,22 +4,40 @@ import ScrollReveal from "./ScrollReveal";
 export default function TestimonialsSection() {
   const testimonials = [
     {
-      quote: "Antes de GloriA, mi \u00fanica pr\u00e1ctica era con companeros haciendo role-play. Conversar con un paciente que realmente reacciona a lo que digo cambio mi forma de entender la terapia.",
-      name: "Valentina Rojas",
-      year: "4to a\u00f1o",
-      career: "Psicolog\u00eda Cl\u00ednica",
+      quote: "Me gusta que simula perfectamente un paciente de la edad que le corresponde. Se expresa igual, tiene una problem\u00e1tica acorde a la edad y realmente parece que est\u00e1s hablando con una persona.",
+      name: "Docente UPC",
+      year: "28 a\u00f1os",
+      career: "Universidad Peruana de Ciencias Aplicadas, Per\u00fa",
     },
     {
-      quote: "Me ayudo mucho a manejar silencios y pacientes resistentes. Con Carmen aprendi que presionar no funciona, y esa lecci\u00f3n me la lleve a mi pr\u00e1ctica profesional.",
-      name: "Sebastian Contreras",
-      year: "5to a\u00f1o",
-      career: "Psicolog\u00eda Cl\u00ednica",
+      quote: "La interacci\u00f3n con el paciente del simulador fue una experiencia fascinante para m\u00ed. Al principio ten\u00eda temor de equivocarme, pero al final entend\u00ed que era justo para esto: ayudarnos como futuros psic\u00f3logos a interactuar en una consulta.",
+      name: "Estudiante UNICARIBE",
+      year: "37 a\u00f1os",
+      career: "Universidad del Caribe, Rep. Dominicana",
     },
     {
-      quote: "Lo uso antes de cada evaluaci\u00f3n pr\u00e1ctica. Puedo repetir la sesi\u00f3n, probar distintos enfoques y ver como cambia la respuesta del paciente. Es como un simulador de vuelo para terapeutas.",
-      name: "Catalina Munoz",
-      year: "3er a\u00f1o",
-      career: "Psicologia",
+      quote: "La presentaci\u00f3n del caso fue muy acertada y cercana a lo que se puede presentar en la vida real. El personaje sostuvo la l\u00ednea de su motivo de consulta y aquello que le aquejaba.",
+      name: "Estudiante USB Cali",
+      year: "19 a\u00f1os",
+      career: "Universidad de San Buenaventura, Colombia",
+    },
+    {
+      quote: "Nunca hab\u00eda realizado un proceso de evaluaci\u00f3n a un paciente. Me ayud\u00f3 bastante a entender el cuidado de las preguntas y la importancia de preguntar ciertas cosas cuidadosamente para poder saber c\u00f3mo ayudarlo.",
+      name: "Estudiante USMP",
+      year: "22 a\u00f1os",
+      career: "Universidad de San Mart\u00edn de Porres, Per\u00fa",
+    },
+    {
+      quote: "Es una herramienta muy valiosa e importante para los estudiantes de psicolog\u00eda. Est\u00e1 incre\u00edble que ahora se pueda usar la IA como un apoyo para formarnos como profesionales, adem\u00e1s de que ayuda a practicar continuamente.",
+      name: "Estudiante UPC",
+      year: "23 a\u00f1os",
+      career: "Universidad Peruana de Ciencias Aplicadas, Per\u00fa",
+    },
+    {
+      quote: "Tener esta experiencia virtual es una forma en la que nosotros podemos practicar y sentirnos un poco m\u00e1s preparados al momento de tener un acercamiento con un paciente en la vida real.",
+      name: "Estudiante USB Cali",
+      year: "24 a\u00f1os",
+      career: "Universidad de San Buenaventura, Colombia",
     },
   ];
 
@@ -35,17 +53,17 @@ export default function TestimonialsSection() {
         <ScrollReveal>
           <div className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">
-              Lo que dicen nuestros estudiantes
+              Voces de los pilotos internacionales
             </h2>
             <p className="text-white/70 max-w-2xl mx-auto">
-              Experiencias de quienes ya entrenan con GloriA
+              119 estudiantes y docentes de 4 universidades en Colombia, Per&uacute; y Rep. Dominicana ya entrenaron con GlorIA
             </p>
           </div>
         </ScrollReveal>
 
-        <div className="grid md:grid-cols-3 gap-5 lg:gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
           {testimonials.map((item, i) => (
-            <ScrollReveal key={item.name} delay={i * 100}>
+            <ScrollReveal key={`${item.name}-${i}`} delay={i * 100}>
               <div className="bg-white rounded-xl p-6 shadow-lg h-full flex flex-col">
                 <Quote size={24} className="text-[#4A55A2]/30 mb-3" />
                 <p className="text-sm text-gray-700 leading-relaxed flex-1 mb-4">

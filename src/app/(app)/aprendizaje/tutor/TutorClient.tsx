@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import {
-  Send, ArrowLeft, GraduationCap, CheckCircle2,
+  Send, GraduationCap, CheckCircle2,
   Sparkles, BookOpen, Mic, MicOff,
 } from "lucide-react";
 import Link from "next/link";
@@ -16,35 +16,39 @@ type Message = {
 type Phase = "welcome" | "select" | "practice" | "feedback";
 
 const COMP_EMOJIS: Record<string, string> = {
-  setting_terapeutico: "🏠",
-  motivo_consulta: "🔍",
-  datos_contextuales: "📋",
-  objetivos: "🎯",
-  escucha_activa: "👂",
-  actitud_no_valorativa: "🫶",
-  optimismo: "🌱",
-  presencia: "🧘",
-  conducta_no_verbal: "🤲",
-  contencion_afectos: "🫂",
+  setting_terapeutico: "\uD83C\uDFE0",
+  motivo_consulta: "\uD83D\uDD0D",
+  datos_contextuales: "\uD83D\uDCCB",
+  objetivos: "\uD83C\uDFAF",
+  escucha_activa: "\uD83D\uDC42",
+  actitud_no_valorativa: "\uD83E\uDEC6",
+  optimismo: "\uD83C\uDF31",
+  presencia: "\uD83E\uDDD8",
+  conducta_no_verbal: "\uD83E\uDD32",
+  contencion_afectos: "\uD83E\uDEC2",
 };
 
 const COMP_DESCRIPTIONS: Record<string, string> = {
   setting_terapeutico: "Explicitar encuadre, confidencialidad y roles",
   motivo_consulta: "Indagar motivo manifiesto y latente, explorar recursos",
   datos_contextuales: "Integrar contextos familiares, laborales y culturales",
-  objetivos: "Co-construir metas terapéuticas con el paciente",
+  objetivos: "Co-construir metas terap\u00e9uticas con el paciente",
   escucha_activa: "Atender lo verbal y no verbal con respuesta congruente",
-  actitud_no_valorativa: "Aceptación incondicional sin juicios",
-  optimismo: "Transmitir esperanza integrada con intervenciones técnicas",
-  presencia: "Atención sostenida, flexibilidad y sintonía",
-  conducta_no_verbal: "Leer e integrar señales corporales del paciente",
-  contencion_afectos: "Sostener emociones intensas con calidez y empatía",
+  actitud_no_valorativa: "Aceptaci\u00f3n incondicional sin juicios",
+  optimismo: "Transmitir esperanza integrada con intervenciones t\u00e9cnicas",
+  presencia: "Atenci\u00f3n sostenida, flexibilidad y sinton\u00eda",
+  conducta_no_verbal: "Leer e integrar se\u00f1ales corporales del paciente",
+  contencion_afectos: "Sostener emociones intensas con calidez y empat\u00eda",
 };
+
+const GLORIA_AVATAR = `${process.env.NEXT_PUBLIC_SUPABASE_URL || ""}/storage/v1/object/public/patients/gloria-avatar.jpg`;
 
 export default function TutorClient({
   competencies,
+  firstName = "Estudiante",
 }: {
   competencies: { key: string; label: string }[];
+  firstName?: string;
 }) {
   const [phase, setPhase] = useState<Phase>("welcome");
   const [selectedComps, setSelectedComps] = useState<string[]>([]);
@@ -53,6 +57,7 @@ export default function TutorClient({
   const [isStreaming, setIsStreaming] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const msgCountRef = useRef(0);
@@ -62,11 +67,11 @@ export default function TutorClient({
     messagesEndRef.current?.scrollIntoView({ behavior: prefersReduced ? "instant" : "smooth" });
   }, [messages]);
 
-  // Ctrl hold to record
+  // Shift hold to record
   useEffect(() => {
     if (phase !== "practice") return;
-    const down = (e: KeyboardEvent) => { if (e.key === "Control" && !e.repeat && !isRecording && !isStreaming) startRecording(); };
-    const up = (e: KeyboardEvent) => { if (e.key === "Control" && isRecording) stopRecording(); };
+    const down = (e: KeyboardEvent) => { if (e.key === "Shift" && !e.repeat && !isRecording && !isStreaming) startRecording(); };
+    const up = (e: KeyboardEvent) => { if (e.key === "Shift" && isRecording) stopRecording(); };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
@@ -104,7 +109,9 @@ export default function TutorClient({
   };
 
   const startPractice = async () => {
-    if (selectedComps.length === 0) return;
+    const comps = selectedComps.length > 0 ? selectedComps : competencies.map((c) => c.key);
+    if (comps.length > 0 && selectedComps.length === 0) setSelectedComps(comps);
+    setTransitioning(false);
     setPhase("practice");
     setIsStreaming(true);
     msgCountRef.current = 0;
@@ -118,7 +125,6 @@ export default function TutorClient({
     if (res.ok) {
       const data = await res.json();
       setMessages([{ role: "assistant", content: data.message, hint: data.hint }]);
-
     }
     setIsStreaming(false);
   };
@@ -152,11 +158,9 @@ export default function TutorClient({
       const assistantMsg: Message = { role: "assistant", content: data.message, hint: data.hint };
       setMessages((prev) => [...prev, assistantMsg]);
 
-
       if (data.feedback) {
         setFeedback(data.feedback);
         setPhase("feedback");
-        // Mark tutor as completed for unlocking modules
         fetch("/api/learning/progress", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -179,7 +183,6 @@ export default function TutorClient({
       const data = await res.json();
       setFeedback(data.feedback);
       setPhase("feedback");
-      // Mark tutor as completed
       fetch("/api/learning/progress", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -198,26 +201,35 @@ export default function TutorClient({
     .filter(Boolean);
 
   // ═════════════════════════════════════════════
-  // WELCOME PHASE — Sesión 0: Bienvenida
+  // WELCOME PHASE
   // ═════════════════════════════════════════════
+  // Hide sidebar when in welcome/select phase (full-screen onboarding)
+  useEffect(() => {
+    if (phase === "welcome" || phase === "select") {
+      document.querySelector("aside")?.classList.add("!hidden");
+      document.querySelector(".md\\:ml-\\[260px\\]")?.classList.add("!ml-0");
+      // Also hide mobile hamburger
+      const hamburger = document.querySelector("[aria-label='Abrir men\u00fa']") as HTMLElement;
+      if (hamburger) hamburger.style.display = "none";
+    }
+    return () => {
+      document.querySelector("aside")?.classList.remove("!hidden");
+      document.querySelector(".md\\:ml-\\[260px\\]")?.classList.remove("!ml-0");
+      const hamburger = document.querySelector("[aria-label='Abrir men\u00fa']") as HTMLElement;
+      if (hamburger) hamburger.style.display = "";
+    };
+  }, [phase]);
+
   if (phase === "welcome") {
     return (
-      <div className="min-h-screen">
-        <header className="px-4 sm:px-8 py-5">
-          <Link href="/aprendizaje" className="text-xs text-sidebar hover:underline mb-3 inline-block">
-            &larr; Volver a Aprendizaje
-          </Link>
-        </header>
-
-        <div className="px-4 sm:px-8 pb-12 max-w-2xl mx-auto">
+      <div className={`min-h-screen chat-pattern transition-opacity duration-500 ${transitioning ? "opacity-0" : "opacity-100"}`}>
+        <div className="px-4 sm:px-8 pb-12 pt-12 max-w-2xl mx-auto">
           <div className="text-center mb-8">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/learning/tutor.png" alt="Tutor" className="w-32 h-32 rounded-3xl object-cover mx-auto mb-6 shadow-lg" />
-            <h1 className="text-3xl font-bold text-gray-900 mb-3">Bienvenido/a a GlorIA</h1>
-            <p className="text-sm text-gray-500 max-w-lg mx-auto leading-relaxed">
-              Esta es tu plataforma de entrenamiento clínico con inteligencia artificial.
-              Aquí practicarás entrevistas terapéuticas con pacientes simulados que reaccionan
-              de forma realista según tus intervenciones.
+            <img src={GLORIA_AVATAR} alt="GlorIA" className="w-32 h-32 rounded-full object-cover mx-auto mb-6 shadow-lg border-4 border-white" />
+            <h1 className="text-3xl font-bold text-gray-900 mb-3">{`\u00a1Hola ${firstName}!`}</h1>
+            <p className="text-sm text-gray-600 max-w-lg mx-auto leading-relaxed">
+              {"Soy GlorIA, tu tutora en esta plataforma de entrenamiento cl\u00ednico. Te voy a guiar paso a paso para que te sientas con confianza antes de practicar con pacientes simulados."}
             </p>
           </div>
 
@@ -227,8 +239,8 @@ export default function TutorClient({
                 <span className="text-sm font-bold text-sidebar">1</span>
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Sesión 0: Tutor guiado</p>
-                <p className="text-xs text-gray-500 mt-0.5">Primero practicarás con un paciente ficticio mientras un tutor clínico te da retroalimentación en tiempo real. Esto te prepara para las sesiones reales.</p>
+                <p className="text-sm font-semibold text-gray-900">{"Sesi\u00f3n conmigo"}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{"Primero vamos a practicar con un paciente ficticio. Yo te dar\u00e9 retroalimentaci\u00f3n en tiempo real para que vayas aprendiendo."}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -237,7 +249,7 @@ export default function TutorClient({
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-900">Aprendizaje por competencias</p>
-                <p className="text-xs text-gray-500 mt-0.5">Después del tutor, desbloquearás 10 módulos de competencias clínicas con ejemplos interactivos de diálogos terapéuticos.</p>
+                <p className="text-xs text-gray-500 mt-0.5">{"Despu\u00e9s de nuestra sesi\u00f3n, se desbloquear\u00e1n 10 m\u00f3dulos con ejemplos de di\u00e1logos terap\u00e9uticos para seguir mejorando."}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -245,118 +257,125 @@ export default function TutorClient({
                 <span className="text-sm font-bold text-sidebar">3</span>
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Práctica con pacientes IA</p>
-                <p className="text-xs text-gray-500 mt-0.5">Finalmente, podrás conversar con pacientes simulados que tienen historias, personalidades y reacciones únicas. Tu docente revisará tu desempeño.</p>
+                <p className="text-sm font-semibold text-gray-900">{"Pr\u00e1ctica con pacientes IA"}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{"Finalmente, podr\u00e1s conversar con pacientes simulados que tienen historias y personalidades \u00fanicas. Tu docente revisar\u00e1 tu desempe\u00f1o."}</p>
               </div>
             </div>
           </div>
 
-          <button
-            onClick={() => setPhase("select")}
-            className="w-full bg-gradient-to-r from-sidebar to-[#354080] text-white py-3.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-md"
-          >
-            <Sparkles size={18} />
-            Comenzar sesión con tutor
-          </button>
+          <div className="flex flex-col items-center gap-3">
+            <button
+              onClick={() => {
+                setTransitioning(true);
+                setTimeout(() => { setPhase("select"); setTransitioning(false); }, 400);
+              }}
+              className="w-20 h-20 rounded-full bg-gradient-to-br from-sidebar to-[#354080] text-white flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 active:bg-green-500 transition-all duration-300"
+            >
+              <Sparkles size={24} />
+            </button>
+            <p className="text-xs text-gray-400">Comenzar</p>
+            <button
+              onClick={() => {
+                setSelectedComps(competencies.map((c) => c.key));
+                fetch("/api/learning/progress", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ example_id: "tutor-session", competency: "tutor" }),
+                }).then(() => window.location.href = "/dashboard");
+              }}
+              className="text-[11px] text-gray-400 hover:text-gray-600 hover:underline mt-2"
+            >
+              {"Omitir introducci\u00f3n"}
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   // ═════════════════════════════════════════════
-  // SELECTION PHASE
+  // SELECTION PHASE — patient intro + start
   // ═════════════════════════════════════════════
   if (phase === "select") {
+    const MARTIN_IMG = `${process.env.NEXT_PUBLIC_SUPABASE_URL || ""}/storage/v1/object/public/patients/martin-lagos.png`;
     return (
-      <div className="min-h-screen">
-        <header className="px-4 sm:px-8 py-5">
-          <Link href="/aprendizaje" className="text-xs text-sidebar hover:underline mb-3 inline-block">
-            &larr; Volver a Aprendizaje
-          </Link>
-        </header>
-
-        <div className="px-4 sm:px-8 pb-12 max-w-3xl mx-auto">
-          {/* Hero */}
-          <div className="text-center mb-10">
+      <div className={`min-h-screen chat-pattern transition-opacity duration-500 ${transitioning ? "opacity-0" : "opacity-100"}`}>
+        <div className="px-4 sm:px-8 pb-12 pt-8 max-w-lg mx-auto">
+          {/* GlorIA avatar at top */}
+          <div className="text-center mb-6">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/learning/tutor.png" alt="Tutor" className="w-20 h-20 rounded-2xl object-cover mx-auto mb-5 shadow-lg" />
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Sesión con tutor</h1>
-            <p className="text-gray-500 max-w-md mx-auto">
-              Conversa con un paciente ficticio mientras un tutor clínico te guía en tiempo real con sugerencias personalizadas.
+            <img src={GLORIA_AVATAR} alt="GlorIA" className="w-14 h-14 rounded-full object-cover mx-auto mb-3 shadow-md border-2 border-white" />
+            <p className="text-xs text-gray-500">{"Vas a practicar con este paciente. Yo te guiar\u00e9 en tiempo real."}</p>
+          </div>
+
+          {/* Patient card — large photo + student photo */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+            <div className="flex items-center justify-center gap-6 mb-4">
+              {/* Patient */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={MARTIN_IMG} alt={"Mart\u00edn Lagos"} className="w-full h-full object-cover" />
+                </div>
+                <p className="text-sm font-medium text-gray-700">{"Mart\u00edn Lagos"}</p>
+                <p className="text-[11px] text-gray-500">{"32 a\u00f1os, Dise\u00f1ador"}</p>
+              </div>
+
+              <div className="w-10 h-px bg-gray-300 -mt-8" />
+
+              {/* Student */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center">
+                  <span className="text-2xl font-bold text-sidebar">{firstName.charAt(0)}</span>
+                </div>
+                <p className="text-sm font-medium text-gray-700">{firstName}</p>
+                <p className="text-[11px] text-gray-500">Terapeuta</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 text-center">
+              {"Motivo de consulta: estr\u00e9s laboral y dificultad para poner l\u00edmites"}
             </p>
           </div>
 
-          {/* Patient card */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-8 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center flex-shrink-0 text-2xl">
-              🧑
-            </div>
-            <div>
-              <p className="text-sm font-bold text-gray-900">Martín Lagos, 32 años</p>
-              <p className="text-xs text-gray-500">Diseñador gráfico freelance</p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Motivo de consulta: estrés laboral y dificultad para poner límites
-              </p>
-            </div>
-          </div>
-
-          {/* Competency grid */}
-          <p className="text-sm font-semibold text-gray-700 mb-3">
-            ¿Qué competencias quieres fortalecer?
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-            {competencies.map((c) => {
-              const isSelected = selectedComps.includes(c.key);
-              const emoji = COMP_EMOJIS[c.key] || "📌";
-              const desc = COMP_DESCRIPTIONS[c.key] || "";
-
-              return (
-                <button
-                  key={c.key}
-                  onClick={() => toggleComp(c.key)}
-                  className={`text-left px-4 py-4 rounded-xl border-2 transition-all ${
-                    isSelected
-                      ? "border-sidebar bg-sidebar/5 shadow-sm"
-                      : "border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="text-xl mt-0.5">{emoji}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-gray-800">{c.label}</span>
-                        {isSelected && <CheckCircle2 size={14} className="text-sidebar flex-shrink-0" />}
-                      </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">{desc}</p>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center gap-4 mb-6">
-            <button onClick={() => setSelectedComps(competencies.map((c) => c.key))} className="text-xs text-sidebar font-medium hover:underline">
-              Seleccionar todas
-            </button>
-            {selectedComps.length > 0 && (
-              <button onClick={() => setSelectedComps([])} className="text-xs text-gray-400 hover:underline">
-                Limpiar selección
+          {/* Buttons */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => {
+                  setTransitioning(true);
+                  setTimeout(() => { setPhase("welcome"); setTransitioning(false); }, 400);
+                }}
+                className="text-xs text-gray-400 hover:text-gray-600 hover:underline"
+              >
+                {"Volver"}
               </button>
-            )}
-            <span className="ml-auto text-xs text-gray-400">
-              {selectedComps.length} de {competencies.length}
-            </span>
+              <button
+                onClick={() => {
+                  setSelectedComps(competencies.map((c) => c.key));
+                  setTransitioning(true);
+                  setTimeout(() => startPractice(), 300);
+                }}
+                className="w-20 h-20 rounded-full bg-gradient-to-br from-sidebar to-[#354080] text-white flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 active:from-green-500 active:to-green-600 transition-all duration-300"
+              >
+                <Sparkles size={24} />
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedComps(competencies.map((c) => c.key));
+                  fetch("/api/learning/progress", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ example_id: "tutor-session", competency: "tutor" }),
+                  }).then(() => window.location.href = "/dashboard");
+                }}
+                className="text-xs text-gray-400 hover:text-gray-600 hover:underline"
+              >
+                Omitir
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">{"Iniciar sesi\u00f3n"}</p>
           </div>
-
-          <button
-            onClick={startPractice}
-            disabled={selectedComps.length === 0}
-            className="w-full bg-gradient-to-r from-sidebar to-[#354080] text-white py-3.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center justify-center gap-2 shadow-md"
-          >
-            <Sparkles size={18} />
-            Iniciar sesión de práctica
-          </button>
         </div>
       </div>
     );
@@ -367,26 +386,21 @@ export default function TutorClient({
   // ═════════════════════════════════════════════
   if (phase === "feedback" && feedback) {
     return (
-      <div className="min-h-screen">
-        <header className="px-4 sm:px-8 py-5">
-          <Link href="/aprendizaje" className="text-xs text-sidebar hover:underline mb-3 inline-block">
-            &larr; Volver a Aprendizaje
-          </Link>
-          <div className="flex items-center gap-3">
+      <div className="min-h-screen chat-pattern">
+        <div className="px-4 sm:px-8 pb-8 pt-8 max-w-3xl mx-auto">
+          <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sidebar to-[#354080] flex items-center justify-center">
               <BookOpen size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Retroalimentación del tutor</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{"Mi retroalimentaci\u00f3n"}</h1>
               <p className="text-xs text-gray-500 mt-0.5">
-                {compLabels.join(" · ")}
+                {compLabels.join(" \u00b7 ")}
               </p>
             </div>
           </div>
-        </header>
 
-        <div className="px-4 sm:px-8 pb-8 max-w-3xl space-y-6">
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
             <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
               {feedback}
             </div>
@@ -400,10 +414,10 @@ export default function TutorClient({
               Practicar de nuevo
             </button>
             <Link
-              href="/aprendizaje"
+              href="/dashboard"
               className="flex-1 text-center border border-gray-200 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              Volver a Aprendizaje
+              Ir al inicio
             </Link>
           </div>
         </div>
@@ -418,17 +432,15 @@ export default function TutorClient({
 
   return (
     <div className="flex flex-col h-screen">
-      {/* Header */}
+      {/* Header — no back arrow */}
       <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-4">
-        <Link href="/aprendizaje" className="text-gray-400 hover:text-gray-600 transition-colors">
-          <ArrowLeft size={20} />
-        </Link>
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center text-lg">
-          🧑
+        <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`${process.env.NEXT_PUBLIC_SUPABASE_URL || ""}/storage/v1/object/public/patients/martin-lagos.png`} alt={"Mart\u00edn"} className="w-full h-full object-cover" />
         </div>
         <div className="flex-1">
-          <h2 className="font-bold text-gray-900 text-sm">Martín Lagos, 32 años</h2>
-          <p className="text-[11px] text-gray-500">{compLabels.join(" · ")}</p>
+          <h2 className="font-bold text-gray-900 text-sm">{"Mart\u00edn Lagos, 32 a\u00f1os"}</h2>
+          <p className="text-[11px] text-gray-500">{compLabels.join(" \u00b7 ")}</p>
         </div>
 
         <button
@@ -436,20 +448,21 @@ export default function TutorClient({
           disabled={messages.length < 4 || isStreaming}
           className="text-xs text-gray-500 hover:text-sidebar px-3 py-1.5 rounded-lg border border-gray-200 hover:border-sidebar/30 font-medium transition-colors disabled:opacity-40"
         >
-          Finalizar sesión
+          {"Finalizar sesi\u00f3n"}
         </button>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
         {/* Chat area */}
         <div className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 chat-pattern">
             {messages.map((msg, i) => (
               <div key={i}>
                 <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} gap-2.5`}>
                   {msg.role === "assistant" && (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center flex-shrink-0 mt-1 text-sm">
-                      🧑
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 mt-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`${process.env.NEXT_PUBLIC_SUPABASE_URL || ""}/storage/v1/object/public/patients/martin-lagos.png`} alt={"Mart\u00edn"} className="w-full h-full object-cover" />
                     </div>
                   )}
                   <div
@@ -469,7 +482,7 @@ export default function TutorClient({
                     <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-3.5 py-2.5 max-w-[75%] flex items-start gap-2">
                       <GraduationCap size={14} className="text-indigo-500 mt-0.5 flex-shrink-0" />
                       <p className="text-xs text-indigo-700 leading-relaxed">
-                        <span className="font-semibold">Tutor:</span> {msg.hint}
+                        <span className="font-semibold">GlorIA:</span> {msg.hint}
                       </p>
                     </div>
                   </div>
@@ -480,17 +493,14 @@ export default function TutorClient({
             {isStreaming && (
               <div className="flex justify-start gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center flex-shrink-0 text-sm">
-                  🧑
+                  {"\uD83E\uDDD1"}
                 </div>
                 <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">Pensando</span>
-                    <span className="inline-flex gap-1">
-                      <span className="typing-dot" />
-                      <span className="typing-dot" />
-                      <span className="typing-dot" />
-                    </span>
-                  </div>
+                  <span className="inline-flex gap-1">
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                  </span>
                 </div>
               </div>
             )}
@@ -503,7 +513,7 @@ export default function TutorClient({
             {isRecording && (
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-xs text-red-500 font-medium">Grabando... (suelta Ctrl)</span>
+                <span className="text-xs text-red-500 font-medium">{"Grabando... (suelta Shift)"}</span>
               </div>
             )}
             <div className="flex items-end gap-2">
@@ -511,7 +521,7 @@ export default function TutorClient({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Escribe en texto acá o deja apretado la tecla Ctrl para transcribir tu voz"
+                placeholder={"Escribe tu mensaje o mant\u00e9n Shift para dictar por voz"}
                 rows={1}
                 className="flex-1 resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar"
                 disabled={isStreaming}
@@ -543,8 +553,8 @@ export default function TutorClient({
               <GraduationCap size={16} className="text-white" />
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-800">Tutor clínico</p>
-              <p className="text-[10px] text-gray-400">Guía en tiempo real</p>
+              <p className="text-xs font-bold text-gray-800">{"GlorIA \u2014 Tutora"}</p>
+              <p className="text-[10px] text-gray-400">{"Gu\u00eda en tiempo real"}</p>
             </div>
           </div>
 

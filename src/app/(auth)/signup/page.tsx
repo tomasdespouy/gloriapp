@@ -50,7 +50,7 @@ export default function SignupPage() {
     setLoading(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -60,6 +60,13 @@ export default function SignupPage() {
 
     if (error) {
       setErrors({ general: error.message });
+      setLoading(false);
+      return;
+    }
+
+    // Supabase returns identities: [] when the email already exists
+    if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+      setErrors({ email: "Este correo ya est\u00e1 registrado. Intenta iniciar sesi\u00f3n." });
       setLoading(false);
       return;
     }

@@ -76,7 +76,7 @@ export default async function ReviewPage({
   return (
     <ReviewClient
       conversationId={conversationId}
-      patient={patient}
+      patient={{ ...patient, id: conversation.ai_patient_id }}
       sessionNumber={conversation.session_number}
       messageCount={count || 0}
       existingEvaluation={existingEval}

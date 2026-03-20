@@ -77,7 +77,11 @@ export async function POST(
 
   // Get reflection data from body
   const body = await request.json().catch(() => ({}));
-  const { discomfort_moment, would_redo, clinical_note } = body;
+  const {
+    discomfort_moment, would_redo, clinical_note,
+    alliance_framing, rupture_moment, nonverbal_cues,
+    intervention_types, clinical_hypothesis,
+  } = body;
 
   // Verify conversation ownership and get details
   const { data: conversation } = await supabase
@@ -94,14 +98,22 @@ export async function POST(
     .update({ status: "completed", ended_at: new Date().toISOString() })
     .eq("id", conversationId);
 
-  // Save reflection (if provided)
-  if (discomfort_moment || would_redo || clinical_note) {
+  // Save reflection (if provided — v2 fields or legacy)
+  const hasReflection = alliance_framing || rupture_moment || nonverbal_cues ||
+    intervention_types || clinical_hypothesis || discomfort_moment || would_redo || clinical_note;
+
+  if (hasReflection) {
     await admin.from("session_feedback").upsert({
       conversation_id: conversationId,
       student_id: user.id,
       discomfort_moment,
       would_redo,
       clinical_note,
+      alliance_framing,
+      rupture_moment,
+      nonverbal_cues,
+      intervention_types,
+      clinical_hypothesis,
     }, { onConflict: "conversation_id" });
   }
 
@@ -237,7 +249,7 @@ export async function POST(
     rapport_master: () => evaluation.rapport >= 9,
     streak_3: () => currentStreak >= 3,
     streak_7: () => currentStreak >= 7,
-    first_reflection: () => !!(discomfort_moment || would_redo || clinical_note),
+    first_reflection: () => !!(discomfort_moment || would_redo || clinical_note || alliance_framing || rupture_moment || nonverbal_cues || intervention_types || clinical_hypothesis),
     high_performer: () => evaluation.overall_score >= 8,
     perfect_session: () =>
       [evaluation.empathy, evaluation.active_listening, evaluation.open_questions,
@@ -343,18 +355,18 @@ async function generateSessionSummary(
     .maybeSingle();
 
   const summaryResponse = await chat(
-    [{ role: "user", content: `Resume esta sesión terapéutica para la memoria a largo plazo del paciente.
+    [{ role: "user", content: `Resume esta sesi\u00f3n terap\u00e9utica de forma neutral y observacional.
 
-TRANSCRIPCIÓN:
+TRANSCRIPCI\u00d3N:
 ${transcript}
 
-Responde SOLO con JSON válido:
+Responde SOLO con JSON v\u00e1lido:
 {
-  "summary": "Resumen narrativo de 80-120 palabras en primera persona del paciente. Qué se habló, qué sentí, cómo reaccioné. Incluir datos concretos mencionados (nombres, lugares, eventos).",
-  "key_revelations": ["Dato/secreto importante que revelé", "Otro dato relevante"],
-  "therapeutic_progress": "Una oración describiendo el estado de la relación terapéutica al final de esta sesión."
+  "summary": "Resumen narrativo de 80-120 palabras en tercera persona neutral. Qu\u00e9 temas se abordaron, c\u00f3mo reaccion\u00f3 el paciente, qu\u00e9 intervenciones realiz\u00f3 el terapeuta. Incluir datos concretos mencionados (nombres, lugares, eventos).",
+  "key_revelations": ["Dato o informaci\u00f3n cl\u00ednicamente relevante que surgi\u00f3", "Otro dato relevante"],
+  "therapeutic_progress": "Una oraci\u00f3n describiendo el estado de la relaci\u00f3n terap\u00e9utica al final de esta sesi\u00f3n."
 }` }],
-    "Eres un asistente que genera resúmenes compactos de sesiones terapéuticas desde la perspectiva del paciente. Solo JSON."
+    "Eres un asistente que genera res\u00famenes compactos de sesiones terap\u00e9uticas desde una perspectiva observacional neutral. Solo JSON."
   );
 
   try {

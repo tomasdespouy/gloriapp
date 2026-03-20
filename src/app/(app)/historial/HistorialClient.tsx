@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, ChevronRight, Brain, Clock, CheckCircle2,
   MessageSquare, List, LayoutGrid, TrendingUp, Save, ArrowLeft,
-  GraduationCap, Sparkles,
+  GraduationCap, Sparkles, Download,
 } from "lucide-react";
 
 interface Session {
@@ -71,7 +71,7 @@ export default function HistorialClient({ sessions, summaryMap }: Props) {
       const p = s.ai_patients as Patient | null;
       if (search && !(p?.name || "").toLowerCase().includes(search.toLowerCase())) return false;
       if (filterStatus === "completed" && s.status !== "completed") return false;
-      if (filterStatus === "active" && s.status !== "active") return false;
+      if (filterStatus === "active" && s.status !== "active" && s.status !== "abandoned") return false;
       if (filterPatient !== "all" && s.ai_patient_id !== filterPatient) return false;
       return true;
     });
@@ -133,7 +133,7 @@ export default function HistorialClient({ sessions, summaryMap }: Props) {
   const getSlug = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
 
   const handleSessionClick = (session: Session) => {
-    if (session.status === "active") {
+    if (session.status === "active" || session.status === "abandoned") {
       setShowResumeModal(session);
     } else {
       setDetailId(session.id);
@@ -187,8 +187,33 @@ export default function HistorialClient({ sessions, summaryMap }: Props) {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4">
           {/* Left: Transcript */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Transcripción</p>
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Transcripci&oacute;n</p>
+              {msgs.length > 0 && (
+                <button
+                  onClick={() => {
+                    const patientName = patient?.name || "Paciente";
+                    const date = new Date(session.created_at).toLocaleDateString("es-CL");
+                    const header = `Sesi\u00f3n #${session.session_number} con ${patientName}\nFecha: ${date}\nDuraci\u00f3n: ${session.active_seconds ? formatDuration(session.active_seconds) : "N/A"}\n${"═".repeat(50)}\n\n`;
+                    const body = msgs.map((m) => {
+                      const author = m.role === "user" ? "T\u00fa" : patientName;
+                      const time = m.created_at ? new Date(m.created_at).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "";
+                      return `[${time}] ${author}:\n${m.content}\n`;
+                    }).join("\n");
+                    const blob = new Blob([header + body], { type: "text/plain;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `sesion-${session.session_number}-${getSlug(patientName)}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="flex items-center gap-1 text-[10px] text-sidebar hover:underline font-medium"
+                >
+                  <Download size={12} />
+                  Descargar
+                </button>
+              )}
             </div>
             <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
               {loadingMessages === session.id ? (
@@ -338,6 +363,8 @@ export default function HistorialClient({ sessions, summaryMap }: Props) {
               </span>
             ) : isCompleted ? (
               <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Pendiente</span>
+            ) : session.status === "abandoned" ? (
+              <span className="text-[10px] text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Abandonada</span>
             ) : (
               <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">En curso</span>
             )}
@@ -363,7 +390,12 @@ export default function HistorialClient({ sessions, summaryMap }: Props) {
                 Cancelar
               </button>
               <button
-                onClick={() => router.push(`/chat/${showResumeModal.ai_patient_id}?conversationId=${showResumeModal.id}`)}
+                onClick={async () => {
+                  if (showResumeModal.status === "abandoned") {
+                    await fetch(`/api/sessions/${showResumeModal.id}/resume`, { method: "POST" });
+                  }
+                  router.push(`/chat/${showResumeModal.ai_patient_id}?conversationId=${showResumeModal.id}`);
+                }}
                 className="flex-1 px-4 py-2.5 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-[#354080]"
               >
                 Retomar

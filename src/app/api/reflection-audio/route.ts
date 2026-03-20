@@ -3,23 +3,25 @@ import { createClient } from "@/lib/supabase/server";
 import OpenAI from "openai";
 import { chat } from "@/lib/ai";
 
-const ORGANIZE_PROMPT = `Eres un asistente que ayuda a estudiantes de psicología a organizar sus reflexiones post-sesión.
+const ORGANIZE_PROMPT = `Eres un asistente que ayuda a estudiantes de psicolog\u00eda a organizar sus reflexiones post-sesi\u00f3n de pr\u00e1ctica terap\u00e9utica.
 
-El estudiante grabó un audio describiendo libremente su experiencia en una sesión terapéutica simulada. Tu trabajo es organizar lo que dijo en 3 campos específicos.
+El estudiante grab\u00f3 un audio describiendo libremente su experiencia. Tu trabajo es organizar lo que dijo en 5 campos cl\u00ednicos espec\u00edficos.
 
-Responde ÚNICAMENTE con JSON válido (sin markdown, sin backticks):
+Responde \u00daNICAMENTE con JSON v\u00e1lido (sin markdown, sin backticks):
 {
-  "discomfort_moment": "Resumen del momento donde sintió mayor incomodidad o no supo cómo responder. Si no mencionó nada, dejar vacío.",
-  "would_redo": "Lo que haría diferente si pudiera repetir la sesión. Si no mencionó nada, dejar vacío.",
-  "clinical_note": "Observaciones generales sobre la sesión, impresiones clínicas, o cualquier otro comentario relevante. Si no mencionó nada, dejar vacío."
+  "alliance_framing": "Lo que mencion\u00f3 sobre c\u00f3mo estableci\u00f3 el encuadre terap\u00e9utico (confidencialidad, roles, objetivos) y la respuesta del paciente. Si no mencion\u00f3 nada, dejar vac\u00edo.",
+  "rupture_moment": "Momentos de incomodidad, silencio tenso, cambio emocional del paciente o rupturas del v\u00ednculo que detect\u00f3 (o no detect\u00f3). Si no mencion\u00f3 nada, dejar vac\u00edo.",
+  "nonverbal_cues": "Lo que mencion\u00f3 sobre se\u00f1ales no verbales del paciente (suspiros, postura, mirada, gestos) y si las integr\u00f3 en su intervenci\u00f3n. Si no mencion\u00f3 nada, dejar vac\u00edo.",
+  "intervention_types": "Reflexiones sobre el tipo de intervenciones que us\u00f3 (preguntas, reflejos, s\u00edntesis, validaciones, consejos prematuros). Si no mencion\u00f3 nada, dejar vac\u00edo.",
+  "clinical_hypothesis": "Hip\u00f3tesis cl\u00ednica sobre el motivo de consulta del paciente o lo que explorar\u00eda en una segunda sesi\u00f3n. Si no mencion\u00f3 nada, dejar vac\u00edo."
 }
 
 Reglas:
 - Usa las propias palabras del estudiante tanto como sea posible
 - No inventes contenido que el estudiante no haya mencionado
-- Si el estudiante mencionó algo que aplica a más de un campo, ponlo en el más relevante
-- Los campos vacíos deben ser string vacío ""
-- Responde siempre en español`;
+- Si el estudiante mencion\u00f3 algo que aplica a m\u00e1s de un campo, ponlo en el m\u00e1s relevante
+- Los campos vac\u00edos deben ser string vac\u00edo ""
+- Responde siempre en espa\u00f1ol`;
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -64,17 +66,21 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       transcript,
-      discomfort_moment: organized.discomfort_moment || "",
-      would_redo: organized.would_redo || "",
-      clinical_note: organized.clinical_note || "",
+      alliance_framing: organized.alliance_framing || "",
+      rupture_moment: organized.rupture_moment || "",
+      nonverbal_cues: organized.nonverbal_cues || "",
+      intervention_types: organized.intervention_types || "",
+      clinical_hypothesis: organized.clinical_hypothesis || "",
     });
   } catch {
-    // If organization fails, return just the transcript
+    // If organization fails, put transcript in first field
     return NextResponse.json({
       transcript,
-      discomfort_moment: transcript,
-      would_redo: "",
-      clinical_note: "",
+      alliance_framing: transcript,
+      rupture_moment: "",
+      nonverbal_cues: "",
+      intervention_types: "",
+      clinical_hypothesis: "",
     });
   }
 }

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { ChatInterface } from "@/components/ChatInterface";
+import { getUserProfile } from "@/lib/supabase/user-profile";
 
 export default async function ChatPage({
   params,
@@ -21,6 +22,8 @@ export default async function ChatPage({
     .single();
 
   if (!patient) notFound();
+
+  const userProfile = await getUserProfile();
 
   let initialMessages: { role: string; content: string; created_at?: string }[] = [];
   let initialActiveSeconds = 0;
@@ -48,6 +51,8 @@ export default async function ChatPage({
         conversationId={conversationId}
         initialMessages={initialMessages}
         initialActiveSeconds={initialActiveSeconds}
+        userAvatarUrl={userProfile?.avatarUrl || null}
+        userName={userProfile?.fullName || ""}
       />
     </div>
   );

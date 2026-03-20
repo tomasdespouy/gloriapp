@@ -58,7 +58,7 @@ export default function ForgotPasswordPage() {
           </svg>
           <h3 className="text-lg font-semibold text-gray-900 mb-1">Correo enviado</h3>
           <p className="text-gray-600 text-sm mb-5">
-            Si el email esta registrado, recibirás un enlace para restablecer tu contraseña.
+            Si el email est&aacute; registrado, recibir&aacute;s un enlace para restablecer tu contrase&ntilde;a.
           </p>
           <Link
             href="/login"

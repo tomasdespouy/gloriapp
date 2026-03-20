@@ -36,12 +36,12 @@ export default async function PacientesPage() {
 
   const { data: patients } = await query;
 
-  // Fetch active conversations for this student
+  // Fetch active or abandoned conversations for this student (both can be resumed)
   const { data: activeConversations } = await supabase
     .from("conversations")
     .select("id, ai_patient_id")
     .eq("student_id", user.id)
-    .eq("status", "active");
+    .in("status", ["active", "abandoned"]);
 
   // Build map as plain object (serializable)
   const activeSessionMap: Record<string, string> = {};

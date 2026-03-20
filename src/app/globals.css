@@ -333,6 +333,13 @@ body {
 .typing-dot:nth-child(2) { animation-delay: 0.2s; }
 .typing-dot:nth-child(3) { animation-delay: 0.4s; }
 
+/* Chat subtle pattern background */
+.chat-pattern {
+  background-color: #FAFAFA;
+  background-image: radial-gradient(circle, #d5d5d5 0.8px, transparent 0.8px);
+  background-size: 16px 16px;
+}
+
 /* Session completed — animated checkmark */
 @keyframes check-draw {
   0% { stroke-dashoffset: 48; }

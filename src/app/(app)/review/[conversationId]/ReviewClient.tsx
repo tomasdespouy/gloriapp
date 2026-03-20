@@ -21,7 +21,7 @@ type ActionItem = {
 
 interface Props {
   conversationId: string;
-  patient: { name: string; age: number; occupation: string; difficulty_level: string };
+  patient: { id?: string; name: string; age: number; occupation: string; difficulty_level: string };
   sessionNumber: number;
   messageCount: number;
   existingEvaluation: Record<string, unknown> | null;
@@ -62,9 +62,16 @@ export default function ReviewClient({
       ? canSeeResults ? "results" : "pending"
       : "reflect"
   );
+  // Legacy fields (kept for old data compatibility)
   const [discomfortMoment, setDiscomfortMoment] = useState("");
   const [wouldRedo, setWouldRedo] = useState("");
   const [clinicalNote, setClinicalNote] = useState("");
+  // V2 clinical reflection fields
+  const [allianceFraming, setAllianceFraming] = useState("");
+  const [ruptureMoment, setRuptureMoment] = useState("");
+  const [nonverbalCues, setNonverbalCues] = useState("");
+  const [interventionTypes, setInterventionTypes] = useState("");
+  const [clinicalHypothesis, setClinicalHypothesis] = useState("");
   const [results, setResults] = useState<Record<string, unknown> | null>(
     existingEvaluation
       ? {
@@ -191,10 +198,12 @@ export default function ReviewClient({
       if (!res.ok) throw new Error("Error");
       const data = await res.json();
 
-      // Populate the fields with organized content
-      if (data.discomfort_moment) setDiscomfortMoment(data.discomfort_moment);
-      if (data.would_redo) setWouldRedo(data.would_redo);
-      if (data.clinical_note) setClinicalNote(data.clinical_note);
+      // Populate v2 fields with organized content
+      if (data.alliance_framing) setAllianceFraming(data.alliance_framing);
+      if (data.rupture_moment) setRuptureMoment(data.rupture_moment);
+      if (data.nonverbal_cues) setNonverbalCues(data.nonverbal_cues);
+      if (data.intervention_types) setInterventionTypes(data.intervention_types);
+      if (data.clinical_hypothesis) setClinicalHypothesis(data.clinical_hypothesis);
     } catch {
       alert("Hubo un error al procesar el audio. Por favor, intenta de nuevo o escribe tu reflexión manualmente.");
     }
@@ -231,6 +240,11 @@ export default function ReviewClient({
           discomfort_moment: discomfortMoment,
           would_redo: wouldRedo,
           clinical_note: clinicalNote,
+          alliance_framing: allianceFraming,
+          rupture_moment: ruptureMoment,
+          nonverbal_cues: nonverbalCues,
+          intervention_types: interventionTypes,
+          clinical_hypothesis: clinicalHypothesis,
         }),
       });
 
@@ -334,26 +348,48 @@ export default function ReviewClient({
 
         {/* ===== TOO SHORT SESSION ===== */}
         {tooShort && (
-          <div className="bg-white rounded-xl border border-amber-200 p-8 text-center animate-fade-in">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-50 mb-4">
-              <Clock size={32} className="text-amber-500" />
+          <div className="bg-white rounded-xl border border-amber-200 p-8 animate-fade-in">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-50 mb-4">
+                <Clock size={32} className="text-amber-500" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                Sesi&oacute;n muy breve para evaluar
+              </h2>
+              <p className="text-sm text-gray-600 max-w-md mx-auto">
+                Para generar una evaluaci&oacute;n de competencias cl&iacute;nicas, necesitamos al menos <strong>5 minutos de conversaci&oacute;n</strong> y <strong>6 intervenciones tuyas</strong>. Esta sesi&oacute;n no alcanz&oacute; esos m&iacute;nimos.
+              </p>
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Sesión muy breve
-            </h2>
-            <p className="text-sm text-gray-600 mb-2 max-w-md mx-auto">
-              Esta sesión duró menos de 5 minutos, por lo que no es posible generar una evaluación de competencias clínicas significativa.
-            </p>
-            <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
-              Para obtener retroalimentación útil, intenta mantener sesiones de al menos 5 minutos donde puedas explorar el motivo de consulta del paciente.
-            </p>
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="bg-sidebar hover:bg-[#354080] text-white py-2.5 px-8 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2"
-            >
-              Volver al inicio
-              <ArrowRight size={16} />
-            </button>
+
+            <div className="bg-amber-50/50 rounded-lg p-4 mb-6 max-w-md mx-auto">
+              <p className="text-xs font-semibold text-amber-700 mb-2">&iquest;Por qu&eacute; estos m&iacute;nimos?</p>
+              <ul className="text-xs text-amber-600 space-y-1.5">
+                <li>&bull; El v&iacute;nculo terap&eacute;utico requiere tiempo para establecerse</li>
+                <li>&bull; Se necesitan suficientes intervenciones para evaluar escucha activa, preguntas y encuadre</li>
+                <li>&bull; Una sesi&oacute;n breve no permite explorar el motivo de consulta en profundidad</li>
+              </ul>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => router.push(`/chat/${patient.id || ""}`)}
+                className="bg-sidebar hover:bg-[#354080] text-white py-2.5 px-6 rounded-lg text-sm font-medium transition-colors inline-flex items-center justify-center gap-2"
+              >
+                Volver a intentar
+              </button>
+              <button
+                onClick={() => router.push("/pacientes")}
+                className="border border-sidebar text-sidebar py-2.5 px-6 rounded-lg text-sm font-medium hover:bg-sidebar/5 transition-colors"
+              >
+                Ir a otro paciente
+              </button>
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="border border-gray-300 text-gray-500 py-2.5 px-6 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+              >
+                Volver al inicio
+              </button>
+            </div>
           </div>
         )}
 
@@ -362,112 +398,157 @@ export default function ReviewClient({
           <>
             {/* Step: Reflection form */}
             {step === "reflect" && (
-              <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5 animate-fade-in">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-1">Reflexión post-sesión</h2>
+              <div className="space-y-4 animate-fade-in">
+                {/* Header */}
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                    Reflexi&oacute;n post-sesi&oacute;n
+                  </h2>
                   <p className="text-sm text-gray-500">
-                    Tomarse un momento para reflexionar mejora tu aprendizaje clínico.
+                    5 preguntas para pensar como terapeuta. Responde las que puedas.
                   </p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Momento de mayor incomodidad
-                  </label>
-                  <textarea
-                    value={discomfortMoment}
-                    onChange={(e) => setDiscomfortMoment(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-sidebar"
-                    rows={3}
-                    placeholder="¿Hubo algún momento donde no supiste cómo responder?"
-                    disabled={audioProcessing !== "idle"}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Qué harías diferente
-                  </label>
-                  <textarea
-                    value={wouldRedo}
-                    onChange={(e) => setWouldRedo(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-sidebar"
-                    rows={3}
-                    placeholder="Si pudieras repetir esta sesión, ¿qué cambiarías?"
-                    disabled={audioProcessing !== "idle"}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Nota clínica
-                  </label>
-                  <textarea
-                    value={clinicalNote}
-                    onChange={(e) => setClinicalNote(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-sidebar"
-                    rows={3}
-                    placeholder="Observaciones generales sobre la sesión..."
-                    disabled={audioProcessing !== "idle"}
-                  />
-                </div>
-
-                {/* Audio recording section */}
-                <div className="border-t border-gray-100 pt-4">
+                {/* Audio recorder — prominent */}
+                <div className="bg-gradient-to-r from-sidebar/5 to-sidebar/10 rounded-xl border border-sidebar/20 p-5">
                   {audioProcessing !== "idle" ? (
-                    <div className="flex items-center justify-center gap-3 py-3">
-                      <Loader2 size={18} className="animate-spin text-sidebar" />
-                      <span className="text-sm text-gray-600">
+                    <div className="flex items-center justify-center gap-3 py-2">
+                      <Loader2 size={20} className="animate-spin text-sidebar" />
+                      <span className="text-sm font-medium text-sidebar">
                         {audioProcessing === "transcribing"
                           ? "Transcribiendo audio..."
-                          : "Organizando tu reflexión..."}
+                          : "Organizando tu reflexi\u00f3n en cada pregunta..."}
                       </span>
                     </div>
                   ) : isRecording ? (
-                    <div className="flex items-center justify-center gap-4 py-2">
+                    <div className="flex items-center justify-center gap-4 py-1">
                       <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-                        <span className="text-sm font-medium text-red-600">
+                        <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+                        <span className="text-sm font-bold text-red-600">
                           Grabando {formatDuration(recordingSeconds)}
                         </span>
                       </div>
                       <button
                         onClick={stopRecording}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
+                        className="flex items-center gap-1.5 px-5 py-2.5 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
                       >
                         <Square size={14} />
-                        Detener
+                        Detener y procesar
                       </button>
                     </div>
                   ) : (
-                    <button
-                      onClick={startRecording}
-                      className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-gray-500 hover:text-sidebar hover:bg-sidebar/5 rounded-lg transition-colors"
-                    >
-                      <Mic size={16} />
-                      Cuéntanos de tu sesión en audio y lo digitamos por ti
-                    </button>
+                    <div className="text-center">
+                      <button
+                        onClick={startRecording}
+                        className="inline-flex items-center gap-2.5 px-6 py-3 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors shadow-sm"
+                      >
+                        <Mic size={18} />
+                        Grabar reflexi&oacute;n en audio
+                      </button>
+                      <p className="text-xs text-sidebar/60 mt-2.5">
+                        Responde las preguntas de corrido hablando libremente. La IA organizar&aacute; tu audio en cada campo autom&aacute;ticamente.
+                      </p>
+                    </div>
                   )}
                 </div>
 
-                <div className="flex gap-3 pt-2">
+                {/* Question cards — Option D design */}
+                {([
+                  {
+                    num: "01",
+                    dimension: "V\u00cdNCULO",
+                    color: "border-l-[#4A55A2]",
+                    label: "Alianza y encuadre",
+                    placeholder: "\u00bfEstableciste confidencialidad, roles y objetivos al inicio? \u00bfC\u00f3mo percibiste que el paciente respondi\u00f3 a tu encuadre?",
+                    value: allianceFraming,
+                    onChange: setAllianceFraming,
+                  },
+                  {
+                    num: "02",
+                    dimension: "V\u00cdNCULO",
+                    color: "border-l-[#4A55A2]",
+                    label: "Momento de ruptura",
+                    placeholder: "\u00bfDetectaste alg\u00fan momento de incomodidad, silencio tenso o cambio emocional en el paciente? \u00bfC\u00f3mo lo abordaste (o qu\u00e9 har\u00edas distinto)?",
+                    value: ruptureMoment,
+                    onChange: setRuptureMoment,
+                  },
+                  {
+                    num: "03",
+                    dimension: "ENTREVISTA",
+                    color: "border-l-emerald-500",
+                    label: "Conducta no verbal",
+                    placeholder: "El paciente mostr\u00f3 se\u00f1ales no verbales (suspiros, mirar al suelo, cruzar brazos). \u00bfLas notaste? \u00bfLas integraste en tu intervenci\u00f3n?",
+                    value: nonverbalCues,
+                    onChange: setNonverbalCues,
+                  },
+                  {
+                    num: "04",
+                    dimension: "ENTREVISTA",
+                    color: "border-l-emerald-500",
+                    label: "Tipo de intervenciones",
+                    placeholder: "\u00bfPredominaron tus preguntas o tambi\u00e9n usaste reflejos, s\u00edntesis o validaciones? \u00bfHubo alg\u00fan momento donde diste un consejo prematuro?",
+                    value: interventionTypes,
+                    onChange: setInterventionTypes,
+                  },
+                  {
+                    num: "05",
+                    dimension: "INTEGRACI\u00d3N",
+                    color: "border-l-purple-500",
+                    label: "Hip\u00f3tesis cl\u00ednica",
+                    placeholder: "Con lo explorado en esta sesi\u00f3n, \u00bfcu\u00e1l ser\u00eda tu hip\u00f3tesis inicial sobre el motivo de consulta? \u00bfQu\u00e9 explorar\u00edas en una segunda sesi\u00f3n?",
+                    value: clinicalHypothesis,
+                    onChange: setClinicalHypothesis,
+                  },
+                ] as const).map((q) => (
+                  <div
+                    key={q.num}
+                    className={`bg-white rounded-xl border border-gray-200 ${q.color} border-l-4 p-5`}
+                  >
+                    <div className="flex items-start gap-3 mb-3">
+                      <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-black text-gray-400">
+                        {q.num}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-semibold text-gray-900">{q.label}</h3>
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
+                            {q.dimension}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <textarea
+                      value={q.value}
+                      onChange={(e) => q.onChange(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-sidebar/30 focus:border-sidebar/50 placeholder:text-gray-400/70"
+                      rows={3}
+                      placeholder={q.placeholder}
+                      disabled={audioProcessing !== "idle"}
+                    />
+                  </div>
+                ))}
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-1">
                   <button
                     onClick={handleSubmit}
                     disabled={audioProcessing !== "idle" || isRecording}
-                    className="flex-1 bg-sidebar hover:bg-[#354080] text-white py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="flex-1 bg-sidebar hover:bg-[#354080] text-white py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     <Send size={16} />
-                    Enviar reflexión y evaluar
+                    Enviar reflexi&oacute;n y evaluar
                   </button>
                   <button
                     onClick={() => {
-                      setDiscomfortMoment("");
-                      setWouldRedo("");
-                      setClinicalNote("");
+                      setAllianceFraming("");
+                      setRuptureMoment("");
+                      setNonverbalCues("");
+                      setInterventionTypes("");
+                      setClinicalHypothesis("");
                       handleSubmit();
                     }}
                     disabled={audioProcessing !== "idle" || isRecording}
-                    className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    className="px-5 py-3 border border-gray-300 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-50"
                   >
                     Omitir
                   </button>
