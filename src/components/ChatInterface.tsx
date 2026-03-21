@@ -35,6 +35,7 @@ type Phase = "idle" | "thinking" | "writing";
 const CHAR_DELAY_MS = 35;
 
 export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "" }: ChatInterfaceProps) {
+  console.log("[ChatInterface] Mount:", { patient: patient.name, patientId: patient.id, conversationId: initialConvId, initialMessagesCount: initialMessages.length, voiceId: patient.voice_id });
   const userInitials = userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
@@ -311,13 +312,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     };
   }, [conversationId]);
 
-  // Typing detection — resets silence timers when user is actively typing
+  // Typing detection — no longer resets silence timers (timers run from last sent message)
   const handleTypingActivity = useCallback(() => {
-    if (isStreamingRef.current || !conversationId) return;
-    // User is typing: reset all silence timers (they restart after next assistant response)
-    clearSilenceTimers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId]);
+    // Intentionally empty — silence timers should NOT reset on typing,
+    // only when the user actually sends a message.
+  }, []);
 
   // Patient media
   const avatarSlug = patient.name
@@ -383,7 +382,6 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // Stage 4 (300s): cierre de sesión
   const SILENCE_TIMERS_TEXT = [60_000, 90_000, 180_000, 300_000];
   const SILENCE_TIMERS_VOICE = [30_000, 60_000, 90_000, 120_000];
-  const lastUserMsgCount = useRef(0);
   const silenceStageRef = useRef(0);
   const silenceTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -439,25 +437,25 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     });
   };
 
-  // Start silence timers ONLY after a normal assistant response (not silence messages)
-  // Track user message count to know when a new "real" exchange happened
+  // Start silence timers when user SENDS a message.
+  // Timers count from the moment the user sends, not from the assistant response.
+  // This ensures the patient reacts to inactivity regardless of screen visibility.
+  const lastTimerUserCount = useRef(0);
+
   useEffect(() => {
-    if (!conversationId || isStreaming) return;
-    const lastMsg = messages[messages.length - 1];
-    if (!lastMsg || lastMsg.role !== "assistant" || !lastMsg.content) return;
+    if (!conversationId) return;
 
     const userMsgCount = messages.filter((m) => m.role === "user").length;
 
-    // Only restart timers when there's a NEW user message (real exchange)
-    // If userMsgCount hasn't changed, this is a silence/interrupt message — don't restart
-    if (userMsgCount <= lastUserMsgCount.current) return;
+    // Only restart timers when there's a NEW user message
+    if (userMsgCount <= lastTimerUserCount.current) return;
 
-    lastUserMsgCount.current = userMsgCount;
+    lastTimerUserCount.current = userMsgCount;
     startSilenceTimers();
 
     return () => clearSilenceTimers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, conversationId, isStreaming, patient.id]);
+  }, [messages.length, conversationId, patient.id]);
 
   // Ctrl+Alt to toggle mic; double Ctrl+Alt to lock recording on
   const micLastPressRef = useRef<number>(0);
@@ -783,6 +781,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     drainTimerRef.current = setTimeout(drainBuffer, CHAR_DELAY_MS);
 
     try {
+      console.log("[Chat] Sending message:", { patientId: patient.id, conversationId, messageLength: trimmed.length });
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -793,7 +792,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         }),
       });
 
+      console.log("[Chat] Response status:", response.status, response.statusText);
       if (!response.ok || !response.body) {
+        const errorText = await response.text().catch(() => "no body");
+        console.error("[Chat] Response error:", response.status, errorText);
         throw new Error("Error en la respuesta");
       }
 
@@ -814,6 +816,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           const data = JSON.parse(line.slice(6));
 
           if (data.type === "conversation_id") {
+            console.log("[Chat] Got conversation_id:", data.value);
             setConversationId(data.value);
           } else if (data.type === "token") {
             // First token received → switch from "thinking" to "writing"
@@ -831,6 +834,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               flushSentenceBuffer();
             }
           } else if (data.type === "error") {
+            console.error("[Chat] Stream error from API:", data.value);
             tokenBufferRef.current = "";
             setMessages((prev) => {
               const updated = [...prev];
@@ -844,7 +848,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           }
         }
       }
-    } catch {
+    } catch (err) {
+      console.error("[Chat] Fetch/stream error:", err);
       tokenBufferRef.current = "";
       setMessages((prev) => {
         const updated = [...prev];
@@ -925,7 +930,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
   const lastMsg = messages[messages.length - 1];
   const showThinkingBubble = phase === "thinking" && lastMsg?.role === "assistant" && !lastMsg.content;
-  const showWritingSubtext = phase === "writing" && lastMsg?.role === "assistant" && !!lastMsg.content;
+  // "Escribiendo" subtext removed — not needed
 
   // Format timer display
   const formatTimer = (seconds: number) => {
@@ -1199,11 +1204,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 )}
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-gray-500">Shift</span>
+                    <Mic size={16} className="text-gray-500" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">Dictado por voz</p>
-                    <p className="text-xs text-gray-500">{"Mant\u00e9n presionada la tecla Shift para dictar tu mensaje por voz."}</p>
+                    <p className="text-xs text-gray-500">{"Presiona ALT + CTRL para comenzar a grabar audio. Doble pulsaci\u00f3n para anclar la grabaci\u00f3n."}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1398,19 +1403,6 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           </div>
         )}
 
-        {/* Writing subtext — below message while buffer is draining */}
-        {showWritingSubtext && (
-          <div className="flex justify-start pl-[44px]">
-            <span className="text-xs text-gray-400 flex items-center gap-1.5">
-              Escribiendo
-              <span className="inline-flex gap-0.5">
-                <span className="typing-dot" style={{ width: 4, height: 4 }} />
-                <span className="typing-dot" style={{ width: 4, height: 4 }} />
-                <span className="typing-dot" style={{ width: 4, height: 4 }} />
-              </span>
-            </span>
-          </div>
-        )}
 
         <div ref={messagesEndRef} />
       </div>
@@ -1451,24 +1443,25 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               className="w-full resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar disabled:bg-gray-100 disabled:text-gray-400 overflow-hidden"
               disabled={!sessionStarted}
             />
-            {input.trim().length > 10 && !correcting && !isStreaming && sessionStarted && (
-              <button
-                onClick={correctText}
-                className="absolute right-2 bottom-1.5 text-[9px] text-gray-300 hover:text-sidebar font-medium transition-colors"
-                title={"Corregir ortograf\u00eda"}
-              >
-                Abc
-              </button>
-            )}
-            {correcting && (
-              <span className="absolute right-2 bottom-1.5 text-[9px] text-sidebar animate-pulse">
-                Corrigiendo...
-              </span>
-            )}
           </div>
 
+          {/* Autocorrect button (next to mic) */}
+          {input.trim().length > 10 && !correcting && !isStreaming && sessionStarted && (
+            <button
+              onClick={correctText}
+              className="p-3 min-w-[44px] min-h-[44px] rounded-xl border border-gray-300 text-gray-400 hover:text-sidebar hover:border-sidebar/30 transition-colors flex-shrink-0 text-xs font-semibold"
+              title={"Corregir ortograf\u00eda"}
+            >
+              Abc
+            </button>
+          )}
+          {correcting && (
+            <div className="p-3 min-w-[44px] min-h-[44px] rounded-xl border border-sidebar/30 flex items-center justify-center flex-shrink-0">
+              <span className="text-xs text-sidebar animate-pulse font-semibold">Abc</span>
+            </div>
+          )}
 
-          {/* Mic button (right side) */}
+          {/* Mic button */}
           <button
             onClick={toggleRecording}
             disabled={isStreaming}
@@ -1477,7 +1470,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 ? "bg-red-500 hover:bg-red-600 text-white"
                 : "border border-gray-300 text-gray-500 hover:text-sidebar hover:border-sidebar/30"
             } disabled:opacity-50`}
-            title={isRecording ? (micLocked ? "Anclado \u2014 Ctrl+Alt para detener" : "Ctrl+Alt para detener") : "Dictar por voz (Ctrl+Alt, doble para anclar)"}
+            title={isRecording ? (micLocked ? "Anclado \u2014 Ctrl+Alt para detener" : "Ctrl+Alt para detener") : "Presiona ALT + CTRL para comenzar a grabar audio"}
           >
             {isRecording ? <MicOff size={18} /> : <Mic size={18} />}
           </button>
