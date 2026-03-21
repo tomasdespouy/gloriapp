@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import Link from "next/link";
@@ -24,6 +25,39 @@ export default async function Dashboard() {
     }
   }
 
+  // Get student's visible patient IDs (by establishment country + explicit assignments)
+  const { data: studentProfile } = await supabase
+    .from("profiles")
+    .select("establishment_id")
+    .eq("id", userProfile.id)
+    .single();
+
+  const admin = createAdminClient();
+  let visiblePatientIds: string[] | null = null; // null = no filtering (superadmin/no establishment)
+  if (studentProfile?.establishment_id) {
+    const { data: est } = await admin
+      .from("establishments")
+      .select("country")
+      .eq("id", studentProfile.establishment_id)
+      .single();
+
+    const [{ data: byCountry }, { data: byAssignment }] = await Promise.all([
+      est?.country
+        ? admin.from("ai_patients").select("id").eq("is_active", true).contains("country", [est.country])
+        : Promise.resolve({ data: [] as { id: string }[] }),
+      admin
+        .from("establishment_patients")
+        .select("ai_patient_id")
+        .eq("establishment_id", studentProfile.establishment_id),
+    ]);
+
+    const ids = new Set([
+      ...(byCountry || []).map((p) => p.id),
+      ...(byAssignment || []).map((p) => p.ai_patient_id),
+    ]);
+    visiblePatientIds = Array.from(ids);
+  }
+
   // All queries in parallel
   const [
     { data: progress },
@@ -36,14 +70,14 @@ export default async function Dashboard() {
     supabase.from("student_progress").select("*").eq("student_id", userProfile.id).single(),
     supabase
       .from("conversations")
-      .select("id, ai_patient_id, session_number, status, created_at, active_seconds, ai_patients(name)")
+      .select("id, ai_patient_id, session_number, status, created_at, active_seconds")
       .eq("student_id", userProfile.id)
       .order("created_at", { ascending: false })
       .limit(8),
-    supabase.from("ai_patients").select("id, name, birthday, age").eq("is_active", true).not("birthday", "is", null),
+    admin.from("ai_patients").select("id, name, birthday, age").eq("is_active", true).not("birthday", "is", null),
     supabase.from("learning_progress").select("competency").eq("student_id", userProfile.id).neq("competency", "tutor"),
     supabase.from("student_achievements").select("id").eq("student_id", userProfile.id),
-    supabase.from("ai_patients").select("id, name, age, occupation, difficulty_level").eq("is_active", true).limit(4),
+    admin.from("ai_patients").select("id, name, age, occupation, difficulty_level").eq("is_active", true).limit(4),
   ]);
 
   // Birthday
@@ -65,20 +99,31 @@ export default async function Dashboard() {
   const avatarUrl = userProfile.avatarUrl;
   const initials = userProfile.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
+  // Fetch patient names for recent sessions (admin bypasses RLS)
+  const sessionPatientIds = [...new Set((recentSessions || []).map((s) => s.ai_patient_id))];
+  const { data: sessionPatients } = sessionPatientIds.length > 0
+    ? await admin.from("ai_patients").select("id, name").in("id", sessionPatientIds)
+    : { data: [] as { id: string; name: string }[] };
+  const patientNameMap = new Map((sessionPatients || []).map((p) => [p.id, p.name]));
+
   // Sessions
   const sessions = (recentSessions || []).map((s) => {
-    const p = s.ai_patients as unknown as { name: string };
     return {
-      id: s.id, patientId: s.ai_patient_id, patientName: p?.name || "",
+      id: s.id, patientId: s.ai_patient_id, patientName: patientNameMap.get(s.ai_patient_id) || "",
       sessionNumber: s.session_number, status: s.status,
       createdAt: s.created_at, activeSeconds: s.active_seconds || 0,
     };
   });
-  const activeSessions = sessions.filter((s) => s.status === "active" || s.status === "abandoned");
+  const activeSessions = sessions.filter((s) =>
+    (s.status === "active" || s.status === "abandoned") &&
+    (!visiblePatientIds || visiblePatientIds.includes(s.patientId))
+  );
 
-  const patientSuggestions = (suggestedPatients || []).map((p) => ({
-    id: p.id, name: p.name, age: p.age, occupation: p.occupation, difficulty: p.difficulty_level,
-  }));
+  const patientSuggestions = (suggestedPatients || [])
+    .filter((p) => !visiblePatientIds || visiblePatientIds.includes(p.id))
+    .map((p) => ({
+      id: p.id, name: p.name, age: p.age, occupation: p.occupation, difficulty: p.difficulty_level,
+    }));
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const slug = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
@@ -184,48 +229,52 @@ export default async function Dashboard() {
           </div>
         </div>
 
-        {/* ═══ ACTIVE SESSION — BIG PROMINENT CARD ═══ */}
+        {/* ═══ ACTIVE SESSIONS — HORIZONTAL CARDS / CAROUSEL ═══ */}
         {activeSessions.length > 0 && (
           <div className="animate-slide-up">
-            {activeSessions.map((s) => {
-              const patientSlug = slug(s.patientName);
-              const mins = Math.round(s.activeSeconds / 60);
-              return (
-                <Link
-                  key={s.id}
-                  href={`/chat/${s.patientId}?conversationId=${s.id}`}
-                  className="block bg-gradient-to-r from-sidebar to-[#2D3561] rounded-2xl overflow-hidden hover:shadow-xl transition-all group"
-                >
-                  <div className="flex items-center gap-5 p-5 sm:p-6">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0 border-2 border-white/20">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`${supabaseUrl}/storage/v1/object/public/patients/${patientSlug}.png`}
-                        alt={s.patientName}
-                        className="w-full h-full object-cover"
-                      />
+            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 scrollbar-hide">
+              {activeSessions.map((s) => {
+                const patientSlug = slug(s.patientName);
+                const mins = Math.round(s.activeSeconds / 60);
+                return (
+                  <Link
+                    key={s.id}
+                    href={`/chat/${s.patientId}?conversationId=${s.id}`}
+                    className={`snap-start flex-shrink-0 bg-gradient-to-br from-sidebar to-[#2D3561] rounded-2xl overflow-hidden hover:shadow-xl transition-all group ${
+                      activeSessions.length === 1 ? "w-full" : "w-[85%] sm:w-[calc(50%-0.5rem)]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-4 p-5">
+                      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden flex-shrink-0 border-2 border-white/20">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`${supabaseUrl}/storage/v1/object/public/patients/${patientSlug}.png`}
+                          alt={s.patientName}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] text-white/50 uppercase tracking-wider font-medium mb-1">
+                          {"Contin\u00faa donde lo dejaste"}
+                        </p>
+                        <p className="text-base sm:text-lg font-bold text-white truncate">
+                          Sesi&oacute;n #{s.sessionNumber} con {s.patientName}
+                        </p>
+                        <p className="text-xs text-white/60 mt-0.5">
+                          {mins > 0 ? `${mins} min` : "Reci\u00e9n iniciada"}
+                          {s.status === "abandoned" ? " \u00b7 Abandonada" : " \u00b7 En curso"}
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <span className="inline-flex items-center gap-1.5 bg-white/20 text-white font-semibold text-sm px-4 py-2 rounded-xl transition-colors group-hover:bg-white group-hover:text-sidebar">
+                          Retomar &rarr;
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-white/50 uppercase tracking-wider font-medium mb-1">
-                        {"Contin\u00faa donde lo dejaste"}
-                      </p>
-                      <p className="text-lg sm:text-xl font-bold text-white truncate">
-                        Sesi&oacute;n #{s.sessionNumber} con {s.patientName}
-                      </p>
-                      <p className="text-sm text-white/60 mt-0.5">
-                        {mins > 0 ? `${mins} min` : "Reci\u00e9n iniciada"}
-                        {s.status === "abandoned" ? " \u00b7 Abandonada" : " \u00b7 En curso"}
-                      </p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <span className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-colors group-hover:bg-white group-hover:text-sidebar">
-                        Retomar &rarr;
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         )}
 
