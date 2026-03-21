@@ -44,7 +44,8 @@ export async function updateSession(request: NextRequest) {
     !pathname.startsWith("/privacidad") &&
     !pathname.startsWith("/terminos") &&
     !pathname.startsWith("/sobre") &&
-    !pathname.startsWith("/api/health")
+    !pathname.startsWith("/api/health") &&
+    !pathname.startsWith("/ANGLO")
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
