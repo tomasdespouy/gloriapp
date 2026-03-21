@@ -438,24 +438,17 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   };
 
   // Start silence timers when user SENDS a message.
-  // Timers count from the moment the user sends, not from the assistant response.
-  // This ensures the patient reacts to inactivity regardless of screen visibility.
-  const lastTimerUserCount = useRef(0);
+  // Uses a dedicated counter so silence messages don't re-trigger/cancel timers.
+  const [silenceTrigger, setSilenceTrigger] = useState(0);
 
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || silenceTrigger === 0) return;
 
-    const userMsgCount = messages.filter((m) => m.role === "user").length;
-
-    // Only restart timers when there's a NEW user message
-    if (userMsgCount <= lastTimerUserCount.current) return;
-
-    lastTimerUserCount.current = userMsgCount;
     startSilenceTimers();
 
     return () => clearSilenceTimers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, conversationId, patient.id]);
+  }, [silenceTrigger, conversationId]);
 
   // Ctrl+Alt to toggle mic; double Ctrl+Alt to lock recording on
   const micLastPressRef = useRef<number>(0);
@@ -762,8 +755,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     setIsStreaming(true);
     setPhase("thinking");
     streamDoneRef.current = false;
-    // Reset interrupt flags on new message
-    clearSilenceTimers();
+    // Reset interrupt flags on new message — trigger new silence countdown
+    setSilenceTrigger((c) => c + 1);
     tokenBufferRef.current = "";
     lastAssistantMsgRef.current = "";
 
