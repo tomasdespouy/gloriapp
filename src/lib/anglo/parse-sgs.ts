@@ -1,14 +1,14 @@
-import * as XLSX from "xlsx";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 // ═══ Types ═══
 export interface SGSWeekReport {
   fileName: string;
   batch: string;
-  weekLabel: string;       // "SEM_08_2026"
+  weekLabel: string;
   weekNumber: number;
   year: number;
-  plant: string;           // "PL1" | "PL2"
-  sampleNames: string[];   // short: ["ALI","CO FI","RE RO","RE SCV","RE FI Mo"]
+  plant: string;
+  sampleNames: string[];
   sampleCount: number;
   modal: SheetData;
   modalDist: SheetData;
@@ -25,14 +25,13 @@ export type SheetData = Record<string, number[]>;
 
 type Row = (string | number | null | undefined)[];
 
-// ═══ Helpers ═══
-function getRows(wb: XLSX.WorkBook, name: string): Row[] {
-  // Fuzzy match sheet name
-  const exact = wb.SheetNames.find((n) => n === name);
-  const fuzzy = wb.SheetNames.find((n) => n.replace(/\s+/g, " ").trim() === name);
+// ═══ Helpers (no XLSX import at module level) ═══
+function getRows(XLSX: any, wb: any, name: string): Row[] {
+  const exact = wb.SheetNames.find((n: string) => n === name);
+  const fuzzy = wb.SheetNames.find((n: string) => n.replace(/\s+/g, " ").trim() === name);
   const sheetName = exact || fuzzy;
   if (!sheetName) return [];
-  return XLSX.utils.sheet_to_json<Row>(wb.Sheets[sheetName], { header: 1, defval: null });
+  return XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: null });
 }
 
 function isNum(v: unknown): v is number {
@@ -56,16 +55,14 @@ function parseNumericRow(row: Row): { label: string; values: number[] } | null {
   return { label, values };
 }
 
-// ═══ Portada parser ═══
-function parsePortada(wb: XLSX.WorkBook): { batch: string; weekLabel: string; weekNumber: number; year: number } {
-  const rows = getRows(wb, "Portada");
-  let batch = "", weekLabel = "", weekNumber = 0, year = 2026;
+function parsePortada(XLSX: any, wb: any): { batch: string; weekLabel: string; weekNumber: number; year: number } {
+  const rows = getRows(XLSX, wb, "Portada");
+  let batch = "", weekNumber = 0, year = 2026;
 
   for (const row of rows) {
     for (const cell of row) {
       if (cell == null) continue;
       const s = String(cell);
-      // Week: "Los Bronces - Semana 08_2026" or contains SEM_
       const weekMatch = s.match(/Semana\s*(\d+)/i) || s.match(/SEM[_\s]*(\d+)/i);
       if (weekMatch) weekNumber = parseInt(weekMatch[1]);
       const yearMatch = s.match(/(\d{4})/);
@@ -73,8 +70,7 @@ function parsePortada(wb: XLSX.WorkBook): { batch: string; weekLabel: string; we
     }
   }
 
-  // Batch from "2. Id Muestras"
-  const idRows = getRows(wb, "2. Id Muestras");
+  const idRows = getRows(XLSX, wb, "2. Id Muestras");
   for (const row of idRows) {
     for (const cell of row) {
       if (cell == null) continue;
@@ -84,15 +80,12 @@ function parsePortada(wb: XLSX.WorkBook): { batch: string; weekLabel: string; we
     if (batch) break;
   }
 
-  weekLabel = `SEM_${String(weekNumber).padStart(2, "0")}_${year}`;
-  return { batch, weekLabel, weekNumber, year };
+  return { batch, weekLabel: `SEM_${String(weekNumber).padStart(2, "0")}_${year}`, weekNumber, year };
 }
 
-// ═══ Sample names ═══
-function parseSamples(wb: XLSX.WorkBook): { names: string[]; plant: string } {
+function parseSamples(XLSX: any, wb: any): { names: string[]; plant: string } {
   const SHORT_NAMES = ["ALI", "CO FI", "RE RO", "RE SCV", "RE FI Mo"];
-  // Try from modal header row
-  const rows = getRows(wb, "3.2 Modal");
+  const rows = getRows(XLSX, wb, "3.2 Modal");
   let plant = "PL2";
   const found: string[] = [];
 
@@ -105,7 +98,6 @@ function parseSamples(wb: XLSX.WorkBook): { names: string[]; plant: string } {
         const s = String(cell);
         const plantMatch = s.match(/PL(\d)/);
         if (plantMatch) plant = `PL${plantMatch[1]}`;
-        // Determine short name
         for (const sn of SHORT_NAMES) {
           if (s.startsWith(sn + " ") || s.startsWith(sn.replace(" ", "") + " ")) {
             if (!found.includes(sn)) found.push(sn);
@@ -115,57 +107,40 @@ function parseSamples(wb: XLSX.WorkBook): { names: string[]; plant: string } {
       break;
     }
   }
-
   return { names: found.length > 0 ? found : SHORT_NAMES.slice(0, 5), plant };
 }
 
-// ═══ Generic table parser ═══
-function parseTable(wb: XLSX.WorkBook, sheet: string, startRow: number, endRow: number): SheetData {
-  const rows = getRows(wb, sheet);
+function parseTable(XLSX: any, wb: any, sheet: string, startRow: number, endRow: number): SheetData {
+  const rows = getRows(XLSX, wb, sheet);
   const data: SheetData = {};
   for (let i = startRow; i < Math.min(endRow, rows.length); i++) {
     const parsed = parseNumericRow(rows[i]);
-    if (parsed && parsed.values.length >= 1) {
-      data[parsed.label] = parsed.values;
-    }
+    if (parsed && parsed.values.length >= 1) data[parsed.label] = parsed.values;
   }
   return data;
 }
 
-// ═══ Two-section parser (abs + pct) ═══
-function parseTwoSections(wb: XLSX.WorkBook, sheet: string): { abs: SheetData; pct: SheetData } {
-  const rows = getRows(wb, sheet);
-  const abs: SheetData = {};
-  const pct: SheetData = {};
+function parseTwoSections(XLSX: any, wb: any, sheet: string): { abs: SheetData; pct: SheetData } {
+  const rows = getRows(XLSX, wb, sheet);
+  const abs: SheetData = {}, pct: SheetData = {};
   let section: "abs" | "pct" = "abs";
   let foundTotal = false;
 
   for (let i = 14; i < Math.min(50, rows.length); i++) {
     const parsed = parseNumericRow(rows[i]);
     if (!parsed) continue;
-
-    if (parsed.label === "Total" && !foundTotal) {
-      abs[parsed.label] = parsed.values;
-      foundTotal = true;
-      continue;
-    }
-    if (foundTotal && (parsed.label === "Full List" || parsed.label === "Sample")) {
-      section = "pct";
-      continue;
-    }
-
+    if (parsed.label === "Total" && !foundTotal) { abs[parsed.label] = parsed.values; foundTotal = true; continue; }
+    if (foundTotal && (parsed.label === "Full List" || parsed.label === "Sample")) { section = "pct"; continue; }
     if (section === "abs") abs[parsed.label] = parsed.values;
     else pct[parsed.label] = parsed.values;
   }
   return { abs, pct };
 }
 
-// ═══ Liberation percentage parser ═══
-function parseLiberationPct(wb: XLSX.WorkBook, sheet: string): SheetData {
-  const rows = getRows(wb, sheet);
+function parseLiberationPct(XLSX: any, wb: any, sheet: string): SheetData {
+  const rows = getRows(XLSX, wb, sheet);
   const data: SheetData = {};
   let foundTotal = false;
-
   for (let i = 14; i < Math.min(35, rows.length); i++) {
     const parsed = parseNumericRow(rows[i]);
     if (!parsed) continue;
@@ -177,19 +152,15 @@ function parseLiberationPct(wb: XLSX.WorkBook, sheet: string): SheetData {
   return data;
 }
 
-// ═══ Mo grain size (cumulative) ═══
-function parseGrainSizeMo(wb: XLSX.WorkBook): SheetData {
-  const rows = getRows(wb, "3.17 Mineral Grain Size");
+function parseGrainSizeMo(XLSX: any, wb: any): SheetData {
+  const rows = getRows(XLSX, wb, "3.17 Mineral Grain Size");
   const data: SheetData = {};
-
   for (let i = 84; i < Math.min(94, rows.length); i++) {
     const row = rows[i];
     if (!row) continue;
     const nonNull = row.filter((v) => v != null && v !== "");
     if (nonNull.length < 12) continue;
-
     const sizeLabel = String(nonNull[0]);
-    // Cumulative values are at positions 7-11 (after the size label repeated)
     const cumVals: number[] = [];
     for (let j = 7; j < Math.min(12, nonNull.length); j++) {
       const v = nonNull[j];
@@ -200,34 +171,27 @@ function parseGrainSizeMo(wb: XLSX.WorkBook): SheetData {
   return data;
 }
 
-// ═══ Main parser ═══
-export function parseSGSFile(buffer: ArrayBuffer, fileName: string): SGSWeekReport {
+// ═══ Main parser — dynamic import of xlsx ═══
+export async function parseSGSFile(buffer: ArrayBuffer, fileName: string): Promise<SGSWeekReport> {
+  const XLSX = await import("xlsx");
   const wb = XLSX.read(buffer, { type: "array" });
 
-  const { batch, weekLabel, weekNumber, year } = parsePortada(wb);
-  const { names, plant } = parseSamples(wb);
-
-  const cuDep = parseTwoSections(wb, "3.4 Cu Deportment");
-  const sDep = parseTwoSections(wb, "3.5 S Deportment");
+  const { batch, weekLabel, weekNumber, year } = parsePortada(XLSX, wb);
+  const { names, plant } = parseSamples(XLSX, wb);
+  const cuDep = parseTwoSections(XLSX, wb, "3.4 Cu Deportment");
+  const sDep = parseTwoSections(XLSX, wb, "3.5 S Deportment");
 
   return {
-    fileName,
-    batch,
-    weekLabel,
-    weekNumber,
-    year,
-    plant,
-    sampleNames: names,
-    sampleCount: names.length,
-    modal: parseTable(wb, "3.2 Modal", 14, 49),
-    modalDist: parseTable(wb, "3.3 Modal Dist", 15, 36),
-    cuDeportAbs: cuDep.abs,
-    cuDeportPct: cuDep.pct,
+    fileName, batch, weekLabel, weekNumber, year, plant,
+    sampleNames: names, sampleCount: names.length,
+    modal: parseTable(XLSX, wb, "3.2 Modal", 14, 49),
+    modalDist: parseTable(XLSX, wb, "3.3 Modal Dist", 15, 36),
+    cuDeportAbs: cuDep.abs, cuDeportPct: cuDep.pct,
     sDeportAbs: sDep.abs,
-    ccpLibPct: parseLiberationPct(wb, "3.7 Ccp liberation"),
-    moLibPct: parseLiberationPct(wb, "3.15 Mo Liberation"),
-    cuSulphLibPct: parseLiberationPct(wb, "3.20 CuSulph liberation"),
-    grainSizeMoCum: parseGrainSizeMo(wb),
+    ccpLibPct: parseLiberationPct(XLSX, wb, "3.7 Ccp liberation"),
+    moLibPct: parseLiberationPct(XLSX, wb, "3.15 Mo Liberation"),
+    cuSulphLibPct: parseLiberationPct(XLSX, wb, "3.20 CuSulph liberation"),
+    grainSizeMoCum: parseGrainSizeMo(XLSX, wb),
   };
 }
 

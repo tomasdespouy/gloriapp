@@ -107,7 +107,7 @@ export default function AngloPage() {
       if (!file.name.endsWith(".xlsx")) { newErrors.push(`${file.name}: no es .xlsx`); continue; }
       try {
         const buffer = await file.arrayBuffer();
-        const report = parseSGSFile(buffer, file.name);
+        const report = await parseSGSFile(buffer, file.name);
         const exists = reports.some((r) => r.weekLabel === report.weekLabel && r.plant === report.plant);
         if (exists) newErrors.push(`${file.name}: ya cargado (${report.weekLabel} ${report.plant})`);
         else newReports.push(report);
