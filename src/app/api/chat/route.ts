@@ -139,7 +139,14 @@ TU ROL COMO PACIENTE:
     memoryPromise,
   ]);
 
-  const chronological = (history || []).reverse();
+  let chronological = (history || []).reverse();
+
+  // Guard: ensure the user message is always present (race condition: insert may not
+  // be visible to the parallel SELECT on the first message of a conversation)
+  const hasUserMsg = chronological.some((m) => m.role === "user" && m.content === message);
+  if (!hasUserMsg) {
+    chronological = [...chronological, { role: "user", content: message }];
+  }
 
   // 7. MOTOR ADAPTATIVO: classify intervention + update state
   const admin = createAdminClient();

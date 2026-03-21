@@ -74,6 +74,11 @@ async function chatGemini(
       parts: [{ text: m.content }],
     }));
 
+  // Guard: Gemini requires at least one content item
+  if (contents.length === 0) {
+    contents.push({ role: "user" as const, parts: [{ text: "Hola" }] });
+  }
+
   const response = await getGemini().models.generateContent({
     model: geminiModel,
     contents,
@@ -119,6 +124,11 @@ function chatStreamGemini(
             role: m.role === "assistant" ? ("model" as const) : ("user" as const),
             parts: [{ text: m.content }],
           }));
+
+        // Guard: Gemini requires at least one content item
+        if (contents.length === 0) {
+          contents.push({ role: "user" as const, parts: [{ text: "Hola" }] });
+        }
 
         const stream = await getGemini().models.generateContentStream({
           model: geminiModel,
