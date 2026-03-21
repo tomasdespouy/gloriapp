@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
 import { ChatInterface } from "@/components/ChatInterface";
 import { getUserProfile } from "@/lib/supabase/user-profile";
@@ -15,11 +16,14 @@ export default async function ChatPage({
 
   const supabase = await createClient();
 
-  const { data: patient } = await supabase
+  // Use admin client to bypass RLS (students may not have direct ai_patients read access)
+  const { data: patient, error: patientError } = await createAdminClient()
     .from("ai_patients")
     .select("id, name, age, occupation, presenting_problem, difficulty_level, voice_id")
     .eq("id", patientId)
     .single();
+
+  console.log("[ChatPage] patientId:", patientId, "patient:", patient?.name, "error:", patientError?.message);
 
   if (!patient) notFound();
 

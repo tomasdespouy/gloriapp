@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useTransition, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users, Plus, Search, ChevronUp, ChevronDown,
@@ -37,30 +37,55 @@ type Props = {
   totalCount: number;
   currentPage: number;
   perPage: number;
+  initialSearch: string;
+  initialRole: string;
+  initialEst: string;
 };
 
 type SortKey = "full_name" | "email" | "role" | "establishmentName" | "courseName" | "sectionName" | "sessionCount";
 type SortDir = "asc" | "desc";
 
-export default function UsuariosClient({ users, establishments, isSuperadmin, totalCount, currentPage, perPage }: Props) {
+export default function UsuariosClient({ users, establishments, isSuperadmin, totalCount, currentPage, perPage, initialSearch, initialRole, initialEst }: Props) {
   const router = useRouter();
   const searchParamsHook = useSearchParams();
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
-  const [estFilter, setEstFilter] = useState("");
+  const [search, setSearch] = useState(initialSearch);
+  const [roleFilter, setRoleFilter] = useState(initialRole);
+  const [estFilter, setEstFilter] = useState(initialEst);
+  const [isPending, startTransition] = useTransition();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
 
-  const goToPage = useCallback((page: number) => {
+  // Navigate with all current filters preserved
+  const navigate = useCallback((overrides: Record<string, string>) => {
     const params = new URLSearchParams(searchParamsHook.toString());
-    if (page <= 1) {
-      params.delete("page");
-    } else {
-      params.set("page", String(page));
+    for (const [key, value] of Object.entries(overrides)) {
+      if (!value) params.delete(key);
+      else params.set(key, value);
     }
+    // Reset to page 1 when filters change (unless explicitly setting page)
+    if (!("page" in overrides)) params.delete("page");
     const qs = params.toString();
-    router.push(`/admin/usuarios${qs ? `?${qs}` : ""}`);
+    startTransition(() => {
+      router.push(`/admin/usuarios${qs ? `?${qs}` : ""}`);
+    });
   }, [router, searchParamsHook]);
+
+  const goToPage = useCallback((page: number) => {
+    navigate({ page: page <= 1 ? "" : String(page) });
+  }, [navigate]);
+
+  // Debounced server-side search
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      navigate({ q: value });
+    }, 350);
+  }, [navigate]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("full_name");
@@ -81,19 +106,13 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
     else { setSortKey(key); setSortDir("asc"); }
   };
 
-  const filtered = users
-    .filter((u) => {
-      const matchSearch = !search || u.full_name?.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
-      const matchRole = !roleFilter || u.role === roleFilter;
-      const matchEst = !estFilter || u.establishment_id === estFilter;
-      return matchSearch && matchRole && matchEst;
-    })
-    .sort((a, b) => {
-      const av = (a[sortKey] ?? "") as string | number;
-      const bv = (b[sortKey] ?? "") as string | number;
-      const cmp = typeof av === "number" ? av - (bv as number) : String(av).localeCompare(String(bv));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
+  // Data already filtered server-side, only sort client-side
+  const filtered = [...users].sort((a, b) => {
+    const av = (a[sortKey] ?? "") as string | number;
+    const bv = (b[sortKey] ?? "") as string | number;
+    const cmp = typeof av === "number" ? av - (bv as number) : String(av).localeCompare(String(bv));
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
   // Bulk selection computed values
   const selectableIds = filtered.filter((u) => u.role !== "superadmin").map((u) => u.id);
@@ -276,11 +295,14 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
         <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-sm">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+            {isPending && (
+              <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-sidebar animate-spin" />
+            )}
+            <input type="text" value={search} onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Buscar por nombre o email..."
-              className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm shadow-sm" />
+              className="w-full pl-9 pr-9 py-2.5 bg-white border border-gray-200 rounded-lg text-sm shadow-sm" />
           </div>
-          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}
+          <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); navigate({ role: e.target.value }); }}
             className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm shadow-sm">
             <option value="">Todos los roles</option>
             <option value="student">Alumno</option>
@@ -288,7 +310,7 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
             <option value="admin">Admin</option>
             {isSuperadmin && <option value="superadmin">Superadmin</option>}
           </select>
-          <select value={estFilter} onChange={(e) => setEstFilter(e.target.value)}
+          <select value={estFilter} onChange={(e) => { setEstFilter(e.target.value); navigate({ est: e.target.value }); }}
             className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm shadow-sm">
             <option value="">Todas las instituciones</option>
             {establishments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -375,7 +397,7 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
         </div>
 
         {/* Desktop table */}
-        <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <div className={`hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm relative transition-opacity ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -510,24 +532,31 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
         {totalPages > 1 && (
           <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-4 py-3 shadow-sm">
             <p className="text-sm text-gray-500">
-              Mostrando {Math.min((currentPage - 1) * perPage + 1, totalCount)}–{Math.min(currentPage * perPage, totalCount)} de {totalCount} usuarios
+              {isPending ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 size={14} className="animate-spin text-sidebar" />
+                  Cargando...
+                </span>
+              ) : (
+                <>Mostrando {Math.min((currentPage - 1) * perPage + 1, totalCount)}&ndash;{Math.min(currentPage * perPage, totalCount)} de {totalCount} usuarios</>
+              )}
             </p>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => goToPage(currentPage - 1)}
-                disabled={currentPage <= 1}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                disabled={currentPage <= 1 || isPending}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-100 hover:border-gray-300 active:bg-gray-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 disabled:active:scale-100 transition-all"
               >
                 <ChevronLeft size={14} />
                 Anterior
               </button>
               <span className="text-sm text-gray-600 px-2">
-                Página {currentPage} de {totalPages}
+                P\u00e1gina {currentPage} de {totalPages}
               </span>
               <button
                 onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage >= totalPages}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                disabled={currentPage >= totalPages || isPending}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-100 hover:border-gray-300 active:bg-gray-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 disabled:active:scale-100 transition-all"
               >
                 Siguiente
                 <ChevronRight size={14} />

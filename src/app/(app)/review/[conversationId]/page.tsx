@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import ReviewClient from "./ReviewClient";
 
@@ -9,18 +10,26 @@ export default async function ReviewPage({
 }) {
   const { conversationId } = await params;
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Get conversation with patient info + active time + timestamps
+  // Get conversation (user client) + patient info (admin, bypasses RLS)
   const { data: conversation } = await supabase
     .from("conversations")
-    .select("id, session_number, ai_patient_id, active_seconds, started_at, ended_at, ai_patients(name, age, occupation, difficulty_level)")
+    .select("id, session_number, ai_patient_id, active_seconds, started_at, ended_at")
     .eq("id", conversationId)
     .single();
 
   if (!conversation) redirect("/dashboard");
+
+  // Fetch patient separately with admin client (RLS blocks student access to ai_patients)
+  const { data: patientData } = await admin
+    .from("ai_patients")
+    .select("name, age, occupation, difficulty_level")
+    .eq("id", conversation.ai_patient_id)
+    .single();
 
   // Get message count
   const { count } = await supabase
@@ -50,7 +59,7 @@ export default async function ReviewPage({
     .eq("conversation_id", conversationId)
     .single();
 
-  const patient = conversation.ai_patients as unknown as {
+  const patient = patientData as {
     name: string;
     age: number;
     occupation: string;

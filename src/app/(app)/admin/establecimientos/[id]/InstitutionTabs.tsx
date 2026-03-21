@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -319,8 +319,12 @@ function TabCourses({ estId, courses, courseSections }: { estId: string; courses
         const isOpen = expanded === course.id;
         return (
           <div key={course.id} className={`bg-white rounded-2xl border border-gray-200 overflow-hidden ${loading ? "opacity-50" : ""}`}>
-            <button onClick={() => setExpanded(isOpen ? null : course.id)}
-              className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors">
+            <div
+              onClick={() => setExpanded(isOpen ? null : course.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setExpanded(isOpen ? null : course.id); }}
+              className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors cursor-pointer">
               {isOpen ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
               <BookOpen size={16} className="text-sidebar" />
               <div className="flex-1">
@@ -329,7 +333,7 @@ function TabCourses({ estId, courses, courseSections }: { estId: string; courses
               </div>
               <button onClick={(e) => { e.stopPropagation(); deleteCourse(course.id); }}
                 className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={14} /></button>
-            </button>
+            </div>
 
             {isOpen && (
               <div className="border-t border-gray-100 px-5 py-3 space-y-2 bg-gray-50 animate-fade-in">
@@ -710,8 +714,22 @@ function TabPatients({
   const [loading, setLoading] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showAvailable, setShowAvailable] = useState(false);
-  const [filterOrigin, setFilterOrigin] = useState("");
+  const [filterOrigins, setFilterOrigins] = useState<string[]>([]);
   const [filterLevel, setFilterLevel] = useState("");
+  const [showOriginDropdown, setShowOriginDropdown] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const originDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showOriginDropdown) return;
+    const handleClick = (e: MouseEvent) => {
+      if (originDropdownRef.current && !originDropdownRef.current.contains(e.target as Node)) {
+        setShowOriginDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showOriginDropdown]);
 
   // Derive unique values for filters
   const origins = Array.from(new Set(allPatients.map((p) => p.country_origin).filter(Boolean))) as string[];
@@ -741,8 +759,33 @@ function TabPatients({
   const available = allPatients
     .filter((p) => !visibleIds.has(p.id) && p.is_active)
     .filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()))
-    .filter((p) => !filterOrigin || p.country_origin === filterOrigin)
+    .filter((p) => filterOrigins.length === 0 || filterOrigins.includes(p.country_origin || ""))
     .filter((p) => !filterLevel || p.difficulty_level === filterLevel);
+
+  const bulkAssign = async (patients: Patient[]) => {
+    if (patients.length === 0) return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch(`/api/admin/establishments/${estId}/patients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patient_ids: patients.map((p) => p.id), _action: "add" }),
+      });
+      if (!res.ok) throw new Error("Error del servidor");
+      toast.success(`${patients.length} pacientes asignados`);
+      router.refresh();
+    } catch {
+      toast.error("Error al asignar pacientes");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const toggleOrigin = (origin: string) => {
+    setFilterOrigins((prev) =>
+      prev.includes(origin) ? prev.filter((o) => o !== origin) : [...prev, origin]
+    );
+  };
 
   const assign = async (patientId: string) => {
     setLoading(patientId);
@@ -883,14 +926,43 @@ function TabPatients({
               placeholder="Buscar por nombre..."
               className="flex-1 min-w-[150px] border border-gray-200 rounded-lg px-3 py-2 text-sm"
             />
-            <select
-              value={filterOrigin}
-              onChange={(e) => setFilterOrigin(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600"
-            >
-              <option value="">Pa&iacute;s de origen</option>
-              {origins.sort().map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
+            {/* Multi-select country filter */}
+            <div className="relative" ref={originDropdownRef}>
+              <button
+                onClick={() => setShowOriginDropdown(!showOriginDropdown)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 flex items-center gap-1.5 min-w-[140px]"
+              >
+                {filterOrigins.length === 0
+                  ? "Pa\u00eds de origen"
+                  : filterOrigins.length === 1
+                    ? filterOrigins[0]
+                    : `${filterOrigins.length} pa\u00edses`}
+                <svg className="w-3 h-3 ml-auto" viewBox="0 0 12 12" fill="none"><path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+              {showOriginDropdown && (
+                <div className="absolute z-20 top-full mt-1 left-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px] max-h-[240px] overflow-y-auto">
+                  {filterOrigins.length > 0 && (
+                    <button
+                      onClick={() => setFilterOrigins([])}
+                      className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-gray-50"
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                  {origins.sort().map((o) => (
+                    <label key={o} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filterOrigins.includes(o)}
+                        onChange={() => toggleOrigin(o)}
+                        className="rounded border-gray-300 text-sidebar accent-sidebar"
+                      />
+                      {o}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
             <select
               value={filterLevel}
               onChange={(e) => setFilterLevel(e.target.value)}
@@ -900,30 +972,35 @@ function TabPatients({
               {levels.map((l) => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
             </select>
           </div>
-          {available.length > 0 ? (
-            <>
-            {(filterOrigin || filterLevel) && available.length > 1 && (
+
+          {/* Bulk action buttons */}
+          <div className="flex flex-wrap gap-2 mb-3">
+            <button
+              onClick={() => bulkAssign(available)}
+              disabled={bulkLoading || available.length === 0}
+              className="flex items-center gap-1.5 text-xs font-medium text-white bg-sidebar hover:bg-sidebar/90 px-3 py-1.5 rounded-lg disabled:opacity-40 transition-colors"
+            >
+              {bulkLoading ? (
+                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              ) : (
+                <Check size={12} />
+              )}
+              {filterOrigins.length > 0 || filterLevel || search
+                ? `Asignar ${available.length} filtrados`
+                : `Todos los pacientes (${available.length})`}
+            </button>
+            {(filterOrigins.length > 0 || filterLevel || search) && (
               <button
-                onClick={async () => {
-                  try {
-                    for (const p of available) {
-                      await fetch(`/api/admin/establishments/${estId}/patients`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ patient_id: p.id, _action: "add" }),
-                      });
-                    }
-                    toast.success(`${available.length} pacientes asignados`);
-                    router.refresh();
-                  } catch {
-                    toast.error("Error al asignar pacientes");
-                  }
-                }}
-                className="w-full text-xs text-sidebar font-medium hover:underline mb-2 text-left"
+                onClick={() => { setFilterOrigins([]); setFilterLevel(""); setSearch(""); }}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
               >
-                Asignar los {available.length} pacientes filtrados
+                Limpiar filtros
               </button>
             )}
+          </div>
+
+          {available.length > 0 ? (
+            <>
             <div className="space-y-1 max-h-[300px] overflow-y-auto">
               {available.map((p) => (
                 <div
@@ -960,7 +1037,7 @@ function TabPatients({
           </>
           ) : (
             <p className="text-xs text-gray-400 text-center py-4">
-              {search || filterOrigin || filterLevel ? "Sin resultados para los filtros aplicados" : "Todos los pacientes activos ya est\u00e1n visibles para esta instituci\u00f3n"}
+              {search || filterOrigins.length > 0 || filterLevel ? "Sin resultados para los filtros aplicados" : "Todos los pacientes activos ya est\u00e1n visibles para esta instituci\u00f3n"}
             </p>
           )}
         </div>

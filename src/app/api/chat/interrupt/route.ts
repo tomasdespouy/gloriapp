@@ -23,8 +23,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Faltan parámetros" }, { status: 400 });
   }
 
-  // Get patient
-  const { data: patient } = await supabase
+  // Get patient (admin bypasses RLS)
+  const { data: patient } = await createAdminClient()
     .from("ai_patients")
     .select("name, system_prompt")
     .eq("id", patientId)

@@ -43,10 +43,11 @@ export async function POST(request: NextRequest) {
   let conversationId = body.conversationId;
 
   // 3. Fetch patient (cached 10 min — prompts rarely change)
+  // Use admin client to bypass RLS (students can't read ai_patients directly)
   const patient = await pCache.getOrSet(
     `patient:${patientId}`,
     async () => {
-      const { data } = await supabase
+      const { data } = await createAdminClient()
         .from("ai_patients")
         .select("id, name, system_prompt, country_origin, country_residence, neighborhood")
         .eq("id", patientId)

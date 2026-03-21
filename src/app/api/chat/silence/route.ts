@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { chat } from "@/lib/ai";
 import { NextResponse } from "next/server";
 
@@ -40,8 +41,8 @@ export async function POST(request: Request) {
 
   const { patientId, conversationId, stage = 1 } = await request.json();
 
-  // Get patient
-  const { data: patient } = await supabase
+  // Get patient (admin bypasses RLS)
+  const { data: patient } = await createAdminClient()
     .from("ai_patients")
     .select("name, system_prompt")
     .eq("id", patientId)

@@ -5,11 +5,14 @@ import UsuariosClient from "./UsuariosClient";
 export default async function UsuariosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; per_page?: string }>;
+  searchParams: Promise<{ page?: string; per_page?: string; q?: string; role?: string; est?: string }>;
 }) {
   const params = await searchParams;
   const currentPage = Math.max(1, parseInt(params.page || "1", 10));
   const perPage = Math.max(1, Math.min(200, parseInt(params.per_page || "50", 10)));
+  const searchQuery = (params.q || "").trim();
+  const roleFilter = params.role || "";
+  const estFilter = params.est || "";
 
   const ctx = await getAdminContext();
   const supabase = await createClient();
@@ -21,14 +24,17 @@ export default async function UsuariosPage({
       ? ctx.establishmentIds
       : ["00000000-0000-0000-0000-000000000000"];
 
-  // Get total count first
+  // Get total count with filters
   let countQuery = supabase
     .from("profiles")
     .select("id", { count: "exact", head: true });
   if (scopeFilter) countQuery = countQuery.in("establishment_id", scopeFilter);
+  if (roleFilter) countQuery = countQuery.eq("role", roleFilter);
+  if (estFilter) countQuery = countQuery.eq("establishment_id", estFilter);
+  if (searchQuery) countQuery = countQuery.or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
   const { count: totalCount } = await countQuery;
 
-  // Fetch paginated users scoped by establishment
+  // Fetch paginated users scoped by establishment + filters
   const from = (currentPage - 1) * perPage;
   const to = from + perPage - 1;
 
@@ -38,6 +44,9 @@ export default async function UsuariosPage({
     .order("full_name")
     .range(from, to);
   if (scopeFilter) usersQuery = usersQuery.in("establishment_id", scopeFilter);
+  if (roleFilter) usersQuery = usersQuery.eq("role", roleFilter);
+  if (estFilter) usersQuery = usersQuery.eq("establishment_id", estFilter);
+  if (searchQuery) usersQuery = usersQuery.or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
 
   const { data: users } = await usersQuery;
 
@@ -92,6 +101,9 @@ export default async function UsuariosPage({
       totalCount={totalCount || 0}
       currentPage={currentPage}
       perPage={perPage}
+      initialSearch={searchQuery}
+      initialRole={roleFilter}
+      initialEst={estFilter}
     />
   );
 }

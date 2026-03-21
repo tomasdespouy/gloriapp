@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import PacientesClient from "./PacientesClient";
 
@@ -15,26 +16,72 @@ export default async function PacientesPage() {
     .single();
 
   let studentCountry: string | null = null;
-  if (profile?.establishment_id) {
-    const { data: establishment } = await supabase
+  const establishmentId = profile?.establishment_id || null;
+
+  // Use admin client for all establishment-related queries (RLS blocks students)
+  const admin = createAdminClient();
+
+  if (establishmentId) {
+    const { data: establishment } = await admin
       .from("establishments")
       .select("country")
-      .eq("id", profile.establishment_id)
+      .eq("id", establishmentId)
       .single();
     studentCountry = establishment?.country || null;
   }
 
-  // Fetch active patients, filtered by country if student has one
-  let query = supabase
-    .from("ai_patients")
-    .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
-    .eq("is_active", true);
+  // Fetch patients visible to this student:
+  // 1. By establishment country (ai_patients.country contains the establishment country)
+  // 2. By explicit assignment (establishment_patients table)
+  // 3. If no establishment, show all active patients
+  type PatientRow = { id: string; name: string; age: number; occupation: string | null; quote: string; difficulty_level: string; tags: string[] | null; country: string[] | null; voice_id: string | null };
+  let patients: PatientRow[] = [];
 
-  if (studentCountry) {
-    query = query.contains("country", [studentCountry]);
+  if (establishmentId) {
+    // Query both sources in parallel (admin bypasses RLS)
+    const [byCountryResult, byAssignmentResult] = await Promise.all([
+      studentCountry
+        ? admin
+            .from("ai_patients")
+            .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
+            .eq("is_active", true)
+            .contains("country", [studentCountry])
+        : Promise.resolve({ data: [] as typeof patients }),
+      admin
+        .from("establishment_patients")
+        .select("ai_patient_id")
+        .eq("establishment_id", establishmentId),
+    ]);
+
+    const byCountry = byCountryResult.data || [];
+    const assignedIds = (byAssignmentResult.data || []).map((r) => r.ai_patient_id);
+
+    // If there are explicit assignments, fetch those patients too
+    if (assignedIds.length > 0) {
+      const { data: byAssignment } = await admin
+        .from("ai_patients")
+        .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
+        .eq("is_active", true)
+        .in("id", assignedIds);
+
+      // Merge and deduplicate
+      const seen = new Set<string>();
+      patients = [...byCountry, ...(byAssignment || [])].filter((p) => {
+        if (seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      });
+    } else {
+      patients = byCountry;
+    }
+  } else {
+    // No establishment — show all active patients
+    const { data } = await admin
+      .from("ai_patients")
+      .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
+      .eq("is_active", true);
+    patients = data || [];
   }
-
-  const { data: patients } = await query;
 
   // Fetch active or abandoned conversations for this student (both can be resumed)
   const { data: activeConversations } = await supabase
