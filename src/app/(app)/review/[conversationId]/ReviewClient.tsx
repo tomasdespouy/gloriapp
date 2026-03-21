@@ -72,6 +72,8 @@ export default function ReviewClient({
   const [nonverbalCues, setNonverbalCues] = useState("");
   const [interventionTypes, setInterventionTypes] = useState("");
   const [clinicalHypothesis, setClinicalHypothesis] = useState("");
+  const [sessionNotes, setSessionNotes] = useState("");
+  const [showEmptyConfirm, setShowEmptyConfirm] = useState(false);
   const [results, setResults] = useState<Record<string, unknown> | null>(
     existingEvaluation
       ? {
@@ -257,6 +259,15 @@ export default function ReviewClient({
     }
   };
 
+  const trySubmit = () => {
+    const allEmpty = !allianceFraming.trim() && !ruptureMoment.trim() && !nonverbalCues.trim() && !interventionTypes.trim() && !clinicalHypothesis.trim();
+    if (allEmpty) {
+      setShowEmptyConfirm(true);
+      return;
+    }
+    handleSubmit();
+  };
+
   const evaluation = (results?.evaluation || existingEvaluation) as Record<string, unknown> | null;
 
   const isV2 = evaluation ? Number(evaluation.eval_version) === 2 : false;
@@ -373,19 +384,19 @@ export default function ReviewClient({
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={() => router.push(`/chat/${patient.id || ""}`)}
-                className="bg-sidebar hover:bg-[#354080] text-white py-2.5 px-6 rounded-lg text-sm font-medium transition-colors inline-flex items-center justify-center gap-2"
+                className="bg-sidebar hover:bg-[#354080] text-white py-2.5 px-6 rounded-lg text-sm font-medium transition-colors inline-flex items-center justify-center gap-2 cursor-pointer"
               >
                 Volver a intentar
               </button>
               <button
                 onClick={() => router.push("/pacientes")}
-                className="border border-sidebar text-sidebar py-2.5 px-6 rounded-lg text-sm font-medium hover:bg-sidebar/5 transition-colors"
+                className="border border-sidebar text-sidebar py-2.5 px-6 rounded-lg text-sm font-medium hover:bg-sidebar/5 transition-colors cursor-pointer"
               >
                 Ir a otro paciente
               </button>
               <button
                 onClick={() => router.push("/dashboard")}
-                className="border border-gray-300 text-gray-500 py-2.5 px-6 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                className="border border-gray-300 text-gray-500 py-2.5 px-6 rounded-lg text-sm hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 Volver al inicio
               </button>
@@ -399,57 +410,49 @@ export default function ReviewClient({
             {/* Step: Reflection form */}
             {step === "reflect" && (
               <div className="space-y-4 animate-fade-in">
-                {/* Header */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                    Reflexi&oacute;n post-sesi&oacute;n
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    5 preguntas para pensar como terapeuta. Responde las que puedas.
-                  </p>
-                </div>
-
-                {/* Audio recorder — prominent */}
-                <div className="bg-gradient-to-r from-sidebar/5 to-sidebar/10 rounded-xl border border-sidebar/20 p-5">
-                  {audioProcessing !== "idle" ? (
-                    <div className="flex items-center justify-center gap-3 py-2">
-                      <Loader2 size={20} className="animate-spin text-sidebar" />
-                      <span className="text-sm font-medium text-sidebar">
-                        {audioProcessing === "transcribing"
-                          ? "Transcribiendo audio..."
-                          : "Organizando tu reflexi\u00f3n en cada pregunta..."}
-                      </span>
-                    </div>
-                  ) : isRecording ? (
-                    <div className="flex items-center justify-center gap-4 py-1">
-                      <div className="flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
-                        <span className="text-sm font-bold text-red-600">
-                          Grabando {formatDuration(recordingSeconds)}
-                        </span>
-                      </div>
-                      <button
-                        onClick={stopRecording}
-                        className="flex items-center gap-1.5 px-5 py-2.5 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
-                      >
-                        <Square size={14} />
-                        Detener y procesar
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="text-center">
-                      <button
-                        onClick={startRecording}
-                        className="inline-flex items-center gap-2.5 px-6 py-3 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors shadow-sm"
-                      >
-                        <Mic size={18} />
-                        Grabar reflexi&oacute;n en audio
-                      </button>
-                      <p className="text-xs text-sidebar/60 mt-2.5">
-                        Responde las preguntas de corrido hablando libremente. La IA organizar&aacute; tu audio en cada campo autom&aacute;ticamente.
+                {/* Header + Audio recorder */}
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900 mb-0.5">
+                        Reflexión post-sesión
+                      </h2>
+                      <p className="text-sm text-gray-500">
+                        5 preguntas para pensar como terapeuta. Responde las que puedas.
                       </p>
                     </div>
-                  )}
+                    {/* Audio recorder button - right side */}
+                    <div className="flex-shrink-0 ml-4">
+                      {audioProcessing !== "idle" ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 size={16} className="animate-spin text-sidebar" />
+                          <span className="text-xs font-medium text-sidebar">
+                            {audioProcessing === "transcribing" ? "Transcribiendo..." : "Organizando..."}
+                          </span>
+                        </div>
+                      ) : isRecording ? (
+                        <button
+                          onClick={stopRecording}
+                          className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition-colors cursor-pointer"
+                        >
+                          <Square size={14} />
+                          <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                          {formatDuration(recordingSeconds)}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={startRecording}
+                          className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors shadow-sm cursor-pointer"
+                        >
+                          <Mic size={16} />
+                          Grabar reflexión en audio
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-2">
+                    Revisar siempre las transcripciones, la IA puede generar imprecisiones.
+                  </p>
                 </div>
 
                 {/* Question cards — Option D design */}
@@ -530,29 +533,27 @@ export default function ReviewClient({
                 ))}
                 </div>
 
+                {/* Notes */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                  <h3 className="text-xs font-semibold text-gray-700 mb-2">Mis notas de sesión</h3>
+                  <textarea
+                    value={sessionNotes}
+                    onChange={(e) => setSessionNotes(e.target.value)}
+                    placeholder="Apuntes personales sobre la sesión..."
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-sidebar/30 placeholder:text-gray-400/70 cursor-text"
+                    rows={3}
+                  />
+                </div>
+
                 {/* Actions */}
                 <div className="flex gap-3 pt-1">
                   <button
-                    onClick={handleSubmit}
+                    onClick={trySubmit}
                     disabled={audioProcessing !== "idle" || isRecording}
-                    className="flex-1 bg-sidebar hover:bg-[#354080] text-white py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="flex-1 bg-sidebar hover:bg-[#354080] text-white py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer hover:shadow-md"
                   >
                     <Send size={16} />
                     Enviar reflexi&oacute;n y evaluar
-                  </button>
-                  <button
-                    onClick={() => {
-                      setAllianceFraming("");
-                      setRuptureMoment("");
-                      setNonverbalCues("");
-                      setInterventionTypes("");
-                      setClinicalHypothesis("");
-                      handleSubmit();
-                    }}
-                    disabled={audioProcessing !== "idle" || isRecording}
-                    className="px-5 py-3 border border-gray-300 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-50"
-                  >
-                    Omitir
                   </button>
                 </div>
               </div>
@@ -611,23 +612,18 @@ export default function ReviewClient({
                 <p className="text-sm text-gray-400 max-w-md mx-auto mb-6">
                   Recibirás una notificación en la plataforma y en tu correo cuando la retroalimentación esté disponible.
                 </p>
-                {results && Number(results.xp_earned) > 0 && (
-                  <div className="inline-flex items-center gap-2 bg-sidebar/10 text-sidebar px-4 py-2 rounded-full text-sm font-semibold mb-6 animate-pop">
-                    +<CountUp end={Number(results.xp_earned)} className="font-bold" /> XP ganados
-                  </div>
-                )}
                 <div className="flex justify-center gap-3">
                   <button
                     onClick={() => router.push("/dashboard")}
-                    className="bg-sidebar text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors"
+                    className="bg-sidebar text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
                   >
                     Volver al inicio
                   </button>
                   <button
                     onClick={() => router.push("/pacientes")}
-                    className="border border-gray-200 px-6 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                    className="bg-amber-500 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-amber-600 transition-colors cursor-pointer"
                   >
-                    Nueva sesión
+                    Ir a Pacientes
                   </button>
                 </div>
               </div>
@@ -636,41 +632,6 @@ export default function ReviewClient({
             {/* Step: Results (only visible after teacher approval) */}
             {step === "results" && evaluation && (
               <div className="space-y-6 animate-fade-in">
-                {/* XP & Level */}
-                {results && Number(results.xp_earned) > 0 && (
-                  <div className="bg-gradient-to-r from-sidebar to-[#354080] rounded-2xl p-6 text-white animate-pop">
-                    <Confetti trigger={Boolean(results.level_up)} variant="fireworks" />
-                    <Confetti trigger={!results.level_up && Number(results.xp_earned) > 0} variant="default" />
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-white/70 text-sm">Experiencia ganada</p>
-                        <p className="text-4xl font-bold">
-                          +<CountUp end={Number(results.xp_earned)} className="text-4xl font-bold" /> XP
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        {Number(results.streak) > 1 && (
-                          <div className="flex items-center gap-1.5 bg-white/15 px-4 py-2 rounded-full">
-                            <Flame size={18} className="text-orange-300" />
-                            <span className="text-sm font-bold">{String(results.streak)} días</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {Boolean(results.level_up) && (
-                      <div className="mt-4 bg-white/15 backdrop-blur-sm rounded-xl px-5 py-3 flex items-center gap-3 animate-pop">
-                        <span className="text-2xl">🎉</span>
-                        <div>
-                          <p className="text-base font-bold">¡Subiste de nivel!</p>
-                          <p className="text-sm text-white/80">
-                            Ahora eres: {String((results.new_level as { name: string })?.name ?? "")}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 {/* Competency Radar */}
                 <div className="bg-white rounded-xl border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-1">
@@ -679,7 +640,7 @@ export default function ReviewClient({
                     </h3>
                     <button
                       onClick={() => setShowRadarModal(true)}
-                      className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-sidebar transition-colors"
+                      className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-sidebar transition-colors cursor-pointer"
                     >
                       <Maximize2 size={14} />
                       Ampliar
@@ -747,7 +708,7 @@ export default function ReviewClient({
                     <div className="relative bg-white rounded-2xl p-8 w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => setShowRadarModal(false)}
-                        className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                        className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 cursor-pointer"
                       >
                         <X size={20} />
                       </button>
@@ -862,13 +823,13 @@ export default function ReviewClient({
                                 <button
                                   onClick={() => respondToItem(item.id, "accepted")}
                                   disabled={respondingId === item.id && respondComment === "__loading"}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 transition-colors"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 transition-colors cursor-pointer"
                                 >
                                   <CheckCircle size={13} /> Aceptar
                                 </button>
                                 <button
                                   onClick={() => respondToItem(item.id, "rejected")}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors cursor-pointer"
                                 >
                                   <XCircle size={13} /> Rechazar
                                 </button>
@@ -927,14 +888,14 @@ export default function ReviewClient({
                 <div className="flex gap-3">
                   <button
                     onClick={() => router.push("/dashboard")}
-                    className="flex-1 bg-sidebar hover:bg-[#354080] text-white py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 bg-sidebar hover:bg-[#354080] text-white py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
                   >
                     Volver al inicio
                     <ArrowRight size={16} />
                   </button>
                   <button
                     onClick={() => router.push("/historial")}
-                    className="px-6 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                    className="px-6 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
                   >
                     Ver historial
                   </button>
@@ -944,6 +905,39 @@ export default function ReviewClient({
           </>
         )}
       </div>
+
+      {showEmptyConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setShowEmptyConfirm(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4 animate-pop" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
+                <GraduationCap size={20} className="text-amber-500" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900">Reflexión vacía</h3>
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              La reflexión post-sesión es un componente clave del proceso formativo. Tomarte unos minutos para reflexionar sobre tu práctica fortalece tus competencias clínicas.
+            </p>
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                onClick={() => setShowEmptyConfirm(false)}
+                className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-[#354080] transition-colors cursor-pointer"
+              >
+                Volver a reflexión
+              </button>
+              <button
+                onClick={() => {
+                  setShowEmptyConfirm(false);
+                  handleSubmit();
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                Omitir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

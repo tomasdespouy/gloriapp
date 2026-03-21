@@ -458,6 +458,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [silenceTrigger, conversationId]);
 
+  // Start silence timers when session starts (handles initial 60s silence)
+  useEffect(() => {
+    if (!sessionStarted || !conversationId) return;
+    startSilenceTimers();
+    return () => clearSilenceTimers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionStarted, conversationId]);
+
   // Ctrl+Alt to toggle mic; double Ctrl+Alt to lock recording on
   const micLastPressRef = useRef<number>(0);
   const micLockedRef = useRef(false);
@@ -1095,7 +1103,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           <button
             onClick={() => router.push("/dashboard")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
-            title="Esto te permite volver en otro momento sin afectar la relaci\u00f3n con el paciente"
+            title="Esto te permite volver en otro momento sin afectar la relación con el paciente"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="3" width="4" height="18" rx="1" /><rect x="15" y="3" width="4" height="18" rx="1" /></svg>
             <span className="hidden sm:inline">Pausar</span>
@@ -1143,30 +1151,30 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               </div>
               <h3 className="text-base font-bold text-gray-900">
                 {messages.length === 0
-                  ? "\u00bfSalir de la sesi\u00f3n?"
+                  ? "¿Salir de la sesión?"
                   : displaySeconds >= 300
-                    ? "\u00bfFinalizar sesi\u00f3n?"
-                    : "Sesi\u00f3n con menos de 5 minutos"
+                    ? "¿Finalizar sesión?"
+                    : "Sesión con menos de 5 minutos"
                 }
               </h3>
             </div>
 
             {messages.length === 0 ? (
               <p className="text-sm text-gray-600 leading-relaxed">
-                A\u00fan no has enviado ning\u00fan mensaje. Si sales ahora, no se registrar\u00e1 nada.
+                Aún no has enviado ningún mensaje. Si sales ahora, no se registrará nada.
               </p>
             ) : displaySeconds < 300 ? (
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
                 <p className="text-sm text-amber-700 font-medium mb-1">
-                  Si cierras ahora, no se generar\u00e1 evaluaci\u00f3n de competencias.
+                  Si cierras ahora, no se generará evaluación de competencias.
                 </p>
                 <p className="text-xs text-amber-600">
-                  Para recibir retroalimentaci\u00f3n de la IA, necesitas al menos 5 minutos de conversaci\u00f3n y 6 intervenciones.
+                  Para recibir retroalimentación de la IA, necesitas al menos 5 minutos de conversación y 6 intervenciones.
                 </p>
               </div>
             ) : (
               <p className="text-sm text-gray-600 leading-relaxed">
-                La sesi\u00f3n se guardar\u00e1 y recibir\u00e1s una evaluaci\u00f3n de tus competencias cl\u00ednicas.
+                La sesión se guardará y recibirás una evaluación de tus competencias clínicas.
               </p>
             )}
 
@@ -1182,17 +1190,17 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 }`}
               >
                 {messages.length === 0
-                  ? "S\u00ed, salir"
+                  ? "Sí, salir"
                   : displaySeconds >= 300
-                    ? "S\u00ed, finalizar"
-                    : "Cerrar sin evaluaci\u00f3n"
+                    ? "Sí, finalizar"
+                    : "Cerrar sin evaluación"
                 }
               </button>
               <button
                 onClick={() => setShowEndConfirm(false)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 transition-colors cursor-pointer"
               >
-                {messages.length === 0 ? "Quedarme" : "Continuar sesi\u00f3n"}
+                {messages.length === 0 ? "Quedarme" : "Continuar sesión"}
               </button>
             </div>
           </div>
@@ -1310,7 +1318,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-gray-900">Modo voz</p>
-                      <p className="text-xs text-gray-500">{"Este paciente soporta conversaci\u00f3n por voz. Activa el modo con el bot\u00f3n en la barra superior."}</p>
+                      <p className="text-xs text-gray-500">{"Este paciente soporta conversación por voz. Activa el modo con el botón en la barra superior."}</p>
                     </div>
                   </div>
                 )}
@@ -1320,7 +1328,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">Dictado por voz</p>
-                    <p className="text-xs text-gray-500">{"Presiona ALT + CTRL para comenzar a grabar audio. Doble pulsaci\u00f3n para anclar la grabaci\u00f3n."}</p>
+                    <p className="text-xs text-gray-500">{"Presiona ALT + CTRL para comenzar a grabar audio. Doble pulsación para anclar la grabación."}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1329,7 +1337,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">Silencios</p>
-                    <p className="text-xs text-gray-500">{"Si no respondes, el paciente reaccionar\u00e1 al silencio. Si pasan 5 minutos sin respuesta, se retirar\u00e1."}</p>
+                    <p className="text-xs text-gray-500">{"Si no respondes, el paciente reaccionará al silencio. Si pasan 5 minutos sin respuesta, se retirará."}</p>
                   </div>
                 </div>
               </div>
@@ -1367,7 +1375,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                     <img src={imageSrc} alt={patient.name} className="w-full h-full object-cover" />
                   </div>
                   <p className="text-sm font-medium text-gray-700">{patient.name}</p>
-                  <p className="text-[11px] text-gray-500">{patient.age} {"a\u00f1os"}, {patient.occupation}</p>
+                  <p className="text-[11px] text-gray-500">{patient.age} {"años"}, {patient.occupation}</p>
                 </div>
 
                 <div className="w-10 h-px bg-gray-300 -mt-8" />
@@ -1381,7 +1389,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                       <span className="text-2xl font-bold text-sidebar">{userInitials}</span>
                     )}
                   </div>
-                  <p className="text-sm font-medium text-gray-700">{"T\u00fa"}</p>
+                  <p className="text-sm font-medium text-gray-700">{"Tú"}</p>
                   <p className="text-[11px] text-gray-500">Terapeuta</p>
                 </div>
               </div>
@@ -1390,10 +1398,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               <div className="bg-gray-50 rounded-xl p-4 mb-5 space-y-2">
                 <p className="text-xs font-semibold text-gray-700">Antes de comenzar, recuerda:</p>
                 <ul className="text-[11px] text-gray-500 space-y-1.5">
-                  <li className="flex gap-2"><span className="text-sidebar font-bold">1.</span> {"Esta es una simulaci\u00f3n con fines formativos, no una sesi\u00f3n real."}</li>
-                  <li className="flex gap-2"><span className="text-sidebar font-bold">2.</span> {"El paciente reacciona a tus intervenciones como lo har\u00eda en la vida real."}</li>
-                  <li className="flex gap-2"><span className="text-sidebar font-bold">3.</span> {"Intenta mantener al menos 5 minutos para recibir evaluaci\u00f3n."}</li>
-                  <li className="flex gap-2"><span className="text-sidebar font-bold">4.</span> {"Puedes pausar y retomar la sesi\u00f3n en cualquier momento."}</li>
+                  <li className="flex gap-2"><span className="text-sidebar font-bold">1.</span> {"Esta es una simulación con fines formativos, no una sesión real."}</li>
+                  <li className="flex gap-2"><span className="text-sidebar font-bold">2.</span> {"El paciente reacciona a tus intervenciones como lo haría en la vida real."}</li>
+                  <li className="flex gap-2"><span className="text-sidebar font-bold">3.</span> {"Intenta mantener al menos 5 minutos para recibir evaluación."}</li>
+                  <li className="flex gap-2"><span className="text-sidebar font-bold">4.</span> {"Puedes pausar y retomar la sesión en cualquier momento."}</li>
                 </ul>
               </div>
 
@@ -1407,7 +1415,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 }}
                 className="w-full bg-sidebar text-white py-3 rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors"
               >
-                {"Iniciar sesi\u00f3n"}
+                {"Iniciar sesión"}
               </button>
             </div>
           </div>
@@ -1554,7 +1562,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 el.style.height = Math.min(el.scrollHeight, 160) + "px";
               }}
               onKeyDown={handleKeyDown}
-              placeholder={sessionStarted ? "Escribe tu mensaje..." : "Presiona \"Iniciar sesi\u00f3n\" para comenzar"}
+              placeholder={sessionStarted ? "Escribe tu mensaje..." : "Presiona \"Iniciar sesión\" para comenzar"}
               rows={1}
               className="w-full resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar disabled:bg-gray-100 disabled:text-gray-400 overflow-hidden"
               disabled={!sessionStarted}
@@ -1566,7 +1574,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             <button
               onClick={correctText}
               className="p-3 min-w-[44px] min-h-[44px] rounded-xl border border-gray-300 text-gray-400 hover:text-sidebar hover:border-sidebar/30 transition-colors flex-shrink-0 text-xs font-semibold"
-              title={"Corregir ortograf\u00eda"}
+              title={"Corregir ortografía"}
             >
               Abc
             </button>
@@ -1624,7 +1632,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 <textarea
                   value={notesText}
                   onChange={(e) => handleNotesChange(e.target.value)}
-                  placeholder="Escribe tus notas durante la sesi\u00f3n..."
+                  placeholder="Escribe tus notas durante la sesión..."
                   className="flex-1 w-full resize-none border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30 placeholder:text-gray-400/70"
                 />
               </div>
