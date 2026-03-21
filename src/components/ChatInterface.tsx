@@ -1095,7 +1095,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             </button>
           )}
 
-          <span className="flex items-center gap-1.5 text-xs text-gray-400 tabular-nums">
+          <span className="flex items-center gap-1.5 text-xs text-gray-400 tabular-nums flex-shrink-0">
             <Clock size={13} />
             {formatTimer(displaySeconds)}
           </span>
