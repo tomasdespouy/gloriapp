@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, ArrowLeft, LogOut, Mic, MicOff, Volume2, Square, Loader2, Clock, X, Phone, PhoneOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import SessionTimer, { useActiveSecondsRef } from "@/components/SessionTimer";
 
 interface Patient {
   id: string;
@@ -44,6 +45,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [isRecording, setIsRecording] = useState(false);
+  const { ref: activeSecondsExtRef, updateRef: onTimerTick } = useActiveSecondsRef();
   const [displaySeconds, setDisplaySeconds] = useState(initialActiveSeconds);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(initialMessages.length > 0);
@@ -341,47 +343,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     messagesEndRef.current?.scrollIntoView({ behavior: prefersReduced ? "instant" : "smooth" });
   }, [messages]);
 
-  // Session timer — wall-clock time, starts only when session is started
-  useEffect(() => {
-    if (!sessionStarted) return;
-
-    // Set start time when session begins (if not already set from resume)
-    if (sessionStartRef.current === 0) {
-      sessionStartRef.current = Date.now();
-    }
-    const start = sessionStartRef.current;
-
-    const tick = () => {
-      const elapsed = initialActiveSeconds + Math.round((Date.now() - start) / 1000);
-      activeSecondsRef.current = elapsed;
-      setDisplaySeconds(elapsed);
-    };
-
-    const interval = setInterval(tick, 1000);
-
-    // Persist every 15 seconds
-    const persistInterval = setInterval(() => {
-      if (conversationId && activeSecondsRef.current > 0) {
-        fetch(`/api/sessions/${conversationId}/active-time`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ active_seconds: activeSecondsRef.current }),
-        }).catch(() => {});
-      }
-    }, 15000);
-
-    return () => {
-      clearInterval(interval);
-      clearInterval(persistInterval);
-      // Final persist on unmount
-      if (conversationId && activeSecondsRef.current > 0) {
-        navigator.sendBeacon?.(
-          `/api/sessions/${conversationId}/active-time`,
-          new Blob([JSON.stringify({ active_seconds: activeSecondsRef.current })], { type: "application/json" })
-        );
-      }
-    };
-  }, [conversationId, sessionStarted]);
+  // Session timer — extracted to <SessionTimer /> component.
+  // This callback syncs activeSeconds back into ChatInterface refs for
+  // use by end-session logic and silence timers, without owning the interval.
+  const handleTimerTick = useCallback((seconds: number) => {
+    activeSecondsRef.current = seconds;
+    activeSecondsExtRef.current = seconds;
+    setDisplaySeconds(seconds);
+  }, [activeSecondsExtRef]);
 
   // Multi-stage silence timers (from last assistant message)
   // Stage 1 (60s):  saludo extrañado
@@ -1033,13 +1002,6 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const showThinkingBubble = phase === "thinking" && lastMsg?.role === "assistant" && !lastMsg.content;
   // "Escribiendo" subtext removed — not needed
 
-  // Format timer display
-  const formatTimer = (seconds: number) => {
-    const m = Math.floor(seconds / 60).toString().padStart(2, "0");
-    const s = (seconds % 60).toString().padStart(2, "0");
-    return `${m}:${s}`;
-  };
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
@@ -1095,10 +1057,12 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             </button>
           )}
 
-          <span className="flex items-center gap-1.5 text-xs text-gray-400 tabular-nums flex-shrink-0">
-            <Clock size={13} />
-            {formatTimer(displaySeconds)}
-          </span>
+          <SessionTimer
+            sessionStarted={sessionStarted}
+            conversationId={conversationId}
+            initialActiveSeconds={initialActiveSeconds}
+            onTick={handleTimerTick}
+          />
 
           <button
             onClick={() => router.push("/dashboard")}
