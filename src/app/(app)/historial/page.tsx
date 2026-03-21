@@ -9,7 +9,7 @@ export default async function HistorialPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: rawSessions }, { data: summaries }] = await Promise.all([
+  const [{ data: rawSessions }, { data: summaries }, { data: rawObservations }] = await Promise.all([
     supabase
       .from("conversations")
       .select(`
@@ -25,6 +25,11 @@ export default async function HistorialPage() {
       .from("session_summaries")
       .select("conversation_id, summary, key_revelations")
       .eq("student_id", user.id),
+    supabase
+      .from("observation_sessions")
+      .select("id, title, status, total_duration_seconds, semantic_analysis, created_at, ended_at")
+      .eq("student_id", user.id)
+      .order("created_at", { ascending: false }),
   ]);
 
   // Fetch patient data separately (admin bypasses RLS on ai_patients)
@@ -44,19 +49,30 @@ export default async function HistorialPage() {
     summaryMap[s.conversation_id] = { summary: s.summary, revelations: s.key_revelations || [] };
   });
 
+  const observations = (rawObservations || []).map((o) => ({
+    id: o.id,
+    title: o.title,
+    status: o.status,
+    total_duration_seconds: o.total_duration_seconds,
+    semantic_analysis: o.semantic_analysis,
+    created_at: o.created_at,
+    ended_at: o.ended_at,
+  }));
+
   const completedCount = sessions.filter((s) => s.status === "completed").length;
   const patientCount = new Set(sessions.map(s => s.ai_patient_id)).size;
+  const observationCount = observations.length;
 
   return (
     <div className="min-h-screen">
       <header className="px-4 sm:px-8 py-5">
         <h1 className="text-2xl font-bold text-gray-900">Mi historial</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          {completedCount} sesiones completadas &middot; {patientCount} pacientes
+          {completedCount} sesiones completadas &middot; {patientCount} pacientes{observationCount > 0 ? ` \u00b7 ${observationCount} observaciones` : ""}
         </p>
       </header>
       <div className="px-4 sm:px-8 pb-8">
-        <HistorialClient sessions={sessions || []} summaryMap={summaryMap} />
+        <HistorialClient sessions={sessions || []} summaryMap={summaryMap} observations={observations} />
       </div>
     </div>
   );

@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await request.json();
-  const { name, institution, country, contact_name, contact_email, csv_data } = body;
+  const { name, institution, country, contact_name, contact_email, csv_data, scheduled_at, ended_at } = body;
 
   if (!name || !institution) {
     return NextResponse.json({ error: "Nombre e institución son requeridos" }, { status: 400 });
@@ -60,6 +60,8 @@ export async function POST(request: Request) {
       contact_name: contact_name || null,
       contact_email: contact_email || null,
       csv_data: csv_data || [],
+      scheduled_at: scheduled_at || null,
+      ended_at: ended_at || null,
       created_by: auth.user.id,
       status: "borrador",
     })

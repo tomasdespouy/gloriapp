@@ -110,7 +110,7 @@ export default function TopHeader({ userName, userEmail, userRole, avatarUrl }: 
       <div ref={notifRef} className="relative">
         <button
           onClick={() => { setNotifOpen(!notifOpen); setProfileOpen(false); if (!notifLoaded) loadNotifications(); }}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all relative"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/15 transition-all cursor-pointer hover:scale-105 relative"
         >
           <Bell size={16} />
           {unreadCount > 0 && (
@@ -191,7 +191,7 @@ export default function TopHeader({ userName, userEmail, userRole, avatarUrl }: 
       {/* Support */}
       <button
         onClick={() => { setShowSupport(true); setNotifOpen(false); setProfileOpen(false); }}
-        className="w-8 h-8 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
+        className="w-8 h-8 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/15 transition-all cursor-pointer hover:scale-105"
         title="Soporte t&eacute;cnico"
       >
         <LifeBuoy size={16} />
@@ -201,7 +201,7 @@ export default function TopHeader({ userName, userEmail, userRole, avatarUrl }: 
       <div ref={profileRef} className="relative">
         <button
           onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }}
-          className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 transition-all"
+          className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/15 transition-all cursor-pointer group"
         >
           <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
             {avatarUrl ? (
@@ -211,7 +211,7 @@ export default function TopHeader({ userName, userEmail, userRole, avatarUrl }: 
               <span className="text-[10px] font-bold text-white">{initials}</span>
             )}
           </div>
-          <span className="text-xs text-white/80 font-medium hidden sm:block max-w-[120px] truncate">
+          <span className="text-xs text-white/80 font-medium hidden sm:block max-w-[120px] truncate group-hover:text-white transition-colors">
             {userName.split(" ")[0]}
           </span>
           <ChevronDown size={12} className={`text-white/50 transition-transform ${profileOpen ? "rotate-180" : ""}`} />

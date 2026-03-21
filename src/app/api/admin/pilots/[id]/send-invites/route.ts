@@ -109,6 +109,7 @@ export async function POST(
         institution: pilot.institution,
         pilotName: pilot.name,
         appUrl,
+        endedAt: pilot.ended_at || null,
       });
 
       const res = await fetch("https://api.resend.com/emails", {
@@ -170,8 +171,18 @@ function generateInviteEmail(opts: {
   institution: string;
   pilotName: string;
   appUrl: string;
+  endedAt: string | null;
 }) {
-  const logoUrl = "https://ndwmnxlwbfqfwwtekjun.supabase.co/storage/v1/object/public/patients/gloria-side-logo.png";
+  const endDateStr = opts.endedAt
+    ? new Date(opts.endedAt).toLocaleDateString("es-CL", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+  const logoUrl = "https://ndwmnxlwbfqfwwtekjun.supabase.co/storage/v1/object/public/branding/gloria-logo-email.png";
 
   return `
     <div style="font-family: Calibri, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1A1A1A;">
@@ -183,7 +194,7 @@ function generateInviteEmail(opts: {
               Plataforma de Entrenamiento Cl\u00ednico con IA
             </p>
           </div>
-          <img src="${logoUrl}" alt="GlorIA" style="height: 40px;" />
+          <img src="${logoUrl}" alt="GlorIA" width="120" height="40" style="height: 40px; width: auto; display: block;" />
         </div>
       </div>
 
@@ -234,6 +245,14 @@ function generateInviteEmail(opts: {
             </tr>
           </table>
         </div>
+
+        ${endDateStr ? `
+        <div style="background: #FFF7ED; border-left: 4px solid #F59E0B; border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 18px 0;">
+          <p style="font-size: 13px; color: #92400E; margin: 0; font-weight: 600;">
+            Tu acceso estar\u00e1 disponible hasta el ${endDateStr}.
+          </p>
+        </div>
+        ` : ""}
 
         <p style="font-size: 14px; color: #555; font-weight: 600;">C\u00f3mo ingresar:</p>
         <ol style="font-size: 14px; color: #555; line-height: 2; padding-left: 20px;">

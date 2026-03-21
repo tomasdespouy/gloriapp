@@ -186,29 +186,34 @@ export default async function Dashboard() {
                 Hola, {firstName}
               </h1>
               <p className="text-sm text-gray-500 mt-0.5">
-                {levelInfo.current.name} &middot; {totalXp} XP
+                Tus primeros pasos
                 {streak > 0 && <span className="text-amber-500"> &middot; {streak}d racha</span>}
               </p>
 
-              {/* XP progress bar */}
-              {levelInfo.next && (
-                <div className="mt-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-sidebar to-sidebar/70 rounded-full transition-all duration-1000"
-                        style={{ width: `${levelInfo.progress * 100}%` }}
-                      />
+              {/* Mini checklist */}
+              <div className="mt-3 space-y-1.5">
+                {[
+                  { label: "Sesi\u00f3n con tutor gu\u00eda", done: true },
+                  { label: `Nano cursos (${modulesCompleted}/12)`, done: modulesCompleted >= 12 },
+                  { label: "Primera sesi\u00f3n", done: sessionsCompleted >= 1 },
+                  { label: "4ta sesi\u00f3n", done: sessionsCompleted >= 4 },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center gap-2">
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      item.done ? "bg-emerald-500" : "border-2 border-gray-300"
+                    }`}>
+                      {item.done && (
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
                     </div>
-                    <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                      {levelInfo.xpInLevel}/{levelInfo.xpForNext}
+                    <span className={`text-xs ${item.done ? "text-gray-500 line-through" : "text-gray-700 font-medium"}`}>
+                      {item.label}
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    {levelInfo.xpForNext - levelInfo.xpInLevel} XP para {levelInfo.next.name}
-                  </p>
-                </div>
-              )}
+                ))}
+              </div>
 
               {/* Mini stats row */}
               <div className="flex gap-4 mt-3">
@@ -326,7 +331,7 @@ export default async function Dashboard() {
                   href={`/chat/${p.id}`}
                   className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-sidebar/30 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 group"
                 >
-                  <div className="aspect-square overflow-hidden bg-gray-100">
+                  <div className="aspect-[4/5] overflow-hidden bg-gray-100">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={`${supabaseUrl}/storage/v1/object/public/patients/${pSlug}.png`}
@@ -335,8 +340,8 @@ export default async function Dashboard() {
                     />
                   </div>
                   <div className="p-3">
-                    <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-sidebar transition-colors">{p.name}</p>
-                    <p className="text-[11px] text-gray-400 mt-0.5 truncate">{p.age} a&ntilde;os &middot; {p.occupation}</p>
+                    <p className="text-sm font-bold text-gray-900 group-hover:text-sidebar transition-colors">{p.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{p.age} a&ntilde;os &middot; {p.occupation}</p>
                     <span className={`inline-block mt-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full ${diffColor}`}>
                       {diffLabel}
                     </span>

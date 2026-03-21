@@ -2,8 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Activity, Users, MessageSquare, Clock, Zap, TrendingUp,
+  Activity, Users, MessageSquare, Clock, Zap, TrendingUp, Wifi,
 } from "lucide-react";
+
+type OnlineUser = {
+  id: string;
+  fullName: string;
+  role: string;
+  lastSeenAt: string;
+};
 
 type LiveData = {
   timestamp: string;
@@ -17,6 +24,7 @@ type LiveData = {
   topPatients: { name: string; count: number }[];
   hourlyActivity: number[];
   uniqueStudentsToday: number;
+  onlineUsers: OnlineUser[];
 };
 
 export default function LiveMetrics() {
@@ -60,6 +68,45 @@ export default function LiveMetrics() {
         <KPI icon={Zap} value={data.totalWordsLastHour} label="Palabras última hora" color="indigo" />
         <KPI icon={TrendingUp} value={data.uniqueStudentsToday} label="Estudiantes hoy" color="emerald" />
       </div>
+
+      {/* Online users — en vivo */}
+      {data.onlineUsers && data.onlineUsers.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <Wifi size={16} className="text-green-500" />
+            Usuarios en l&iacute;nea ahora
+            <span className="text-xs text-gray-400 font-normal">({data.onlineUsers.length})</span>
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {data.onlineUsers.map((u) => {
+              const roleColors: Record<string, string> = {
+                student: "bg-blue-50 text-blue-700",
+                instructor: "bg-amber-50 text-amber-700",
+                admin: "bg-purple-50 text-purple-700",
+                superadmin: "bg-red-50 text-red-700",
+              };
+              const roleLabels: Record<string, string> = {
+                student: "Alumno",
+                instructor: "Docente",
+                admin: "Admin",
+                superadmin: "Superadmin",
+              };
+              return (
+                <div key={u.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                  </span>
+                  <span className="text-sm font-medium text-gray-900">{u.fullName}</span>
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${roleColors[u.role] || "bg-gray-100 text-gray-600"}`}>
+                    {roleLabels[u.role] || u.role}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Active sessions */}

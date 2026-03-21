@@ -33,6 +33,7 @@ type Pilot = {
   updated_at: string;
   participant_count: number;
   participants?: Participant[];
+  establishment_id?: string | null;
 };
 
 type Participant = {
@@ -123,6 +124,8 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
     country: "",
     contact_name: "",
     contact_email: "",
+    scheduled_at: "",
+    ended_at: "",
   });
   const [csvError, setCsvError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -163,7 +166,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
     setShowWizard(false);
     setCreating(false);
     setCsvRows([]);
-    setFormData({ name: "", institution: "", country: "", contact_name: "", contact_email: "" });
+    setFormData({ name: "", institution: "", country: "", contact_name: "", contact_email: "", scheduled_at: "", ended_at: "" });
     setCsvError("");
     setValidationResult(null);
     setSendResult(null);
@@ -184,6 +187,8 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
         country: data.country || "",
         contact_name: data.contact_name || "",
         contact_email: data.contact_email || "",
+        scheduled_at: data.scheduled_at ? new Date(data.scheduled_at).toISOString().slice(0, 16) : "",
+        ended_at: data.ended_at ? new Date(data.ended_at).toISOString().slice(0, 16) : "",
       });
 
       // Determine step from status or target
@@ -314,6 +319,8 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...formData,
+        scheduled_at: formData.scheduled_at ? new Date(formData.scheduled_at).toISOString() : null,
+        ended_at: formData.ended_at ? new Date(formData.ended_at).toISOString() : null,
         csv_data: finalRows,
       }),
     });
@@ -621,7 +628,7 @@ function Step1Upload({
   formData, setFormData, csvRows, setCsvRows, csvError, creating, fileInputRef,
   onFileDrop, onFileSelect, onCreatePilot, isEditing, onNext,
 }: {
-  formData: { name: string; institution: string; country: string; contact_name: string; contact_email: string };
+  formData: { name: string; institution: string; country: string; contact_name: string; contact_email: string; scheduled_at: string; ended_at: string };
   setFormData: (fn: (prev: typeof formData) => typeof formData) => void;
   csvRows: CsvRow[];
   setCsvRows: (rows: CsvRow[]) => void;
@@ -732,6 +739,30 @@ function Step1Upload({
               value={formData.contact_email}
               onChange={(e) => setFormData((f) => ({ ...f, contact_email: e.target.value }))}
               placeholder="contacto@universidad.edu"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              <Clock size={12} className="inline mr-1" />
+              Inicio de acceso
+            </label>
+            <input
+              type="datetime-local"
+              value={formData.scheduled_at}
+              onChange={(e) => setFormData((f) => ({ ...f, scheduled_at: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              <Clock size={12} className="inline mr-1" />
+              Fin de acceso
+            </label>
+            <input
+              type="datetime-local"
+              value={formData.ended_at}
+              onChange={(e) => setFormData((f) => ({ ...f, ended_at: e.target.value }))}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
             />
           </div>
@@ -1169,8 +1200,84 @@ function Step3Preview({
 }) {
   const appUrl = typeof window !== "undefined" ? window.location.origin : "https://gloria-app.vercel.app";
 
+  const [assigningPatients, setAssigningPatients] = useState(false);
+  const [patientMsg, setPatientMsg] = useState("");
+
+  const assignPatients = async (queryParams = "") => {
+    if (!pilot?.establishment_id) {
+      setPatientMsg("Este piloto no tiene un establecimiento asociado. Crea primero el establecimiento.");
+      return;
+    }
+    setAssigningPatients(true);
+    setPatientMsg("");
+    try {
+      const res = await fetch(`/api/admin/patients/all${queryParams}`);
+      if (!res.ok) { setPatientMsg("Error al obtener pacientes"); return; }
+      const patients = await res.json();
+      const ids = patients.map((p: { id: string }) => p.id);
+      if (ids.length === 0) { setPatientMsg("No se encontraron pacientes con ese filtro"); return; }
+      const addRes = await fetch(`/api/admin/establishments/${pilot.establishment_id}/patients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ _action: "add", patient_ids: ids }),
+      });
+      if (addRes.ok) {
+        setPatientMsg(`${ids.length} paciente(s) asignados correctamente`);
+      } else {
+        setPatientMsg("Error al asignar pacientes");
+      }
+    } catch { setPatientMsg("Error de conexión"); }
+    finally { setAssigningPatients(false); }
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
+      {/* Patient assignment */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <h3 className="text-sm font-semibold text-gray-900 mb-2">Pacientes del piloto</h3>
+        <p className="text-xs text-gray-500 mb-3">
+          Asigna pacientes al establecimiento para que los participantes puedan verlos.
+        </p>
+        {patientMsg && (
+          <div className={`text-xs mb-3 px-3 py-2 rounded-lg ${patientMsg.includes("Error") || patientMsg.includes("no tiene") ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"}`}>
+            {patientMsg}
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => assignPatients()}
+            disabled={assigningPatients}
+            className="px-3 py-1.5 rounded-lg bg-sidebar text-white text-xs font-medium hover:bg-[#354080] transition-colors disabled:opacity-50"
+          >
+            {assigningPatients ? "Asignando..." : "Asignar todos"}
+          </button>
+          {["Chile", "Argentina", "Colombia", "México", "Perú", "República Dominicana"].map((country) => (
+            <button
+              key={country}
+              onClick={() => assignPatients(`?country=${encodeURIComponent(country)}`)}
+              disabled={assigningPatients}
+              className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:border-sidebar/30 hover:text-sidebar transition-colors disabled:opacity-50"
+            >
+              {country}
+            </button>
+          ))}
+          {(["beginner", "intermediate", "advanced"] as const).map((level) => (
+            <button
+              key={level}
+              onClick={() => assignPatients(`?difficulty=${level}`)}
+              disabled={assigningPatients}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50 ${
+                level === "beginner" ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50" :
+                level === "intermediate" ? "border-amber-200 text-amber-600 hover:bg-amber-50" :
+                "border-red-200 text-red-600 hover:bg-red-50"
+              }`}
+            >
+              {level === "beginner" ? "Principiante" : level === "intermediate" ? "Intermedio" : "Avanzado"}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Email preview */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h3 className="text-sm font-semibold text-gray-900 mb-4">Previsualización del email</h3>
@@ -1246,6 +1353,21 @@ function Step3Preview({
                 </div>
               </div>
             </div>
+
+            {pilot?.ended_at && (
+              <div className="my-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg px-4 py-2.5">
+                <p className="text-xs text-amber-800 font-semibold">
+                  Tu acceso estará disponible hasta el{" "}
+                  {new Date(pilot.ended_at).toLocaleDateString("es-CL", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}.
+                </p>
+              </div>
+            )}
 
             <p className="font-semibold mt-4">Cómo ingresar:</p>
             <ol className="list-decimal ml-5 mt-1 space-y-0.5 text-xs">
@@ -1332,6 +1454,9 @@ function Step4Dashboard({
   onRefresh: () => void;
 }) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [deactivating, setDeactivating] = useState(false);
+  const [creatingSurvey, setCreatingSurvey] = useState(false);
+  const [surveyCreated, setSurveyCreated] = useState(false);
   if (!pilot) return null;
 
   const participants: Participant[] = (pilot as Pilot & { participants?: Participant[] }).participants || [];
@@ -1346,8 +1471,76 @@ function Step4Dashboard({
     ? participants
     : participants.filter((p) => p.status === statusFilter);
 
+  const handleDeactivate = async () => {
+    if (!confirm("¿Estás seguro de desactivar este piloto? Los participantes perderán acceso.")) return;
+    setDeactivating(true);
+    const res = await fetch(`/api/admin/pilots/${pilot.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "cancelado" }),
+    });
+    if (res.ok) {
+      onRefresh();
+    }
+    setDeactivating(false);
+  };
+
+  const handleCreateSurvey = async () => {
+    setCreatingSurvey(true);
+    try {
+      const res = await fetch("/api/admin/surveys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `Encuesta de cierre — ${pilot.name}`,
+          scope_type: "establishment",
+          scope_id: pilot.establishment_id || null,
+          starts_at: new Date().toISOString(),
+          ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        }),
+      });
+      if (res.ok) {
+        setSurveyCreated(true);
+      }
+    } catch { /* ignore */ }
+    setCreatingSurvey(false);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Actions: deactivate */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {pilot.scheduled_at && (
+            <span className="text-xs text-gray-500 flex items-center gap-1">
+              <Clock size={12} />
+              Inicio: {new Date(pilot.scheduled_at).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          {pilot.ended_at && (
+            <span className="text-xs text-gray-500 flex items-center gap-1 ml-3">
+              <Clock size={12} />
+              Fin: {new Date(pilot.ended_at).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+        </div>
+        {pilot.status !== "cancelado" && pilot.status !== "finalizado" && (
+          <button
+            onClick={handleDeactivate}
+            disabled={deactivating}
+            className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-xs font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
+          >
+            {deactivating ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+            Desactivar piloto
+          </button>
+        )}
+        {pilot.status === "cancelado" && (
+          <span className="text-xs font-medium text-red-500 bg-red-50 px-3 py-1.5 rounded-lg">
+            Piloto desactivado
+          </span>
+        )}
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -1488,6 +1681,55 @@ function Step4Dashboard({
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Closure survey */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Encuesta de cierre</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Envía una encuesta a los participantes al finalizar el piloto.
+            </p>
+          </div>
+          <button
+            onClick={handleCreateSurvey}
+            disabled={creatingSurvey || surveyCreated}
+            className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+          >
+            {creatingSurvey ? <Loader2 size={14} className="animate-spin" /> : surveyCreated ? <Check size={14} /> : <Send size={14} />}
+            {surveyCreated ? "Encuesta creada" : "Enviar encuesta de cierre"}
+          </button>
+        </div>
+
+        <div className="space-y-3 border border-gray-100 rounded-lg p-4 bg-gray-50">
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-2">
+            Preguntas incluidas
+          </p>
+
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <span className="text-xs font-bold text-sidebar mt-0.5">NPS</span>
+              <p className="text-xs text-gray-700">
+                ¿Qué tan probable es que recomiendes GlorIA a otros estudiantes? (0-10)
+              </p>
+            </div>
+
+            <div className="flex items-start gap-2">
+              <span className="text-xs font-bold text-emerald-600 mt-0.5">F1</span>
+              <p className="text-xs text-gray-700">
+                ¿Cuáles fueron las principales fortalezas de tu experiencia con GlorIA?
+              </p>
+            </div>
+
+            <div className="flex items-start gap-2">
+              <span className="text-xs font-bold text-amber-600 mt-0.5">D1</span>
+              <p className="text-xs text-gray-700">
+                ¿Qué aspectos mejorarías de la plataforma?
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, ChevronRight, Brain, Clock, CheckCircle2,
   MessageSquare, List, LayoutGrid, TrendingUp, Save, ArrowLeft,
-  GraduationCap, Sparkles, Download,
+  GraduationCap, Sparkles, Download, Radio,
 } from "lucide-react";
 
 interface Session {
@@ -28,15 +28,26 @@ type Fb = { teacher_comment: string | null; teacher_score: number | null };
 type Patient = { name: string; age: number; occupation: string; difficulty_level: string; country: string };
 type Msg = { role: string; content: string; created_at: string };
 
+interface ObservationSession {
+  id: string;
+  title: string;
+  status: string;
+  total_duration_seconds: number;
+  semantic_analysis: Record<string, unknown> | null;
+  created_at: string;
+  ended_at: string | null;
+}
+
 interface Props {
   sessions: Session[];
   summaryMap: Record<string, { summary: string; revelations: string[] }>;
+  observations?: ObservationSession[];
 }
 
-export default function HistorialClient({ sessions, summaryMap }: Props) {
+export default function HistorialClient({ sessions, summaryMap, observations = [] }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "completed" | "active">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "completed" | "active" | "observations">("all");
   const [filterPatient, setFilterPatient] = useState<string>("all");
   const [view, setView] = useState<"list" | "grouped">("list");
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -67,6 +78,7 @@ export default function HistorialClient({ sessions, summaryMap }: Props) {
   }, [sessions]);
 
   const filtered = useMemo(() => {
+    if (filterStatus === "observations") return [];
     return sessions.filter(s => {
       const p = s.ai_patients as Patient | null;
       if (search && !(p?.name || "").toLowerCase().includes(search.toLowerCase())) return false;
@@ -76,6 +88,14 @@ export default function HistorialClient({ sessions, summaryMap }: Props) {
       return true;
     });
   }, [sessions, search, filterStatus, filterPatient]);
+
+  const filteredObservations = useMemo(() => {
+    if (filterStatus !== "all" && filterStatus !== "observations") return [];
+    return observations.filter(o => {
+      if (search && !o.title.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+  }, [observations, search, filterStatus]);
 
   // Group by date
   const groupedByDate = useMemo(() => {
@@ -375,6 +395,50 @@ export default function HistorialClient({ sessions, summaryMap }: Props) {
     );
   };
 
+  const renderObservationCard = (obs: ObservationSession) => {
+    const formatObsDuration = (sec: number) => {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${m}:${s.toString().padStart(2, "0")} min`;
+    };
+
+    return (
+      <button
+        key={`obs-${obs.id}`}
+        onClick={() => router.push(`/observacion/review/${obs.id}`)}
+        className="w-full text-left bg-white rounded-xl border border-indigo-100 overflow-hidden hover:shadow-md transition-all"
+      >
+        <div className="flex items-start gap-3 p-4">
+          <div className="w-10 h-10 rounded-full bg-sidebar/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <Radio size={18} className="text-sidebar" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-gray-900">{obs.title}</p>
+            <p className="text-[11px] text-gray-400 flex items-center gap-1 mt-0.5">
+              <Clock size={10} /> {formatTime(obs.created_at)}
+              {obs.total_duration_seconds > 0 ? ` \u00b7 ${formatObsDuration(obs.total_duration_seconds)}` : ""}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+            <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full font-medium">
+              Observación
+            </span>
+            {obs.status === "completed" ? (
+              <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <CheckCircle2 size={9} /> Completada
+              </span>
+            ) : obs.status === "abandoned" ? (
+              <span className="text-[10px] text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Abandonada</span>
+            ) : (
+              <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">En curso</span>
+            )}
+            <ChevronRight size={14} className="text-gray-300" />
+          </div>
+        </div>
+      </button>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {/* Resume modal */}
@@ -412,11 +476,12 @@ export default function HistorialClient({ sessions, summaryMap }: Props) {
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar paciente..."
             className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
         </div>
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as "all" | "completed" | "active")}
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as "all" | "completed" | "active" | "observations")}
           className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">
           <option value="all">Todos</option>
           <option value="completed">Completadas</option>
           <option value="active">En curso</option>
+          <option value="observations">Observaciones</option>
         </select>
         <select value={filterPatient} onChange={(e) => setFilterPatient(e.target.value)}
           className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">
@@ -429,7 +494,7 @@ export default function HistorialClient({ sessions, summaryMap }: Props) {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {filtered.length === 0 && filteredObservations.length === 0 ? (
         <div className="text-center py-16">
           <MessageSquare size={40} className="mx-auto text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">Sin sesiones encontradas</p>
@@ -438,6 +503,19 @@ export default function HistorialClient({ sessions, summaryMap }: Props) {
       ) : view === "list" ? (
         /* LIST — grouped by date with subtitles */
         <div className="space-y-6">
+          {/* Observation sessions */}
+          {filteredObservations.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-sidebar uppercase tracking-wide mb-2 px-1 flex items-center gap-1.5">
+                <Radio size={12} /> Observaciones en vivo
+              </p>
+              <div className="space-y-2">
+                {filteredObservations.map(o => renderObservationCard(o))}
+              </div>
+            </div>
+          )}
+
+          {/* Regular sessions grouped by date */}
           {groupedByDate.map(([dateKey, dateSessions]) => (
             <div key={dateKey}>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">

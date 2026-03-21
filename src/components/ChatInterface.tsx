@@ -53,6 +53,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [voiceSpeaking, setVoiceSpeaking] = useState(false); // true = audio playing, hide text
   const [showDisconnect, setShowDisconnect] = useState(false);
   const [showVoiceConsent, setShowVoiceConsent] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesText, setNotesText] = useState("");
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [notesRecording, setNotesRecording] = useState(false);
+  const [notesCorrecting, setNotesCorrecting] = useState(false);
+  const [notesLoaded, setNotesLoaded] = useState(false);
+  const notesRecognitionRef = useRef<SpeechRecognition | null>(null);
+  const notesSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceModeRef = useRef(false);
   const messagesRef = useRef<Message[]>(initialMessages);
   const isStreamingRef = useRef(false);
@@ -614,6 +622,98 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     }
   };
 
+  // ═══ NOTES PANEL ═══
+  const saveNotes = useCallback(async (text: string) => {
+    if (!conversationId || !text.trim()) return;
+    setNotesSaving(true);
+    try {
+      await fetch(`/api/sessions/${conversationId}/notes`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: text }),
+      });
+    } catch { /* silent */ }
+    setNotesSaving(false);
+  }, [conversationId]);
+
+  const handleNotesChange = (text: string) => {
+    setNotesText(text);
+    if (notesSaveTimerRef.current) clearTimeout(notesSaveTimerRef.current);
+    notesSaveTimerRef.current = setTimeout(() => saveNotes(text), 2000);
+  };
+
+  const correctNotes = async () => {
+    if (!notesText.trim() || notesCorrecting) return;
+    setNotesCorrecting(true);
+    try {
+      const res = await fetch("/api/chat/correct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: notesText }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.corrected) {
+          setNotesText(data.corrected);
+          saveNotes(data.corrected);
+        }
+      }
+    } catch { /* silent */ }
+    setNotesCorrecting(false);
+  };
+
+  const toggleNotesRecording = () => {
+    if (notesRecording) {
+      notesRecognitionRef.current?.stop();
+      setNotesRecording(false);
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = "es-CL";
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = Array.from(event.results)
+        .map((r) => r[0].transcript)
+        .join(" ");
+      setNotesText((prev) => (prev ? prev + " " + transcript : transcript));
+    };
+    recognition.onerror = () => setNotesRecording(false);
+    recognition.onend = () => setNotesRecording(false);
+    notesRecognitionRef.current = recognition;
+    recognition.start();
+    setNotesRecording(true);
+  };
+
+  // Fetch existing notes when panel opens for the first time
+  useEffect(() => {
+    if (!notesOpen || notesLoaded || !conversationId) return;
+    setNotesLoaded(true);
+    (async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("conversations")
+          .select("student_notes_v2")
+          .eq("id", conversationId)
+          .single();
+        if (data?.student_notes_v2) {
+          setNotesText(data.student_notes_v2);
+        }
+      } catch { /* silent */ }
+    })();
+  }, [notesOpen, notesLoaded, conversationId]);
+
+  // Cleanup notes save timer on unmount
+  useEffect(() => {
+    return () => {
+      if (notesSaveTimerRef.current) clearTimeout(notesSaveTimerRef.current);
+    };
+  }, []);
+
   // ═══ VOICE MODE — continuous speech-to-text + auto-send + TTS response ═══
   const voiceAutoSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceRecognitionRef = useRef<SpeechRecognition | null>(null);
@@ -953,6 +1053,25 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
         {/* Voice mode toggle + Session timer + End session button — hidden until session starts */}
         <div className={`flex items-center gap-2 sm:gap-3 flex-shrink-0 ${!sessionStarted ? "invisible" : ""}`}>
+          {/* Notes toggle */}
+          <button
+            onClick={() => setNotesOpen(!notesOpen)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors ${
+              notesOpen
+                ? "bg-amber-500 text-white"
+                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+            }`}
+            title="Bloc de notas"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            <span className="hidden sm:inline">Notas</span>
+          </button>
+
           {patient.voice_id && (
             <button
               onClick={() => voiceMode ? stopVoiceMode() : requestVoiceMode()}
@@ -1231,6 +1350,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         </div>
       )}
 
+      {/* Main content: chat + notes panel */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Chat column */}
+        <div className={`flex flex-col flex-1 min-w-0 transition-all duration-300`}>
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-3 chat-pattern">
         {!sessionStarted && messages.length === 0 && (
@@ -1478,6 +1601,65 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           </button>
         </div>
       </div>
+        </div>{/* end Chat column */}
+
+        {/* Notes panel — slides in from right */}
+        <div className={`flex-shrink-0 bg-white border-l border-gray-200 transition-all duration-300 overflow-hidden ${
+          notesOpen ? "w-72 sm:w-80" : "w-0 border-l-0"
+        }`}>
+          {notesOpen && (
+            <div className="w-72 sm:w-80 h-full flex flex-col">
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-900">Mis notas</h3>
+                <div className="flex items-center gap-1">
+                  {notesSaving && (
+                    <span className="text-[10px] text-gray-400">Guardando...</span>
+                  )}
+                  <button onClick={() => setNotesOpen(false)} className="p-1 rounded hover:bg-gray-100 transition-colors">
+                    <X size={14} className="text-gray-400" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 p-3 overflow-hidden flex flex-col">
+                <textarea
+                  value={notesText}
+                  onChange={(e) => handleNotesChange(e.target.value)}
+                  placeholder="Escribe tus notas durante la sesi\u00f3n..."
+                  className="flex-1 w-full resize-none border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30 placeholder:text-gray-400/70"
+                />
+              </div>
+              <div className="px-3 pb-3 flex items-center gap-2">
+                {notesText.trim().length > 10 && (
+                  <button
+                    onClick={correctNotes}
+                    disabled={notesCorrecting}
+                    className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 hover:text-sidebar hover:border-sidebar/30 transition-colors disabled:opacity-50"
+                  >
+                    {notesCorrecting ? "Corrigiendo..." : "Abc"}
+                  </button>
+                )}
+                <button
+                  onClick={toggleNotesRecording}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    notesRecording
+                      ? "bg-red-500 text-white"
+                      : "border border-gray-200 text-gray-500 hover:text-sidebar hover:border-sidebar/30"
+                  }`}
+                  title={notesRecording ? "Detener dictado" : "Dictar nota por voz"}
+                >
+                  {notesRecording ? <MicOff size={14} /> : <Mic size={14} />}
+                </button>
+                {notesRecording && (
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-[10px] text-red-500">Grabando</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>{/* end Main content flex */}
     </div>
   );
 }

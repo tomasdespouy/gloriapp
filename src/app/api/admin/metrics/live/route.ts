@@ -81,6 +81,20 @@ export async function GET() {
 
   const uniqueConvos = new Set((todayMessages || []).map(m => m.conversation_id));
 
+  // Online users (last_seen_at within last 2 minutes)
+  const twoMinAgo = new Date(now.getTime() - 120_000).toISOString();
+  const { data: onlineProfiles } = await admin
+    .from("profiles")
+    .select("id, full_name, role, last_seen_at")
+    .gte("last_seen_at", twoMinAgo);
+
+  const onlineUsers = (onlineProfiles || []).map(p => ({
+    id: p.id,
+    fullName: p.full_name || "—",
+    role: p.role,
+    lastSeenAt: p.last_seen_at,
+  }));
+
   return NextResponse.json({
     timestamp: now.toISOString(),
     activeSessions: (activeSessions || []).map(s => ({
@@ -98,5 +112,6 @@ export async function GET() {
     topPatients,
     hourlyActivity,
     uniqueStudentsToday: uniqueConvos.size,
+    onlineUsers,
   });
 }

@@ -290,7 +290,7 @@ export default function ReviewClient({
 
   return (
     <div className="min-h-screen py-8 px-6">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         {/* Session summary header */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <div className="flex items-center gap-4">
@@ -453,6 +453,7 @@ export default function ReviewClient({
                 </div>
 
                 {/* Question cards — Option D design */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
                 {([
                   {
                     num: "01",
@@ -502,15 +503,15 @@ export default function ReviewClient({
                 ] as const).map((q) => (
                   <div
                     key={q.num}
-                    className={`bg-white rounded-xl border border-gray-200 ${q.color} border-l-4 p-5`}
+                    className={`bg-white rounded-xl border border-gray-200 ${q.color} border-l-4 p-4`}
                   >
-                    <div className="flex items-start gap-3 mb-3">
-                      <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-black text-gray-400">
+                    <div className="flex items-start gap-2 mb-2">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-black text-gray-400">
                         {q.num}
                       </span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold text-gray-900">{q.label}</h3>
+                          <h3 className="text-xs font-semibold text-gray-900">{q.label}</h3>
                           <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
                             {q.dimension}
                           </span>
@@ -520,13 +521,14 @@ export default function ReviewClient({
                     <textarea
                       value={q.value}
                       onChange={(e) => q.onChange(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-sidebar/30 focus:border-sidebar/50 placeholder:text-gray-400/70"
-                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-sidebar/30 focus:border-sidebar/50 placeholder:text-gray-400/70"
+                      rows={5}
                       placeholder={q.placeholder}
                       disabled={audioProcessing !== "idle"}
                     />
                   </div>
                 ))}
+                </div>
 
                 {/* Actions */}
                 <div className="flex gap-3 pt-1">
