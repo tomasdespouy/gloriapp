@@ -239,13 +239,20 @@ TU ROL COMO PACIENTE:
   }
 
   // 9. Build system prompt WITH state + RAG
+  // Detect if user message is a short greeting (under 6 words, common salutations)
+  const isShortGreeting = turnNumber === 1 && message.trim().split(/\s+/).length <= 6 &&
+    /^(hola|buenos?\s*(d[ií]as?|tardes?|noches?)|qu[eé]\s*tal|c[oó]mo\s*(est[aá]s?|andas?|va)|hey|buenas|saludos|buen\s*d[ií]a)/i.test(message.trim());
+
   const firstTurnRule = turnNumber <= 2
-    ? `\n\n[INICIO DE SESI\u00d3N — TURNOS ${turnNumber}/2]
-Es el comienzo de la sesi\u00f3n. S\u00e9 BREVE y CAUTELOSO(A):
-- M\u00e1ximo 1-2 oraciones en tu respuesta.
-- No cuentes detalles de tu vida a\u00fan. Solo responde lo m\u00ednimo necesario.
-- Muestra incomodidad, timidez o desconfianza natural de un paciente que reci\u00e9n conoce a su terapeuta.
-- NO expliques tu problem\u00e1tica completa. Solo da pistas vagas si te preguntan directamente.
+    ? `\n\n[INICIO DE SESIÓN — TURNOS ${turnNumber}/2]
+Es el comienzo de la sesión. Sé BREVE y CAUTELOSO(A):
+${isShortGreeting
+  ? `- REGLA ESTRICTA: El terapeuta te saludó con pocas palabras. Responde con MÁXIMO 3-5 PALABRAS. Ejemplos: "Hola... buenas tardes.", "Eh... hola.", "Buenas...", "Hola, sí, gracias por recibirme."
+- NO agregues contexto, NO expliques por qué vienes, NO hagas preguntas. Solo un saludo breve y tímido.`
+  : `- Máximo 1-2 oraciones en tu respuesta.
+- No cuentes detalles de tu vida aún. Solo responde lo mínimo necesario.`}
+- Muestra incomodidad, timidez o desconfianza natural de un paciente que recién conoce a su terapeuta.
+- NO expliques tu problemática completa. Solo da pistas vagas si te preguntan directamente.
 - Espera a que el terapeuta genere confianza antes de abrirte.\n`
     : "";
 

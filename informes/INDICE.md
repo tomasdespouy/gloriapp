@@ -8,3 +8,4 @@
 | INF-2026-004 | 2026-03-21 | Desarrollo | Corrección RLS establishment_patients, Asignación Pacientes Demo, Backlog 16 Funcionalidades | Correctivo + Informativo | desarrollo/INF-2026-004.pdf |
 | INF-2026-005 | 2026-03-21 | Desarrollo | Implementación 16 funcionalidades: Notas en chat, Observación walkie-talkie, Piloto mejorado, Presencia en vivo, Top bar hover | Mejora UX + Nuevas Funcionalidades | desarrollo/INF-2026-005.pdf |
 | INF-2026-006 | 2026-03-21 | Desarrollo | Correcciones UX Chat/Reflexión: 11 fixes, error Gemini, extracción SessionTimer anti-regresión | Correctivo + Mejora UX | desarrollo/INF-2026-006.pdf |
+| INF-2026-007 | 2026-03-21 | Testing | Test silencio 34 pacientes (2 escenarios), saludo corto (prom 4.1w), rediseño dashboard | Testing + Mejora UX | desarrollo/INF-2026-007.pdf |

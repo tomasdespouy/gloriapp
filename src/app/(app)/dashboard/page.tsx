@@ -66,6 +66,7 @@ export default async function Dashboard() {
     { data: learningRows },
     { data: achievementsEarned },
     { data: suggestedPatients },
+    { data: allConversations },
   ] = await Promise.all([
     supabase.from("student_progress").select("*").eq("student_id", userProfile.id).single(),
     supabase
@@ -78,6 +79,7 @@ export default async function Dashboard() {
     supabase.from("learning_progress").select("competency").eq("student_id", userProfile.id).neq("competency", "tutor"),
     supabase.from("student_achievements").select("id").eq("student_id", userProfile.id),
     admin.from("ai_patients").select("id, name, age, occupation, difficulty_level").eq("is_active", true).limit(4),
+    supabase.from("conversations").select("active_seconds").eq("student_id", userProfile.id),
   ]);
 
   // Birthday
@@ -93,7 +95,7 @@ export default async function Dashboard() {
   const sessionsCompleted = progress?.sessions_completed || 0;
   const streak = progress?.current_streak || 0;
   const modulesCompleted = new Set((learningRows || []).map((r) => r.competency)).size;
-  const achievementCount = achievementsEarned?.length || 0;
+  const totalActiveMinutes = Math.round((allConversations || []).reduce((sum, c) => sum + (c.active_seconds || 0), 0) / 60);
 
   const firstName = userProfile.fullName.split(" ")[0] || "Estudiante";
   const avatarUrl = userProfile.avatarUrl;
@@ -146,89 +148,93 @@ export default async function Dashboard() {
           </div>
         )}
 
-        {/* ═══ PROFILE CARD ═══ */}
+        {/* ═══ PROFILE CARD + QUICK ACTIONS ═══ */}
         <div className="animate-fade-in bg-white rounded-2xl border border-gray-200 p-6 sm:p-8">
-          <div className="flex items-center gap-5 sm:gap-6">
-            {/* Avatar — big, clickable */}
-            <Link
-              href="/mi-perfil"
-              className="relative group flex-shrink-0"
-              title="Editar mi perfil"
-            >
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-3 border-sidebar/20 group-hover:border-sidebar transition-colors">
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-sidebar flex items-center justify-center">
-                    <span className="text-white text-2xl sm:text-3xl font-bold">{initials}</span>
-                  </div>
-                )}
-              </div>
-              {/* Overlay on hover */}
-              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                  <circle cx="12" cy="13" r="4" />
-                </svg>
-              </div>
-              {/* "Sube tu foto" nudge if no avatar */}
-              {!avatarUrl && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] text-sidebar font-medium bg-sidebar/10 px-2 py-0.5 rounded-full whitespace-nowrap">
-                  Sube tu foto
-                </span>
-              )}
-            </Link>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                Hola, {firstName}
-              </h1>
-              <p className="text-sm text-gray-500 mt-0.5">
-                Tus primeros pasos
-                {streak > 0 && <span className="text-amber-500"> &middot; {streak}d racha</span>}
-              </p>
-
-              {/* Mini checklist */}
-              <div className="mt-3 space-y-1.5">
-                {[
-                  { label: "Sesi\u00f3n con tutor gu\u00eda", done: true },
-                  { label: `Nano cursos (${modulesCompleted}/12)`, done: modulesCompleted >= 12 },
-                  { label: "Primera sesi\u00f3n", done: sessionsCompleted >= 1 },
-                  { label: "4ta sesi\u00f3n", done: sessionsCompleted >= 4 },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center gap-2">
-                    <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      item.done ? "bg-emerald-500" : "border-2 border-gray-300"
-                    }`}>
-                      {item.done && (
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      )}
+          <div className="flex flex-col sm:flex-row gap-6">
+            {/* Left: Avatar + Info + Stats */}
+            <div className="flex items-start gap-5">
+              {/* Avatar — clickable */}
+              <Link
+                href="/mi-perfil"
+                className="relative group flex-shrink-0"
+                title="Editar mi perfil"
+              >
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-3 border-sidebar/20 group-hover:border-sidebar transition-colors">
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-sidebar flex items-center justify-center">
+                      <span className="text-white text-2xl sm:text-3xl font-bold">{initials}</span>
                     </div>
-                    <span className={`text-xs ${item.done ? "text-gray-500 line-through" : "text-gray-700 font-medium"}`}>
-                      {item.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  )}
+                </div>
+                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                </div>
+                {!avatarUrl && (
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] text-sidebar font-medium bg-sidebar/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                    Sube tu foto
+                  </span>
+                )}
+              </Link>
 
-              {/* Mini stats row */}
-              <div className="flex gap-4 mt-3">
-                <div className="text-center">
-                  <p className="text-lg font-bold text-gray-900">{sessionsCompleted}</p>
-                  <p className="text-[10px] text-gray-400">sesiones</p>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                  &iexcl;Hola {firstName}!
+                </h1>
+                {streak > 0 && (
+                  <p className="text-sm text-amber-500 mt-0.5">{streak}d racha</p>
+                )}
+
+                {/* Stats: Sesiones + Módulos */}
+                <div className="flex gap-6 mt-4">
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{sessionsCompleted}</p>
+                    <p className="text-xs text-gray-400">sesiones</p>
+                    <p className="text-[10px] text-gray-300 mt-0.5">
+                      {totalActiveMinutes} min totales
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{modulesCompleted}<span className="text-sm font-normal text-gray-300">/10</span></p>
+                    <p className="text-xs text-gray-400">m&oacute;dulos</p>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-gray-900">{modulesCompleted}<span className="text-xs font-normal text-gray-300">/10</span></p>
-                  <p className="text-[10px] text-gray-400">m&oacute;dulos</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-gray-900">{achievementCount}<span className="text-xs font-normal text-gray-300">/12</span></p>
-                  <p className="text-[10px] text-gray-400">logros</p>
-                </div>
+              </div>
+            </div>
+
+            {/* Right: Quick Actions 2x2 */}
+            <div className="sm:ml-auto flex-shrink-0">
+              <p className="text-xs font-semibold text-gray-500 mb-2">&iquest;Qu&eacute; quieres hacer hoy?</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Link href="/pacientes" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[100px]">
+                  <div className="w-8 h-8 rounded-lg bg-sidebar/10 flex items-center justify-center mx-auto mb-1.5 group-hover:bg-sidebar/20 transition-colors">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A55A2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                  </div>
+                  <p className="text-[11px] font-semibold text-gray-900">Practicar</p>
+                </Link>
+                <Link href="/aprendizaje" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[100px]">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center mx-auto mb-1.5 group-hover:bg-emerald-500/20 transition-colors">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                  </div>
+                  <p className="text-[11px] font-semibold text-gray-900">Aprender</p>
+                </Link>
+                <Link href="/progreso" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[100px]">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center mx-auto mb-1.5 group-hover:bg-amber-500/20 transition-colors">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                  </div>
+                  <p className="text-[11px] font-semibold text-gray-900">Progreso</p>
+                </Link>
+                <Link href="/historial" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[100px]">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center mx-auto mb-1.5 group-hover:bg-purple-500/20 transition-colors">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  </div>
+                  <p className="text-[11px] font-semibold text-gray-900">Historial</p>
+                </Link>
               </div>
             </div>
           </div>
@@ -283,36 +289,7 @@ export default async function Dashboard() {
           </div>
         )}
 
-        {/* ═══ QUICK ACTIONS ═══ */}
-        <div className="animate-slide-up">
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">&iquest;Qu&eacute; quieres hacer hoy?</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Link href="/pacientes" className="bg-white rounded-xl border border-gray-200 p-4 hover:border-sidebar/30 hover:shadow-md transition-all group text-center">
-              <div className="w-10 h-10 rounded-lg bg-sidebar/10 flex items-center justify-center mx-auto mb-2 group-hover:bg-sidebar/20 transition-colors">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A55A2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-              </div>
-              <p className="text-xs font-semibold text-gray-900">Practicar</p>
-            </Link>
-            <Link href="/aprendizaje" className="bg-white rounded-xl border border-gray-200 p-4 hover:border-sidebar/30 hover:shadow-md transition-all group text-center">
-              <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center mx-auto mb-2 group-hover:bg-emerald-500/20 transition-colors">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-              </div>
-              <p className="text-xs font-semibold text-gray-900">Aprender</p>
-            </Link>
-            <Link href="/progreso" className="bg-white rounded-xl border border-gray-200 p-4 hover:border-sidebar/30 hover:shadow-md transition-all group text-center">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center mx-auto mb-2 group-hover:bg-amber-500/20 transition-colors">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-              </div>
-              <p className="text-xs font-semibold text-gray-900">Progreso</p>
-            </Link>
-            <Link href="/historial" className="bg-white rounded-xl border border-gray-200 p-4 hover:border-sidebar/30 hover:shadow-md transition-all group text-center">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center mx-auto mb-2 group-hover:bg-purple-500/20 transition-colors">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              </div>
-              <p className="text-xs font-semibold text-gray-900">Historial</p>
-            </Link>
-          </div>
-        </div>
+        {/* Quick actions moved into profile card above */}
 
         {/* ═══ PATIENT SUGGESTIONS ═══ */}
         <div className="animate-slide-up">

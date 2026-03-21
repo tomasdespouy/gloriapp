@@ -1,0 +1,559 @@
+{
+  "timestamp": "2026-03-21T14:46:15.541Z",
+  "llmProvider": "openai",
+  "model": "gpt-4o",
+  "patientsCount": 34,
+  "escenarioA": [
+    {
+      "name": "Alejandro Vega",
+      "60s": "\"Mmm... ¿está todo bien por ahí?\" [arquea una ceja ligera y curiosamente]",
+      "90s": "\"Oiga... ¿me escucha? Llevo un rato esperando...\"",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Altagracia Marte",
+      "60s": "Mmm... ¿está todo bien por ahí?",
+      "90s": "Oiga... ¿me escucha? Llevo un rato esperando...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Me costó mucho venir aquí y siento que no fue valorado. Hasta pronto."
+    },
+    {
+      "name": "Andrés Castillo",
+      "60s": "\"Mmm... ¿está todo bien por ahí?\"",
+      "90s": "\"Oiga... ¿me escucha? Llevo un rato esperando...\"",
+      "180s": "\"Mire, si no tiene tiempo, podemos dejarlo para otro momento...\"",
+      "300s": "\"Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero.\""
+    },
+    {
+      "name": "Camila Bertoni",
+      "60s": "Bueno... este silencio me pone un poco nerviosa...",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Me costó mucho venir aquí y siento que no fue valorado. Hasta pronto."
+    },
+    {
+      "name": "Carlos Paredes",
+      "60s": "[Mira al suelo] \"Bueno... este silencio me pone un poco nervioso...\"",
+      "90s": "\"Oiga... ¿me escucha? Llevo un rato esperando...\"",
+      "180s": "\"Mire, si no tiene tiempo, podemos dejarlo para otro momento...\"",
+      "300s": "\"Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero.\""
+    },
+    {
+      "name": "Carmen Torres",
+      "60s": "\"Mmm... ¿está todo bien por ahí?\" [se cruza de brazos]",
+      "90s": "\"Oiga... ¿me escucha? Llevo un rato esperando...\"",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento.",
+      "300s": "Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad."
+    },
+    {
+      "name": "Catalina Ríos",
+      "60s": "Bueno... este silencio me pone un poco nerviosa...",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Daniela Moreno",
+      "60s": "Mmm... ¿está todo bien por ahí?",
+      "90s": "Oiga... ¿me escucha? Llevo un rato esperando...",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Diego Fuentes",
+      "60s": "\"Mmm... ¿está todo bien por ahí?\" [mira al suelo]",
+      "90s": "\"Oiga... ¿me escucha? Llevo un rato esperando...\"",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "\"Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad.\""
+    },
+    {
+      "name": "Edwin Quispe",
+      "60s": "Bueno... este silencio me pone un poco nervioso...",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad."
+    },
+    {
+      "name": "Fernanda Contreras",
+      "60s": "\"Mmm... ¿está todo bien por ahí?\" [mira hacia abajo]",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad."
+    },
+    {
+      "name": "Gabriel Navarro",
+      "60s": "Mmm... ¿está todo bien por ahí?",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Me cuesta mucho estar aquí y el silencio me hace sentir que no le importa... Si no responde, creo que me voy.",
+      "300s": "Me costó mucho venir aquí y siento que no fue valorado. Hasta pronto."
+    },
+    {
+      "name": "Gustavo Peralta",
+      "60s": "Mmm... ¿está todo bien por ahí?",
+      "90s": "Oiga... ¿me escucha? Llevo un rato esperando...",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Hernán Mejía",
+      "60s": "\"Bueno... este silencio me pone un poco nervioso...\" [mira hacia abajo]",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Comprendo lo complicado de la situación. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Ignacio Poblete",
+      "60s": "Bueno... este silencio me pone un poco incómodo...",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Jimena Ramírez",
+      "60s": "Bueno... este silencio me pone un poco nerviosa...",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Jorge Ramírez",
+      "60s": "\"Mmm... ¿está todo bien por ahí?\" [cruza los brazos, mira de reojo]",
+      "90s": "\"Oiga... ¿me escucha? Llevo un rato esperando...\"",
+      "180s": "\"Mire, si no tiene tiempo, podemos dejarlo para otro momento...\"",
+      "300s": "\"Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad.\""
+    },
+    {
+      "name": "Lorena Gutiérrez",
+      "60s": "Bueno... este silencio me pone un poco nerviosa...",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Me cuesta mucho estar aquí y el silencio me hace sentir que no le importa... Si no responde, creo que me voy.",
+      "300s": "Me costó mucho venir aquí y siento que no fue valorado. Hasta pronto."
+    },
+    {
+      "name": "Lucía Mendoza",
+      "60s": "\"Mmm... ¿está todo bien por ahí?\" [juega con sus manos]",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad."
+    },
+    {
+      "name": "Macarena Sepúlveda",
+      "60s": "\"Bueno... este silencio me pone un poco nerviosa...\"",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Marcos Herrera",
+      "60s": "\"Mmm... ¿está todo bien por ahí?\" [se cruza de brazos]",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Mariana Sánchez",
+      "60s": "\"Mmm... este silencio me pone un poco nerviosa...\" [mira hacia abajo]",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Mateo Giménez",
+      "60s": "\"Mmm... ¿está todo bien por ahí?\" [se rasca la cabeza, medio incómodo].",
+      "90s": "\"¿Sigue ahí? Me estoy preocupando un poco...\"",
+      "180s": "\"Mire, si no tiene tiempo, podemos dejarlo para otro momento...\"",
+      "300s": "\"Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero.\""
+    },
+    {
+      "name": "Milagros Flores",
+      "60s": "\"Mmm... ¿está todo bien por ahí?\" [mira a su alrededor con algo de inquietud]",
+      "90s": "\"Oiga... ¿me escucha? Llevo un rato esperando...\"",
+      "180s": "[Mire, si no tiene tiempo, podemos dejarlo para otro momento...]",
+      "300s": "\"Me costó mucho venir aquí y siento que no fue valorado. Hasta pronto.\""
+    },
+    {
+      "name": "Patricia Hernández",
+      "60s": "Bueno... este silencio me pone un poco nerviosa...",
+      "90s": "Oiga... ¿me escucha? Llevo un rato esperando...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Me costó mucho venir aquí y siento que no fue valorado. Hasta pronto."
+    },
+    {
+      "name": "Rafael Santos",
+      "60s": "[bajo la mirada, incómodo] \"Me quedé pensando si escuchó lo que dije...\"",
+      "90s": "\"Oiga... ¿me escucha? Llevo un rato esperando...\"",
+      "180s": "\"Mire, si no tiene tiempo, podemos dejarlo para otro momento...\"",
+      "300s": "\"Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad.\""
+    },
+    {
+      "name": "Renata Ayala",
+      "60s": "Bueno... este silencio me pone un poco nerviosa...",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Me costó mucho venir aquí y siento que no fue valorado. Hasta pronto."
+    },
+    {
+      "name": "Roberto Salas",
+      "60s": "Bueno... este silencio me pone un poco nervioso, doctora...",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Rosa Huamán",
+      "60s": "Mmm... ¿está todo bien por ahí?",
+      "90s": "\"Oiga... ¿me escucha? Llevo un ratito esperando...\"",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Samuel Batista",
+      "60s": "\"Me quedé pensando si escuchó lo que dije...\" [mira con curiosidad]",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Me costó mucho venir aquí y siento que no fue valorado. Hasta pronto."
+    },
+    {
+      "name": "Sofía Pellegrini",
+      "60s": "[Se cruza de brazos] \"Bueno... este silencio me pone un poco nerviosa...\"",
+      "90s": "\"Oiga... ¿me escucha? Llevo un rato esperando...\"",
+      "180s": "\"Mire, si no tiene tiempo, podemos dejarlo para otro momento...\"",
+      "300s": "\"Me costó mucho venir aquí y siento que no fue valorado. Hasta pronto.\""
+    },
+    {
+      "name": "Valentina Ospina",
+      "60s": "\"Mmm... ¿está todo bien por ahí?\"",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Me cuesta mucho estar aquí y el silencio me hace sentir que no le importa... Si no responde, creo que me voy.",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Yamilet Pérez",
+      "60s": "Bueno... este silencio me pone un poco nerviosa...",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Yesenia De Los Santos",
+      "60s": "[mira hacia abajo, juguetea con sus manos] Bueno... este silencio me pone un poco nerviosa...",
+      "90s": "No sé si se cortó la conexión o algo...",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "[se crispa un poco la voz] Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad."
+    }
+  ],
+  "escenarioB": [
+    {
+      "name": "Alejandro Vega",
+      "greeting": "Hola... buenas tardes.",
+      "greetingWords": 3,
+      "60s": "\"Mmm... ¿está todo bien por ahí?\"",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Me cuesta mucho estar aquí y el silencio me hace sentir que no le importa... Si no responde, creo que me voy.",
+      "300s": "Me costó mucho venir aquí y siento que no fue valorado. Hasta pronto."
+    },
+    {
+      "name": "Altagracia Marte",
+      "greeting": "Buenas...",
+      "greetingWords": 1,
+      "60s": "[aumenta la expresión de cordialidad en su rostro] Hola, ¿cómo está usted?",
+      "90s": "Hola, mija. ¿Cómo está usted?",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Andrés Castillo",
+      "greeting": "[mira brevemente alrededor] Hola, sí, gracias por recibirme.",
+      "greetingWords": 8,
+      "60s": "[mira hacia abajo] Buenas tardes, mucho gusto de estar aquí. ¿Por dónde empezamos?",
+      "90s": "[Se sienta con los brazos cruzados] \"No sé por dónde empezar, la verdad\".",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Camila Bertoni",
+      "greeting": "Hola... buenas tardes.",
+      "greetingWords": 3,
+      "60s": "Hola, ¿cómo estás?",
+      "90s": "Hola, ¿cómo andás?",
+      "180s": "Hola, ¿cómo te va?",
+      "300s": "Hola... este... ¿nos podemos sentar a charlar un rato?"
+    },
+    {
+      "name": "Carlos Paredes",
+      "greeting": "Hola, Carlos. Sientate y ponte cómodo. ¿Cómo te encuentras hoy?",
+      "greetingWords": 10,
+      "60s": "Bueno... este silencio me pone un poco nervioso... [se cruza de brazos]",
+      "90s": "\"Oiga... ¿me escucha? Llevo un rato esperando...\"",
+      "180s": "\"Mire, si no tiene tiempo, podemos dejarlo para otro momento...\"",
+      "300s": "Me costó mucho venir aquí y siento que no fue valorado. Hasta pronto."
+    },
+    {
+      "name": "Carmen Torres",
+      "greeting": "Buenas...",
+      "greetingWords": 1,
+      "60s": "Cuéntenme, ¿cuántos años de experiencia tiene?",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Me costó mucho venir aquí y siento que no fue valorado. Hasta pronto."
+    },
+    {
+      "name": "Catalina Ríos",
+      "greeting": "Hola... buenas tardes.",
+      "greetingWords": 3,
+      "60s": "Hola, ¿cómo te encuentras hoy?",
+      "90s": "[ladea la cabeza ligeramente] ¿Cómo comenzamos hoy nuestra conversación?",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad."
+    },
+    {
+      "name": "Daniela Moreno",
+      "greeting": "Hola... buenas tardes.",
+      "greetingWords": 3,
+      "60s": "Mmm... ¿está todo bien por ahí?",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Diego Fuentes",
+      "greeting": "Hola... eh... buenas.",
+      "greetingWords": 3,
+      "60s": "Hola... ¿cómo?",
+      "90s": "[se encoge de hombros] Hola.",
+      "180s": "[mira al suelo] Eh... hola.",
+      "300s": "[se encoge de hombros] Hola."
+    },
+    {
+      "name": "Edwin Quispe",
+      "greeting": "Hola... buenas tardes.",
+      "greetingWords": 3,
+      "60s": "Mejor dicho, ¿qué tal?",
+      "90s": "Normal nomas, gracias. ¿Y usted?",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Fernanda Contreras",
+      "greeting": "Hola... eh, buenas tardes.",
+      "greetingWords": 4,
+      "60s": "Hola, ¿cómo estás?",
+      "90s": "Hola, es que... para ser honesta, he estado un poco nerviosa con estas sesiones, pero estoy acá.",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Gabriel Navarro",
+      "greeting": "[mira sus manos] Eh... hola.",
+      "greetingWords": 5,
+      "60s": "Buenas tardes, ¿cómo estás?",
+      "90s": "[mira al suelo] Hola, ¿cómo te va?",
+      "180s": "[mira al suelo] Hola. Vale, si no hay respuesta, terminaré la sesión.",
+      "300s": "Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad."
+    },
+    {
+      "name": "Gustavo Peralta",
+      "greeting": "Eh... hola.",
+      "greetingWords": 2,
+      "60s": "¿Qué tal?",
+      "90s": "Buenas tardes, ¿cómo anda?",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "¿Y qué tiene que decirme hoy, doctor?"
+    },
+    {
+      "name": "Hernán Mejía",
+      "greeting": "Hola... buenas tardes.",
+      "greetingWords": 3,
+      "60s": "Me quedé pensando si escuchó lo que dije...",
+      "90s": "[mira hacia abajo, reflexionando] Bueno, aquí estoy para hablar. Espero podamos encontrar una salida a este dilema que me aflige tanto...",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Ignacio Poblete",
+      "greeting": "Hola... buenas tardes.",
+      "greetingWords": 3,
+      "60s": "Digamos, ¿cómo comenzamos esta sesión?",
+      "90s": "Oiga... ¿me escucha? Llevo un rato esperando...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Jimena Ramírez",
+      "greeting": "Hola... buenas tardes.",
+      "greetingWords": 3,
+      "60s": "Mmm... ¿está todo bien por ahí?",
+      "90s": "¿Qué onda?",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad."
+    },
+    {
+      "name": "Jorge Ramírez",
+      "greeting": "Buenas...",
+      "greetingWords": 1,
+      "60s": "Mmm... ¿está todo bien por ahí?",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Lorena Gutiérrez",
+      "greeting": "Hola... buenas tardes. [mira hacia abajo]",
+      "greetingWords": 6,
+      "60s": "Hola... ¿Cómo está? [sonríe tímidamente]",
+      "90s": "Hola... ¿Cómo está? [sonríe tímidamente]",
+      "180s": "Buenas... Vengo porque mi hermana me trajo. [juega con sus manos]",
+      "300s": "Hola, bueno... Estoy aquí porque mi hermana insistió. [juega con sus manos]"
+    },
+    {
+      "name": "Lucía Mendoza",
+      "greeting": "Hola... sí, gracias por recibirme.",
+      "greetingWords": 5,
+      "60s": "[mira hacia abajo]... Hola, buenas tardes.",
+      "90s": "Hola... ¿Cómo estas hoy?",
+      "180s": "Hola, sí, gracias por recibirme.",
+      "300s": "[mira hacia abajo]... Hola. ¿Por dónde empiezo?"
+    },
+    {
+      "name": "Macarena Sepúlveda",
+      "greeting": "Eh... hola.",
+      "greetingWords": 2,
+      "60s": "Hola, ¿cómo estás?",
+      "90s": "Hola. ¿En qué te gustaría centrarnos hoy?",
+      "180s": "Hola, buenas tardes. ¿Hay algo específico de lo que te gustaría hablar hoy?",
+      "300s": "La verdad es que he estado sintiéndome un poco culpable últimamente. Es como si no pudiera dejar de pensar en lo que le pasó a mi paciente. Sé que es importante gestionar estos sentimientos, pero en el fondo me siento estancada."
+    },
+    {
+      "name": "Marcos Herrera",
+      "greeting": "Hola, buenas.",
+      "greetingWords": 2,
+      "60s": "Mmm... ¿está todo bien por ahí?",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Esto no es lo que esperaba. Me voy. Ojalá la próxima vez sea diferente."
+    },
+    {
+      "name": "Mariana Sánchez",
+      "greeting": "[cruza los brazos] Eh... hola.",
+      "greetingWords": 5,
+      "60s": "Mmm... ¿está todo bien por ahí?",
+      "90s": "No sé si se cortó la conexión o algo...",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Mateo Giménez",
+      "greeting": "Buenas tardes, Mateo. ¿Cómo te sentís hoy?",
+      "greetingWords": 7,
+      "60s": "Buenas tardes. Mirá, me quedé pensando si escuchó lo que dije...",
+      "90s": "Buenas tardes. ¿Todo bien? Ando un poco cansado hoy, pero listo para charlar.",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Buen día. ¿Sabe? Hace unos días me surgió la idea de un nuevo plato y no puedo sacármelo de la cabeza. ¡Tengo tantas ganas de probarlo!"
+    },
+    {
+      "name": "Milagros Flores",
+      "greeting": "Hola... buenas tardes.",
+      "greetingWords": 3,
+      "60s": "[mira hacia abajo, jugueteando con las manos] Mmm... ¿está todo bien por ahí?",
+      "90s": "[mira hacia abajo, jugueteando con las manos] Ah... disculpa, no sabía que ya había comenzado.",
+      "180s": "Me cuesta mucho estar aquí y el silencio me hace sentir que no le importa... Si no responde, creo que me voy.",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Patricia Hernández",
+      "greeting": "Hola... buenas tardes.",
+      "greetingWords": 3,
+      "60s": "[Mira alrededor, un poco nerviosa] Mmm... ¿está todo bien por ahí?",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad."
+    },
+    {
+      "name": "Rafael Santos",
+      "greeting": "Hola, Rafael, bienvenido. ¿Cómo te sientes hoy?",
+      "greetingWords": 7,
+      "60s": "[Se cruza de brazos] \"Dímelo, ¿cómo va la vaina?\"",
+      "90s": "[suspira] \"Hola, buenas tardes. ¿En qué podemos comenzar hoy?\"",
+      "180s": "\"Mire, si no tiene tiempo, podemos dejarlo para otro momento...\"",
+      "300s": "Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad."
+    },
+    {
+      "name": "Renata Ayala",
+      "greeting": "Hola, Renata. ¿Cómo te sentís hoy?",
+      "greetingWords": 6,
+      "60s": "¿Está todo bien por ahí?",
+      "90s": "Hola, ¿cómo estás?",
+      "180s": "Hola. ¿En qué te gustaría enfocarte hoy en la sesión?",
+      "300s": "Hola, Renata. ¿Cómo te venís sintiendo últimamente?"
+    },
+    {
+      "name": "Roberto Salas",
+      "greeting": "Hola... buenas tardes.",
+      "greetingWords": 3,
+      "60s": "Hola, doctor(a). Espero que esté bien.",
+      "90s": "¿Cómo ha estado usted?",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Rosa Huamán",
+      "greeting": "[sonríe tímidamente] Hola, buenas tardes.",
+      "greetingWords": 5,
+      "60s": "[sonríe suavemente] Buenas tardes, señorita.",
+      "90s": "[mira hacia abajo, algo insegura] Buenas tardes, ¿cómo está?",
+      "180s": "[mira alrededor con un poco de nerviosismo] Buenas tardes... Estoy aquí esperando para hablar un poquito, ¿y usted?",
+      "300s": "[mira sus manos] Buenas tardes. Estoy un poco ansiosa por esta sesión, espero que podamos conversar un poquito."
+    },
+    {
+      "name": "Samuel Batista",
+      "greeting": "Eh... hola.",
+      "greetingWords": 2,
+      "60s": "Mmm... ¿está todo bien por ahí?",
+      "90s": "¿Sigue ahí? Me estoy preocupando un poco...",
+      "180s": "Mire, si no tiene tiempo, podemos dejarlo para otro momento...",
+      "300s": "Me costó mucho venir aquí y siento que no fue valorado. Hasta pronto."
+    },
+    {
+      "name": "Sofía Pellegrini",
+      "greeting": "Hola... sí, gracias por recibirme.",
+      "greetingWords": 5,
+      "60s": "Perdón, es que a veces me pierdo en mis pensamientos. [Mira al suelo] ¿Cómo estás vos?",
+      "90s": "Hola... ¿cómo estás? [Se sienta en el borde de la silla]",
+      "180s": "Hola, buenas tardes. [Mira al suelo] ¿Le parece si empezamos?",
+      "300s": "[Mira al suelo] \"No sé bien por dónde empezar...\""
+    },
+    {
+      "name": "Valentina Ospina",
+      "greeting": "Buenas tardes, Valentina. ¿Cómo se ha sentido últimamente?",
+      "greetingWords": 8,
+      "60s": "\"Mmm... ¿está todo bien por ahí?\"",
+      "90s": "No sé si se cortó la conexión o algo...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Yamilet Pérez",
+      "greeting": "Hola, Yamilet, buenas tardes. ¿Cómo te encuentras hoy?",
+      "greetingWords": 8,
+      "60s": "Mmm... ¿está todo bien por ahí?",
+      "90s": "No sé si se cortó la conexión o algo...",
+      "180s": "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+      "300s": "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión, espero."
+    },
+    {
+      "name": "Yesenia De Los Santos",
+      "greeting": "Eh... hola.",
+      "greetingWords": 2,
+      "60s": "Dime a ver, ¿cómo te va?",
+      "90s": "[mira hacia abajo] Buenas tardes... eh, dime a ver.",
+      "180s": "Eh, hola... [juega con sus manos], ¿cómo está usted?",
+      "300s": "[baja la mirada] Buenas tardes... disculpe, tenía un poco de nervios al saludar."
+    }
+  ],
+  "stats": {
+    "avgGreetingWords": 4.1,
+    "minGreetingWords": 1,
+    "maxGreetingWords": 10
+  }
+}
