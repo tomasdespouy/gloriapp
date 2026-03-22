@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Planta Concentrado de Molibdeno</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; }
+
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  .header h1 { font-size: 1.4rem; font-weight: 600; letter-spacing: 0.5px; }
+  .header-sub { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .last-update { font-size: 0.8rem; opacity: 0.6; }
+
+  .file-loader { background: white; border: 2px dashed #ccc; border-radius: 12px; padding: 48px; text-align: center; margin: 32px auto; max-width: 600px; cursor: pointer; transition: all 0.2s; }
+  .file-loader:hover, .file-loader.dragover { border-color: #4A55A2; background: #f8f9ff; }
+  .file-loader h2 { color: #333; margin-bottom: 8px; font-size: 1.2rem; }
+  .file-loader p { color: #888; font-size: 0.9rem; }
+  .file-loader input { display: none; }
+
+  .dashboard { display: none; padding: 24px 32px; max-width: 1600px; margin: 0 auto; }
+
+  .section-title { font-size: 1.1rem; font-weight: 600; color: #1a1a2e; margin: 28px 0 14px; padding-bottom: 8px; border-bottom: 2px solid #e0e0e0; display: flex; align-items: center; gap: 8px; }
+  .section-title .badge { font-size: 0.7rem; background: #eee; color: #666; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+
+  .card-grid { display: grid; gap: 16px; }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .grid-5 { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+
+  .kpi-card { background: white; border-radius: 10px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); position: relative; transition: all 0.2s; border-left: 4px solid #ccc; }
+  .kpi-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); transform: translateY(-1px); }
+  .kpi-card.green { border-left-color: #22c55e; }
+  .kpi-card.yellow { border-left-color: #eab308; }
+  .kpi-card.red { border-left-color: #ef4444; }
+  .kpi-card .label { font-size: 0.78rem; color: #666; font-weight: 500; margin-bottom: 6px; line-height: 1.3; }
+  .kpi-card .value { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+  .kpi-card.green .value { color: #16a34a; }
+  .kpi-card.yellow .value { color: #ca8a04; }
+  .kpi-card.red .value { color: #dc2626; }
+  .kpi-card .meta { font-size: 0.72rem; color: #999; margin-top: 6px; }
+  .kpi-card .meta span { margin-right: 10px; }
+
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle; }
+  .dot.green { background: #22c55e; }
+  .dot.yellow { background: #eab308; }
+  .dot.red { background: #ef4444; }
+  .dot.na { background: #ccc; }
+
+  .edit-btn { position: absolute; top: 8px; right: 8px; background: none; border: none; cursor: pointer; font-size: 1rem; color: #bbb; padding: 4px; border-radius: 4px; transition: all 0.2s; }
+  .edit-btn:hover { color: #4A55A2; background: #f0f0ff; }
+
+  .range-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin-top: 10px; }
+  .range-bar .seg { flex: 1; }
+  .range-bar .seg.r { background: #fca5a5; }
+  .range-bar .seg.y { background: #fde047; }
+  .range-bar .seg.g { background: #86efac; }
+
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 1000; justify-content: center; align-items: center; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: white; border-radius: 12px; padding: 28px 32px; max-width: 520px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+  .modal h3 { font-size: 1.1rem; margin-bottom: 4px; }
+  .modal .modal-sub { font-size: 0.8rem; color: #888; margin-bottom: 20px; }
+
+  .range-editor { display: flex; flex-direction: column; gap: 12px; }
+  .range-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 8px; }
+  .range-row.green-row { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .range-row.yellow-row { background: #fefce8; border: 1px solid #fef08a; }
+  .range-row.red-row { background: #fef2f2; border: 1px solid #fecaca; }
+  .range-row .color-label { font-weight: 600; font-size: 0.85rem; min-width: 80px; }
+  .range-row.green-row .color-label { color: #16a34a; }
+  .range-row.yellow-row .color-label { color: #ca8a04; }
+  .range-row.red-row .color-label { color: #dc2626; }
+  .range-row .condition { font-size: 0.85rem; color: #555; flex: 1; }
+  .range-row input[type="number"] { width: 80px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9rem; text-align: center; }
+  .range-row input:focus { outline: none; border-color: #4A55A2; box-shadow: 0 0 0 2px rgba(74,85,162,0.15); }
+
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+  .btn { padding: 8px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; }
+  .btn-primary { background: #4A55A2; color: white; }
+  .btn-primary:hover { background: #3d4789; }
+  .btn-secondary { background: #f0f0f0; color: #555; }
+  .btn-secondary:hover { background: #e0e0e0; }
+  .btn-danger { background: #fee; color: #dc2626; }
+  .btn-danger:hover { background: #fdd; }
+
+  .direction { font-size: 0.7rem; color: #999; display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+
+  .chart-section { background: white; border-radius: 10px; padding: 20px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-top: 20px; }
+  .chart-controls { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .chart-controls select, .chart-controls input { padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.85rem; }
+  .chart-controls label { font-size: 0.85rem; color: #666; }
+  .chart-container { position: relative; height: 320px; }
+
+  .heatmap-wrapper { overflow-x: auto; }
+  .heatmap { border-collapse: collapse; width: 100%; font-size: 0.75rem; }
+  .heatmap th { padding: 6px 8px; background: #f8f8f8; font-weight: 600; color: #555; white-space: nowrap; position: sticky; top: 0; text-align: left; }
+  .heatmap td { padding: 5px 8px; text-align: center; border: 1px solid #f0f0f0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .heatmap td.cell-green { background: #dcfce7; color: #166534; }
+  .heatmap td.cell-yellow { background: #fef9c3; color: #854d0e; }
+  .heatmap td.cell-red { background: #fee2e2; color: #991b1b; }
+  .heatmap td.cell-na { background: #f8f8f8; color: #ccc; }
+  .heatmap td.date-cell { text-align: left; font-weight: 500; background: white; color: #333; }
+  .heatmap tr:hover td { opacity: 0.85; }
+
+  .stats-bar { display: flex; gap: 24px; background: white; border-radius: 10px; padding: 16px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 8px; flex-wrap: wrap; }
+  .stat-item { text-align: center; }
+  .stat-item .stat-val { font-size: 1.3rem; font-weight: 700; color: #1a1a2e; }
+  .stat-item .stat-label { font-size: 0.72rem; color: #999; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+  .tab { padding: 8px 20px; border-radius: 8px 8px 0 0; background: #eee; color: #666; cursor: pointer; font-size: 0.85rem; font-weight: 500; border: none; transition: all 0.2s; }
+  .tab.active { background: white; color: #1a1a2e; box-shadow: 0 -2px 4px rgba(0,0,0,0.05); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .bulk-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .bulk-table th { padding: 8px 10px; text-align: left; background: #f8f8f8; font-weight: 600; color: #555; border-bottom: 2px solid #e0e0e0; }
+  .bulk-table td { padding: 6px 10px; border-bottom: 1px solid #f0f0f0; }
+  .bulk-table input { width: 70px; padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; text-align: center; font-size: 0.82rem; }
+  .bulk-table input:focus { outline: none; border-color: #4A55A2; }
+  .bulk-table tr:hover { background: #fafafa; }
+  .bulk-table .var-name { font-weight: 500; color: #333; }
+
+  /* Date filter panel */
+  .date-filter { background: white; border-radius: 10px; padding: 16px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .date-filter label { font-size: 0.85rem; color: #555; font-weight: 500; }
+  .date-filter select, .date-filter input[type="date"], .date-filter input[type="datetime-local"] { padding: 7px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.85rem; font-family: inherit; }
+  .date-filter select:focus, .date-filter input:focus { outline: none; border-color: #4A55A2; }
+  .date-filter .filter-info { font-size: 0.78rem; color: #888; margin-left: auto; }
+
+  /* Debug panel */
+  .debug-panel { background: #fffbe6; border: 1px solid #fde047; border-radius: 8px; padding: 12px 16px; margin: 16px 32px; font-size: 0.8rem; color: #854d0e; display: none; }
+  .debug-panel.visible { display: block; }
+
+  @media (max-width: 900px) {
+    .grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .dashboard { padding: 16px; }
+    .date-filter { flex-direction: column; align-items: stretch; }
+  }
+  @media (max-width: 600px) {
+    .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .header { padding: 14px 16px; flex-direction: column; gap: 8px; }
+    .header h1 { font-size: 1.1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Dashboard Planta Concentrado de Molibdeno</h1>
+    <div class="header-sub">Monitoreo operacional</div>
+  </div>
+  <div class="header-right">
+    <div class="last-update" id="lastUpdate"></div>
+    <button class="btn btn-secondary" id="btnReload" style="display:none" onclick="document.getElementById('fileInput').click()">Cargar otro Excel</button>
+  </div>
+</div>
+
+<div class="file-loader" id="fileLoader" onclick="document.getElementById('fileInput').click()">
+  <h2>Cargar archivo Excel</h2>
+  <p>Arrastra el archivo o haz clic para seleccionar<br><em>analisis claude.xlsx</em></p>
+  <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+</div>
+
+<!-- Debug panel for column mapping verification -->
+<div class="debug-panel" id="debugPanel"></div>
+
+<div class="dashboard" id="dashboard">
+  <div class="stats-bar" id="statsBar"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="monitor" onclick="switchTab('monitor')">Monitor</button>
+    <button class="tab" data-tab="heatmap" onclick="switchTab('heatmap')">Mapa de calor</button>
+    <button class="tab" data-tab="tendencia" onclick="switchTab('tendencia')">Tendencia</button>
+    <button class="tab" data-tab="rangos" onclick="switchTab('rangos')">Editar rangos</button>
+  </div>
+
+  <!-- Tab: Monitor -->
+  <div class="tab-content active" id="tab-monitor">
+
+    <!-- Date filter -->
+    <div class="date-filter">
+      <label>Modo:</label>
+      <select id="filterMode" onchange="onFilterChange()">
+        <option value="last">Ultimo turno</option>
+        <option value="single">Turno especifico</option>
+        <option value="range">Promedio acumulado</option>
+      </select>
+
+      <span id="filterSingleWrap" style="display:none">
+        <label>Fecha turno:</label>
+        <select id="filterTurno" onchange="onFilterChange()"></select>
+      </span>
+
+      <span id="filterRangeWrap" style="display:none">
+        <label>Desde:</label>
+        <input type="date" id="filterFrom" onchange="onFilterChange()">
+        <label>Hasta:</label>
+        <input type="date" id="filterTo" onchange="onFilterChange()">
+      </span>
+
+      <div class="filter-info" id="filterInfo"></div>
+    </div>
+
+    <div class="section-title">Resultados primarios <span class="badge">KPIs</span></div>
+    <div class="card-grid grid-3" id="gridPrimary"></div>
+
+    <div class="section-title">Resultados secundarios</div>
+    <div class="card-grid grid-4" id="gridSecondary"></div>
+
+    <div class="section-title">Variables operacionales controlables <span class="badge">ajustables</span></div>
+    <div class="card-grid grid-5" id="gridOperational"></div>
+
+    <div class="section-title">Variables externas <span class="badge">sin control</span></div>
+    <div class="card-grid grid-5" id="gridExternal"></div>
+  </div>
+
+  <!-- Tab: Heatmap -->
+  <div class="tab-content" id="tab-heatmap">
+    <div class="section-title">Mapa de calor - Ultimos turnos</div>
+    <div class="chart-controls">
+      <label>Mostrar ultimos</label>
+      <select id="heatmapTurns" onchange="renderHeatmap()">
+        <option value="14">14 turnos</option>
+        <option value="28" selected>28 turnos</option>
+        <option value="56">56 turnos</option>
+        <option value="0">Todos</option>
+      </select>
+    </div>
+    <div class="heatmap-wrapper">
+      <table class="heatmap" id="heatmapTable"></table>
+    </div>
+  </div>
+
+  <!-- Tab: Tendencia -->
+  <div class="tab-content" id="tab-tendencia">
+    <div class="section-title">Tendencia temporal</div>
+    <div class="chart-section">
+      <div class="chart-controls">
+        <label>Variable:</label>
+        <select id="chartVariable" onchange="renderChart()"></select>
+        <label style="margin-left:16px">Mostrar:</label>
+        <select id="chartPeriod" onchange="renderChart()">
+          <option value="0">Todo el periodo</option>
+          <option value="30">Ultimos 30 turnos</option>
+          <option value="60">Ultimos 60 turnos</option>
+          <option value="90">Ultimos 90 turnos</option>
+        </select>
+      </div>
+      <div class="chart-container">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Rangos -->
+  <div class="tab-content" id="tab-rangos">
+    <div class="section-title">Editor de rangos por variable</div>
+    <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">
+      <p style="font-size:0.85rem;color:#666;flex:1;">Modifica los umbrales verde/amarillo/rojo. Los cambios se guardan automaticamente en el navegador.</p>
+      <button class="btn btn-danger" onclick="resetAllRanges()">Restaurar rangos por defecto</button>
+    </div>
+    <div class="section-title" style="font-size:0.95rem;">Resultados primarios</div>
+    <table class="bulk-table" id="bulkPrimary"></table>
+    <div class="section-title" style="font-size:0.95rem;">Resultados secundarios</div>
+    <table class="bulk-table" id="bulkSecondary"></table>
+    <div class="section-title" style="font-size:0.95rem;">Variables operacionales controlables</div>
+    <table class="bulk-table" id="bulkOperational"></table>
+  </div>
+</div>
+
+<!-- Modal for single variable range edit -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="modalTitle"></h3>
+    <div class="modal-sub" id="modalSub"></div>
+    <div class="range-editor" id="modalEditor"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveModalRanges()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// VARIABLE DEFINITIONS
+// Each variable has a headerMatch array: substrings to find in the Excel header row.
+// The first match wins. This makes column detection robust regardless of encoding or column shifts.
+// ============================================================
+const STORAGE_KEY = 'dashboard_mo_ranges_v3';
+
+const VARIABLES = [
+  // Resultados primarios
+  { id: 'global_mo',       headerMatch: ['Global Moly', 'Global Mo'],                        label: 'Recuperacion Global Mo',     unit: '%', group: 'primary',     dir: 'higher', green: 50,    yellow: 35,   decimals: 1 },
+  { id: 'colectiva_mo',    headerMatch: ['colectiva Mo', 'Colectiva Mo'],                     label: 'Recuperacion Colectiva Mo',  unit: '%', group: 'primary',     dir: 'higher', green: 70,    yellow: 60,   decimals: 1 },
+  { id: 'selectiva_mo',    headerMatch: ['Selectiva'],                                        label: 'Recuperacion Selectiva Mo',  unit: '%', group: 'primary',     dir: 'higher', green: 70,    yellow: 50,   decimals: 1 },
+  // Resultados secundarios
+  { id: 'enriquecimiento', headerMatch: ['Enriquecimiento'],                                  label: 'Enriquecimiento Mo',         unit: '',  group: 'secondary',   dir: 'higher', green: 30,    yellow: 25,   decimals: 1 },
+  { id: 'conc_mo_final',   headerMatch: ['Concentrado Mo Final'],                             label: 'Concentrado Mo Final',       unit: '%', group: 'secondary',   dir: 'higher', green: 30,    yellow: 20,   decimals: 1 },
+  { id: 'rougher_mo',      headerMatch: ['rougher Mo', 'Rougher Mo'],                         label: 'Recuperacion Rougher Mo',    unit: '%', group: 'secondary',   dir: 'higher', green: 75,    yellow: 65,   decimals: 1 },
+  { id: 'limpieza_mo',     headerMatch: ['limpieza Mo', 'Limpieza Mo'],                       label: 'Recuperacion Limpieza Mo',   unit: '%', group: 'secondary',   dir: 'higher', green: 93,    yellow: 85,   decimals: 1 },
+  // Operacionales controlables
+  { id: 'orp_columna',     headerMatch: ['ORP Columna'],                                      label: 'ORP Columna',                unit: 'mV', group: 'operational', dir: 'lower',  green: -469,  yellow: -394, decimals: 0 },
+  { id: 'nivel_col',       headerMatch: ['NIVEL COL'],                                        label: 'NIVEL COL',                  unit: '',   group: 'operational', dir: 'higher', green: 75,    yellow: 40,   decimals: 1 },
+  { id: 'aire_col',        headerMatch: ['AIRE COL'],                                         label: 'AIRE COL',                   unit: '',   group: 'operational', dir: 'higher', green: 110,   yellow: 97,   decimals: 1 },
+  { id: 'bba71',           headerMatch: ['BBA71'],                                             label: 'BBA71',                      unit: '',   group: 'operational', dir: 'higher', green: 25.4,  yellow: 21,   decimals: 1 },
+  { id: 'p80_cucon',       headerMatch: ['P80'],                                               label: 'P80 cucon',                  unit: '',   group: 'operational', dir: 'higher', green: 70,    yellow: 66,   decimals: 1 },
+  { id: 'insoluble',       headerMatch: ['Insoluble'],                                        label: 'Insoluble',                  unit: '',   group: 'operational', dir: 'higher', green: 12,    yellow: 10,   decimals: 1 },
+  { id: 'orp_1ra_dif',     headerMatch: ['ORP primera', 'ORP 1ra'],                           label: 'ORP 1ra diferencial',        unit: 'mV', group: 'operational', dir: 'lower',  green: -446,  yellow: -430, decimals: 0 },
+  { id: 'ph_columna',      headerMatch: ['pH columna'],                                       label: 'pH columna',                 unit: '',   group: 'operational', dir: 'lower',  green: 9.9,   yellow: 10.2, decimals: 2 },
+  { id: 'solido_relave',   headerMatch: ['Solido relave', 'lido relave'],                     label: 'Solido relave',              unit: '',   group: 'operational', dir: 'higher', green: 54,    yellow: 50,   decimals: 1 },
+  { id: 'solido_stp28',    headerMatch: ['STP 28'],                                           label: 'Solido STP 28',              unit: '',   group: 'operational', dir: 'higher', green: 56,    yellow: 52,   decimals: 1 },
+  { id: 'acond2_mo',       headerMatch: ['Acond 2 Mo'],                                       label: 'Acond 2 Mo',                 unit: '%',  group: 'operational', dir: 'higher', green: 17,    yellow: 12,   decimals: 1 },
+  { id: 'acido_acond1',    headerMatch: ['acido acond', 'cido acond'],                         label: 'Acido acond 1',              unit: '',   group: 'operational', dir: 'higher', green: 646,   yellow: 581,  decimals: 0 },
+  { id: 'ley_mo_conc',     headerMatch: ['Ley Mo Concentrado', 'Concentrado Final, %'],       label: 'Ley Mo Conc. Final',         unit: '%',  group: 'operational', dir: 'higher', green: 0.4,   yellow: 0.3,  decimals: 3 },
+  { id: 'horas_bba',       headerMatch: ['Horas oper', 'bba tk'],                             label: 'Horas bba tk 47/48',         unit: 'h',  group: 'operational', dir: 'higher', green: 5,     yellow: 3,    decimals: 1 },
+  { id: 'insolubles_ac2',  headerMatch: ['Insolubles Acond2'],                                label: 'Insolubles Acond2',          unit: '',   group: 'operational', dir: 'lower',  green: 7.3,   yellow: 8.5,  decimals: 1 },
+  // Externas
+  { id: 'ley_mo_alim',     headerMatch: ['Ley Mo Aliment', 'Alimentaci'],                     label: 'Ley Mo Alimentacion',        unit: '%',  group: 'external',    dir: null,     green: null,  yellow: null, decimals: 3 },
+  { id: 'ph_pozon',        headerMatch: ['pH Poz'],                                           label: 'pH Pozon',                   unit: '',   group: 'external',    dir: null,     green: null,  yellow: null, decimals: 2 },
+  { id: 'orp_pozon',       headerMatch: ['ORP Poz'],                                          label: 'ORP Pozon',                  unit: 'mV', group: 'external',    dir: null,     green: null,  yellow: null, decimals: 0 },
+  { id: 'flujo_yesos',     headerMatch: ['Flujo yesos'],                                      label: 'Flujo yesos',                unit: '',   group: 'external',    dir: null,     green: null,  yellow: null, decimals: 1 },
+  { id: 'ph_yesos',        headerMatch: ['pH yesos'],                                         label: 'pH yesos',                   unit: '',   group: 'external',    dir: null,     green: null,  yellow: null, decimals: 2 },
+  { id: 'orp_acond1',      headerMatch: ['ORP Acond1'],                                       label: 'ORP Acond1',                 unit: 'mV', group: 'external',    dir: null,     green: null,  yellow: null, decimals: 0 },
+  { id: 'lt1_tph',         headerMatch: ['LT1'],                                              label: 'LT1 TPH',                    unit: 'TPH',group: 'external',    dir: null,     green: null,  yellow: null, decimals: 0 },
+];
+
+// Runtime state
+let ranges = {};
+let parsedData = [];  // sorted array of {fecha: Date, var_id: number, ...}
+let colMap = {};      // var.id -> column index in data arrays
+let trendChart = null;
+
+// ============================================================
+// RANGE MANAGEMENT
+// ============================================================
+function initRanges() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try { ranges = JSON.parse(saved); } catch(e) { ranges = {}; }
+  }
+  VARIABLES.forEach(v => {
+    if (v.dir && !(v.id in ranges)) {
+      ranges[v.id] = { green: v.green, yellow: v.yellow };
+    }
+  });
+}
+
+function saveRanges() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(ranges));
+}
+
+function resetAllRanges() {
+  if (!confirm('Restaurar todos los rangos a los valores por defecto del informe?')) return;
+  VARIABLES.forEach(v => {
+    if (v.dir) ranges[v.id] = { green: v.green, yellow: v.yellow };
+  });
+  saveRanges();
+  renderAll();
+}
+
+function getRange(v) {
+  return ranges[v.id] || { green: v.green, yellow: v.yellow };
+}
+
+function classify(value, varDef) {
+  if (value == null || isNaN(value)) return 'na';
+  if (!varDef.dir) return 'na';
+  const r = getRange(varDef);
+  if (varDef.dir === 'higher') {
+    if (value >= r.green) return 'green';
+    if (value >= r.yellow) return 'yellow';
+    return 'red';
+  } else {
+    if (value <= r.green) return 'green';
+    if (value <= r.yellow) return 'yellow';
+    return 'red';
+  }
+}
+
+// ============================================================
+// FILE LOADING & COLUMN DETECTION
+// ============================================================
+const fileInput = document.getElementById('fileInput');
+const fileLoader = document.getElementById('fileLoader');
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files.length) loadFile(e.target.files[0]);
+});
+fileLoader.addEventListener('dragover', e => { e.preventDefault(); fileLoader.classList.add('dragover'); });
+fileLoader.addEventListener('dragleave', () => fileLoader.classList.remove('dragover'));
+fileLoader.addEventListener('drop', e => {
+  e.preventDefault();
+  fileLoader.classList.remove('dragover');
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rawData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+    // Step 1: Find headers and build column map
+    const headerRow = rawData[0];
+    detectColumns(headerRow);
+
+    // Step 2: Parse data
+    parseData(rawData);
+
+    // Step 3: Show dashboard
+    fileLoader.style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('btnReload').style.display = 'inline-block';
+    document.getElementById('lastUpdate').textContent = 'Archivo: ' + file.name;
+
+    populateTurnoSelector();
+    renderAll();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function detectColumns(headerRow) {
+  colMap = {};
+  let dateCol = -1;
+  const debugLines = [];
+
+  // Find date column first
+  for (let i = 0; i < headerRow.length; i++) {
+    const h = String(headerRow[i] || '');
+    if (h.toLowerCase().includes('fecha')) {
+      dateCol = i;
+      break;
+    }
+  }
+  if (dateCol === -1) {
+    // Fallback: find first column that looks like a date in row 2
+    dateCol = 0;
+  }
+  colMap['_fecha'] = dateCol;
+  debugLines.push(`Fecha -> col ${dateCol}`);
+
+  // Match each variable to a column
+  for (const v of VARIABLES) {
+    let foundCol = -1;
+    for (let i = 0; i < headerRow.length; i++) {
+      const h = String(headerRow[i] || '');
+      for (const pattern of v.headerMatch) {
+        if (h.includes(pattern)) {
+          // Avoid matching "Insolubles Acond2" when looking for just "Insoluble"
+          if (v.id === 'insoluble' && h.includes('Insolubles')) continue;
+          foundCol = i;
+          break;
+        }
+      }
+      if (foundCol !== -1) break;
+    }
+    colMap[v.id] = foundCol;
+    const hdrName = foundCol >= 0 ? headerRow[foundCol] : 'NO ENCONTRADA';
+    debugLines.push(`${v.label} -> col ${foundCol} [${hdrName}]`);
+  }
+
+  // Show debug info
+  const debugEl = document.getElementById('debugPanel');
+  debugEl.innerHTML = '<strong>Mapeo de columnas detectado:</strong><br>' + debugLines.join('<br>');
+  debugEl.classList.add('visible');
+  // Auto-hide after 8 seconds
+  setTimeout(() => debugEl.classList.remove('visible'), 8000);
+}
+
+function parseData(rawData) {
+  parsedData = [];
+  const fechaCol = colMap['_fecha'];
+
+  for (let i = 1; i < rawData.length; i++) {
+    const row = rawData[i];
+    if (!row) continue;
+
+    // Parse date
+    let dateVal = row[fechaCol];
+    if (!dateVal) continue;
+
+    const entry = {};
+    if (dateVal instanceof Date) {
+      entry.fecha = dateVal;
+    } else if (typeof dateVal === 'number') {
+      entry.fecha = new Date((dateVal - 25569) * 86400 * 1000);
+    } else {
+      entry.fecha = new Date(String(dateVal));
+    }
+    if (isNaN(entry.fecha.getTime())) continue;
+
+    // Parse each variable
+    for (const v of VARIABLES) {
+      const ci = colMap[v.id];
+      if (ci < 0) { entry[v.id] = NaN; continue; }
+      let val = row[ci];
+      if (val == null || val === '' || val === 'Calculation aborted' || val === '#REF!' || val === '#VALUE!' || val === '#N/A') {
+        entry[v.id] = NaN;
+      } else if (typeof val === 'number') {
+        entry[v.id] = val;
+      } else {
+        const num = parseFloat(String(val).replace(',', '.'));
+        entry[v.id] = isNaN(num) ? NaN : num;
+      }
+    }
+
+    parsedData.push(entry);
+  }
+
+  parsedData.sort((a, b) => a.fecha - b.fecha);
+}
+
+// ============================================================
+// DATE FILTER
+// ============================================================
+function populateTurnoSelector() {
+  const sel = document.getElementById('filterTurno');
+  sel.innerHTML = '';
+  for (let i = parsedData.length - 1; i >= 0; i--) {
+    const d = parsedData[i];
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = formatDateTime(d.fecha);
+    sel.appendChild(opt);
+  }
+  // Set date range defaults
+  if (parsedData.length) {
+    document.getElementById('filterFrom').value = toDateInputValue(parsedData[0].fecha);
+    document.getElementById('filterTo').value = toDateInputValue(parsedData[parsedData.length - 1].fecha);
+  }
+}
+
+function toDateInputValue(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function onFilterChange() {
+  const mode = document.getElementById('filterMode').value;
+  document.getElementById('filterSingleWrap').style.display = mode === 'single' ? 'inline' : 'none';
+  document.getElementById('filterRangeWrap').style.display = mode === 'range' ? 'inline' : 'none';
+  renderMonitor();
+}
+
+/**
+ * Returns the data to show in the monitor based on the filter:
+ * - {values: {var_id: number}, label: string, count: number}
+ */
+function getFilteredMonitorData() {
+  const mode = document.getElementById('filterMode').value;
+
+  if (mode === 'last') {
+    if (!parsedData.length) return null;
+    const last = parsedData[parsedData.length - 1];
+    const vals = {};
+    VARIABLES.forEach(v => vals[v.id] = last[v.id]);
+    return { values: vals, label: formatDateTime(last.fecha), count: 1 };
+  }
+
+  if (mode === 'single') {
+    const idx = parseInt(document.getElementById('filterTurno').value);
+    if (isNaN(idx) || !parsedData[idx]) return null;
+    const row = parsedData[idx];
+    const vals = {};
+    VARIABLES.forEach(v => vals[v.id] = row[v.id]);
+    return { values: vals, label: formatDateTime(row.fecha), count: 1 };
+  }
+
+  if (mode === 'range') {
+    const fromStr = document.getElementById('filterFrom').value;
+    const toStr = document.getElementById('filterTo').value;
+    if (!fromStr || !toStr) return null;
+    const from = new Date(fromStr + 'T00:00:00');
+    const to = new Date(toStr + 'T23:59:59');
+
+    const filtered = parsedData.filter(d => d.fecha >= from && d.fecha <= to);
+    if (!filtered.length) return null;
+
+    // Compute averages
+    const vals = {};
+    VARIABLES.forEach(v => {
+      const nums = filtered.map(d => d[v.id]).filter(x => !isNaN(x) && x != null);
+      vals[v.id] = nums.length ? nums.reduce((a,b) => a+b, 0) / nums.length : NaN;
+    });
+
+    const lbl = `Promedio ${formatDate(from)} - ${formatDate(to)}`;
+    return { values: vals, label: lbl, count: filtered.length };
+  }
+
+  return null;
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+function renderAll() {
+  renderStatsBar();
+  renderMonitor();
+  renderHeatmap();
+  renderChartSelector();
+  renderChart();
+  renderBulkEditors();
+}
+
+function renderMonitor() {
+  renderCards('primary', 'gridPrimary');
+  renderCards('secondary', 'gridSecondary');
+  renderCards('operational', 'gridOperational');
+  renderCards('external', 'gridExternal');
+
+  // Update filter info
+  const data = getFilteredMonitorData();
+  const infoEl = document.getElementById('filterInfo');
+  if (data) {
+    infoEl.textContent = data.count > 1
+      ? `${data.label} (${data.count} turnos)`
+      : data.label;
+  } else {
+    infoEl.textContent = 'Sin datos para el filtro seleccionado';
+  }
+}
+
+function renderStatsBar() {
+  const el = document.getElementById('statsBar');
+  if (!parsedData.length) { el.innerHTML = ''; return; }
+
+  const totalTurnos = parsedData.length;
+  const firstDate = parsedData[0].fecha;
+  const lastDate = parsedData[parsedData.length - 1].fecha;
+  const globalVals = parsedData.map(d => d.global_mo).filter(v => !isNaN(v));
+  const mean = globalVals.length ? globalVals.reduce((a,b) => a+b, 0) / globalVals.length : 0;
+  const gv = VARIABLES.find(v => v.id === 'global_mo');
+  const greenCount = globalVals.filter(v => v >= getRange(gv).green).length;
+  const greenPct = globalVals.length ? ((greenCount / globalVals.length) * 100).toFixed(0) : 0;
+
+  el.innerHTML = `
+    <div class="stat-item"><div class="stat-val">${totalTurnos}</div><div class="stat-label">Turnos totales</div></div>
+    <div class="stat-item"><div class="stat-val">${formatDate(firstDate)}</div><div class="stat-label">Primer turno</div></div>
+    <div class="stat-item"><div class="stat-val">${formatDate(lastDate)}</div><div class="stat-label">Ultimo turno</div></div>
+    <div class="stat-item"><div class="stat-val">${mean.toFixed(1)}%</div><div class="stat-label">Media Global Mo</div></div>
+    <div class="stat-item"><div class="stat-val" style="color:${greenPct >= 50 ? '#16a34a' : '#dc2626'}">${greenPct}%</div><div class="stat-label">Turnos en verde (Global)</div></div>
+  `;
+}
+
+function renderCards(group, containerId) {
+  const container = document.getElementById(containerId);
+  const vars = VARIABLES.filter(v => v.group === group);
+  if (!parsedData.length) { container.innerHTML = ''; return; }
+
+  const monitorData = getFilteredMonitorData();
+  if (!monitorData) { container.innerHTML = '<p style="color:#999;font-size:0.85rem;">Sin datos</p>'; return; }
+
+  let html = '';
+  vars.forEach(v => {
+    const val = monitorData.values[v.id];
+    const cls = classify(val, v);
+    const displayVal = (val == null || isNaN(val)) ? 'N/A' : val.toFixed(v.decimals);
+
+    // Historical stats (always over full dataset)
+    const allVals = parsedData.map(d => d[v.id]).filter(x => !isNaN(x) && x != null);
+    const mean = allVals.length ? (allVals.reduce((a,b) => a+b, 0) / allVals.length).toFixed(v.decimals) : '-';
+    const greenPct = v.dir && allVals.length ? ((allVals.filter(x => classify(x, v) === 'green').length / allVals.length) * 100).toFixed(0) : null;
+
+    let dirLabel = '';
+    if (v.dir === 'higher') dirLabel = '<div class="direction">&#9650; mayor = mejor</div>';
+    else if (v.dir === 'lower') dirLabel = '<div class="direction">&#9660; menor = mejor</div>';
+
+    let rangeBar = '';
+    if (v.dir) {
+      rangeBar = '<div class="range-bar"><div class="seg r"></div><div class="seg y"></div><div class="seg g"></div></div>';
+    }
+
+    const editBtn = v.dir ? `<button class="edit-btn" onclick="openModal('${v.id}')" title="Editar rangos">&#9881;</button>` : '';
+
+    html += `
+      <div class="kpi-card ${cls}">
+        ${editBtn}
+        <div class="label">${v.label}</div>
+        <div class="value">${displayVal}<span style="font-size:0.9rem;font-weight:400;color:#999;margin-left:4px">${v.unit}</span></div>
+        <div class="meta">
+          <span>Media hist: ${mean}${v.unit}</span>
+          ${greenPct !== null ? `<span><span class="dot green"></span>${greenPct}%</span>` : ''}
+        </div>
+        ${dirLabel}
+        ${rangeBar}
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// HEATMAP
+// ============================================================
+function renderHeatmap() {
+  const table = document.getElementById('heatmapTable');
+  if (!parsedData.length) { table.innerHTML = ''; return; }
+
+  const n = parseInt(document.getElementById('heatmapTurns').value) || parsedData.length;
+  const data = parsedData.slice(-n);
+  const heatVars = VARIABLES.filter(v => v.dir);
+
+  let html = '<thead><tr><th>Fecha/Turno</th>';
+  heatVars.forEach(v => html += `<th title="${v.label}">${abbreviate(v.label)}</th>`);
+  html += '</tr></thead><tbody>';
+
+  data.forEach(row => {
+    html += `<tr><td class="date-cell">${formatDateTime(row.fecha)}</td>`;
+    heatVars.forEach(v => {
+      const val = row[v.id];
+      const cls = classify(val, v);
+      const display = (val == null || isNaN(val)) ? '-' : val.toFixed(v.decimals);
+      html += `<td class="cell-${cls}" title="${v.label}: ${display}">${display}</td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function abbreviate(label) {
+  const map = {
+    'Recuperacion Global Mo': 'Glob', 'Recuperacion Colectiva Mo': 'Colect',
+    'Recuperacion Selectiva Mo': 'Select', 'Enriquecimiento Mo': 'Enriq',
+    'Concentrado Mo Final': 'Conc', 'Recuperacion Rougher Mo': 'Rough',
+    'Recuperacion Limpieza Mo': 'Limp', 'ORP Columna': 'ORP Col',
+    'NIVEL COL': 'Nivel', 'AIRE COL': 'Aire', 'BBA71': 'BBA71',
+    'P80 cucon': 'P80', 'Insoluble': 'Insol', 'ORP 1ra diferencial': 'ORP 1d',
+    'pH columna': 'pH Col', 'Solido relave': 'Sol Rel', 'Solido STP 28': 'STP28',
+    'Acond 2 Mo': 'Ac2Mo', 'Acido acond 1': 'Acid1', 'Ley Mo Conc. Final': 'Ley CF',
+    'Horas bba tk 47/48': 'Hrs Bba', 'Insolubles Acond2': 'Ins Ac2',
+  };
+  return map[label] || label.substring(0, 6);
+}
+
+// ============================================================
+// TREND CHART
+// ============================================================
+function renderChartSelector() {
+  const sel = document.getElementById('chartVariable');
+  const groups = { primary: 'Resultados primarios', secondary: 'Resultados secundarios', operational: 'Operacionales', external: 'Externas' };
+  let html = '';
+  Object.entries(groups).forEach(([key, label]) => {
+    html += `<optgroup label="${label}">`;
+    VARIABLES.filter(v => v.group === key).forEach(v => {
+      html += `<option value="${v.id}">${v.label}</option>`;
+    });
+    html += '</optgroup>';
+  });
+  sel.innerHTML = html;
+}
+
+function renderChart() {
+  const varId = document.getElementById('chartVariable').value;
+  const period = parseInt(document.getElementById('chartPeriod').value);
+  const v = VARIABLES.find(x => x.id === varId);
+  if (!v || !parsedData.length) return;
+
+  const data = period ? parsedData.slice(-period) : parsedData;
+  const labels = data.map(d => d.fecha);
+  const values = data.map(d => { const val = d[v.id]; return isNaN(val) ? null : val; });
+
+  const r = v.dir ? getRange(v) : null;
+
+  const datasets = [{
+    label: v.label,
+    data: values,
+    borderColor: '#4A55A2',
+    backgroundColor: 'rgba(74,85,162,0.1)',
+    borderWidth: 2,
+    pointRadius: 2,
+    pointHoverRadius: 5,
+    fill: true,
+    tension: 0.3,
+    spanGaps: true,
+  }];
+
+  const annotationObj = {};
+  if (r) {
+    annotationObj.lineGreen = {
+      type: 'line', yMin: r.green, yMax: r.green,
+      borderColor: '#22c55e', borderWidth: 2, borderDash: [6, 4],
+      label: { content: `Verde: ${r.green}`, display: true, position: 'start', font: { size: 10 }, backgroundColor: 'rgba(34,197,94,0.8)' }
+    };
+    annotationObj.lineYellow = {
+      type: 'line', yMin: r.yellow, yMax: r.yellow,
+      borderColor: '#eab308', borderWidth: 2, borderDash: [6, 4],
+      label: { content: `Amarillo: ${r.yellow}`, display: true, position: 'start', font: { size: 10 }, backgroundColor: 'rgba(234,179,8,0.8)' }
+    };
+  }
+
+  if (trendChart) trendChart.destroy();
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  trendChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'day', displayFormats: { day: 'dd MMM' } },
+          ticks: { maxRotation: 45, font: { size: 11 } },
+          grid: { display: false },
+        },
+        y: {
+          ticks: { font: { size: 11 } },
+          title: { display: true, text: `${v.label} (${v.unit})`, font: { size: 12 } },
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => items[0] ? formatDateTime(new Date(items[0].parsed.x)) : '',
+            label: item => `${v.label}: ${item.parsed.y != null ? item.parsed.y.toFixed(v.decimals) : 'N/A'} ${v.unit}`
+          }
+        },
+        annotation: { annotations: annotationObj },
+      }
+    }
+  });
+}
+
+// ============================================================
+// BULK RANGE EDITOR
+// ============================================================
+function renderBulkEditors() {
+  renderBulkTable('primary', 'bulkPrimary');
+  renderBulkTable('secondary', 'bulkSecondary');
+  renderBulkTable('operational', 'bulkOperational');
+}
+
+function renderBulkTable(group, containerId) {
+  const container = document.getElementById(containerId);
+  const vars = VARIABLES.filter(v => v.group === group && v.dir);
+  const last = parsedData.length ? parsedData[parsedData.length - 1] : null;
+
+  let html = `<thead><tr>
+    <th>Variable</th><th>Direccion</th>
+    <th style="color:#16a34a">Verde</th>
+    <th style="color:#ca8a04">Amarillo</th>
+    <th style="color:#dc2626">Rojo</th>
+    <th>Valor actual</th>
+  </tr></thead><tbody>`;
+
+  vars.forEach(v => {
+    const r = getRange(v);
+    const val = last ? last[v.id] : NaN;
+    const cls = classify(val, v);
+    const displayVal = isNaN(val) ? 'N/A' : val.toFixed(v.decimals);
+
+    let greenLabel, yellowLabel, redLabel;
+    if (v.dir === 'higher') {
+      greenLabel = `&gt;= <input type="number" step="any" value="${r.green}" onchange="updateBulkRange('${v.id}','green',this.value)">`;
+      yellowLabel = `&gt;= <input type="number" step="any" value="${r.yellow}" onchange="updateBulkRange('${v.id}','yellow',this.value)">`;
+      redLabel = `&lt; ${r.yellow}`;
+    } else {
+      greenLabel = `&lt;= <input type="number" step="any" value="${r.green}" onchange="updateBulkRange('${v.id}','green',this.value)">`;
+      yellowLabel = `&lt;= <input type="number" step="any" value="${r.yellow}" onchange="updateBulkRange('${v.id}','yellow',this.value)">`;
+      redLabel = `&gt; ${r.yellow}`;
+    }
+
+    html += `<tr>
+      <td class="var-name">${v.label} <span style="color:#999;font-size:0.75rem">${v.unit}</span></td>
+      <td style="font-size:0.78rem;color:#888">${v.dir === 'higher' ? '&#9650; mayor' : '&#9660; menor'}</td>
+      <td>${greenLabel}</td>
+      <td>${yellowLabel}</td>
+      <td style="font-size:0.8rem;color:#999">${redLabel}</td>
+      <td><span class="dot ${cls}"></span> ${displayVal}</td>
+    </tr>`;
+  });
+
+  html += '</tbody>';
+  container.innerHTML = html;
+}
+
+function updateBulkRange(varId, level, value) {
+  const num = parseFloat(value);
+  if (isNaN(num)) return;
+  if (!ranges[varId]) {
+    const v = VARIABLES.find(x => x.id === varId);
+    ranges[varId] = { green: v.green, yellow: v.yellow };
+  }
+  ranges[varId][level] = num;
+  saveRanges();
+  renderAll();
+}
+
+// ============================================================
+// SINGLE VARIABLE MODAL
+// ============================================================
+let modalVarId = null;
+
+function openModal(varId) {
+  modalVarId = varId;
+  const v = VARIABLES.find(x => x.id === varId);
+  const r = getRange(v);
+
+  document.getElementById('modalTitle').textContent = v.label;
+  document.getElementById('modalSub').textContent = `${v.dir === 'higher' ? 'Mayor es mejor' : 'Menor es mejor'} | Unidad: ${v.unit || 'sin unidad'}`;
+
+  const editor = document.getElementById('modalEditor');
+  if (v.dir === 'higher') {
+    editor.innerHTML = `
+      <div class="range-row green-row">
+        <div class="color-label">VERDE</div>
+        <div class="condition">Valor &gt;=</div>
+        <input type="number" step="any" id="modalGreen" value="${r.green}">
+      </div>
+      <div class="range-row yellow-row">
+        <div class="color-label">AMARILLO</div>
+        <div class="condition">Valor &gt;=</div>
+        <input type="number" step="any" id="modalYellow" value="${r.yellow}">
+        <div class="condition">y &lt; verde</div>
+      </div>
+      <div class="range-row red-row">
+        <div class="color-label">ROJO</div>
+        <div class="condition">Valor &lt; amarillo</div>
+      </div>`;
+  } else {
+    editor.innerHTML = `
+      <div class="range-row green-row">
+        <div class="color-label">VERDE</div>
+        <div class="condition">Valor &lt;=</div>
+        <input type="number" step="any" id="modalGreen" value="${r.green}">
+      </div>
+      <div class="range-row yellow-row">
+        <div class="color-label">AMARILLO</div>
+        <div class="condition">Valor &lt;=</div>
+        <input type="number" step="any" id="modalYellow" value="${r.yellow}">
+        <div class="condition">y &gt; verde</div>
+      </div>
+      <div class="range-row red-row">
+        <div class="color-label">ROJO</div>
+        <div class="condition">Valor &gt; amarillo</div>
+      </div>`;
+  }
+
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function closeModal(event) {
+  if (event && event.target && event.target !== document.getElementById('modalOverlay')) return;
+  document.getElementById('modalOverlay').classList.remove('active');
+  modalVarId = null;
+}
+
+function saveModalRanges() {
+  if (!modalVarId) return;
+  const green = parseFloat(document.getElementById('modalGreen').value);
+  const yellow = parseFloat(document.getElementById('modalYellow').value);
+  if (isNaN(green) || isNaN(yellow)) { alert('Ingresa valores numericos validos'); return; }
+  ranges[modalVarId] = { green, yellow };
+  saveRanges();
+  closeModal();
+  renderAll();
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function switchTab(tabId) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tabId).classList.add('active');
+  document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+  if (tabId === 'tendencia') setTimeout(() => renderChart(), 100);
+  if (tabId === 'heatmap') renderHeatmap();
+  if (tabId === 'rangos') renderBulkEditors();
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function formatDate(d) {
+  if (!d || !(d instanceof Date) || isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatDateTime(d) {
+  if (!d || !(d instanceof Date) || isNaN(d.getTime())) return '-';
+  const h = d.getHours();
+  const turno = h >= 12 ? '20:00 (Noche)' : '08:00 (Dia)';
+  return d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + turno;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+initRanges();
+</script>
+</body>
+</html>
