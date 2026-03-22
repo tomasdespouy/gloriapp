@@ -56,6 +56,37 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* ═══ GLOBAL HOVER — Visual feedback on ALL interactive elements ═══ */
+/* brightness(0.95) dims colored buttons slightly, filter transitions smoothly */
+button:not(:disabled):hover,
+select:hover,
+[role="button"]:hover {
+  filter: brightness(0.93);
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Restore filter for elements that already handle their own hover via Tailwind */
+button:not(:disabled):not(:hover) {
+  filter: brightness(1);
+  transition: filter 0.15s ease;
+}
+
+/* Links get subtle underline offset on hover */
+a:hover {
+  cursor: pointer;
+}
+
+/* All buttons get pointer cursor */
+button:not(:disabled) {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+select {
+  cursor: pointer;
+}
+
 /* ═══ DARK MODE — Global overrides ═══ */
 /* These override hardcoded Tailwind colors so we don't need dark: on every element */
 
