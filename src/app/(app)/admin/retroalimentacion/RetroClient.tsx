@@ -65,7 +65,7 @@ export default function RetroClient({ surveys, responses, establishments, course
           { key: "create", label: "Crear encuesta" },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key as typeof tab)}
-            className={`tab-btn px-5 py-3 text-sm font-medium border-b-2 ${tab === t.key ? "border-sidebar text-sidebar" : "border-transparent text-gray-400"}`}>
+            className={`tab-btn px-5 py-3 text-sm font-medium border-b-2 ${tab === t.key ? "border-sidebar text-sidebar" : "border-transparent text-gray-400 hover:text-gray-700"}`}>
             {t.label}
           </button>
         ))}
@@ -76,15 +76,15 @@ export default function RetroClient({ surveys, responses, establishments, course
           <div className="space-y-6">
             {/* Filters */}
             <div className="flex items-center gap-3">
-              <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm shadow-sm">
+              <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm shadow-sm hover:border-gray-300 cursor-pointer">
                 <option value="">Todos los años</option>
                 {years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
-              <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm shadow-sm">
+              <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm shadow-sm hover:border-gray-300 cursor-pointer">
                 <option value="">Todos los países</option>
                 {countries.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <select value={estFilter} onChange={e => setEstFilter(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm shadow-sm">
+              <select value={estFilter} onChange={e => setEstFilter(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm shadow-sm hover:border-gray-300 cursor-pointer">
                 <option value="">Todas las instituciones</option>
                 {establishments.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
               </select>
@@ -229,7 +229,7 @@ function CreateSurveyForm({ establishments, courses, sections, countries, onCrea
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Alcance</label>
-          <select value={scopeType} onChange={e => { setScopeType(e.target.value); setScopeId(""); }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+          <select value={scopeType} onChange={e => { setScopeType(e.target.value); setScopeId(""); }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 cursor-pointer">
             <option value="global">Global (todos los usuarios)</option>
             <option value="country">Por país</option>
             <option value="establishment">Por institución</option>
@@ -243,7 +243,7 @@ function CreateSurveyForm({ establishments, courses, sections, countries, onCrea
             <label className="block text-xs font-medium text-gray-600 mb-1">
               {scopeType === "country" ? "País" : scopeType === "establishment" ? "Institución" : scopeType === "course" ? "Asignatura" : "Sección"}
             </label>
-            <select value={scopeId} onChange={e => setScopeId(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+            <select value={scopeId} onChange={e => setScopeId(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 cursor-pointer">
               <option value="">Seleccionar</option>
               {scopeType === "country" && countries.map(c => <option key={c} value={c}>{c}</option>)}
               {scopeType === "establishment" && establishments.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -266,7 +266,7 @@ function CreateSurveyForm({ establishments, courses, sections, countries, onCrea
       </div>
 
       <button onClick={handleCreate} disabled={loading || !title.trim()}
-        className="flex items-center gap-2 bg-sidebar text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50">
+        className="flex items-center gap-2 bg-sidebar text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
         <Send size={16} /> {loading ? "Creando..." : "Crear y activar encuesta"}
       </button>
     </div>

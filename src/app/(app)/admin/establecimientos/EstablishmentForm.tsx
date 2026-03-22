@@ -109,7 +109,7 @@ export default function EstablishmentForm({
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">País</label>
             <select value={country} onChange={(e) => setCountry(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 cursor-pointer">
               <option value="">Seleccionar país</option>
               <option value="Chile">Chile</option>
               <option value="Argentina">Argentina</option>

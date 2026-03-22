@@ -389,7 +389,7 @@ export default function TeacherReviewClient({
                           <div key={key} className="flex items-center gap-2">
                             <button
                               onClick={() => setSelectedEvidence(selectedEvidence === key ? null : key)}
-                              className={`text-[10px] w-32 truncate text-left flex items-center gap-1 ${
+                              className={`text-[10px] w-32 truncate text-left flex items-center gap-1 cursor-pointer ${
                                 selectedEvidence === key ? "text-sidebar font-bold" : "text-gray-500 hover:text-sidebar"
                               }`}
                             >
@@ -427,7 +427,7 @@ export default function TeacherReviewClient({
                 {competencies.evidence && (
                   <button
                     onClick={() => { setShowAllEvidence(!showAllEvidence); setSelectedEvidence(null); }}
-                    className="flex items-center gap-1 text-[10px] text-sidebar font-medium hover:underline mb-2"
+                    className="flex items-center gap-1 text-[10px] text-sidebar font-medium hover:underline mb-2 cursor-pointer"
                   >
                     <Eye size={11} />
                     {showAllEvidence ? "Ocultar evidencia" : "Ver toda la evidencia"}
@@ -473,9 +473,9 @@ export default function TeacherReviewClient({
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-[10px] font-medium text-gray-500">Comentario IA</p>
                     {!editingAI ? (
-                      <button onClick={() => setEditingAI(true)} className="text-[10px] text-sidebar hover:underline">Editar</button>
+                      <button onClick={() => setEditingAI(true)} className="text-[10px] text-sidebar hover:underline cursor-pointer">Editar</button>
                     ) : (
-                      <button onClick={saveAIEdits} disabled={savingEdits} className="text-[10px] text-green-600 font-medium hover:underline">
+                      <button onClick={saveAIEdits} disabled={savingEdits} className="text-[10px] text-green-600 font-medium hover:underline cursor-pointer disabled:cursor-not-allowed">
                         {savingEdits ? "Guardando..." : "Guardar cambios"}
                       </button>
                     )}
@@ -568,7 +568,7 @@ export default function TeacherReviewClient({
                   <button
                     onClick={generateSupervisorComment}
                     disabled={generatingComment}
-                    className="flex items-center gap-1 text-[11px] text-purple-600 hover:underline disabled:opacity-50"
+                    className="flex items-center gap-1 text-[11px] text-purple-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {generatingComment ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                     {generatingComment ? "Generando..." : "Sugerir con IA"}
@@ -586,12 +586,12 @@ export default function TeacherReviewClient({
               <button
                 onClick={handleSubmit}
                 disabled={saving || saved || (!comment.trim() && !score)}
-                className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 hover:shadow-md ${
                   saved
                     ? "bg-green-100 text-green-700 cursor-default"
                     : saving
                     ? "bg-purple-300 text-white cursor-wait"
-                    : "bg-purple-600 hover:bg-purple-700 text-white"
+                    : "bg-purple-600 hover:bg-purple-700 text-white cursor-pointer"
                 }`}
               >
                 {saved ? (
@@ -628,7 +628,7 @@ export default function TeacherReviewClient({
                     <button
                       onClick={() => setShowApproveConfirm(true)}
                       disabled={approving}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 hover:shadow-md"
                     >
                       {approving ? "Aprobando..." : (
                         <>
@@ -653,7 +653,7 @@ export default function TeacherReviewClient({
                         <DialogFooter className="gap-2 sm:gap-0">
                           <button
                             onClick={() => setShowApproveConfirm(false)}
-                            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
                           >
                             Cancelar
                           </button>
@@ -675,7 +675,7 @@ export default function TeacherReviewClient({
                               }
                               setApproving(false);
                             }}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors cursor-pointer hover:shadow-md"
                           >
                             Aprobar y liberar
                           </button>

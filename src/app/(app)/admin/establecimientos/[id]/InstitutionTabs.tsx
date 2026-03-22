@@ -52,7 +52,7 @@ export default function InstitutionTabs(props: Props) {
             className={`tab-btn flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
               tab === t.key
                 ? "border-sidebar text-sidebar"
-                : "border-transparent text-gray-400"
+                : "border-transparent text-gray-400 hover:text-gray-700"
             }`}
           >
             <t.icon size={16} />
@@ -174,7 +174,7 @@ function TabAdmins({ estId, assigned, available }: { estId: string; assigned: Pr
       <div className="bg-white rounded-2xl border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-gray-900">Administradores asignados ({assigned.length})</h3>
-          <button onClick={() => setShowCreate(!showCreate)} className="flex items-center gap-1.5 text-xs text-sidebar font-medium hover:underline">
+          <button onClick={() => setShowCreate(!showCreate)} className="flex items-center gap-1.5 text-xs text-sidebar font-medium hover:underline cursor-pointer">
             <UserPlus size={14} /> Crear y asignar
           </button>
         </div>
@@ -187,7 +187,7 @@ function TabAdmins({ estId, assigned, available }: { estId: string; assigned: Pr
                   <p className="text-sm font-medium text-gray-900">{a.full_name || a.email}</p>
                   <p className="text-[10px] text-gray-400">{a.email}</p>
                 </div>
-                <button onClick={() => remove(a.id)} className="text-xs text-red-500 hover:text-red-700">Remover</button>
+                <button onClick={() => remove(a.id)} className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded cursor-pointer transition-colors">Remover</button>
               </div>
             ))}
           </div>
@@ -198,13 +198,13 @@ function TabAdmins({ estId, assigned, available }: { estId: string; assigned: Pr
         {/* Assign existing */}
         {available.length > 0 && (
           <div className="mt-4 flex items-center gap-2">
-            <select id="assign-admin" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm">
+            <select id="assign-admin" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 cursor-pointer">
               {available.map((a) => <option key={a.id} value={a.id}>{a.full_name || a.email}</option>)}
             </select>
             <button onClick={() => {
               const sel = (document.getElementById("assign-admin") as HTMLSelectElement)?.value;
               if (sel) assign(sel);
-            }} className="bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors">
+            }} className="bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer">
               Asignar
             </button>
           </div>
@@ -228,10 +228,10 @@ function TabAdmins({ estId, assigned, available }: { estId: string; assigned: Pr
           {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
           <div className="flex items-center gap-3 mt-3">
             <button onClick={createAndAssign} disabled={creating || !newEmail.trim() || !newName.trim()}
-              className="bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50">
+              className="bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
               {creating ? "Creando..." : "Crear y asignar"}
             </button>
-            <button onClick={() => setShowCreate(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
+            <button onClick={() => setShowCreate(false)} className="text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 px-2 py-1 rounded cursor-pointer transition-colors">Cancelar</button>
           </div>
         </div>
       )}
@@ -308,7 +308,7 @@ function TabCourses({ estId, courses, courseSections }: { estId: string; courses
         <input value={newCourse} onChange={(e) => setNewCourse(e.target.value)} placeholder="Nombre de la asignatura..."
           className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
         <button onClick={createCourse} disabled={loading || !newCourse.trim()}
-          className="flex items-center gap-1.5 bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50">
+          className="flex items-center gap-1.5 bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
           <Plus size={14} /> Crear asignatura
         </button>
       </div>
@@ -332,7 +332,7 @@ function TabCourses({ estId, courses, courseSections }: { estId: string; courses
                 <p className="text-[10px] text-gray-400">{secs.length} {secs.length === 1 ? "sección" : "secciones"}</p>
               </div>
               <button onClick={(e) => { e.stopPropagation(); deleteCourse(course.id); }}
-                className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={14} /></button>
+                className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-1 rounded cursor-pointer transition-colors"><Trash2 size={14} /></button>
             </div>
 
             {isOpen && (
@@ -347,13 +347,13 @@ function TabCourses({ estId, courses, courseSections }: { estId: string; courses
                     <input value={newSectionName} onChange={(e) => setNewSectionName(e.target.value)}
                       placeholder="Nombre de la sección..." className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs" autoFocus />
                     <button onClick={() => createSection(course.id)} disabled={!newSectionName.trim()}
-                      className="text-xs text-sidebar font-medium hover:underline disabled:opacity-40">Crear</button>
+                      className="text-xs text-sidebar font-medium hover:underline disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">Crear</button>
                     <button onClick={() => { setNewSectionFor(null); setNewSectionName(""); }}
-                      className="text-xs text-gray-400"><X size={14} /></button>
+                      className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer"><X size={14} /></button>
                   </div>
                 ) : (
                   <button onClick={() => setNewSectionFor(course.id)}
-                    className="flex items-center gap-1 text-xs text-sidebar font-medium hover:underline">
+                    className="flex items-center gap-1 text-xs text-sidebar font-medium hover:underline cursor-pointer">
                     <Plus size={12} /> Agregar sección
                   </button>
                 )}
@@ -417,7 +417,7 @@ function TabInstructors({ estId, instructors, courses, courseSections }: { estId
       <div className="bg-white rounded-2xl border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-gray-900">Docentes ({instructors.length})</h3>
-          <button onClick={() => setShowCreate(!showCreate)} className="flex items-center gap-1.5 text-xs text-sidebar font-medium hover:underline">
+          <button onClick={() => setShowCreate(!showCreate)} className="flex items-center gap-1.5 text-xs text-sidebar font-medium hover:underline cursor-pointer">
             <UserPlus size={14} /> Crear docente
           </button>
         </div>
@@ -460,14 +460,14 @@ function TabInstructors({ estId, instructors, courses, courseSections }: { estId
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Asignatura</label>
-              <select value={courseId} onChange={(e) => { setCourseId(e.target.value); setSectionId(""); }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+              <select value={courseId} onChange={(e) => { setCourseId(e.target.value); setSectionId(""); }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 cursor-pointer">
                 <option value="">Sin asignar</option>
                 {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Sección</label>
-              <select value={sectionId} onChange={(e) => setSectionId(e.target.value)} disabled={!courseId} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:opacity-40">
+              <select value={sectionId} onChange={(e) => setSectionId(e.target.value)} disabled={!courseId} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:opacity-40 hover:border-gray-300 cursor-pointer disabled:cursor-not-allowed">
                 <option value="">Sin asignar</option>
                 {sections.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
@@ -476,10 +476,10 @@ function TabInstructors({ estId, instructors, courses, courseSections }: { estId
           {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
           <div className="flex items-center gap-3 mt-3">
             <button onClick={handleCreate} disabled={creating || !email.trim() || !name.trim()}
-              className="bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50">
+              className="bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
               {creating ? "Creando..." : "Crear docente"}
             </button>
-            <button onClick={() => setShowCreate(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
+            <button onClick={() => setShowCreate(false)} className="text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 px-2 py-1 rounded cursor-pointer transition-colors">Cancelar</button>
           </div>
         </div>
       )}
@@ -587,11 +587,11 @@ function TabStudents({ estId, students, courses, courseSections }: { estId: stri
           <h3 className="text-sm font-semibold text-gray-900">Alumnos ({students.length})</h3>
           <div className="flex items-center gap-3">
             <button onClick={() => { setShowBulk(!showBulk); setShowCreate(false); }}
-              className="flex items-center gap-1.5 text-xs text-gray-500 font-medium hover:text-sidebar hover:underline">
+              className="flex items-center gap-1.5 text-xs text-gray-500 font-medium hover:text-sidebar hover:underline cursor-pointer">
               <Users size={14} /> Carga masiva
             </button>
             <button onClick={() => { setShowCreate(!showCreate); setShowBulk(false); }}
-              className="flex items-center gap-1.5 text-xs text-sidebar font-medium hover:underline">
+              className="flex items-center gap-1.5 text-xs text-sidebar font-medium hover:underline cursor-pointer">
               <UserPlus size={14} /> Crear alumno
             </button>
           </div>
@@ -636,14 +636,14 @@ function TabStudents({ estId, students, courses, courseSections }: { estId: stri
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Asignatura</label>
-              <select value={courseId} onChange={(e) => { setCourseId(e.target.value); setSectionId(""); }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+              <select value={courseId} onChange={(e) => { setCourseId(e.target.value); setSectionId(""); }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 cursor-pointer">
                 <option value="">Sin asignar</option>
                 {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Sección</label>
-              <select value={sectionId} onChange={(e) => setSectionId(e.target.value)} disabled={!courseId} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:opacity-40">
+              <select value={sectionId} onChange={(e) => setSectionId(e.target.value)} disabled={!courseId} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:opacity-40 hover:border-gray-300 cursor-pointer disabled:cursor-not-allowed">
                 <option value="">Sin asignar</option>
                 {sections.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
@@ -652,10 +652,10 @@ function TabStudents({ estId, students, courses, courseSections }: { estId: stri
           {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
           <div className="flex items-center gap-3 mt-3">
             <button onClick={handleCreate} disabled={creating || !email.trim() || !name.trim()}
-              className="bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50">
+              className="bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
               {creating ? "Creando..." : "Crear alumno"}
             </button>
-            <button onClick={() => setShowCreate(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
+            <button onClick={() => setShowCreate(false)} className="text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 px-2 py-1 rounded cursor-pointer transition-colors">Cancelar</button>
           </div>
         </div>
       )}
@@ -668,14 +668,14 @@ function TabStudents({ estId, students, courses, courseSections }: { estId: stri
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Asignatura (para todos)</label>
-              <select value={bulkCourseId} onChange={(e) => { setBulkCourseId(e.target.value); setBulkSectionId(""); }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+              <select value={bulkCourseId} onChange={(e) => { setBulkCourseId(e.target.value); setBulkSectionId(""); }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 cursor-pointer">
                 <option value="">Sin asignar</option>
                 {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Sección (para todos)</label>
-              <select value={bulkSectionId} onChange={(e) => setBulkSectionId(e.target.value)} disabled={!bulkCourseId} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:opacity-40">
+              <select value={bulkSectionId} onChange={(e) => setBulkSectionId(e.target.value)} disabled={!bulkCourseId} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:opacity-40 hover:border-gray-300 cursor-pointer disabled:cursor-not-allowed">
                 <option value="">Sin asignar</option>
                 {bulkSections.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
@@ -685,10 +685,10 @@ function TabStudents({ estId, students, courses, courseSections }: { estId: stri
           {bulkResult && <p className="text-xs text-green-600 mt-2">{bulkResult}</p>}
           <div className="flex items-center gap-3 mt-3">
             <button onClick={handleBulkCreate} disabled={bulkLoading || !bulkText.trim()}
-              className="bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50">
+              className="bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
               {bulkLoading ? "Procesando..." : `Crear ${bulkText.trim().split("\n").filter(Boolean).length} alumnos`}
             </button>
-            <button onClick={() => setShowBulk(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
+            <button onClick={() => setShowBulk(false)} className="text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 px-2 py-1 rounded cursor-pointer transition-colors">Cancelar</button>
           </div>
         </div>
       )}
@@ -840,7 +840,7 @@ function TabPatients({
           {isSuperadmin && (
             <button
               onClick={() => setShowAvailable(!showAvailable)}
-              className="flex items-center gap-1.5 text-xs text-sidebar font-medium hover:underline"
+              className="flex items-center gap-1.5 text-xs text-sidebar font-medium hover:underline cursor-pointer"
             >
               <Plus size={14} /> Asignar pacientes
             </button>
@@ -888,7 +888,7 @@ function TabPatients({
                 {isSuperadmin && p.source === "assigned" && (
                   <button
                     onClick={() => remove(p.id)}
-                    className="text-xs text-red-500 hover:text-red-700 flex-shrink-0"
+                    className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded cursor-pointer transition-colors flex-shrink-0"
                   >
                     Quitar
                   </button>
@@ -930,7 +930,7 @@ function TabPatients({
             <div className="relative" ref={originDropdownRef}>
               <button
                 onClick={() => setShowOriginDropdown(!showOriginDropdown)}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 flex items-center gap-1.5 min-w-[140px]"
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 flex items-center gap-1.5 min-w-[140px] hover:border-gray-300 cursor-pointer"
               >
                 {filterOrigins.length === 0
                   ? "Pa\u00eds de origen"
@@ -966,7 +966,7 @@ function TabPatients({
             <select
               value={filterLevel}
               onChange={(e) => setFilterLevel(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 hover:border-gray-300 cursor-pointer"
             >
               <option value="">Nivel</option>
               {levels.map((l) => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
@@ -978,7 +978,7 @@ function TabPatients({
             <button
               onClick={() => bulkAssign(available)}
               disabled={bulkLoading || available.length === 0}
-              className="flex items-center gap-1.5 text-xs font-medium text-white bg-sidebar hover:bg-sidebar/90 px-3 py-1.5 rounded-lg disabled:opacity-40 transition-colors"
+              className="flex items-center gap-1.5 text-xs font-medium text-white bg-sidebar hover:bg-sidebar/90 px-3 py-1.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
             >
               {bulkLoading ? (
                 <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
@@ -1027,7 +1027,7 @@ function TabPatients({
                   <button
                     onClick={() => assign(p.id)}
                     disabled={loading === p.id}
-                    className="flex items-center gap-1 text-xs text-sidebar font-medium hover:underline disabled:opacity-50 flex-shrink-0"
+                    className="flex items-center gap-1 text-xs text-sidebar font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex-shrink-0"
                   >
                     <Check size={12} /> Asignar
                   </button>

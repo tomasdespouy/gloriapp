@@ -822,7 +822,7 @@ function EditPaperInline({ paper, onSave, onCancel }: {
         <div>
           <label className="block text-[10px] font-medium text-gray-500 mb-1">Tipo</label>
           <select value={type} onChange={(e) => setType(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 cursor-pointer">
             <option value="paper">Paper</option>
             <option value="presentation">Presentación</option>
             <option value="poster">Poster</option>

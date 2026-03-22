@@ -436,7 +436,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
           </div>
           <button
             onClick={() => { resetWizard(); setShowWizard(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
           >
             <Plus size={16} />
             Nuevo piloto
@@ -450,7 +450,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
               <p className="text-gray-500 text-sm">No hay pilotos creados aún</p>
               <button
                 onClick={() => { resetWizard(); setShowWizard(true); }}
-                className="mt-4 px-4 py-2 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors"
+                className="mt-4 px-4 py-2 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
               >
                 Crear primer piloto
               </button>
@@ -496,13 +496,13 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
                   <div className="flex items-center gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => { e.stopPropagation(); openPilot(pilot); }}
-                      className="text-xs text-sidebar hover:underline flex items-center gap-1"
+                      className="text-xs text-sidebar hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <Eye size={12} /> Ver detalle
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(pilot.id); }}
-                      className="text-xs text-red-500 hover:underline flex items-center gap-1 ml-auto"
+                      className="text-xs text-red-500 hover:underline flex items-center gap-1 ml-auto cursor-pointer"
                     >
                       <Trash2 size={12} /> Eliminar
                     </button>
@@ -526,7 +526,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
       <header className="px-4 sm:px-8 py-5">
         <button
           onClick={() => { setSelectedPilot(null); resetWizard(); }}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-3"
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-3 cursor-pointer"
         >
           <ArrowLeft size={14} />
           Volver a pilotos
@@ -555,7 +555,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
                   if (selectedPilot && i <= step + 1) setStep(i);
                 }}
                 disabled={(showWizard && !selectedPilot && i > 0) || creating}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex-shrink-0 cursor-pointer disabled:cursor-not-allowed ${
                   isActive
                     ? "bg-sidebar text-white"
                     : isDone
@@ -841,14 +841,14 @@ function Step1Upload({
                           </td>
                           <td className="px-2 py-1">
                             <select value={editForm.role} onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
-                              className="border border-gray-200 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-sidebar/30">
+                              className="border border-gray-200 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-sidebar/30 hover:border-gray-300 cursor-pointer">
                               <option value="student">Estudiante</option>
                               <option value="instructor">Docente</option>
                             </select>
                           </td>
                           <td className="px-3 py-2 flex gap-1">
-                            <button onClick={saveEdit} className="text-green-500 hover:text-green-700"><Check size={14} /></button>
-                            <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600"><XCircle size={14} /></button>
+                            <button onClick={saveEdit} className="text-green-500 hover:text-green-700 cursor-pointer"><Check size={14} /></button>
+                            <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 cursor-pointer"><XCircle size={14} /></button>
                           </td>
                         </>
                       ) : (
@@ -864,10 +864,10 @@ function Step1Upload({
                             </span>
                           </td>
                           <td className="px-3 py-2 flex gap-1">
-                            <button onClick={() => startEdit(i)} className="text-gray-300 hover:text-sidebar transition-colors">
+                            <button onClick={() => startEdit(i)} className="text-gray-300 hover:text-sidebar transition-colors cursor-pointer">
                               <Eye size={14} />
                             </button>
-                            <button onClick={() => handleRemoveRow(i)} className="text-gray-300 hover:text-red-500 transition-colors">
+                            <button onClick={() => handleRemoveRow(i)} className="text-gray-300 hover:text-red-500 transition-colors cursor-pointer">
                               <XCircle size={14} />
                             </button>
                           </td>
@@ -934,7 +934,7 @@ function Step1Upload({
             <select
               value={manualForm.role}
               onChange={(e) => setManualForm((f) => ({ ...f, role: e.target.value }))}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30 bg-white"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30 bg-white hover:border-gray-300 cursor-pointer"
             >
               <option value="student">Estudiante</option>
               <option value="instructor">Docente</option>
@@ -943,7 +943,7 @@ function Step1Upload({
           <button
             onClick={handleAddManual}
             disabled={!manualForm.first_name.trim() || !manualForm.last_name.trim() || !manualForm.email.trim()}
-            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <Plus size={14} />
             Agregar
@@ -957,7 +957,7 @@ function Step1Upload({
           <button
             onClick={() => onNext?.()}
             disabled={csvRows.length === 0}
-            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <ArrowRight size={16} />
             Siguiente
@@ -966,7 +966,7 @@ function Step1Upload({
           <button
             onClick={onCreatePilot}
             disabled={!canCreate || creating}
-            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {creating ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
             Crear piloto
@@ -1012,7 +1012,7 @@ function Step2Validate({
           <button
             onClick={onValidate}
             disabled={validating}
-            className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {validating ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
             {validating ? "Validando..." : "Validar datos"}
@@ -1118,15 +1118,15 @@ function Step2Validate({
                             </td>
                             <td className="px-2 py-1">
                               <select value={editRow.role} onChange={(e) => setEditRow(r => ({ ...r, role: e.target.value }))}
-                                className="border border-gray-300 rounded px-2 py-1 text-xs bg-white">
+                                className="border border-gray-300 rounded px-2 py-1 text-xs bg-white hover:border-gray-400 cursor-pointer">
                                 <option value="student">Estudiante</option>
                                 <option value="instructor">Docente</option>
                               </select>
                             </td>
                             <td className="px-3 py-2"></td>
                             <td className="px-3 py-2 flex gap-1">
-                              <button onClick={saveEdit} className="text-green-500 hover:text-green-700"><Check size={14} /></button>
-                              <button onClick={() => setEditIdx(null)} className="text-gray-400 hover:text-gray-600"><XCircle size={14} /></button>
+                              <button onClick={saveEdit} className="text-green-500 hover:text-green-700 cursor-pointer"><Check size={14} /></button>
+                              <button onClick={() => setEditIdx(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer"><XCircle size={14} /></button>
                             </td>
                           </>
                         ) : (
@@ -1149,11 +1149,11 @@ function Step2Validate({
                             </td>
                             <td className="px-3 py-2 flex gap-1">
                               {hasError && (
-                                <button onClick={() => startEdit(i)} className="text-amber-500 hover:text-amber-700" title="Editar">
+                                <button onClick={() => startEdit(i)} className="text-amber-500 hover:text-amber-700 cursor-pointer" title="Editar">
                                   <Eye size={14} />
                                 </button>
                               )}
-                              <button onClick={() => removeRow(i)} className="text-gray-300 hover:text-red-500" title="Eliminar">
+                              <button onClick={() => removeRow(i)} className="text-gray-300 hover:text-red-500 cursor-pointer" title="Eliminar">
                                 <XCircle size={14} />
                               </button>
                             </td>
@@ -1174,7 +1174,7 @@ function Step2Validate({
         <div className="flex justify-end">
           <button
             onClick={onNext}
-            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors"
+            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
           >
             Confirmar datos
             <ArrowRight size={16} />
@@ -1247,7 +1247,7 @@ function Step3Preview({
           <button
             onClick={() => assignPatients()}
             disabled={assigningPatients}
-            className="px-3 py-1.5 rounded-lg bg-sidebar text-white text-xs font-medium hover:bg-[#354080] transition-colors disabled:opacity-50"
+            className="px-3 py-1.5 rounded-lg bg-sidebar text-white text-xs font-medium hover:bg-[#354080] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {assigningPatients ? "Asignando..." : "Asignar todos"}
           </button>
@@ -1256,7 +1256,7 @@ function Step3Preview({
               key={country}
               onClick={() => assignPatients(`?country=${encodeURIComponent(country)}`)}
               disabled={assigningPatients}
-              className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:border-sidebar/30 hover:text-sidebar transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:border-sidebar/30 hover:text-sidebar transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {country}
             </button>
@@ -1266,7 +1266,7 @@ function Step3Preview({
               key={level}
               onClick={() => assignPatients(`?difficulty=${level}`)}
               disabled={assigningPatients}
-              className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50 ${
+              className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
                 level === "beginner" ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50" :
                 level === "intermediate" ? "border-amber-200 text-amber-600 hover:bg-amber-50" :
                 "border-red-200 text-red-600 hover:bg-red-50"
@@ -1422,7 +1422,7 @@ function Step3Preview({
           <button
             onClick={onSend}
             disabled={sending}
-            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
             {sending ? "Enviando invitaciones..." : "Enviar invitaciones"}
@@ -1431,7 +1431,7 @@ function Step3Preview({
         {sendResult && sendResult.success > 0 && (
           <button
             onClick={onNext}
-            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors"
+            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
           >
             Ver dashboard
             <ArrowRight size={16} />
@@ -1528,7 +1528,7 @@ function Step4Dashboard({
           <button
             onClick={handleDeactivate}
             disabled={deactivating}
-            className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-xs font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-xs font-medium hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {deactivating ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
             Desactivar piloto
@@ -1596,7 +1596,7 @@ function Step4Dashboard({
           <button
             onClick={onRefresh}
             disabled={refreshing}
-            className="flex items-center gap-1.5 text-xs text-sidebar hover:underline"
+            className="flex items-center gap-1.5 text-xs text-sidebar hover:underline cursor-pointer"
           >
             <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
             Actualizar
@@ -1628,7 +1628,7 @@ function Step4Dashboard({
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-sidebar/30 hover:border-gray-300 cursor-pointer"
             >
               <option value="all">Todos</option>
               <option value="pendiente">Pendientes</option>
@@ -1696,7 +1696,7 @@ function Step4Dashboard({
           <button
             onClick={handleCreateSurvey}
             disabled={creatingSurvey || surveyCreated}
-            className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {creatingSurvey ? <Loader2 size={14} className="animate-spin" /> : surveyCreated ? <Check size={14} /> : <Send size={14} />}
             {surveyCreated ? "Encuesta creada" : "Enviar encuesta de cierre"}
@@ -1793,7 +1793,7 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
             <button
               onClick={handleDownloadPDF}
               disabled={downloading}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               Descargar PDF
@@ -1801,7 +1801,7 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
             <button
               onClick={handleSendReport}
               disabled={sendingReport || sent}
-              className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {sendingReport ? <Loader2 size={14} className="animate-spin" /> : sent ? <Check size={14} /> : <Send size={14} />}
               {sent ? "Informe enviado" : "Enviar informe"}

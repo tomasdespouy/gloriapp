@@ -123,7 +123,7 @@ export default function UserDetailClient({
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Rol</label>
           <select value={role} onChange={(e) => setRole(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 cursor-pointer">
             <option value="student">Alumno</option>
             <option value="instructor">Instructor / Docente</option>
             <option value="admin">Administrador</option>
@@ -139,7 +139,7 @@ export default function UserDetailClient({
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Institución</label>
             <select value={estId} onChange={(e) => setEstId(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white hover:border-gray-300 cursor-pointer">
               <option value="">Sin asignar</option>
               {establishments.map((e) => (
                 <option key={e.id} value={e.id}>{e.name}</option>
@@ -152,7 +152,7 @@ export default function UserDetailClient({
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Asignatura</label>
               <select value={courseId} onChange={(e) => setCourseId(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white hover:border-gray-300 cursor-pointer">
                 <option value="">Sin asignar</option>
                 {courses.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ""}</option>
@@ -172,7 +172,7 @@ export default function UserDetailClient({
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Sección</label>
               <select value={sectionId} onChange={(e) => setSectionId(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white hover:border-gray-300 cursor-pointer">
                 <option value="">Sin asignar</option>
                 {sections.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>

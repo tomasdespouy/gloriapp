@@ -95,12 +95,12 @@ export default function CostosClient({ establishments }: { establishments: Estab
               className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white" />
           </div>
           <select value={country} onChange={(e) => { setCountry(e.target.value); setEstablishment("all"); }}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white">
+            className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white hover:border-gray-300 cursor-pointer">
             <option value="all">Todos los países</option>
             {countries.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
           <select value={establishment} onChange={(e) => setEstablishment(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white">
+            className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white hover:border-gray-300 cursor-pointer">
             <option value="all">Todas las instituciones</option>
             {establishments
               .filter(e => country === "all" || e.country === country)

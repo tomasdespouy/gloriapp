@@ -65,7 +65,7 @@ export default function MetricsClient({
             <select
               value={estFilter}
               onChange={(e) => setEstFilter(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 cursor-pointer"
             >
               <option value="">Todos los establecimientos</option>
               {establishments.map((e) => (

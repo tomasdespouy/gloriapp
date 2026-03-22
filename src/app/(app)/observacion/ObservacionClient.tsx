@@ -173,7 +173,7 @@ export default function ObservacionClient() {
           </div>
           <button
             onClick={startSession}
-            className="w-full bg-sidebar text-white py-3 rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors"
+            className="w-full bg-sidebar text-white py-3 rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors cursor-pointer"
           >
             Iniciar observación
           </button>
@@ -186,7 +186,7 @@ export default function ObservacionClient() {
     <div className="flex flex-col h-full">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 flex-shrink-0">
-        <button onClick={() => router.push("/dashboard")} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+        <button onClick={() => router.push("/dashboard")} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
           <ArrowLeft size={18} className="text-gray-500" />
         </button>
         <div className="flex-1">
@@ -200,7 +200,7 @@ export default function ObservacionClient() {
         <button
           onClick={endSession}
           disabled={analyzing}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
         >
           {analyzing ? "Analizando..." : "Finalizar"}
         </button>

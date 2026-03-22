@@ -108,7 +108,7 @@ export default function PacientesClient({ patients, activeSessionMap }: Props) {
         <div ref={dropdownRef} className="relative">
           <button
             onClick={() => setCountryDropdownOpen(!countryDropdownOpen)}
-            className="flex items-center gap-2 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-700 hover:bg-gray-50 transition-colors min-w-[180px]"
+            className="flex items-center gap-2 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-700 hover:bg-gray-50 transition-colors min-w-[180px] cursor-pointer"
           >
             {selectedCountries.size === 1 && countryFlagSrc[Array.from(selectedCountries)[0]] && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -128,7 +128,7 @@ export default function PacientesClient({ patients, activeSessionMap }: Props) {
               {selectedCountries.size > 0 && (
                 <button
                   onClick={() => setSelectedCountries(new Set())}
-                  className="w-full text-left px-4 py-2 text-xs text-sidebar hover:bg-gray-50 border-b border-gray-100"
+                  className="w-full text-left px-4 py-2 text-xs text-sidebar hover:bg-gray-50 border-b border-gray-100 cursor-pointer"
                 >
                   Limpiar filtro
                 </button>
@@ -139,7 +139,7 @@ export default function PacientesClient({ patients, activeSessionMap }: Props) {
                   <button
                     key={c}
                     onClick={() => toggleCountry(c)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors cursor-pointer ${
                       isSelected ? "bg-sidebar/5 font-medium" : ""
                     }`}
                   >
@@ -171,7 +171,7 @@ export default function PacientesClient({ patients, activeSessionMap }: Props) {
         <select
           value={filterLevel}
           onChange={(e) => setFilterLevel(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-sidebar"
+          className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-sidebar hover:border-gray-300 cursor-pointer"
         >
           {Object.entries(difficultyLabels).map(([key, label]) => (
             <option key={key} value={key}>{label}</option>

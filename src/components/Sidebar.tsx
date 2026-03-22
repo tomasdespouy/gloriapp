@@ -117,7 +117,7 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
       {/* Mobile overlay + drawer */}
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
+          <div className="absolute inset-0 bg-black/50 cursor-pointer" onClick={() => setMobileOpen(false)} />
           <aside className="absolute left-0 top-0 h-full w-[280px] bg-sidebar flex flex-col text-white animate-slide-in-left">
             {sidebarContent}
           </aside>
@@ -127,7 +127,7 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
       {/* Mobile hamburger button — fixed top-left */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="md:hidden fixed top-3 left-3 z-40 w-10 h-10 rounded-lg bg-sidebar text-white flex items-center justify-center shadow-lg"
+        className="md:hidden fixed top-3 left-3 z-40 w-10 h-10 rounded-lg bg-sidebar text-white flex items-center justify-center shadow-lg cursor-pointer hover:bg-white/10"
         aria-label="Abrir menú"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -196,7 +196,7 @@ function AccessibilityModal({ onClose }: { onClose: () => void }) {
             </div>
             <h2 className="text-lg font-bold text-gray-900">Accesibilidad</h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none cursor-pointer">&times;</button>
         </div>
 
         {/* Font size */}
@@ -205,7 +205,7 @@ function AccessibilityModal({ onClose }: { onClose: () => void }) {
           <div className="flex items-center gap-3">
             <button
               onClick={() => applyFontSize(Math.max(75, fontSize - 10))}
-              className="w-10 h-10 rounded-lg bg-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-200 transition-colors"
+              className="w-10 h-10 rounded-lg bg-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer"
             >
               A-
             </button>
@@ -217,14 +217,14 @@ function AccessibilityModal({ onClose }: { onClose: () => void }) {
             </div>
             <button
               onClick={() => applyFontSize(Math.min(150, fontSize + 10))}
-              className="w-10 h-10 rounded-lg bg-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-200 transition-colors"
+              className="w-10 h-10 rounded-lg bg-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer"
             >
               A+
             </button>
             <span className="text-sm text-gray-500 w-12 text-center">{fontSize}%</span>
             <button
               onClick={() => applyFontSize(100)}
-              className="text-xs text-sidebar hover:underline"
+              className="text-xs text-sidebar hover:underline cursor-pointer"
             >
               Reset
             </button>
@@ -239,7 +239,7 @@ function AccessibilityModal({ onClose }: { onClose: () => void }) {
               <button
                 key={theme.id}
                 onClick={() => applyTheme(theme.id)}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 transition-all text-left ${
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 transition-all text-left cursor-pointer ${
                   activeTheme === theme.id
                     ? "border-sidebar ring-2 ring-sidebar/20"
                     : "border-gray-200 hover:border-gray-300"
@@ -254,7 +254,7 @@ function AccessibilityModal({ onClose }: { onClose: () => void }) {
 
         <button
           onClick={onClose}
-          className="w-full bg-sidebar text-white py-2.5 rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors"
+          className="w-full bg-sidebar text-white py-2.5 rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
         >
           Listo
         </button>
@@ -308,7 +308,7 @@ function SupportModal({ onClose }: { onClose: () => void }) {
               <p className="text-xs text-gray-500">Tu mensaje llegar&aacute; a idea@ugm.cl</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none cursor-pointer">&times;</button>
         </div>
 
         {sent ? (
@@ -320,7 +320,7 @@ function SupportModal({ onClose }: { onClose: () => void }) {
             <p className="text-xs text-gray-500 mt-1">Te responderemos a la brevedad a tu correo.</p>
             <button
               onClick={onClose}
-              className="mt-4 bg-sidebar text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors"
+              className="mt-4 bg-sidebar text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
             >
               Cerrar
             </button>
@@ -352,13 +352,13 @@ function SupportModal({ onClose }: { onClose: () => void }) {
               <button
                 onClick={handleSend}
                 disabled={!subject.trim() || !body.trim() || sending}
-                className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50"
+                className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
               >
                 {sending ? "Enviando..." : "Enviar mensaje"}
               </button>
               <button
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
               >
                 Cancelar
               </button>

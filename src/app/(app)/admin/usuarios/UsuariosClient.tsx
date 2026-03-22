@@ -276,11 +276,11 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => { setShowCsvImport(!showCsvImport); setShowCreateForm(false); }}
-            className="flex items-center gap-2 border border-sidebar text-sidebar px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar/5 transition-colors">
+            className="flex items-center gap-2 border border-sidebar text-sidebar px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar/5 transition-colors cursor-pointer">
             <Upload size={16} /> Importar CSV
           </button>
           <button onClick={() => { setShowCreateForm(!showCreateForm); setShowCsvImport(false); }}
-            className="flex items-center gap-2 bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium">
+            className="flex items-center gap-2 bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer">
             <Plus size={16} /> Crear usuario
           </button>
         </div>
@@ -303,7 +303,7 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
               className="w-full pl-9 pr-9 py-2.5 bg-white border border-gray-200 rounded-lg text-sm shadow-sm" />
           </div>
           <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); navigate({ role: e.target.value }); }}
-            className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm shadow-sm">
+            className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm shadow-sm hover:border-gray-300 cursor-pointer">
             <option value="">Todos los roles</option>
             <option value="student">Alumno</option>
             <option value="instructor">Instructor</option>
@@ -311,7 +311,7 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
             {isSuperadmin && <option value="superadmin">Superadmin</option>}
           </select>
           <select value={estFilter} onChange={(e) => { setEstFilter(e.target.value); navigate({ est: e.target.value }); }}
-            className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm shadow-sm">
+            className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm shadow-sm hover:border-gray-300 cursor-pointer">
             <option value="">Todas las instituciones</option>
             {establishments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>
@@ -592,19 +592,19 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => bulkSetActive(false)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 transition-colors cursor-pointer"
                 >
                   <ToggleRight size={16} /> Activar seleccionados
                 </button>
                 <button
                   onClick={() => bulkSetActive(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
                 >
                   <ToggleLeft size={16} /> Desactivar seleccionados
                 </button>
                 <button
                   onClick={() => setBulkResetConfirm(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
                 >
                   <RotateCcw size={16} /> Restablecer datos
                 </button>
@@ -641,7 +641,7 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
 
             <div className="flex items-center gap-3">
               <button onClick={bulkResetData}
-                className="flex-1 bg-amber-500 text-white py-2.5 rounded-xl text-sm font-semibold">
+                className="flex-1 bg-amber-500 text-white py-2.5 rounded-xl text-sm font-semibold cursor-pointer hover:opacity-90 transition-opacity">
                 Sí, restablecer {bulkSelectedIds.size} usuarios
               </button>
               <button onClick={() => setBulkResetConfirm(false)}
@@ -696,7 +696,7 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
                 <button
                   onClick={() => { toggleActive(toggleConfirm, u.is_disabled); setToggleConfirm(null); }}
                   disabled={actionLoading === toggleConfirm}
-                  className={`flex-1 text-white py-2.5 rounded-xl text-sm font-semibold ${willDisable ? "bg-amber-500" : "bg-green-500"}`}>
+                  className={`flex-1 text-white py-2.5 rounded-xl text-sm font-semibold cursor-pointer hover:opacity-90 transition-opacity ${willDisable ? "bg-amber-500" : "bg-green-500"}`}>
                   {actionLoading === toggleConfirm ? "Procesando..." : willDisable ? "Sí, desactivar" : "Sí, activar"}
                 </button>
                 <button onClick={() => setToggleConfirm(null)}
@@ -739,7 +739,7 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
 
               <div className="flex items-center gap-3">
                 <button onClick={() => resetUserData(resetConfirm)} disabled={actionLoading === resetConfirm}
-                  className="end-session-btn flex-1 bg-amber-500 text-white py-2.5 rounded-xl text-sm font-semibold">
+                  className="end-session-btn flex-1 bg-amber-500 text-white py-2.5 rounded-xl text-sm font-semibold cursor-pointer hover:opacity-90 transition-opacity">
                   {actionLoading === resetConfirm ? "Restaurando..." : "Sí, restaurar datos"}
                 </button>
                 <button onClick={() => setResetConfirm(null)}
@@ -782,7 +782,7 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
 
               <div className="flex items-center gap-3">
                 <button onClick={() => deleteUser(deleteConfirm)} disabled={actionLoading === deleteConfirm}
-                  className="end-session-btn flex-1 bg-red-500 text-white py-2.5 rounded-xl text-sm font-semibold">
+                  className="end-session-btn flex-1 bg-red-500 text-white py-2.5 rounded-xl text-sm font-semibold cursor-pointer hover:opacity-90 transition-opacity">
                   {actionLoading === deleteConfirm ? "Eliminando..." : "Sí, eliminar cuenta"}
                 </button>
                 <button onClick={() => setDeleteConfirm(null)}
@@ -1235,7 +1235,7 @@ function CreateUserForm({ establishments, isSuperadmin, onClose }: { establishme
               { key: "excel" as const, label: "Archivo CSV" },
             ].map(({ key, label }) => (
               <button key={key} onClick={() => setMode(key)}
-                className={`flex-1 text-xs font-medium py-2 rounded-md transition-colors ${mode === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                className={`flex-1 text-xs font-medium py-2 rounded-md transition-colors cursor-pointer ${mode === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
                 {label}
               </button>
             ))}
@@ -1245,13 +1245,13 @@ function CreateUserForm({ establishments, isSuperadmin, onClose }: { establishme
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-medium text-gray-500 mb-1">Rol<HelpTip text="Estudiante: practica con pacientes. Docente: supervisa alumnos. Admin: gestiona institución" /></label>
-              <select value={role} onChange={(e) => setRole(e.target.value)} className={inputClass}>
+              <select value={role} onChange={(e) => setRole(e.target.value)} className={`${inputClass} hover:border-gray-300 cursor-pointer`}>
                 {roleOptions.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-[10px] font-medium text-gray-500 mb-1">Institución</label>
-              <select value={estId} onChange={(e) => setEstId(e.target.value)} className={inputClass}>
+              <select value={estId} onChange={(e) => setEstId(e.target.value)} className={`${inputClass} hover:border-gray-300 cursor-pointer`}>
                 <option value="">Sin asignar</option>
                 {establishments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
               </select>
@@ -1312,10 +1312,10 @@ function CreateUserForm({ establishments, isSuperadmin, onClose }: { establishme
 
           <div className="flex items-center gap-3">
             <button onClick={handleCreate} disabled={loading}
-              className="bg-sidebar text-white px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+              className="bg-sidebar text-white px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-sidebar-hover transition-colors">
               {loading ? "Creando..." : mode === "single" ? "Crear usuario" : `Crear ${mode === "text" ? parseBulkText(bulkText).length : excelData.length} usuarios`}
             </button>
-            <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700">Cancelar</button>
+            <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 cursor-pointer">Cancelar</button>
           </div>
         </div>
       )}

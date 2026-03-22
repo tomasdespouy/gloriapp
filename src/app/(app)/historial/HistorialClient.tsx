@@ -177,7 +177,7 @@ export default function HistorialClient({ sessions, summaryMap, observations = [
 
     return (
       <div className="animate-fade-in">
-        <button onClick={() => setDetailId(null)} className="flex items-center gap-1.5 text-xs text-sidebar hover:underline mb-4">
+        <button onClick={() => setDetailId(null)} className="flex items-center gap-1.5 text-xs text-sidebar hover:underline mb-4 cursor-pointer">
           <ArrowLeft size={14} /> Volver al historial
         </button>
 
@@ -228,7 +228,7 @@ export default function HistorialClient({ sessions, summaryMap, observations = [
                     a.click();
                     URL.revokeObjectURL(url);
                   }}
-                  className="flex items-center gap-1 text-[10px] text-sidebar hover:underline font-medium"
+                  className="flex items-center gap-1 text-[10px] text-sidebar hover:underline font-medium cursor-pointer"
                 >
                   <Download size={12} />
                   Descargar
@@ -320,7 +320,7 @@ export default function HistorialClient({ sessions, summaryMap, observations = [
                 <button
                   onClick={() => saveNote(session.id)}
                   disabled={savingNotes === session.id}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-sidebar text-white text-xs font-medium rounded-lg hover:bg-[#354080] disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-sidebar text-white text-xs font-medium rounded-lg hover:bg-[#354080] disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                 >
                   <Save size={11} />
                   {savingNotes === session.id ? "Guardando..." : "Guardar"}
@@ -351,7 +351,7 @@ export default function HistorialClient({ sessions, summaryMap, observations = [
       <button
         key={session.id}
         onClick={() => handleSessionClick(session)}
-        className={`w-full text-left bg-white rounded-xl border overflow-hidden hover:shadow-md transition-all ${
+        className={`w-full text-left bg-white rounded-xl border overflow-hidden hover:shadow-md transition-all cursor-pointer ${
           !isCompleted ? "border-gray-100" : isApproved ? "border-gray-200" : "border-amber-200"
         }`}
       >
@@ -406,7 +406,7 @@ export default function HistorialClient({ sessions, summaryMap, observations = [
       <button
         key={`obs-${obs.id}`}
         onClick={() => router.push(`/observacion/review/${obs.id}`)}
-        className="w-full text-left bg-white rounded-xl border border-indigo-100 overflow-hidden hover:shadow-md transition-all"
+        className="w-full text-left bg-white rounded-xl border border-indigo-100 overflow-hidden hover:shadow-md transition-all cursor-pointer"
       >
         <div className="flex items-start gap-3 p-4">
           <div className="w-10 h-10 rounded-full bg-sidebar/10 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -450,7 +450,7 @@ export default function HistorialClient({ sessions, summaryMap, observations = [
               ¿Quieres retomar la conversación con <strong>{(showResumeModal.ai_patients as Patient)?.name}</strong>?
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setShowResumeModal(null)} className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+              <button onClick={() => setShowResumeModal(null)} className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 cursor-pointer">
                 Cancelar
               </button>
               <button
@@ -460,7 +460,7 @@ export default function HistorialClient({ sessions, summaryMap, observations = [
                   }
                   router.push(`/chat/${showResumeModal.ai_patient_id}?conversationId=${showResumeModal.id}`);
                 }}
-                className="flex-1 px-4 py-2.5 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-[#354080]"
+                className="flex-1 px-4 py-2.5 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-[#354080] cursor-pointer"
               >
                 Retomar
               </button>
@@ -477,20 +477,20 @@ export default function HistorialClient({ sessions, summaryMap, observations = [
             className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
         </div>
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as "all" | "completed" | "active" | "observations")}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-gray-300 cursor-pointer">
           <option value="all">Todos</option>
           <option value="completed">Completadas</option>
           <option value="active">En curso</option>
           <option value="observations">Observaciones</option>
         </select>
         <select value={filterPatient} onChange={(e) => setFilterPatient(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-gray-300 cursor-pointer">
           <option value="all">Todos los pacientes</option>
           {patients.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
         </select>
         <div className="flex border border-gray-200 rounded-lg overflow-hidden">
-          <button onClick={() => setView("list")} className={`px-3 py-2 ${view === "list" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><List size={14} /></button>
-          <button onClick={() => setView("grouped")} className={`px-3 py-2 ${view === "grouped" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><LayoutGrid size={14} /></button>
+          <button onClick={() => setView("list")} className={`px-3 py-2 cursor-pointer ${view === "list" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><List size={14} /></button>
+          <button onClick={() => setView("grouped")} className={`px-3 py-2 cursor-pointer ${view === "grouped" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><LayoutGrid size={14} /></button>
         </div>
       </div>
 
@@ -560,7 +560,7 @@ export default function HistorialClient({ sessions, summaryMap, observations = [
                     const isApproved = comp?.feedback_status === "approved";
                     return (
                       <button key={s.id} onClick={() => handleSessionClick(s)}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left cursor-pointer">
                         <span className="text-xs text-gray-600 w-20">Sesión #{s.session_number}</span>
                         <span className="text-[11px] text-gray-400 flex-1">{formatTime(s.created_at)} {formatDuration(s.active_seconds) ? `· ${formatDuration(s.active_seconds)}` : ""}</span>
                         <span className="text-xs font-medium text-sidebar w-10">{score && score > 0 ? score.toFixed(1) : "—"}</span>

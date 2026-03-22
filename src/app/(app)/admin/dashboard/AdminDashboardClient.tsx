@@ -1400,7 +1400,7 @@ function SidebarSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full text-xs border border-gray-200 rounded-lg py-1.5 px-2 text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-sidebar/30 appearance-none"
+        className="w-full text-xs border border-gray-200 rounded-lg py-1.5 px-2 text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-sidebar/30 appearance-none hover:border-gray-300 cursor-pointer"
       >
         <option value="">Todos</option>
         {options.map((o) => (

@@ -1009,7 +1009,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         {/* Patient video avatar — clickable */}
         <button
           onClick={() => setShowVideoModal(true)}
-          className="flex-shrink-0 rounded-full overflow-hidden bg-sidebar w-11 h-11 sm:w-14 sm:h-14"
+          className="flex-shrink-0 rounded-full overflow-hidden bg-sidebar w-11 h-11 sm:w-14 sm:h-14 cursor-pointer"
         >
           <PatientVideo videoSrc={videoSrc} imageSrc={imageSrc} initials={initials} size={56} />
         </button>
@@ -1026,7 +1026,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           {/* Notes toggle */}
           <button
             onClick={() => setNotesOpen(!notesOpen)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors cursor-pointer ${
               notesOpen
                 ? "bg-amber-500 text-white"
                 : "bg-gray-100 text-gray-500 hover:bg-gray-200"
@@ -1045,7 +1045,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           {patient.voice_id && (
             <button
               onClick={() => voiceMode ? stopVoiceMode() : requestVoiceMode()}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors cursor-pointer ${
                 voiceMode
                   ? "bg-green-500 text-white animate-pulse"
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
@@ -1066,7 +1066,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
           <button
             onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer"
             title="Esto te permite volver en otro momento sin afectar la relación con el paciente"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="3" width="4" height="18" rx="1" /><rect x="15" y="3" width="4" height="18" rx="1" /></svg>
@@ -1076,7 +1076,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           <button
             onClick={() => setShowEndConfirm(true)}
             disabled={isStreaming}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             <LogOut size={13} />
             <span className="hidden sm:inline">Finalizar sesi&oacute;n</span>
@@ -1091,7 +1091,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setShowVideoModal(false)}
-              className="absolute -top-10 right-0 text-white/80 hover:text-white"
+              className="absolute -top-10 right-0 text-white/80 hover:text-white cursor-pointer"
             >
               <X size={24} />
             </button>
@@ -1145,7 +1145,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             <div className="flex items-center gap-3 pt-1">
               <button
                 onClick={messages.length === 0 ? () => router.push("/dashboard") : handleEndSession}
-                className={`end-session-btn flex-1 py-2.5 rounded-xl text-sm font-semibold ${
+                className={`end-session-btn flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer ${
                   messages.length === 0
                     ? "bg-gray-500 text-white"
                     : displaySeconds >= 300
@@ -1193,13 +1193,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             <div className="flex items-center gap-3 pt-1">
               <button
                 onClick={startVoiceMode}
-                className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-sidebar-hover transition-colors"
+                className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-sidebar-hover transition-colors cursor-pointer"
               >
                 Aceptar y activar
               </button>
               <button
                 onClick={() => setShowVoiceConsent(false)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
@@ -1230,7 +1230,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             </p>
             <button
               onClick={() => router.push(`/review/${conversationId}`)}
-              className="w-full bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-sidebar-hover transition-colors"
+              className="w-full bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-sidebar-hover transition-colors cursor-pointer"
             >
               Ver resumen de sesión
             </button>
@@ -1309,11 +1309,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
               <span className="text-[10px] text-gray-400">{tourStep + 1} de 2</span>
               {tourStep === 0 ? (
-                <button onClick={() => setTourStep(1)} className="text-sm text-sidebar font-medium hover:underline">
+                <button onClick={() => setTourStep(1)} className="text-sm text-sidebar font-medium hover:underline cursor-pointer">
                   Siguiente &rarr;
                 </button>
               ) : (
-                <button onClick={() => { setShowTour(false); localStorage.setItem("gloria_chat_tour_done", "1"); }} className="bg-sidebar text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-[#354080] transition-colors">
+                <button onClick={() => { setShowTour(false); localStorage.setItem("gloria_chat_tour_done", "1"); }} className="bg-sidebar text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-[#354080] transition-colors cursor-pointer">
                   Entendido
                 </button>
               )}
@@ -1377,7 +1377,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                     setTourStep(0);
                   }
                 }}
-                className="w-full bg-sidebar text-white py-3 rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors"
+                className="w-full bg-sidebar text-white py-3 rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors cursor-pointer"
               >
                 {"Iniciar sesión"}
               </button>
@@ -1537,7 +1537,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           {input.trim().length > 10 && !correcting && !isStreaming && sessionStarted && (
             <button
               onClick={correctText}
-              className="p-3 min-w-[44px] min-h-[44px] rounded-xl border border-gray-300 text-gray-400 hover:text-sidebar hover:border-sidebar/30 transition-colors flex-shrink-0 text-xs font-semibold"
+              className="p-3 min-w-[44px] min-h-[44px] rounded-xl border border-gray-300 text-gray-400 hover:text-sidebar hover:border-sidebar/30 transition-colors flex-shrink-0 text-xs font-semibold cursor-pointer"
               title={"Corregir ortografía"}
             >
               Abc
@@ -1553,11 +1553,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           <button
             onClick={toggleRecording}
             disabled={isStreaming}
-            className={`p-3 min-w-[44px] min-h-[44px] rounded-xl transition-colors flex-shrink-0 ${
+            className={`p-3 min-w-[44px] min-h-[44px] rounded-xl transition-colors flex-shrink-0 cursor-pointer ${
               isRecording
                 ? "bg-red-500 hover:bg-red-600 text-white"
                 : "border border-gray-300 text-gray-500 hover:text-sidebar hover:border-sidebar/30"
-            } disabled:opacity-50`}
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
             title={isRecording ? (micLocked ? "Anclado \u2014 Ctrl+Alt para detener" : "Ctrl+Alt para detener") : "Presiona ALT + CTRL para comenzar a grabar audio"}
           >
             {isRecording ? <MicOff size={18} /> : <Mic size={18} />}
@@ -1567,7 +1567,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             data-send-btn
             onClick={() => sendMessage()}
             disabled={isStreaming || !input.trim()}
-            className="bg-sidebar hover:bg-[#354080] text-white p-3 rounded-xl transition-colors disabled:opacity-50"
+            className="bg-sidebar hover:bg-[#354080] text-white p-3 rounded-xl transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             <Send size={18} />
           </button>
@@ -1587,7 +1587,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   {notesSaving && (
                     <span className="text-[10px] text-gray-400">Guardando...</span>
                   )}
-                  <button onClick={() => setNotesOpen(false)} className="p-1 rounded hover:bg-gray-100 transition-colors">
+                  <button onClick={() => setNotesOpen(false)} className="p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer">
                     <X size={14} className="text-gray-400" />
                   </button>
                 </div>
@@ -1605,14 +1605,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   <button
                     onClick={correctNotes}
                     disabled={notesCorrecting}
-                    className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 hover:text-sidebar hover:border-sidebar/30 transition-colors disabled:opacity-50"
+                    className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 hover:text-sidebar hover:border-sidebar/30 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                   >
                     {notesCorrecting ? "Corrigiendo..." : "Abc"}
                   </button>
                 )}
                 <button
                   onClick={toggleNotesRecording}
-                  className={`p-1.5 rounded-lg transition-colors ${
+                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                     notesRecording
                       ? "bg-red-500 text-white"
                       : "border border-gray-200 text-gray-500 hover:text-sidebar hover:border-sidebar/30"
