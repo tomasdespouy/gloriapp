@@ -12,3 +12,4 @@
 | INF-2026-008 | 2026-03-21 | Investigación | Análisis robustez clínica y pedagógica: 12 mejoras priorizadas + benchmark plataformas similares | Estratégica | desarrollo/INF-2026-008.pdf |
 | INF-2026-009 | 2026-03-21 | Investigación | Sentiment Analysis: estado del arte (12 papers), POC con 3 escenarios, propuesta 3 fases | Estratégica | investigacion/INF-2026-009.pdf |
 | INF-2026-010 | 2026-03-21 | Desarrollo | Auditoría UX completa: 274 elementos, 49 hover + 12 cursor corregidos, cobertura 100% | Mejora UX | desarrollo/INF-2026-010.pdf |
+| INF-2026-011 | 2026-03-21 | Desarrollo | Hover visual global: translateY + box-shadow en button/a/select via globals.css, 0 componentes tocados | Mejora UX | desarrollo/INF-2026-011.pdf |
