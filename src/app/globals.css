@@ -58,37 +58,53 @@ body {
 
 /* ═══ GLOBAL HOVER — Visual feedback on ALL interactive elements ═══ */
 
-/* All buttons: pointer cursor + visible hover */
-button:not(:disabled) {
+/* All interactive elements: pointer cursor + lift on hover */
+button:not(:disabled),
+a,
+select,
+[role="button"] {
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease, border-color 0.12s ease;
 }
-button:not(:disabled):hover {
+
+button:not(:disabled):hover,
+a:hover,
+[role="button"]:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   opacity: 0.92;
 }
-button:not(:disabled):active {
+
+button:not(:disabled):active,
+a:active,
+[role="button"]:active {
   transform: translateY(0);
   box-shadow: none;
+  opacity: 1;
 }
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
-/* Selects: pointer + border highlight */
-select {
-  cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
+/* Selects: border highlight on hover */
 select:hover {
   border-color: #9ca3af;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
-/* Links always pointer */
-a { cursor: pointer; }
+/* Exclude inline text links (only lift card/block links) */
+p a, span a, li a {
+  transform: none !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+p a:hover, span a:hover, li a:hover {
+  transform: none !important;
+  box-shadow: none !important;
+  opacity: 0.8 !important;
+}
 
 /* ═══ DARK MODE — Global overrides ═══ */
 /* These override hardcoded Tailwind colors so we don't need dark: on every element */
