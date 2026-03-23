@@ -172,7 +172,10 @@ export default function AskGloriaClient({ studentName }: { studentName: string }
                           <span className="text-xs text-gray-400">GlorIA está pensando...</span>
                         </div>
                       ) : (
-                        <div className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</div>
+                        <div className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: msg.content
+                          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                          .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
+                        }} />
                       )}
                     </div>
                   </div>

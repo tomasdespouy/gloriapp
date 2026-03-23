@@ -14,7 +14,7 @@ const SUGGESTIONS = [
   "¿Cómo manejo un silencio en sesión?",
 ];
 
-// Render markdown links as clickable
+// Render markdown links, bold, and italic
 function renderContent(text: string) {
   const parts = text.split(/(\[[^\]]+\]\([^)]+\))/g);
   return parts.map((part, i) => {
@@ -25,6 +25,13 @@ function renderContent(text: string) {
           {match[1]}
         </Link>
       );
+    }
+    // Handle **bold** and *italic* in plain text segments
+    const html = part
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+    if (html !== part) {
+      return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
     }
     return <span key={i}>{part}</span>;
   });
