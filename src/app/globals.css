@@ -390,11 +390,19 @@ p a:hover, span a:hover, li a:hover {
   background-size: 16px 16px;
 }
 
+/* ── Dashboard background pattern ──
+   Options (uncomment ONE):
+
+   A) Diagonal dots
+   B) Cross/plus signs
+   C) Tiny triangles
+   D) Slanted lines
+*/
+
+/* ACTIVE: B — Cross/plus signs */
 .dashboard-pattern {
-  background-color: #EDEDF2;
-  background-image:
-    linear-gradient(#d8d8e0 1.5px, transparent 1.5px),
-    linear-gradient(90deg, #d8d8e0 1.5px, transparent 1.5px);
+  background-color: #F0F0F5;
+  background-image: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 4v7H4v2h7v7h2v-7h7v-2h-7V4z' fill='%23c8c8d4' fill-opacity='0.45'/%3E%3C/svg%3E");
   background-size: 28px 28px;
 }
 
