@@ -14,3 +14,4 @@
 | INF-2026-010 | 2026-03-21 | Desarrollo | Auditoría UX completa: 274 elementos, 49 hover + 12 cursor corregidos, cobertura 100% | Mejora UX | desarrollo/INF-2026-010.pdf |
 | INF-2026-011 | 2026-03-21 | Desarrollo | Hover visual global: translateY + box-shadow en button/a/select via globals.css, 0 componentes tocados | Mejora UX | desarrollo/INF-2026-011.pdf |
 | INF-2026-012 | 2026-03-23 | Desarrollo | Grabación en vivo: análisis semántico, pre-sesión, mobile-first, historial dual, fix micrófono | Mejora UX + Nueva funcionalidad | desarrollo/INF-2026-012.pdf |
+| INF-2026-013 | 2026-03-23 | Desarrollo | Comparativo GlorIA 1.0 vs 5.0 + Análisis incidente OpenAI Assistants API (runs queued) | Informativo + Preventivo | desarrollo/INF-2026-013.pdf |
