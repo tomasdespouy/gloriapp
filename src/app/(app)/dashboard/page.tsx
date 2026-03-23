@@ -186,9 +186,7 @@ export default async function Dashboard() {
                 <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                   &iexcl;Hola {firstName}!
                 </h1>
-                {streak > 0 && (
-                  <p className="text-sm text-amber-500 mt-0.5">{streak}d racha</p>
-                )}
+                {/* Streak hidden for now */}
 
                 {/* Stats: Sesiones + Módulos */}
                 <div className="flex gap-6 mt-4">
