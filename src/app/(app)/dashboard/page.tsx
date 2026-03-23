@@ -241,7 +241,8 @@ export default async function Dashboard() {
         {/* ═══ ACTIVE SESSIONS — HORIZONTAL CARDS / CAROUSEL ═══ */}
         {activeSessions.length > 0 && (
           <div className="animate-slide-up">
-            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 scrollbar-hide">
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">{"Continúa donde lo dejaste"}</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {activeSessions.map((s) => {
                 const patientSlug = slug(s.patientName);
                 const mins = Math.round(s.activeSeconds / 60);
@@ -249,36 +250,27 @@ export default async function Dashboard() {
                   <Link
                     key={s.id}
                     href={`/chat/${s.patientId}?conversationId=${s.id}`}
-                    className={`snap-start flex-shrink-0 bg-gradient-to-br from-sidebar to-[#2D3561] rounded-2xl overflow-hidden hover:shadow-xl transition-all group ${
-                      activeSessions.length === 1 ? "w-full" : "w-[85%] sm:w-[calc(50%-0.5rem)]"
-                    }`}
+                    className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all group"
                   >
-                    <div className="flex items-center gap-4 p-5">
-                      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden flex-shrink-0 border-2 border-white/20">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={`${supabaseUrl}/storage/v1/object/public/patients/${patientSlug}.png`}
-                          alt={s.patientName}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] text-white/50 uppercase tracking-wider font-medium mb-1">
-                          {"Contin\u00faa donde lo dejaste"}
-                        </p>
-                        <p className="text-base sm:text-lg font-bold text-white truncate">
-                          Sesi&oacute;n #{s.sessionNumber} con {s.patientName}
-                        </p>
-                        <p className="text-xs text-white/60 mt-0.5">
-                          {mins > 0 ? `${mins} min` : "Reci\u00e9n iniciada"}
-                          {s.status === "abandoned" ? " \u00b7 Abandonada" : " \u00b7 En curso"}
-                        </p>
-                      </div>
-                      <div className="flex-shrink-0">
-                        <span className="inline-flex items-center gap-1.5 bg-white/20 text-white font-semibold text-sm px-4 py-2 rounded-xl transition-colors group-hover:bg-white group-hover:text-sidebar">
-                          Retomar &rarr;
-                        </span>
-                      </div>
+                    <div className="aspect-square relative overflow-hidden bg-gray-100">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`${supabaseUrl}/storage/v1/object/public/patients/${patientSlug}.png`}
+                        alt={s.patientName}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                      <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 bg-sidebar text-white font-semibold text-[10px] px-2.5 py-1 rounded-lg opacity-90 group-hover:opacity-100 transition-opacity">
+                        Retomar &rarr;
+                      </span>
+                    </div>
+                    <div className="p-3">
+                      <p className="text-xs font-bold text-gray-900">Sesi&oacute;n #{s.sessionNumber}</p>
+                      <p className="text-[11px] text-gray-600 mt-0.5">{s.patientName}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        {mins > 0 ? `${mins} min` : "Reci\u00e9n iniciada"}
+                        {s.status === "abandoned" ? " · Abandonada" : " · En curso"}
+                      </p>
                     </div>
                   </Link>
                 );
