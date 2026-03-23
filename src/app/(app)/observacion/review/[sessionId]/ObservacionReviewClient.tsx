@@ -115,15 +115,69 @@ export default function ObservacionReviewClient({
               <p className="text-xs font-semibold text-gray-500 uppercase">Análisis semántico</p>
             </div>
             {analysis ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {typeof analysis.summary === "string" && (
                   <p className="text-sm text-gray-700 leading-relaxed">{analysis.summary}</p>
                 )}
+
+                {(() => {
+                  const tone = analysis.tone as Record<string, string> | null;
+                  if (!tone || typeof tone !== "object") return null;
+                  return (
+                    <div>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">Tono detectado</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {tone.observer && (
+                          <div className="bg-sidebar/5 rounded-lg px-3 py-2">
+                            <p className="text-[10px] text-gray-400 mb-0.5">Observador</p>
+                            <p className="text-xs text-gray-700 font-medium">{tone.observer}</p>
+                          </div>
+                        )}
+                        {tone.patient && (
+                          <div className="bg-gray-50 rounded-lg px-3 py-2">
+                            <p className="text-[10px] text-gray-400 mb-0.5">Paciente</p>
+                            <p className="text-xs text-gray-700 font-medium">{tone.patient}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {Array.isArray(analysis.themes) && analysis.themes.length > 0 && (
                   <div>
                     <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Temas identificados</p>
                     {(analysis.themes as string[]).map((t, i) => (
                       <p key={i} className="text-xs text-gray-600 mb-0.5">&#8226; {t}</p>
+                    ))}
+                  </div>
+                )}
+
+                {Array.isArray(analysis.keywords) && analysis.keywords.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">Palabras clave</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(analysis.keywords as string[]).map((kw, i) => (
+                        <span key={i} className="text-[11px] bg-sidebar/10 text-sidebar px-2 py-0.5 rounded-full">{kw}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {Array.isArray(analysis.strengths) && analysis.strengths.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-green-500 uppercase mb-1">Fortalezas</p>
+                    {(analysis.strengths as string[]).map((s, i) => (
+                      <p key={i} className="text-xs text-gray-600 mb-0.5">&#8226; {s}</p>
+                    ))}
+                  </div>
+                )}
+
+                {Array.isArray(analysis.improvements) && analysis.improvements.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-amber-500 uppercase mb-1">Sugerencias de mejora</p>
+                    {(analysis.improvements as string[]).map((s, i) => (
+                      <p key={i} className="text-xs text-gray-600 mb-0.5">&#8226; {s}</p>
                     ))}
                   </div>
                 )}

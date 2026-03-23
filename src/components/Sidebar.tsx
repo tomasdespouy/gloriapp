@@ -4,7 +4,7 @@ import {
   Home, User, History, BarChart3, BookOpen, Info,
   Users, ClipboardCheck, LayoutDashboard, Building2,
   Accessibility, LifeBuoy, FlaskConical, DollarSign, Activity, FileText,
-  Briefcase, Rocket, Bell, Mic, Radio,
+  Briefcase, Rocket, Bell, Radio,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,8 +16,7 @@ const studentNav = [
   { icon: BarChart3, label: "Mi progreso", href: "/progreso" },
   { icon: BookOpen, label: "Aprendizaje", href: "/aprendizaje" },
   { icon: User, label: "Pacientes", href: "/pacientes" },
-  { icon: Mic, label: "Grabar sesi\u00f3n", href: "/grabar-sesion" },
-  { icon: Radio, label: "Observación", href: "/observacion" },
+  { icon: Radio, label: "Grabar en vivo", href: "/observacion" },
   { icon: History, label: "Mi historial", href: "/historial" },
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];

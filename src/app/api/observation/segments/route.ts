@@ -37,6 +37,14 @@ export async function POST(request: NextRequest) {
     } catch { /* silent */ }
   }
 
+  // Remove Whisper hallucination artifacts (silence → phantom subtitles)
+  transcript = transcript
+    .replace(/amara\.org/gi, "")
+    .replace(/subt[ií]tulos?\s*(realizados?\s*)?por\s*(la\s*comunidad\s*de\s*)?/gi, "")
+    .replace(/www\.\S+/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
   const { data, error } = await supabase
     .from("observation_segments")
     .insert({
