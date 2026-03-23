@@ -185,14 +185,14 @@ export default function ObservacionClient({ userName, userAvatarUrl }: Observaci
 
   if (!sessionStarted) {
     return (
-      <div className="flex-1 flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 max-w-md w-full">
+      <div className="flex-1 flex items-center justify-center px-3 sm:px-4">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-8 max-w-md w-full">
           {/* Two avatars: Patient (left) — Therapist (right) */}
-          <div className="flex items-center justify-center gap-8 mb-6">
+          <div className="flex items-center justify-center gap-4 sm:gap-8 mb-5 sm:mb-6">
             {/* Patient */}
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md bg-gray-100 flex items-center justify-center">
-                <span className="text-2xl font-bold text-gray-300">
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md bg-gray-100 flex items-center justify-center">
+                <span className="text-xl sm:text-2xl font-bold text-gray-300">
                   {patientName.trim() ? patientName.trim().split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "?"}
                 </span>
               </div>
@@ -203,29 +203,29 @@ export default function ObservacionClient({ userName, userAvatarUrl }: Observaci
                   onChange={(e) => setPatientName(e.target.value)}
                   onBlur={() => { if (patientName.trim()) setEditingPatient(false); }}
                   onKeyDown={(e) => { if (e.key === "Enter" && patientName.trim()) setEditingPatient(false); }}
-                  placeholder="Nombre del paciente"
+                  placeholder="Nombre paciente"
                   autoFocus
-                  className="text-sm font-medium text-gray-700 text-center border-b-2 border-sidebar/40 outline-none w-36 py-0.5 bg-transparent placeholder:text-gray-300"
+                  className="text-xs sm:text-sm font-medium text-gray-700 text-center border-b-2 border-sidebar/40 outline-none w-28 sm:w-36 py-0.5 bg-transparent placeholder:text-gray-300"
                 />
               ) : (
                 <button onClick={() => setEditingPatient(true)} className="flex items-center gap-1 group cursor-pointer">
-                  <p className="text-sm font-medium text-gray-700">{patientName || "Paciente"}</p>
-                  <Pencil size={11} className="text-gray-300 group-hover:text-sidebar transition-colors" />
+                  <p className="text-xs sm:text-sm font-medium text-gray-700 truncate max-w-[100px] sm:max-w-none">{patientName || "Paciente"}</p>
+                  <Pencil size={10} className="text-gray-300 group-hover:text-sidebar transition-colors flex-shrink-0" />
                 </button>
               )}
-              <p className="text-[11px] text-gray-500">Paciente</p>
+              <p className="text-[10px] sm:text-[11px] text-gray-500">Paciente</p>
             </div>
 
-            <div className="w-10 h-px bg-gray-300 -mt-8" />
+            <div className="w-6 sm:w-10 h-px bg-gray-300 -mt-6 sm:-mt-8" />
 
             {/* Therapist */}
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center">
                 {userAvatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-2xl font-bold text-sidebar">{userInitials}</span>
+                  <span className="text-xl sm:text-2xl font-bold text-sidebar">{userInitials}</span>
                 )}
               </div>
               {editingTherapist ? (
@@ -236,25 +236,25 @@ export default function ObservacionClient({ userName, userAvatarUrl }: Observaci
                   onBlur={() => setEditingTherapist(false)}
                   onKeyDown={(e) => { if (e.key === "Enter") setEditingTherapist(false); }}
                   autoFocus
-                  className="text-sm font-medium text-gray-700 text-center border-b-2 border-sidebar/40 outline-none w-36 py-0.5 bg-transparent"
+                  className="text-xs sm:text-sm font-medium text-gray-700 text-center border-b-2 border-sidebar/40 outline-none w-28 sm:w-36 py-0.5 bg-transparent"
                 />
               ) : (
                 <button onClick={() => setEditingTherapist(true)} className="flex items-center gap-1 group cursor-pointer">
-                  <p className="text-sm font-medium text-gray-700">{therapistName || "Terapeuta"}</p>
-                  <Pencil size={11} className="text-gray-300 group-hover:text-sidebar transition-colors" />
+                  <p className="text-xs sm:text-sm font-medium text-gray-700 truncate max-w-[100px] sm:max-w-none">{therapistName || "Terapeuta"}</p>
+                  <Pencil size={10} className="text-gray-300 group-hover:text-sidebar transition-colors flex-shrink-0" />
                 </button>
               )}
-              <p className="text-[11px] text-gray-500">Terapeuta</p>
+              <p className="text-[10px] sm:text-[11px] text-gray-500">Terapeuta</p>
             </div>
           </div>
 
           {/* Instructions */}
-          <div className="bg-gray-50 rounded-xl p-4 mb-6 text-left space-y-2">
-            <p className="text-xs font-semibold text-gray-700">Instrucciones:</p>
-            <ul className="text-[11px] text-gray-500 space-y-1.5">
-              <li className="flex gap-2"><span className="text-sidebar font-bold">1.</span> Presiona <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-[10px] font-mono">Espacio</kbd> para grabar.</li>
-              <li className="flex gap-2"><span className="text-sidebar font-bold">2.</span> Vuelve a presionar para cambiar de hablante.</li>
-              <li className="flex gap-2"><span className="text-sidebar font-bold">3.</span> Al finalizar, se generará un análisis semántico.</li>
+          <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-5 sm:mb-6 text-left space-y-1.5 sm:space-y-2">
+            <p className="text-[11px] sm:text-xs font-semibold text-gray-700">Instrucciones:</p>
+            <ul className="text-[10px] sm:text-[11px] text-gray-500 space-y-1 sm:space-y-1.5">
+              <li className="flex gap-2"><span className="text-sidebar font-bold">1.</span> <span className="sm:hidden">Toca la pantalla para grabar.</span><span className="hidden sm:inline">Presiona <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-[10px] font-mono">Espacio</kbd> para grabar.</span></li>
+              <li className="flex gap-2"><span className="text-sidebar font-bold">2.</span> <span className="sm:hidden">Toca de nuevo para cambiar hablante.</span><span className="hidden sm:inline">Vuelve a presionar para cambiar de hablante.</span></li>
+              <li className="flex gap-2"><span className="text-sidebar font-bold">3.</span> Al finalizar, se generará un análisis.</li>
             </ul>
           </div>
 
@@ -306,96 +306,96 @@ export default function ObservacionClient({ userName, userAvatarUrl }: Observaci
       </header>
 
       {/* Main area */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 overflow-hidden" onClick={handleTapSwitch}>
+      <div className="flex-1 flex flex-col items-center justify-center px-3 sm:px-4 py-4 sm:py-6 overflow-hidden" onClick={handleTapSwitch}>
 
         {/* Two speakers side by side */}
-        <div className="flex items-end justify-center gap-6 sm:gap-10 mb-6">
+        <div className="flex items-end justify-center gap-5 sm:gap-10 mb-4 sm:mb-6">
           {/* Therapist avatar */}
-          <div className={`flex flex-col items-center transition-all duration-300 ${isTherapistSpeaking ? "scale-100 opacity-100" : "scale-75 opacity-40"}`}>
+          <div className={`flex flex-col items-center transition-all duration-300 ${isTherapistSpeaking ? "scale-100 opacity-100" : "scale-[0.7] opacity-40"}`}>
             <div className="relative">
               {isRecording && isTherapistSpeaking && (
                 <>
-                  <span className="absolute -inset-3 rounded-full bg-red-400/25 animate-[ripple_2s_ease-out_infinite]" />
-                  <span className="absolute -inset-3 rounded-full bg-red-400/15 animate-[ripple_2s_ease-out_0.6s_infinite]" />
-                  <span className="absolute -inset-3 rounded-full bg-red-400/8 animate-[ripple_2s_ease-out_1.2s_infinite]" />
+                  <span className="absolute -inset-2 sm:-inset-3 rounded-full bg-red-400/25 animate-[ripple_2s_ease-out_infinite]" />
+                  <span className="absolute -inset-2 sm:-inset-3 rounded-full bg-red-400/15 animate-[ripple_2s_ease-out_0.6s_infinite]" />
+                  <span className="absolute -inset-2 sm:-inset-3 rounded-full bg-red-400/8 animate-[ripple_2s_ease-out_1.2s_infinite]" />
                 </>
               )}
-              <div className={`relative z-10 w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden flex items-center justify-center transition-all duration-300 ${
+              <div className={`relative z-10 w-20 h-20 sm:w-28 sm:h-28 rounded-full overflow-hidden flex items-center justify-center transition-all duration-300 ${
                 isTherapistSpeaking
-                  ? isRecording ? "ring-4 ring-red-400 shadow-lg shadow-red-400/30" : "ring-4 ring-sidebar/40"
+                  ? isRecording ? "ring-[3px] sm:ring-4 ring-red-400 shadow-lg shadow-red-400/30" : "ring-[3px] sm:ring-4 ring-sidebar/40"
                   : "ring-2 ring-gray-200"
               } ${isTherapistSpeaking ? "bg-sidebar/10" : "bg-gray-100"}`}>
                 {userAvatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className={`text-xl sm:text-2xl font-bold ${isTherapistSpeaking ? "text-sidebar" : "text-gray-300"}`}>{userInitials}</span>
+                  <span className={`text-lg sm:text-2xl font-bold ${isTherapistSpeaking ? "text-sidebar" : "text-gray-300"}`}>{userInitials}</span>
                 )}
               </div>
               {isRecording && isTherapistSpeaking && (
-                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 z-20 bg-red-500 rounded-full p-1.5 shadow-md">
-                  <Mic size={12} className="text-white" />
+                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 z-20 bg-red-500 rounded-full p-1 sm:p-1.5 shadow-md">
+                  <Mic size={10} className="text-white sm:w-3 sm:h-3" />
                 </div>
               )}
             </div>
-            <p className={`mt-3 text-xs sm:text-sm font-semibold text-center truncate max-w-[100px] sm:max-w-[120px] ${isTherapistSpeaking ? "text-gray-900" : "text-gray-400"}`}>
+            <p className={`mt-2 sm:mt-3 text-[11px] sm:text-sm font-semibold text-center truncate max-w-[80px] sm:max-w-[120px] ${isTherapistSpeaking ? "text-gray-900" : "text-gray-400"}`}>
               {(therapistName || "Terapeuta").split(" ")[0]}
             </p>
-            <p className={`text-[10px] ${isTherapistSpeaking ? "text-sidebar font-medium" : "text-gray-300"}`}>Terapeuta</p>
+            <p className={`text-[9px] sm:text-[10px] ${isTherapistSpeaking ? "text-sidebar font-medium" : "text-gray-300"}`}>Terapeuta</p>
           </div>
 
           {/* VS divider */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-8 h-px bg-gray-200" />
+          <div className="flex flex-col items-center mb-6 sm:mb-8">
+            <div className="w-5 sm:w-8 h-px bg-gray-200" />
           </div>
 
           {/* Patient avatar */}
-          <div className={`flex flex-col items-center transition-all duration-300 ${!isTherapistSpeaking ? "scale-100 opacity-100" : "scale-75 opacity-40"}`}>
+          <div className={`flex flex-col items-center transition-all duration-300 ${!isTherapistSpeaking ? "scale-100 opacity-100" : "scale-[0.7] opacity-40"}`}>
             <div className="relative">
               {isRecording && !isTherapistSpeaking && (
                 <>
-                  <span className="absolute -inset-3 rounded-full bg-red-400/25 animate-[ripple_2s_ease-out_infinite]" />
-                  <span className="absolute -inset-3 rounded-full bg-red-400/15 animate-[ripple_2s_ease-out_0.6s_infinite]" />
-                  <span className="absolute -inset-3 rounded-full bg-red-400/8 animate-[ripple_2s_ease-out_1.2s_infinite]" />
+                  <span className="absolute -inset-2 sm:-inset-3 rounded-full bg-red-400/25 animate-[ripple_2s_ease-out_infinite]" />
+                  <span className="absolute -inset-2 sm:-inset-3 rounded-full bg-red-400/15 animate-[ripple_2s_ease-out_0.6s_infinite]" />
+                  <span className="absolute -inset-2 sm:-inset-3 rounded-full bg-red-400/8 animate-[ripple_2s_ease-out_1.2s_infinite]" />
                 </>
               )}
-              <div className={`relative z-10 w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden flex items-center justify-center transition-all duration-300 ${
+              <div className={`relative z-10 w-20 h-20 sm:w-28 sm:h-28 rounded-full overflow-hidden flex items-center justify-center transition-all duration-300 ${
                 !isTherapistSpeaking
-                  ? isRecording ? "ring-4 ring-red-400 shadow-lg shadow-red-400/30" : "ring-4 ring-emerald-400/40"
+                  ? isRecording ? "ring-[3px] sm:ring-4 ring-red-400 shadow-lg shadow-red-400/30" : "ring-[3px] sm:ring-4 ring-emerald-400/40"
                   : "ring-2 ring-gray-200"
               } ${!isTherapistSpeaking ? "bg-emerald-50" : "bg-gray-100"}`}>
-                <span className={`text-xl sm:text-2xl font-bold ${!isTherapistSpeaking ? "text-emerald-600" : "text-gray-300"}`}>{patientInitials}</span>
+                <span className={`text-lg sm:text-2xl font-bold ${!isTherapistSpeaking ? "text-emerald-600" : "text-gray-300"}`}>{patientInitials}</span>
               </div>
               {isRecording && !isTherapistSpeaking && (
-                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 z-20 bg-red-500 rounded-full p-1.5 shadow-md">
-                  <Mic size={12} className="text-white" />
+                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 z-20 bg-red-500 rounded-full p-1 sm:p-1.5 shadow-md">
+                  <Mic size={10} className="text-white sm:w-3 sm:h-3" />
                 </div>
               )}
             </div>
-            <p className={`mt-3 text-xs sm:text-sm font-semibold text-center truncate max-w-[100px] sm:max-w-[120px] ${!isTherapistSpeaking ? "text-gray-900" : "text-gray-400"}`}>
+            <p className={`mt-2 sm:mt-3 text-[11px] sm:text-sm font-semibold text-center truncate max-w-[80px] sm:max-w-[120px] ${!isTherapistSpeaking ? "text-gray-900" : "text-gray-400"}`}>
               {(patientName || "Paciente").split(" ")[0]}
             </p>
-            <p className={`text-[10px] ${!isTherapistSpeaking ? "text-emerald-600 font-medium" : "text-gray-300"}`}>Paciente</p>
+            <p className={`text-[9px] sm:text-[10px] ${!isTherapistSpeaking ? "text-emerald-600 font-medium" : "text-gray-300"}`}>Paciente</p>
           </div>
         </div>
 
         {/* Status + timer */}
-        <div className="text-center mb-4">
+        <div className="text-center mb-3 sm:mb-4">
           {isRecording ? (
             <>
               <div className="flex items-center justify-center gap-2 mb-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-sm font-semibold text-red-600">Grabando</span>
+                <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-xs sm:text-sm font-semibold text-red-600">Grabando</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900 tabular-nums">{formatTime(segmentSeconds)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 tabular-nums">{formatTime(segmentSeconds)}</p>
             </>
           ) : (
-            <p className="text-sm font-medium text-gray-400">Pausado</p>
+            <p className="text-xs sm:text-sm font-medium text-gray-400">Toca para comenzar</p>
           )}
         </div>
 
         {/* Action hint */}
-        <div className="bg-gray-100/80 rounded-full px-5 py-2 text-xs text-gray-500">
+        <div className="bg-gray-100/80 rounded-full px-4 sm:px-5 py-1.5 sm:py-2 text-[11px] sm:text-xs text-gray-500">
           <span className="sm:hidden">Toca para {isRecording ? "cambiar hablante" : "grabar"}</span>
           <span className="hidden sm:inline">
             Presiona <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-300 font-mono text-[10px] mx-0.5">Espacio</kbd> o toca para {isRecording ? "cambiar hablante" : "grabar"}

@@ -516,26 +516,26 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
         {/* LEFT: Conversations */}
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex-1 min-w-[180px] relative">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="w-full sm:flex-1 sm:min-w-[180px] relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
+                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
             </div>
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as "all" | "completed" | "active")}
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-gray-300 cursor-pointer">
+              className="flex-1 sm:flex-none px-2 sm:px-3 py-2 border border-gray-200 rounded-lg text-xs sm:text-sm text-gray-600 hover:border-gray-300 cursor-pointer">
               <option value="all">Todas</option>
               <option value="completed">Completadas</option>
               <option value="active">En curso</option>
             </select>
             <select value={filterPatient} onChange={(e) => setFilterPatient(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-gray-300 cursor-pointer">
+              className="flex-1 sm:flex-none px-2 sm:px-3 py-2 border border-gray-200 rounded-lg text-xs sm:text-sm text-gray-600 hover:border-gray-300 cursor-pointer min-w-0">
               <option value="all">Todos los pacientes</option>
               {patients.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
             </select>
             <div className="flex border border-gray-200 rounded-lg overflow-hidden">
-              <button onClick={() => setView("list")} className={`px-3 py-2 cursor-pointer ${view === "list" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><List size={14} /></button>
-              <button onClick={() => setView("grouped")} className={`px-3 py-2 cursor-pointer ${view === "grouped" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><LayoutGrid size={14} /></button>
+              <button onClick={() => setView("list")} className={`px-2.5 sm:px-3 py-2 cursor-pointer ${view === "list" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><List size={14} /></button>
+              <button onClick={() => setView("grouped")} className={`px-2.5 sm:px-3 py-2 cursor-pointer ${view === "grouped" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><LayoutGrid size={14} /></button>
             </div>
           </div>
 
