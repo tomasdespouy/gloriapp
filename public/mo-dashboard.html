@@ -30,10 +30,12 @@
   .section-title .badge { font-size: 0.7rem; background: #eee; color: #666; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
 
   .card-grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
   .grid-3 { grid-template-columns: repeat(3, 1fr); }
   .grid-4 { grid-template-columns: repeat(4, 1fr); }
   .grid-5 { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 
+  /* Standard KPI card */
   .kpi-card { background: white; border-radius: 10px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); position: relative; transition: all 0.2s; border-left: 4px solid #ccc; }
   .kpi-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); transform: translateY(-1px); }
   .kpi-card.green { border-left-color: #22c55e; }
@@ -46,6 +48,27 @@
   .kpi-card.red .value { color: #dc2626; }
   .kpi-card .meta { font-size: 0.72rem; color: #999; margin-top: 6px; }
   .kpi-card .meta span { margin-right: 10px; }
+
+  /* Result-level cards (larger, gradient bg) */
+  .result-card { background: linear-gradient(135deg, #fafbff 0%, #f0f1ff 100%); border-radius: 12px; padding: 24px 28px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); position: relative; transition: all 0.2s; border-left: 5px solid #4A55A2; }
+  .result-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.12); transform: translateY(-2px); }
+  .result-card.green { border-left-color: #22c55e; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); }
+  .result-card.yellow { border-left-color: #eab308; background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%); }
+  .result-card.red { border-left-color: #ef4444; background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); }
+  .result-card .label { font-size: 0.9rem; color: #555; font-weight: 600; margin-bottom: 8px; line-height: 1.3; }
+  .result-card .value { font-size: 2.4rem; font-weight: 700; line-height: 1; }
+  .result-card.green .value { color: #16a34a; }
+  .result-card.yellow .value { color: #ca8a04; }
+  .result-card.red .value { color: #dc2626; }
+  .result-card .meta { font-size: 0.75rem; color: #999; margin-top: 8px; }
+  .result-card .meta span { margin-right: 12px; }
+
+  /* Tree section (contains branches of a main result) */
+  .tree-section { background: white; border-radius: 12px; padding: 24px 28px; margin-top: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid #4A55A2; }
+  .tree-header { font-size: 1.05rem; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+  .tree-header-sub { font-size: 0.8rem; color: #9ca3af; margin-bottom: 18px; }
+  .tree-level { margin-top: 20px; }
+  .tree-level-title { font-size: 0.82rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px dashed #e5e7eb; }
 
   .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle; }
   .dot.green { background: #22c55e; }
@@ -61,6 +84,21 @@
   .range-bar .seg.r { background: #fca5a5; }
   .range-bar .seg.y { background: #fde047; }
   .range-bar .seg.g { background: #86efac; }
+
+  /* Dual KPI layout: avg 30d | actual */
+  .kpi-dual { display: flex; align-items: flex-end; gap: 16px; margin-top: 2px; }
+  .kpi-col-avg { flex: 0 0 auto; }
+  .kpi-col-current { flex: 1 1 auto; }
+  .kpi-col-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; color: #aaa; margin-bottom: 2px; }
+  .kpi-col-value { font-size: 1.3rem; font-weight: 600; color: #888; line-height: 1; }
+  .kpi-col-value.green { color: #16a34a; }
+  .kpi-col-value.yellow { color: #ca8a04; }
+  .kpi-col-value.red { color: #dc2626; }
+  .kpi-col-unit { font-size: 0.75rem; font-weight: 400; color: #aaa; margin-left: 2px; }
+  .result-card .kpi-col-value { font-size: 1.6rem; }
+  .result-card .value { font-size: 2.4rem; }
+
+  .direction { font-size: 0.7rem; color: #999; display: flex; align-items: center; gap: 4px; margin-top: 4px; }
 
   .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 1000; justify-content: center; align-items: center; }
   .modal-overlay.active { display: flex; }
@@ -89,8 +127,6 @@
   .btn-secondary:hover { background: #e0e0e0; }
   .btn-danger { background: #fee; color: #dc2626; }
   .btn-danger:hover { background: #fdd; }
-
-  .direction { font-size: 0.7rem; color: #999; display: flex; align-items: center; gap: 4px; margin-top: 4px; }
 
   .chart-section { background: white; border-radius: 10px; padding: 20px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-top: 20px; }
   .chart-controls { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
@@ -128,25 +164,40 @@
   .bulk-table tr:hover { background: #fafafa; }
   .bulk-table .var-name { font-weight: 500; color: #333; }
 
-  /* Date filter panel */
   .date-filter { background: white; border-radius: 10px; padding: 16px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .date-filter label { font-size: 0.85rem; color: #555; font-weight: 500; }
   .date-filter select, .date-filter input[type="date"], .date-filter input[type="datetime-local"] { padding: 7px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.85rem; font-family: inherit; }
   .date-filter select:focus, .date-filter input:focus { outline: none; border-color: #4A55A2; }
   .date-filter .filter-info { font-size: 0.78rem; color: #888; margin-left: auto; }
 
-  /* Debug panel */
+  /* Variable picker (multi-select chips) */
+  .var-picker { display: flex; flex-wrap: wrap; gap: 4px; max-width: 700px; }
+  .var-chip { padding: 3px 10px; border-radius: 14px; font-size: 0.75rem; cursor: pointer; border: 1px solid #ddd; background: #f8f8f8; color: #666; transition: all 0.15s; user-select: none; white-space: nowrap; }
+  .var-chip:hover { border-color: #4A55A2; color: #4A55A2; }
+  .var-chip.selected { background: #4A55A2; color: white; border-color: #4A55A2; }
+  .var-chip.selected:hover { background: #3d4789; }
+
+  /* Correlation matrix */
+  .corr-pos { background-color: rgba(34,197,94,var(--corr-alpha)); }
+  .corr-neg { background-color: rgba(239,68,68,var(--corr-alpha)); }
+  .corr-cell { font-size: 0.72rem; font-weight: 500; min-width: 48px; }
+  .corr-diag { background: #f0f0f0; color: #999; }
+  .heatmap th.corr-header { font-size: 0.7rem; max-width: 60px; overflow: hidden; text-overflow: ellipsis; writing-mode: vertical-rl; text-orientation: mixed; height: 90px; vertical-align: bottom; padding: 4px 6px; }
+  .heatmap td.corr-row-label { text-align: left; font-weight: 600; font-size: 0.72rem; color: #333; white-space: nowrap; background: white; position: sticky; left: 0; z-index: 1; }
+
   .debug-panel { background: #fffbe6; border: 1px solid #fde047; border-radius: 8px; padding: 12px 16px; margin: 16px 32px; font-size: 0.8rem; color: #854d0e; display: none; }
   .debug-panel.visible { display: block; }
 
   @media (max-width: 900px) {
+    .grid-2 { grid-template-columns: 1fr; }
     .grid-3 { grid-template-columns: repeat(2, 1fr); }
     .grid-4 { grid-template-columns: repeat(2, 1fr); }
     .dashboard { padding: 16px; }
     .date-filter { flex-direction: column; align-items: stretch; }
+    .tree-section { padding: 18px 16px; }
   }
   @media (max-width: 600px) {
-    .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
     .header { padding: 14px 16px; flex-direction: column; gap: 8px; }
     .header h1 { font-size: 1.1rem; }
   }
@@ -157,11 +208,11 @@
 <div class="header">
   <div>
     <h1>Dashboard Planta Concentrado de Molibdeno</h1>
-    <div class="header-sub">Monitoreo operacional</div>
+    <div class="header-sub">Monitoreo operacional por arbol de KPIs</div>
   </div>
   <div class="header-right">
     <div class="last-update" id="lastUpdate"></div>
-    <button class="btn btn-secondary" id="btnReload" style="display:none" onclick="document.getElementById('fileInput').click()">Cargar otro Excel</button>
+    <button class="btn" id="btnReload" style="display:none;background:#4A55A2;color:white;font-size:0.9rem;padding:8px 20px;" onclick="document.getElementById('fileInput').click()">Actualizar Excel</button>
   </div>
 </div>
 
@@ -171,7 +222,6 @@
   <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
 </div>
 
-<!-- Debug panel for column mapping verification -->
 <div class="debug-panel" id="debugPanel"></div>
 
 <div class="dashboard" id="dashboard">
@@ -195,33 +245,54 @@
         <option value="single">Turno especifico</option>
         <option value="range">Promedio acumulado</option>
       </select>
-
       <span id="filterSingleWrap" style="display:none">
         <label>Fecha turno:</label>
         <select id="filterTurno" onchange="onFilterChange()"></select>
       </span>
-
       <span id="filterRangeWrap" style="display:none">
         <label>Desde:</label>
         <input type="date" id="filterFrom" onchange="onFilterChange()">
         <label>Hasta:</label>
         <input type="date" id="filterTo" onchange="onFilterChange()">
       </span>
-
       <div class="filter-info" id="filterInfo"></div>
     </div>
 
-    <div class="section-title">Resultados primarios <span class="badge">KPIs</span></div>
-    <div class="card-grid grid-3" id="gridPrimary"></div>
+    <!-- Resultados principales -->
+    <div class="section-title">Resultados principales <span class="badge">KPIs</span></div>
+    <div class="card-grid grid-2" id="gridResults"></div>
 
-    <div class="section-title">Resultados secundarios</div>
-    <div class="card-grid grid-4" id="gridSecondary"></div>
+    <!-- Arbol: Recuperacion Global Mo -->
+    <div class="tree-section" id="treeGlobalMo">
+      <div class="tree-header">Recuperacion Global Mo</div>
+      <div class="tree-header-sub">Descomposicion jerarquica de la recuperacion global de molibdeno</div>
 
-    <div class="section-title">Variables operacionales controlables <span class="badge">ajustables</span></div>
-    <div class="card-grid grid-5" id="gridOperational"></div>
+      <div class="tree-level">
+        <div class="tree-level-title">Componentes directos</div>
+        <div class="card-grid grid-2" id="gridGlobalL2"></div>
+      </div>
 
-    <div class="section-title">Variables externas <span class="badge">sin control</span></div>
-    <div class="card-grid grid-5" id="gridExternal"></div>
+      <div class="tree-level">
+        <div class="tree-level-title">Afectan Rec. Colectiva Mo</div>
+        <div class="card-grid grid-3" id="gridColectivaDrivers"></div>
+      </div>
+
+      <div class="tree-level">
+        <div class="tree-level-title">Afectan Rec. Selectiva Mo</div>
+        <div class="card-grid grid-5" id="gridSelectivaDrivers"></div>
+      </div>
+    </div>
+
+    <!-- Arbol: Concentrado Mo Final -->
+    <div class="tree-section" id="treeConcentrado">
+      <div class="tree-header">Concentrado Mo Final</div>
+      <div class="tree-header-sub">Variables que afectan el concentrado final de molibdeno</div>
+
+      <div class="tree-level">
+        <div class="tree-level-title">Variables que afectan</div>
+        <div class="card-grid grid-4" id="gridConcentradoDrivers"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Tab: Heatmap -->
@@ -246,8 +317,8 @@
     <div class="section-title">Tendencia temporal</div>
     <div class="chart-section">
       <div class="chart-controls">
-        <label>Variable:</label>
-        <select id="chartVariable" onchange="renderChart()"></select>
+        <label>Variables:</label>
+        <div id="chartVarPicker" class="var-picker"></div>
         <label style="margin-left:16px">Mostrar:</label>
         <select id="chartPeriod" onchange="renderChart()">
           <option value="0">Todo el periodo</option>
@@ -255,9 +326,27 @@
           <option value="60">Ultimos 60 turnos</option>
           <option value="90">Ultimos 90 turnos</option>
         </select>
+        <button class="btn btn-secondary" onclick="clearChartSelection()" style="margin-left:8px;padding:5px 12px;font-size:0.78rem;">Limpiar</button>
       </div>
-      <div class="chart-container">
+      <div class="chart-container" style="height:400px;">
         <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Correlation matrix -->
+    <div class="chart-section" style="margin-top:24px;">
+      <div class="section-title" style="margin-top:0;">Matriz de correlacion <span class="badge">Pearson</span></div>
+      <div class="chart-controls">
+        <label>Periodo:</label>
+        <select id="corrPeriod" onchange="renderCorrelation()">
+          <option value="0" selected>Todo el periodo</option>
+          <option value="30">Ultimos 30 turnos</option>
+          <option value="60">Ultimos 60 turnos</option>
+          <option value="90">Ultimos 90 turnos</option>
+        </select>
+      </div>
+      <div class="heatmap-wrapper">
+        <table class="heatmap" id="corrTable"></table>
       </div>
     </div>
   </div>
@@ -269,12 +358,16 @@
       <p style="font-size:0.85rem;color:#666;flex:1;">Modifica los umbrales verde/amarillo/rojo. Los cambios se guardan automaticamente en el navegador.</p>
       <button class="btn btn-danger" onclick="resetAllRanges()">Restaurar rangos por defecto</button>
     </div>
-    <div class="section-title" style="font-size:0.95rem;">Resultados primarios</div>
-    <table class="bulk-table" id="bulkPrimary"></table>
-    <div class="section-title" style="font-size:0.95rem;">Resultados secundarios</div>
-    <table class="bulk-table" id="bulkSecondary"></table>
-    <div class="section-title" style="font-size:0.95rem;">Variables operacionales controlables</div>
-    <table class="bulk-table" id="bulkOperational"></table>
+    <div class="section-title" style="font-size:0.95rem;">Resultados principales</div>
+    <table class="bulk-table" id="bulkResults"></table>
+    <div class="section-title" style="font-size:0.95rem;">Componentes Global Mo</div>
+    <table class="bulk-table" id="bulkGlobalL2"></table>
+    <div class="section-title" style="font-size:0.95rem;">Drivers Rec. Colectiva</div>
+    <table class="bulk-table" id="bulkColectiva"></table>
+    <div class="section-title" style="font-size:0.95rem;">Drivers Rec. Selectiva</div>
+    <table class="bulk-table" id="bulkSelectiva"></table>
+    <div class="section-title" style="font-size:0.95rem;">Drivers Concentrado Mo Final</div>
+    <table class="bulk-table" id="bulkConcentrado"></table>
   </div>
 </div>
 
@@ -294,51 +387,64 @@
 <script>
 // ============================================================
 // VARIABLE DEFINITIONS
-// Each variable has a headerMatch array: substrings to find in the Excel header row.
-// The first match wins. This makes column detection robust regardless of encoding or column shifts.
 // ============================================================
-const STORAGE_KEY = 'dashboard_mo_ranges_v3';
+const STORAGE_KEY = 'dashboard_mo_ranges_v4';
 
 const VARIABLES = [
-  // Resultados primarios
-  { id: 'global_mo',       headerMatch: ['Global Moly', 'Global Mo'],                        label: 'Recuperacion Global Mo',     unit: '%', group: 'primary',     dir: 'higher', green: 50,    yellow: 35,   decimals: 1 },
-  { id: 'colectiva_mo',    headerMatch: ['colectiva Mo', 'Colectiva Mo'],                     label: 'Recuperacion Colectiva Mo',  unit: '%', group: 'primary',     dir: 'higher', green: 70,    yellow: 60,   decimals: 1 },
-  { id: 'selectiva_mo',    headerMatch: ['Selectiva'],                                        label: 'Recuperacion Selectiva Mo',  unit: '%', group: 'primary',     dir: 'higher', green: 70,    yellow: 50,   decimals: 1 },
-  // Resultados secundarios
-  { id: 'enriquecimiento', headerMatch: ['Enriquecimiento'],                                  label: 'Enriquecimiento Mo',         unit: '',  group: 'secondary',   dir: 'higher', green: 30,    yellow: 25,   decimals: 1 },
-  { id: 'conc_mo_final',   headerMatch: ['Concentrado Mo Final'],                             label: 'Concentrado Mo Final',       unit: '%', group: 'secondary',   dir: 'higher', green: 30,    yellow: 20,   decimals: 1 },
-  { id: 'rougher_mo',      headerMatch: ['rougher Mo', 'Rougher Mo'],                         label: 'Recuperacion Rougher Mo',    unit: '%', group: 'secondary',   dir: 'higher', green: 75,    yellow: 65,   decimals: 1 },
-  { id: 'limpieza_mo',     headerMatch: ['limpieza Mo', 'Limpieza Mo'],                       label: 'Recuperacion Limpieza Mo',   unit: '%', group: 'secondary',   dir: 'higher', green: 93,    yellow: 85,   decimals: 1 },
-  // Operacionales controlables
-  { id: 'orp_columna',     headerMatch: ['ORP Columna'],                                      label: 'ORP Columna',                unit: 'mV', group: 'operational', dir: 'lower',  green: -469,  yellow: -394, decimals: 0 },
-  { id: 'nivel_col',       headerMatch: ['NIVEL COL'],                                        label: 'NIVEL COL',                  unit: '',   group: 'operational', dir: 'higher', green: 75,    yellow: 40,   decimals: 1 },
-  { id: 'aire_col',        headerMatch: ['AIRE COL'],                                         label: 'AIRE COL',                   unit: '',   group: 'operational', dir: 'higher', green: 110,   yellow: 97,   decimals: 1 },
-  { id: 'bba71',           headerMatch: ['BBA71'],                                             label: 'BBA71',                      unit: '',   group: 'operational', dir: 'higher', green: 25.4,  yellow: 21,   decimals: 1 },
-  { id: 'p80_cucon',       headerMatch: ['P80'],                                               label: 'P80 cucon',                  unit: '',   group: 'operational', dir: 'higher', green: 70,    yellow: 66,   decimals: 1 },
-  { id: 'insoluble',       headerMatch: ['Insoluble'],                                        label: 'Insoluble',                  unit: '',   group: 'operational', dir: 'higher', green: 12,    yellow: 10,   decimals: 1 },
-  { id: 'orp_1ra_dif',     headerMatch: ['ORP primera', 'ORP 1ra'],                           label: 'ORP 1ra diferencial',        unit: 'mV', group: 'operational', dir: 'lower',  green: -446,  yellow: -430, decimals: 0 },
-  { id: 'ph_columna',      headerMatch: ['pH columna'],                                       label: 'pH columna',                 unit: '',   group: 'operational', dir: 'lower',  green: 9.9,   yellow: 10.2, decimals: 2 },
-  { id: 'solido_relave',   headerMatch: ['Solido relave', 'lido relave'],                     label: 'Solido relave',              unit: '',   group: 'operational', dir: 'higher', green: 54,    yellow: 50,   decimals: 1 },
-  { id: 'solido_stp28',    headerMatch: ['STP 28'],                                           label: 'Solido STP 28',              unit: '',   group: 'operational', dir: 'higher', green: 56,    yellow: 52,   decimals: 1 },
-  { id: 'acond2_mo',       headerMatch: ['Acond 2 Mo'],                                       label: 'Acond 2 Mo',                 unit: '%',  group: 'operational', dir: 'higher', green: 17,    yellow: 12,   decimals: 1 },
-  { id: 'acido_acond1',    headerMatch: ['acido acond', 'cido acond'],                         label: 'Acido acond 1',              unit: '',   group: 'operational', dir: 'higher', green: 646,   yellow: 581,  decimals: 0 },
-  { id: 'ley_mo_conc',     headerMatch: ['Ley Mo Concentrado', 'Concentrado Final, %'],       label: 'Ley Mo Conc. Final',         unit: '%',  group: 'operational', dir: 'higher', green: 0.4,   yellow: 0.3,  decimals: 3 },
-  { id: 'horas_bba',       headerMatch: ['Horas oper', 'bba tk'],                             label: 'Horas bba tk 47/48',         unit: 'h',  group: 'operational', dir: 'higher', green: 5,     yellow: 3,    decimals: 1 },
-  { id: 'insolubles_ac2',  headerMatch: ['Insolubles Acond2'],                                label: 'Insolubles Acond2',          unit: '',   group: 'operational', dir: 'lower',  green: 7.3,   yellow: 8.5,  decimals: 1 },
-  // Externas
-  { id: 'ley_mo_alim',     headerMatch: ['Ley Mo Aliment', 'Alimentaci'],                     label: 'Ley Mo Alimentacion',        unit: '%',  group: 'external',    dir: null,     green: null,  yellow: null, decimals: 3 },
-  { id: 'ph_pozon',        headerMatch: ['pH Poz'],                                           label: 'pH Pozon',                   unit: '',   group: 'external',    dir: null,     green: null,  yellow: null, decimals: 2 },
-  { id: 'orp_pozon',       headerMatch: ['ORP Poz'],                                          label: 'ORP Pozon',                  unit: 'mV', group: 'external',    dir: null,     green: null,  yellow: null, decimals: 0 },
-  { id: 'flujo_yesos',     headerMatch: ['Flujo yesos'],                                      label: 'Flujo yesos',                unit: '',   group: 'external',    dir: null,     green: null,  yellow: null, decimals: 1 },
-  { id: 'ph_yesos',        headerMatch: ['pH yesos'],                                         label: 'pH yesos',                   unit: '',   group: 'external',    dir: null,     green: null,  yellow: null, decimals: 2 },
-  { id: 'orp_acond1',      headerMatch: ['ORP Acond1'],                                       label: 'ORP Acond1',                 unit: 'mV', group: 'external',    dir: null,     green: null,  yellow: null, decimals: 0 },
-  { id: 'lt1_tph',         headerMatch: ['LT1'],                                              label: 'LT1 TPH',                    unit: 'TPH',group: 'external',    dir: null,     green: null,  yellow: null, decimals: 0 },
+  // Resultados principales
+  { id: 'global_mo',       headerMatch: ['Global Moly', 'Global Mo'],                    label: 'Recuperacion Global Mo',     unit: '%',  dir: 'higher', green: 50,    yellow: 35,   decimals: 1 },
+  { id: 'conc_mo_final',   headerMatch: ['Concentrado Mo Final'],                        label: 'Concentrado Mo Final',       unit: '%',  dir: 'higher', green: 30,    yellow: 20,   decimals: 1 },
+  // Nivel 2: Componentes de Global Mo
+  { id: 'colectiva_mo',    headerMatch: ['colectiva Mo', 'Colectiva Mo'],                 label: 'Recuperacion Colectiva Mo',  unit: '%',  dir: 'higher', green: 70,    yellow: 60,   decimals: 1 },
+  { id: 'selectiva_mo',    headerMatch: ['Selectiva'],                                    label: 'Recuperacion Selectiva Mo',  unit: '%',  dir: 'higher', green: 70,    yellow: 50,   decimals: 1 },
+  // Drivers Rec. Colectiva
+  { id: 'rougher_mo',      headerMatch: ['rougher Mo', 'Rougher Mo'],                     label: 'Recuperacion Rougher Mo',    unit: '%',  dir: 'higher', green: 75,    yellow: 65,   decimals: 1 },
+  { id: 'limpieza_mo',     headerMatch: ['limpieza Mo', 'Limpieza Mo'],                   label: 'Recuperacion Limpieza Mo',   unit: '%',  dir: 'higher', green: 93,    yellow: 85,   decimals: 1 },
+  { id: 'ley_mo_alim',     headerMatch: ['Ley Mo Aliment', 'Alimentaci'],                  label: 'Ley Mo Alimentacion',        unit: '%',  dir: null,     green: null,  yellow: null, decimals: 3 },
+  // Drivers Rec. Selectiva
+  { id: 'orp_acond1',      headerMatch: ['ORP Acond1'],                                   label: 'ORP Acond 1',                unit: 'mV', dir: 'lower',  green: -100,  yellow: -50,  decimals: 0 },
+  { id: 'acido_acond1',    headerMatch: ['acido acond', 'cido acond'],                     label: 'Acido Acond 1',              unit: '',   dir: 'higher', green: 646,   yellow: 581,  decimals: 0 },
+  { id: 'orp_1ra_dif',     headerMatch: ['ORP primera', 'ORP 1ra'],                       label: 'ORP 1ra Diferencial',        unit: 'mV', dir: 'lower',  green: -446,  yellow: -430, decimals: 0 },
+  { id: 'p80_cucon',       headerMatch: ['P80'],                                           label: 'P80 Cucon',                  unit: '',   dir: 'higher', green: 70,    yellow: 66,   decimals: 1 },
+  { id: 'ley_mo_conc',     headerMatch: ['Ley Mo Concentrado'],                            label: 'Ley Mo Conc. Final',         unit: '%',  dir: 'higher', green: 0.4,   yellow: 0.3,  decimals: 3 },
+  { id: 'ph_pozon',        headerMatch: ['pH Poz'],                                        label: 'pH Pozon',                   unit: '',   dir: null,     green: null,  yellow: null, decimals: 2 },
+  { id: 'orp_pozon',       headerMatch: ['ORP Poz'],                                       label: 'ORP Pozon',                  unit: 'mV', dir: null,     green: null,  yellow: null, decimals: 0 },
+  { id: 'flujo_yesos',     headerMatch: ['Flujo yesos'],                                   label: 'Flujo Yesos',                unit: '',   dir: null,     green: null,  yellow: null, decimals: 1 },
+  { id: 'ph_yesos',        headerMatch: ['pH yesos'],                                      label: 'pH Yesos',                   unit: '',   dir: null,     green: null,  yellow: null, decimals: 2 },
+  { id: 'insoluble',       headerMatch: ['Insoluble'],                                     label: 'Insolubles',                 unit: '',   dir: 'higher', green: 12,    yellow: 10,   decimals: 1 },
+  // Drivers Concentrado Mo Final
+  { id: 'ph_columna',      headerMatch: ['pH columna'],                                    label: 'pH Columna',                 unit: '',   dir: 'lower',  green: 9.9,   yellow: 10.2, decimals: 2 },
+  { id: 'orp_columna',     headerMatch: ['ORP Columna'],                                   label: 'ORP Columna',                unit: 'mV', dir: 'lower',  green: -469,  yellow: -394, decimals: 0 },
+  { id: 'enriquecimiento', headerMatch: ['Enriquecimiento'],                                label: 'Razon Enriquecimiento',      unit: '',   dir: 'higher', green: 30,    yellow: 25,   decimals: 1 },
+  { id: 'acond2_mo',       headerMatch: ['Acond 2 Mo'],                                    label: 'Ley Acond 2 Mo',             unit: '%',  dir: 'higher', green: 17,    yellow: 12,   decimals: 1 },
+  { id: 'aire_col',        headerMatch: ['AIRE COL'],                                      label: 'Aire Col',                   unit: '',   dir: 'higher', green: 110,   yellow: 97,   decimals: 1 },
+  { id: 'nivel_col',       headerMatch: ['NIVEL COL'],                                     label: 'Nivel Col',                  unit: '',   dir: 'higher', green: 75,    yellow: 40,   decimals: 1 },
+  { id: 'bba71',           headerMatch: ['BBA71'],                                          label: 'BBA71',                      unit: '',   dir: 'higher', green: 25.4,  yellow: 21,   decimals: 1 },
 ];
 
-// Runtime state
+// ============================================================
+// KPI TREE STRUCTURE
+// Defines the hierarchical layout of the Monitor tab.
+// p80_cucon appears in both selectiva and concentrado trees.
+// ============================================================
+const KPI_TREE = {
+  results: ['global_mo', 'conc_mo_final'],
+  globalMo: {
+    level2: ['colectiva_mo', 'selectiva_mo'],
+    colectivaDrivers: ['rougher_mo', 'limpieza_mo', 'ley_mo_alim'],
+    selectivaDrivers: ['orp_acond1', 'acido_acond1', 'orp_1ra_dif', 'p80_cucon', 'ley_mo_conc', 'ph_pozon', 'orp_pozon', 'flujo_yesos', 'ph_yesos', 'insoluble']
+  },
+  concentrado: {
+    drivers: ['ph_columna', 'orp_columna', 'enriquecimiento', 'acond2_mo', 'aire_col', 'nivel_col', 'bba71', 'p80_cucon']
+  }
+};
+
+// ============================================================
+// RUNTIME STATE
+// ============================================================
 let ranges = {};
-let parsedData = [];  // sorted array of {fecha: Date, var_id: number, ...}
-let colMap = {};      // var.id -> column index in data arrays
+let parsedData = [];
+let colMap = {};
 let trendChart = null;
 
 // ============================================================
@@ -361,7 +467,7 @@ function saveRanges() {
 }
 
 function resetAllRanges() {
-  if (!confirm('Restaurar todos los rangos a los valores por defecto del informe?')) return;
+  if (!confirm('Restaurar todos los rangos a los valores por defecto?')) return;
   VARIABLES.forEach(v => {
     if (v.dir) ranges[v.id] = { green: v.green, yellow: v.yellow };
   });
@@ -412,23 +518,73 @@ function loadFile(file) {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rawData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
-    // Step 1: Find headers and build column map
     const headerRow = rawData[0];
     detectColumns(headerRow);
-
-    // Step 2: Parse data
     parseData(rawData);
 
-    // Step 3: Show dashboard
-    fileLoader.style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    document.getElementById('btnReload').style.display = 'inline-block';
-    document.getElementById('lastUpdate').textContent = 'Archivo: ' + file.name;
+    // Persist to localStorage
+    saveData(file.name);
 
-    populateTurnoSelector();
-    renderAll();
+    showDashboard('Archivo: ' + file.name + ' (' + parsedData.length + ' turnos)');
   };
   reader.readAsArrayBuffer(file);
+}
+
+function showDashboard(updateText) {
+  fileLoader.style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('btnReload').style.display = 'inline-block';
+  document.getElementById('lastUpdate').textContent = updateText;
+  populateTurnoSelector();
+  renderAll();
+}
+
+// ============================================================
+// DATA PERSISTENCE (localStorage)
+// ============================================================
+const DATA_STORAGE_KEY = 'dashboard_mo_data_v1';
+
+function saveData(fileName) {
+  try {
+    const payload = {
+      fileName,
+      savedAt: new Date().toISOString(),
+      colMap,
+      data: parsedData.map(d => {
+        const row = { fecha: d.fecha.getTime() };
+        VARIABLES.forEach(v => { row[v.id] = d[v.id]; });
+        return row;
+      })
+    };
+    localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(payload));
+  } catch(e) {
+    console.warn('No se pudo guardar datos en localStorage:', e);
+  }
+}
+
+function loadSavedData() {
+  try {
+    const raw = localStorage.getItem(DATA_STORAGE_KEY);
+    if (!raw) return false;
+    const payload = JSON.parse(raw);
+    if (!payload.data || !payload.data.length) return false;
+
+    colMap = payload.colMap || {};
+    parsedData = payload.data.map(row => {
+      const entry = { fecha: new Date(row.fecha) };
+      VARIABLES.forEach(v => { entry[v.id] = row[v.id]; });
+      return entry;
+    });
+    parsedData.sort((a, b) => a.fecha - b.fecha);
+
+    const savedDate = new Date(payload.savedAt);
+    const dateStr = savedDate.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    showDashboard(payload.fileName + ' - guardado ' + dateStr + ' (' + parsedData.length + ' turnos)');
+    return true;
+  } catch(e) {
+    console.warn('Error cargando datos guardados:', e);
+    return false;
+  }
 }
 
 function detectColumns(headerRow) {
@@ -436,29 +592,20 @@ function detectColumns(headerRow) {
   let dateCol = -1;
   const debugLines = [];
 
-  // Find date column first
   for (let i = 0; i < headerRow.length; i++) {
     const h = String(headerRow[i] || '');
-    if (h.toLowerCase().includes('fecha')) {
-      dateCol = i;
-      break;
-    }
+    if (h.toLowerCase().includes('fecha')) { dateCol = i; break; }
   }
-  if (dateCol === -1) {
-    // Fallback: find first column that looks like a date in row 2
-    dateCol = 0;
-  }
+  if (dateCol === -1) dateCol = 0;
   colMap['_fecha'] = dateCol;
   debugLines.push(`Fecha -> col ${dateCol}`);
 
-  // Match each variable to a column
   for (const v of VARIABLES) {
     let foundCol = -1;
     for (let i = 0; i < headerRow.length; i++) {
       const h = String(headerRow[i] || '');
       for (const pattern of v.headerMatch) {
         if (h.includes(pattern)) {
-          // Avoid matching "Insolubles Acond2" when looking for just "Insoluble"
           if (v.id === 'insoluble' && h.includes('Insolubles')) continue;
           foundCol = i;
           break;
@@ -471,11 +618,9 @@ function detectColumns(headerRow) {
     debugLines.push(`${v.label} -> col ${foundCol} [${hdrName}]`);
   }
 
-  // Show debug info
   const debugEl = document.getElementById('debugPanel');
   debugEl.innerHTML = '<strong>Mapeo de columnas detectado:</strong><br>' + debugLines.join('<br>');
   debugEl.classList.add('visible');
-  // Auto-hide after 8 seconds
   setTimeout(() => debugEl.classList.remove('visible'), 8000);
 }
 
@@ -487,7 +632,6 @@ function parseData(rawData) {
     const row = rawData[i];
     if (!row) continue;
 
-    // Parse date
     let dateVal = row[fechaCol];
     if (!dateVal) continue;
 
@@ -501,7 +645,6 @@ function parseData(rawData) {
     }
     if (isNaN(entry.fecha.getTime())) continue;
 
-    // Parse each variable
     for (const v of VARIABLES) {
       const ci = colMap[v.id];
       if (ci < 0) { entry[v.id] = NaN; continue; }
@@ -535,7 +678,6 @@ function populateTurnoSelector() {
     opt.textContent = formatDateTime(d.fecha);
     sel.appendChild(opt);
   }
-  // Set date range defaults
   if (parsedData.length) {
     document.getElementById('filterFrom').value = toDateInputValue(parsedData[0].fecha);
     document.getElementById('filterTo').value = toDateInputValue(parsedData[parsedData.length - 1].fecha);
@@ -553,10 +695,6 @@ function onFilterChange() {
   renderMonitor();
 }
 
-/**
- * Returns the data to show in the monitor based on the filter:
- * - {values: {var_id: number}, label: string, count: number}
- */
 function getFilteredMonitorData() {
   const mode = document.getElementById('filterMode').value;
 
@@ -587,7 +725,6 @@ function getFilteredMonitorData() {
     const filtered = parsedData.filter(d => d.fecha >= from && d.fecha <= to);
     if (!filtered.length) return null;
 
-    // Compute averages
     const vals = {};
     VARIABLES.forEach(v => {
       const nums = filtered.map(d => d[v.id]).filter(x => !isNaN(x) && x != null);
@@ -610,22 +747,30 @@ function renderAll() {
   renderHeatmap();
   renderChartSelector();
   renderChart();
+  renderCorrelation();
   renderBulkEditors();
 }
 
 function renderMonitor() {
-  renderCards('primary', 'gridPrimary');
-  renderCards('secondary', 'gridSecondary');
-  renderCards('operational', 'gridOperational');
-  renderCards('external', 'gridExternal');
+  const monitorData = getFilteredMonitorData();
+
+  // Main results (big cards)
+  renderCardList(KPI_TREE.results, 'gridResults', monitorData, true);
+
+  // Global Mo tree
+  renderCardList(KPI_TREE.globalMo.level2, 'gridGlobalL2', monitorData);
+  renderCardList(KPI_TREE.globalMo.colectivaDrivers, 'gridColectivaDrivers', monitorData);
+  renderCardList(KPI_TREE.globalMo.selectivaDrivers, 'gridSelectivaDrivers', monitorData);
+
+  // Concentrado tree
+  renderCardList(KPI_TREE.concentrado.drivers, 'gridConcentradoDrivers', monitorData);
 
   // Update filter info
-  const data = getFilteredMonitorData();
   const infoEl = document.getElementById('filterInfo');
-  if (data) {
-    infoEl.textContent = data.count > 1
-      ? `${data.label} (${data.count} turnos)`
-      : data.label;
+  if (monitorData) {
+    infoEl.textContent = monitorData.count > 1
+      ? `${monitorData.label} (${monitorData.count} turnos)`
+      : monitorData.label;
   } else {
     infoEl.textContent = 'Sin datos para el filtro seleccionado';
   }
@@ -638,38 +783,63 @@ function renderStatsBar() {
   const totalTurnos = parsedData.length;
   const firstDate = parsedData[0].fecha;
   const lastDate = parsedData[parsedData.length - 1].fecha;
-  const globalVals = parsedData.map(d => d.global_mo).filter(v => !isNaN(v));
-  const mean = globalVals.length ? globalVals.reduce((a,b) => a+b, 0) / globalVals.length : 0;
+
+  // Global Mo stats
   const gv = VARIABLES.find(v => v.id === 'global_mo');
-  const greenCount = globalVals.filter(v => v >= getRange(gv).green).length;
-  const greenPct = globalVals.length ? ((greenCount / globalVals.length) * 100).toFixed(0) : 0;
+  const globalVals = parsedData.map(d => d.global_mo).filter(v => !isNaN(v));
+  const globalMean = globalVals.length ? globalVals.reduce((a,b) => a+b, 0) / globalVals.length : 0;
+  const globalGreen = globalVals.length ? ((globalVals.filter(v => v >= getRange(gv).green).length / globalVals.length) * 100).toFixed(0) : 0;
+
+  // Concentrado stats
+  const cv = VARIABLES.find(v => v.id === 'conc_mo_final');
+  const concVals = parsedData.map(d => d.conc_mo_final).filter(v => !isNaN(v));
+  const concMean = concVals.length ? concVals.reduce((a,b) => a+b, 0) / concVals.length : 0;
+  const concGreen = concVals.length ? ((concVals.filter(v => v >= getRange(cv).green).length / concVals.length) * 100).toFixed(0) : 0;
 
   el.innerHTML = `
     <div class="stat-item"><div class="stat-val">${totalTurnos}</div><div class="stat-label">Turnos totales</div></div>
     <div class="stat-item"><div class="stat-val">${formatDate(firstDate)}</div><div class="stat-label">Primer turno</div></div>
     <div class="stat-item"><div class="stat-val">${formatDate(lastDate)}</div><div class="stat-label">Ultimo turno</div></div>
-    <div class="stat-item"><div class="stat-val">${mean.toFixed(1)}%</div><div class="stat-label">Media Global Mo</div></div>
-    <div class="stat-item"><div class="stat-val" style="color:${greenPct >= 50 ? '#16a34a' : '#dc2626'}">${greenPct}%</div><div class="stat-label">Turnos en verde (Global)</div></div>
+    <div class="stat-item"><div class="stat-val">${globalMean.toFixed(1)}%</div><div class="stat-label">Media Global Mo</div></div>
+    <div class="stat-item"><div class="stat-val" style="color:${globalGreen >= 50 ? '#16a34a' : '#dc2626'}">${globalGreen}%</div><div class="stat-label">% Verde Global Mo</div></div>
+    <div class="stat-item"><div class="stat-val">${concMean.toFixed(1)}%</div><div class="stat-label">Media Conc. Mo</div></div>
+    <div class="stat-item"><div class="stat-val" style="color:${concGreen >= 50 ? '#16a34a' : '#dc2626'}">${concGreen}%</div><div class="stat-label">% Verde Conc. Mo</div></div>
   `;
 }
 
-function renderCards(group, containerId) {
+/**
+ * Render KPI cards for a list of variable IDs into a container.
+ * @param {string[]} varIds - array of variable IDs to render
+ * @param {string} containerId - target DOM container ID
+ * @param {object} monitorData - current filter data ({values, label, count})
+ * @param {boolean} isResult - if true, use larger result-card style
+ */
+function renderCardList(varIds, containerId, monitorData, isResult) {
   const container = document.getElementById(containerId);
-  const vars = VARIABLES.filter(v => v.group === group);
-  if (!parsedData.length) { container.innerHTML = ''; return; }
-
-  const monitorData = getFilteredMonitorData();
-  if (!monitorData) { container.innerHTML = '<p style="color:#999;font-size:0.85rem;">Sin datos</p>'; return; }
+  if (!parsedData.length || !monitorData) {
+    container.innerHTML = varIds.length ? '<p style="color:#999;font-size:0.85rem;">Sin datos</p>' : '';
+    return;
+  }
 
   let html = '';
-  vars.forEach(v => {
+  varIds.forEach(id => {
+    const v = VARIABLES.find(x => x.id === id);
+    if (!v) return;
+
     const val = monitorData.values[v.id];
     const cls = classify(val, v);
     const displayVal = (val == null || isNaN(val)) ? 'N/A' : val.toFixed(v.decimals);
 
-    // Historical stats (always over full dataset)
+    // Current month average (month of the latest data point)
+    const lastDate = parsedData[parsedData.length - 1].fecha;
+    const curMonth = lastDate.getMonth();
+    const curYear = lastDate.getFullYear();
+    const monthData = parsedData.filter(d => d.fecha.getMonth() === curMonth && d.fecha.getFullYear() === curYear).map(d => d[v.id]).filter(x => !isNaN(x) && x != null);
+    const mean30 = monthData.length ? (monthData.reduce((a,b) => a+b, 0) / monthData.length).toFixed(v.decimals) : '-';
+    const cls30 = monthData.length ? classify(parseFloat(mean30), v) : 'na';
+
+    // Green % over all data
     const allVals = parsedData.map(d => d[v.id]).filter(x => !isNaN(x) && x != null);
-    const mean = allVals.length ? (allVals.reduce((a,b) => a+b, 0) / allVals.length).toFixed(v.decimals) : '-';
     const greenPct = v.dir && allVals.length ? ((allVals.filter(x => classify(x, v) === 'green').length / allVals.length) * 100).toFixed(0) : null;
 
     let dirLabel = '';
@@ -682,15 +852,24 @@ function renderCards(group, containerId) {
     }
 
     const editBtn = v.dir ? `<button class="edit-btn" onclick="openModal('${v.id}')" title="Editar rangos">&#9881;</button>` : '';
+    const cardClass = isResult ? 'result-card' : 'kpi-card';
 
     html += `
-      <div class="kpi-card ${cls}">
+      <div class="${cardClass} ${cls}">
         ${editBtn}
         <div class="label">${v.label}</div>
-        <div class="value">${displayVal}<span style="font-size:0.9rem;font-weight:400;color:#999;margin-left:4px">${v.unit}</span></div>
+        <div class="kpi-dual">
+          <div class="kpi-col-avg">
+            <div class="kpi-col-label">Prom. ${lastDate.toLocaleDateString('es-CL',{month:'short'}).replace('.','')}'${String(curYear).slice(2)}</div>
+            <div class="kpi-col-value ${cls30}">${mean30}<span class="kpi-col-unit">${v.unit}</span></div>
+          </div>
+          <div class="kpi-col-current">
+            <div class="kpi-col-label">Actual</div>
+            <div class="value">${displayVal}<span style="font-size:0.9rem;font-weight:400;color:#999;margin-left:4px">${v.unit}</span></div>
+          </div>
+        </div>
         <div class="meta">
-          <span>Media hist: ${mean}${v.unit}</span>
-          ${greenPct !== null ? `<span><span class="dot green"></span>${greenPct}%</span>` : ''}
+          ${greenPct !== null ? `<span><span class="dot green"></span>${greenPct}% verde hist.</span>` : ''}
         </div>
         ${dirLabel}
         ${rangeBar}
@@ -733,74 +912,132 @@ function renderHeatmap() {
 
 function abbreviate(label) {
   const map = {
-    'Recuperacion Global Mo': 'Glob', 'Recuperacion Colectiva Mo': 'Colect',
-    'Recuperacion Selectiva Mo': 'Select', 'Enriquecimiento Mo': 'Enriq',
-    'Concentrado Mo Final': 'Conc', 'Recuperacion Rougher Mo': 'Rough',
-    'Recuperacion Limpieza Mo': 'Limp', 'ORP Columna': 'ORP Col',
-    'NIVEL COL': 'Nivel', 'AIRE COL': 'Aire', 'BBA71': 'BBA71',
-    'P80 cucon': 'P80', 'Insoluble': 'Insol', 'ORP 1ra diferencial': 'ORP 1d',
-    'pH columna': 'pH Col', 'Solido relave': 'Sol Rel', 'Solido STP 28': 'STP28',
-    'Acond 2 Mo': 'Ac2Mo', 'Acido acond 1': 'Acid1', 'Ley Mo Conc. Final': 'Ley CF',
-    'Horas bba tk 47/48': 'Hrs Bba', 'Insolubles Acond2': 'Ins Ac2',
+    'Recuperacion Global Mo': 'Glob', 'Concentrado Mo Final': 'Conc',
+    'Recuperacion Colectiva Mo': 'Colect', 'Recuperacion Selectiva Mo': 'Select',
+    'Recuperacion Rougher Mo': 'Rough', 'Recuperacion Limpieza Mo': 'Limp',
+    'ORP Acond 1': 'ORP A1', 'Acido Acond 1': 'Acid1', 'ORP 1ra Diferencial': 'ORP 1d',
+    'P80 Cucon': 'P80', 'Ley Mo Conc. Final': 'Ley CF', 'Insolubles': 'Insol',
+    'pH Columna': 'pH Col', 'ORP Columna': 'ORP Col', 'Razon Enriquecimiento': 'Enriq',
+    'Ley Acond 2 Mo': 'Ac2Mo', 'Aire Col': 'Aire', 'Nivel Col': 'Nivel', 'BBA71': 'BBA71',
+    'pH Pozon': 'pH Pz', 'ORP Pozon': 'ORP Pz', 'Flujo Yesos': 'FYes', 'pH Yesos': 'pH Yes',
+    'Ley Mo Alimentacion': 'Ley Al',
   };
   return map[label] || label.substring(0, 6);
 }
 
 // ============================================================
-// TREND CHART
+// TREND CHART (multi-variable, multi-axis)
 // ============================================================
+const CHART_COLORS = ['#4A55A2','#e64980','#0ea5e9','#f59e0b','#10b981','#8b5cf6','#ef4444','#06b6d4','#84cc16','#ec4899'];
+let selectedChartVars = [];
+
 function renderChartSelector() {
-  const sel = document.getElementById('chartVariable');
-  const groups = { primary: 'Resultados primarios', secondary: 'Resultados secundarios', operational: 'Operacionales', external: 'Externas' };
+  const picker = document.getElementById('chartVarPicker');
+  const groups = [
+    { label: 'Resultados', ids: KPI_TREE.results },
+    { label: 'Global Mo', ids: KPI_TREE.globalMo.level2 },
+    { label: 'Colectiva', ids: KPI_TREE.globalMo.colectivaDrivers },
+    { label: 'Selectiva', ids: KPI_TREE.globalMo.selectivaDrivers },
+    { label: 'Concentrado', ids: KPI_TREE.concentrado.drivers },
+  ];
+  // Deduplicate IDs (p80_cucon appears twice)
+  const seen = new Set();
   let html = '';
-  Object.entries(groups).forEach(([key, label]) => {
-    html += `<optgroup label="${label}">`;
-    VARIABLES.filter(v => v.group === key).forEach(v => {
-      html += `<option value="${v.id}">${v.label}</option>`;
+  groups.forEach(g => {
+    g.ids.forEach(id => {
+      if (seen.has(id)) return;
+      seen.add(id);
+      const v = VARIABLES.find(x => x.id === id);
+      if (v) html += `<span class="var-chip" data-var="${v.id}" onclick="toggleChartVar('${v.id}')">${abbreviate(v.label)}</span>`;
     });
-    html += '</optgroup>';
   });
-  sel.innerHTML = html;
+  picker.innerHTML = html;
+  // Pre-select global_mo
+  if (!selectedChartVars.length) {
+    selectedChartVars = ['global_mo'];
+    updateChipStyles();
+  }
+}
+
+function toggleChartVar(varId) {
+  const idx = selectedChartVars.indexOf(varId);
+  if (idx >= 0) {
+    selectedChartVars.splice(idx, 1);
+  } else {
+    if (selectedChartVars.length >= 10) return; // max 10
+    selectedChartVars.push(varId);
+  }
+  updateChipStyles();
+  renderChart();
+}
+
+function clearChartSelection() {
+  selectedChartVars = [];
+  updateChipStyles();
+  renderChart();
+}
+
+function updateChipStyles() {
+  document.querySelectorAll('#chartVarPicker .var-chip').forEach(chip => {
+    const id = chip.dataset.var;
+    const idx = selectedChartVars.indexOf(id);
+    chip.classList.toggle('selected', idx >= 0);
+    chip.style.borderColor = idx >= 0 ? CHART_COLORS[idx % CHART_COLORS.length] : '';
+    chip.style.background = idx >= 0 ? CHART_COLORS[idx % CHART_COLORS.length] : '';
+  });
 }
 
 function renderChart() {
-  const varId = document.getElementById('chartVariable').value;
-  const period = parseInt(document.getElementById('chartPeriod').value);
-  const v = VARIABLES.find(x => x.id === varId);
-  if (!v || !parsedData.length) return;
+  if (!parsedData.length || !selectedChartVars.length) {
+    if (trendChart) { trendChart.destroy(); trendChart = null; }
+    return;
+  }
 
+  const period = parseInt(document.getElementById('chartPeriod').value);
   const data = period ? parsedData.slice(-period) : parsedData;
   const labels = data.map(d => d.fecha);
-  const values = data.map(d => { const val = d[v.id]; return isNaN(val) ? null : val; });
 
-  const r = v.dir ? getRange(v) : null;
+  const datasets = [];
+  const scales = {
+    x: {
+      type: 'time',
+      time: { unit: 'day', displayFormats: { day: 'dd MMM' } },
+      ticks: { maxRotation: 45, font: { size: 11 } },
+      grid: { display: false },
+    }
+  };
 
-  const datasets = [{
-    label: v.label,
-    data: values,
-    borderColor: '#4A55A2',
-    backgroundColor: 'rgba(74,85,162,0.1)',
-    borderWidth: 2,
-    pointRadius: 2,
-    pointHoverRadius: 5,
-    fill: true,
-    tension: 0.3,
-    spanGaps: true,
-  }];
+  selectedChartVars.forEach((varId, i) => {
+    const v = VARIABLES.find(x => x.id === varId);
+    if (!v) return;
 
-  const annotationObj = {};
-  if (r) {
-    annotationObj.lineGreen = {
-      type: 'line', yMin: r.green, yMax: r.green,
-      borderColor: '#22c55e', borderWidth: 2, borderDash: [6, 4],
-      label: { content: `Verde: ${r.green}`, display: true, position: 'start', font: { size: 10 }, backgroundColor: 'rgba(34,197,94,0.8)' }
+    const color = CHART_COLORS[i % CHART_COLORS.length];
+    const axisId = 'y' + i;
+    const side = i % 2 === 0 ? 'left' : 'right';
+
+    datasets.push({
+      label: v.label + (v.unit ? ` (${v.unit})` : ''),
+      data: data.map(d => { const val = d[v.id]; return isNaN(val) ? null : val; }),
+      borderColor: color,
+      backgroundColor: color + '18',
+      borderWidth: 2,
+      pointRadius: 1.5,
+      pointHoverRadius: 5,
+      fill: false,
+      tension: 0.3,
+      spanGaps: true,
+      yAxisID: axisId,
+    });
+
+    scales[axisId] = {
+      type: 'linear',
+      position: side,
+      display: true,
+      ticks: { font: { size: 10 }, color: color },
+      title: { display: selectedChartVars.length <= 4, text: v.label, font: { size: 10 }, color: color },
+      grid: { display: i === 0, drawOnChartArea: i === 0 },
     };
-    annotationObj.lineYellow = {
-      type: 'line', yMin: r.yellow, yMax: r.yellow,
-      borderColor: '#eab308', borderWidth: 2, borderDash: [6, 4],
-      label: { content: `Amarillo: ${r.yellow}`, display: true, position: 'start', font: { size: 10 }, backgroundColor: 'rgba(234,179,8,0.8)' }
-    };
-  }
+  });
 
   if (trendChart) trendChart.destroy();
   const ctx = document.getElementById('trendChart').getContext('2d');
@@ -810,45 +1047,127 @@ function renderChart() {
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
-      scales: {
-        x: {
-          type: 'time',
-          time: { unit: 'day', displayFormats: { day: 'dd MMM' } },
-          ticks: { maxRotation: 45, font: { size: 11 } },
-          grid: { display: false },
-        },
-        y: {
-          ticks: { font: { size: 11 } },
-          title: { display: true, text: `${v.label} (${v.unit})`, font: { size: 12 } },
-        }
-      },
+      scales,
       plugins: {
-        legend: { display: false },
+        legend: { display: true, position: 'top', labels: { usePointStyle: true, pointStyle: 'line', font: { size: 11 }, padding: 12 } },
         tooltip: {
           callbacks: {
             title: items => items[0] ? formatDateTime(new Date(items[0].parsed.x)) : '',
-            label: item => `${v.label}: ${item.parsed.y != null ? item.parsed.y.toFixed(v.decimals) : 'N/A'} ${v.unit}`
+            label: item => {
+              const v = VARIABLES.find(x => item.dataset.label.startsWith(x.label));
+              return item.dataset.label + ': ' + (item.parsed.y != null ? item.parsed.y.toFixed(v ? v.decimals : 1) : 'N/A');
+            }
           }
         },
-        annotation: { annotations: annotationObj },
       }
     }
   });
 }
 
 // ============================================================
+// CORRELATION MATRIX
+// ============================================================
+function renderCorrelation() {
+  const table = document.getElementById('corrTable');
+  if (!parsedData.length) { table.innerHTML = ''; return; }
+
+  const period = parseInt(document.getElementById('corrPeriod').value);
+  const data = period ? parsedData.slice(-period) : parsedData;
+
+  // Get all unique variable IDs from tree
+  const allIds = [];
+  const seen = new Set();
+  [KPI_TREE.results, KPI_TREE.globalMo.level2, KPI_TREE.globalMo.colectivaDrivers, KPI_TREE.globalMo.selectivaDrivers, KPI_TREE.concentrado.drivers].forEach(ids => {
+    ids.forEach(id => { if (!seen.has(id)) { seen.add(id); allIds.push(id); } });
+  });
+
+  const vars = allIds.map(id => VARIABLES.find(x => x.id === id)).filter(Boolean);
+
+  // Extract numeric arrays per variable
+  const vectors = {};
+  vars.forEach(v => {
+    vectors[v.id] = data.map(d => d[v.id]);
+  });
+
+  // Compute Pearson correlation between two arrays (ignoring NaN pairs)
+  function pearson(a, b) {
+    let pairs = [];
+    for (let i = 0; i < a.length; i++) {
+      if (!isNaN(a[i]) && a[i] != null && !isNaN(b[i]) && b[i] != null) {
+        pairs.push([a[i], b[i]]);
+      }
+    }
+    if (pairs.length < 5) return NaN;
+    const n = pairs.length;
+    const mx = pairs.reduce((s, p) => s + p[0], 0) / n;
+    const my = pairs.reduce((s, p) => s + p[1], 0) / n;
+    let num = 0, dx = 0, dy = 0;
+    pairs.forEach(p => {
+      const a = p[0] - mx, b = p[1] - my;
+      num += a * b;
+      dx += a * a;
+      dy += b * b;
+    });
+    const den = Math.sqrt(dx * dy);
+    return den === 0 ? 0 : num / den;
+  }
+
+  // Build correlation matrix
+  const corr = {};
+  vars.forEach(v1 => {
+    corr[v1.id] = {};
+    vars.forEach(v2 => {
+      corr[v1.id][v2.id] = v1.id === v2.id ? 1 : pearson(vectors[v1.id], vectors[v2.id]);
+    });
+  });
+
+  // Render table
+  let html = '<thead><tr><th></th>';
+  vars.forEach(v => html += `<th class="corr-header" title="${v.label}">${abbreviate(v.label)}</th>`);
+  html += '</tr></thead><tbody>';
+
+  vars.forEach(v1 => {
+    html += `<tr><td class="corr-row-label" title="${v1.label}">${abbreviate(v1.label)}</td>`;
+    vars.forEach(v2 => {
+      const r = corr[v1.id][v2.id];
+      if (v1.id === v2.id) {
+        html += '<td class="corr-cell corr-diag">1.00</td>';
+      } else if (isNaN(r)) {
+        html += '<td class="corr-cell" style="color:#ccc;">-</td>';
+      } else {
+        const alpha = Math.abs(r).toFixed(2);
+        const cls = r >= 0 ? 'corr-pos' : 'corr-neg';
+        const textColor = Math.abs(r) > 0.6 ? 'white' : (Math.abs(r) > 0.3 ? '#333' : '#888');
+        html += `<td class="corr-cell ${cls}" style="--corr-alpha:${alpha};color:${textColor}" title="${v1.label} vs ${v2.label}: ${r.toFixed(3)}">${r.toFixed(2)}</td>`;
+      }
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+// ============================================================
 // BULK RANGE EDITOR
 // ============================================================
 function renderBulkEditors() {
-  renderBulkTable('primary', 'bulkPrimary');
-  renderBulkTable('secondary', 'bulkSecondary');
-  renderBulkTable('operational', 'bulkOperational');
+  renderBulkTable(KPI_TREE.results, 'bulkResults');
+  renderBulkTable(KPI_TREE.globalMo.level2, 'bulkGlobalL2');
+  renderBulkTable(KPI_TREE.globalMo.colectivaDrivers, 'bulkColectiva');
+  renderBulkTable(KPI_TREE.globalMo.selectivaDrivers, 'bulkSelectiva');
+  renderBulkTable(KPI_TREE.concentrado.drivers, 'bulkConcentrado');
 }
 
-function renderBulkTable(group, containerId) {
+function renderBulkTable(varIds, containerId) {
   const container = document.getElementById(containerId);
-  const vars = VARIABLES.filter(v => v.group === group && v.dir);
+  const vars = varIds.map(id => VARIABLES.find(x => x.id === id)).filter(v => v && v.dir);
   const last = parsedData.length ? parsedData[parsedData.length - 1] : null;
+
+  if (!vars.length) {
+    container.innerHTML = '<tbody><tr><td style="color:#999;font-size:0.82rem;padding:8px;">Sin variables con rangos configurables en esta seccion</td></tr></tbody>';
+    return;
+  }
 
   let html = `<thead><tr>
     <th>Variable</th><th>Direccion</th>
@@ -979,7 +1298,7 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + tabId).classList.add('active');
   document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
-  if (tabId === 'tendencia') setTimeout(() => renderChart(), 100);
+  if (tabId === 'tendencia') setTimeout(() => { renderChart(); renderCorrelation(); }, 100);
   if (tabId === 'heatmap') renderHeatmap();
   if (tabId === 'rangos') renderBulkEditors();
 }
@@ -1003,6 +1322,7 @@ function formatDateTime(d) {
 // INIT
 // ============================================================
 initRanges();
+loadSavedData();
 </script>
 </body>
 </html>
