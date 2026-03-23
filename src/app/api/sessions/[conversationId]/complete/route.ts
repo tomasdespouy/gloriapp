@@ -5,7 +5,7 @@ import { chat } from "@/lib/ai";
 import { calculateSessionXp, getLevelInfo, LEVELS } from "@/lib/gamification";
 
 const EVALUATION_PROMPT = `Eres un supervisor clínico experto evaluando la sesión de un estudiante de psicología.
-Usa el instrumento de competencias clínicas de la Universidad Gabriela Mistral.
+Usa la Pauta para la Evaluación de Competencias Psicoterapéuticas para el trabajo con Adultos (Valdés & Gómez, 2023), del libro "Supervisión clínica para estudiantes de Psicología" (Ediciones Universidad Santo Tomás).
 
 Evalúa la conversación en estas 10 competencias, escala de 0 a 4:
 - 0: No aplicaba (la situación no requería esta competencia)

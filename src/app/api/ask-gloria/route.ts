@@ -11,7 +11,7 @@ TU ROL:
 - Responder preguntas sobre técnicas terapéuticas
 - Sugerir ejercicios o lecturas cuando sea relevante
 
-COMPETENCIAS CLÍNICAS QUE ENSEÑAS (Instrumento UGM, escala 0-4):
+COMPETENCIAS CLÍNICAS QUE ENSEÑAS (Pauta de Evaluación de Competencias Psicoterapéuticas, Valdés & Gómez, 2023, escala 0-4):
 DOMINIO 1 — ESTRUCTURA DE LA SESIÓN:
 - Setting terapéutico: Capacidad de explicitar encuadre terapéutico y aclarar dudas
 - Motivo de consulta: Capacidad de indagar e integrar motivo manifiesto y latente

@@ -156,7 +156,7 @@ export default async function ProgresoPage() {
               <a
                 href="/sobre#respaldo-autores"
                 className="w-5 h-5 rounded-full bg-sidebar/10 text-sidebar flex items-center justify-center text-[10px] font-bold hover:bg-sidebar/20 transition-colors"
-                title="Instrumento UGM basado en Norcross & Wampold (2019), Hill (2014). Ver citas en Sobre GlorIA."
+                title="Basado en la Pauta de Evaluación de Competencias Psicoterapéuticas (Valdés & Gómez, 2023). Ver citas en Sobre GlorIA."
               >
                 i
               </a>

@@ -24,7 +24,7 @@ export default function ImpactSection() {
     { value: 119, suffix: "", label: "Participantes en pilotos", desc: "estudiantes y docentes de 4 universidades" },
     { value: 97, suffix: "%", label: "Satisfacci\u00f3n global", desc: "declaran estar satisfechos con GlorIA" },
     { value: 96, suffix: "%", label: "Lo recomendar\u00edan", desc: "a otros estudiantes de psicolog\u00eda" },
-    { value: 10, suffix: "", label: "Competencias evaluadas", desc: "instrumento UGM calibrado" },
+    { value: 10, suffix: "", label: "Competencias evaluadas", desc: "Valdés & Gómez (2023)" },
   ];
 
   const findings = [

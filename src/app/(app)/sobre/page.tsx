@@ -51,7 +51,7 @@ export default function SobrePage() {
           <ul className="space-y-2 ml-1">
             {[
               "Permitir la práctica repetida y sin riesgo de habilidades terapéuticas fundamentales",
-              "Ofrecer retroalimentación inmediata y estructurada basada en 7 competencias clínicas",
+              "Ofrecer retroalimentación inmediata y estructurada basada en 10 competencias clínicas (Valdés & Gómez, 2023)",
               "Exponer a los estudiantes a diversidad de cuadros clínicos y niveles de complejidad",
               "Fomentar la autorreflexión a traves de ejercicios post-sesión guiados",
               "Complementar (nunca reemplazar) la supervisión clínica humana y la formación presencial",
@@ -230,9 +230,10 @@ export default function SobrePage() {
               {
                 area: "Evaluación de competencias clínicas",
                 refs: [
+                  "Valdés, N. & Gómez, D. (2023). Supervisión clínica para estudiantes de Psicología: Un modelo de competencias psicoterapéuticas genéricas básicas. Ediciones Universidad Santo Tomás / RIL Editores. ISBN 978-956-01-1601-7.",
+                  "Valdés, N. & Gómez, D. (2023). Pauta para la Evaluación de Competencias Psicoterapéuticas para el trabajo con Adultos. En Supervisión clínica para estudiantes de Psicología.",
                   "Norcross, J.C. & Wampold, B.E. (2019). Psychotherapy Relationships That Work. Oxford University Press.",
                   "Beutler, L.E., Clarkin, J.F. & Bongar, B. (2000). Guidelines for the Systematic Treatment of the Depressed Patient. Oxford University Press.",
-                  "Evans, S.C. et al. (2015). Vignette Methodologies for Studying Clinicians' Decision-Making. International Journal of Clinical and Health Psychology, 15(2), 160-170.",
                 ],
               },
             ].map((section, i) => (

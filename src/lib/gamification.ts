@@ -33,7 +33,8 @@ export function calculateSessionXp(overallScore: number): number {
 }
 
 // ══════════════════════════════════════════
-// V2 COMPETENCIES (UGM Framework, scale 0-4)
+// V2 COMPETENCIES (Valdés & Gómez, 2023 — Pauta para la Evaluación de
+// Competencias Psicoterapéuticas para el trabajo con Adultos, scale 0-4)
 // ══════════════════════════════════════════
 
 export const COMPETENCY_DOMAINS = {

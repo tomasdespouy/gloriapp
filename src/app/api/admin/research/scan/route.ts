@@ -15,7 +15,7 @@ TECNOLOGÍAS CLAVE:
 - Memory-Context Processing (MCP): memoria persistente inter-sesión
 - RAG semántico con pgvector (62 entradas de conocimiento clínico)
 - Clasificador NLP de intervenciones terapéuticas (11 categorías)
-- Evaluación por competencias UGM (10 dimensiones, escala 0-4)
+- Evaluación por competencias psicoterapéuticas (Valdés & Gómez, 2023; 10 dimensiones, escala 0-4)
 - Comunicación bidireccional via WebSocket (paciente interrumpe/reacciona)
 - Dual model strategy (GPT-4o-mini chat + GPT-4o evaluación)
 - Pacientes con diversidad cultural (Chile, Colombia, Perú, Rep. Dominicana, México, Argentina)

@@ -19,7 +19,7 @@ interface Message {
 }
 
 interface Competencies {
-  // V2 UGM (10 competencies, 0-4 scale)
+  // V2 Valdés & Gómez (2023) — 10 competencies, 0-4 scale
   setting_terapeutico: number;
   motivo_consulta: number;
   datos_contextuales: number;
@@ -376,7 +376,7 @@ export default function TeacherReviewClient({
                   </span>
                 </div>
 
-                {/* V2 Competency bars — 10 UGM competencies, 0-4 scale */}
+                {/* V2 Competency bars — 10 competencies (Valdés & Gómez, 2023), 0-4 scale */}
                 {["Estructura", "Actitudes"].map((domain) => (
                   <div key={domain} className="mb-3">
                     <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">{domain}</p>
