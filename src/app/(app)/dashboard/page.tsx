@@ -149,8 +149,8 @@ export default async function Dashboard() {
         )}
 
         {/* ═══ PROFILE CARD + QUICK ACTIONS ═══ */}
-        <div className="animate-fade-in bg-white rounded-2xl border border-gray-200 p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row gap-6">
+        <div className="animate-fade-in bg-white rounded-2xl border border-gray-200 p-4 sm:p-8">
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
             {/* Left: Avatar + Info + Stats */}
             <div className="flex items-start gap-5">
               {/* Avatar — clickable */}
@@ -208,32 +208,32 @@ export default async function Dashboard() {
             </div>
 
             {/* Right: Quick Actions 2x2 */}
-            <div className="sm:ml-auto flex-shrink-0">
+            <div className="w-full sm:w-auto sm:ml-auto flex-shrink-0">
               <p className="text-xs font-semibold text-gray-500 mb-2">&iquest;Qu&eacute; quieres hacer hoy?</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Link href="/pacientes" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[100px]">
-                  <div className="w-8 h-8 rounded-lg bg-sidebar/10 flex items-center justify-center mx-auto mb-1.5 group-hover:bg-sidebar/20 transition-colors">
+              <div className="grid grid-cols-4 sm:grid-cols-2 gap-2">
+                <Link href="/pacientes" className="bg-gray-50 rounded-xl border border-gray-200 p-2.5 sm:p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center sm:w-[100px]">
+                  <div className="w-8 h-8 rounded-lg bg-sidebar/10 flex items-center justify-center mx-auto mb-1 sm:mb-1.5 group-hover:bg-sidebar/20 transition-colors">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A55A2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
                   </div>
-                  <p className="text-[11px] font-semibold text-gray-900">Practicar</p>
+                  <p className="text-[10px] sm:text-[11px] font-semibold text-gray-900">Practicar</p>
                 </Link>
-                <Link href="/aprendizaje" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[100px]">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center mx-auto mb-1.5 group-hover:bg-emerald-500/20 transition-colors">
+                <Link href="/aprendizaje" className="bg-gray-50 rounded-xl border border-gray-200 p-2.5 sm:p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center sm:w-[100px]">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center mx-auto mb-1 sm:mb-1.5 group-hover:bg-emerald-500/20 transition-colors">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                   </div>
-                  <p className="text-[11px] font-semibold text-gray-900">Aprender</p>
+                  <p className="text-[10px] sm:text-[11px] font-semibold text-gray-900">Aprender</p>
                 </Link>
-                <Link href="/progreso" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[100px]">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center mx-auto mb-1.5 group-hover:bg-amber-500/20 transition-colors">
+                <Link href="/progreso" className="bg-gray-50 rounded-xl border border-gray-200 p-2.5 sm:p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center sm:w-[100px]">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center mx-auto mb-1 sm:mb-1.5 group-hover:bg-amber-500/20 transition-colors">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                   </div>
-                  <p className="text-[11px] font-semibold text-gray-900">Progreso</p>
+                  <p className="text-[10px] sm:text-[11px] font-semibold text-gray-900">Progreso</p>
                 </Link>
-                <Link href="/historial" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[100px]">
-                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center mx-auto mb-1.5 group-hover:bg-purple-500/20 transition-colors">
+                <Link href="/historial" className="bg-gray-50 rounded-xl border border-gray-200 p-2.5 sm:p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center sm:w-[100px]">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center mx-auto mb-1 sm:mb-1.5 group-hover:bg-purple-500/20 transition-colors">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                   </div>
-                  <p className="text-[11px] font-semibold text-gray-900">Historial</p>
+                  <p className="text-[10px] sm:text-[11px] font-semibold text-gray-900">Historial</p>
                 </Link>
               </div>
             </div>
