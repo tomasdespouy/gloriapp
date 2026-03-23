@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import Link from "next/link";
 import { LEVELS, getLevelInfo } from "@/lib/gamification";
+import SessionCarousel from "@/components/SessionCarousel";
 
 export default async function Dashboard() {
   const userProfile = await getUserProfile();
@@ -242,40 +243,18 @@ export default async function Dashboard() {
         {activeSessions.length > 0 && (
           <div className="animate-slide-up">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">{"Continúa donde lo dejaste"}</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {activeSessions.map((s) => {
-                const patientSlug = slug(s.patientName);
-                const mins = Math.round(s.activeSeconds / 60);
-                return (
-                  <Link
-                    key={s.id}
-                    href={`/chat/${s.patientId}?conversationId=${s.id}`}
-                    className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all group"
-                  >
-                    <div className="aspect-square relative overflow-hidden bg-gray-100">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`${supabaseUrl}/storage/v1/object/public/patients/${patientSlug}.png`}
-                        alt={s.patientName}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                      <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 bg-sidebar text-white font-semibold text-[10px] px-2.5 py-1 rounded-lg opacity-90 group-hover:opacity-100 transition-opacity">
-                        Retomar &rarr;
-                      </span>
-                    </div>
-                    <div className="p-3">
-                      <p className="text-xs font-bold text-gray-900">Sesi&oacute;n #{s.sessionNumber}</p>
-                      <p className="text-[11px] text-gray-600 mt-0.5">{s.patientName}</p>
-                      <p className="text-[10px] text-gray-400 mt-1">
-                        {mins > 0 ? `${mins} min` : "Reci\u00e9n iniciada"}
-                        {s.status === "abandoned" ? " · Abandonada" : " · En curso"}
-                      </p>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+            <SessionCarousel
+              sessions={activeSessions.map((s) => ({
+                id: s.id,
+                patientId: s.patientId,
+                patientName: s.patientName,
+                sessionNumber: s.sessionNumber,
+                activeSeconds: s.activeSeconds,
+                status: s.status,
+              }))}
+              supabaseUrl={supabaseUrl || ""}
+              slugFn={slug}
+            />
           </div>
         )}
 
