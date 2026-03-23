@@ -253,7 +253,6 @@ export default async function Dashboard() {
                 status: s.status,
               }))}
               supabaseUrl={supabaseUrl || ""}
-              slugFn={slug}
             />
           </div>
         )}

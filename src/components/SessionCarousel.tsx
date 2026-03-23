@@ -13,14 +13,14 @@ interface ActiveSession {
   status: string;
 }
 
+const slug = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
+
 export default function SessionCarousel({
   sessions,
   supabaseUrl,
-  slugFn,
 }: {
   sessions: ActiveSession[];
   supabaseUrl: string;
-  slugFn: (name: string) => string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -59,7 +59,7 @@ export default function SessionCarousel({
         className="flex gap-3 overflow-x-auto scroll-smooth scrollbar-hide pb-1"
       >
         {sessions.map((s) => {
-          const patientSlug = slugFn(s.patientName);
+          const patientSlug = slug(s.patientName);
           const mins = Math.round(s.activeSeconds / 60);
           return (
             <Link
