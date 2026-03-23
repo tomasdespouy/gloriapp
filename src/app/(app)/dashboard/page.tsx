@@ -131,7 +131,7 @@ export default async function Dashboard() {
   const slug = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
 
   return (
-    <div className="min-h-screen dashboard-pattern">
+    <div className="min-h-screen">
       <div className="px-4 sm:px-8 py-6 pb-8 space-y-6 max-w-4xl mx-auto">
 
         {/* Birthday banner */}
