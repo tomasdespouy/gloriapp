@@ -149,93 +149,91 @@ export default async function Dashboard() {
           </div>
         )}
 
-        {/* ═══ PROFILE CARD + QUICK ACTIONS ═══ */}
-        <div className="animate-fade-in bg-white rounded-2xl border border-gray-200 p-4 sm:p-8">
-          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-            {/* Left: Avatar + Info + Stats */}
-            <div className="flex items-start gap-5">
-              {/* Avatar — clickable */}
-              <Link
-                href="/mi-perfil"
-                className="relative group flex-shrink-0"
-                title="Editar mi perfil"
-              >
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-3 border-sidebar/20 group-hover:border-sidebar transition-colors">
-                  {avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-sidebar flex items-center justify-center">
-                      <span className="text-white text-2xl sm:text-3xl font-bold">{initials}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                    <circle cx="12" cy="13" r="4" />
-                  </svg>
-                </div>
-                {!avatarUrl && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] text-sidebar font-medium bg-sidebar/10 px-2 py-0.5 rounded-full whitespace-nowrap">
-                    Sube tu foto
-                  </span>
+        {/* ═══ PROFILE CARD ═══ */}
+        <div className="animate-fade-in bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
+          <div className="flex items-center gap-4">
+            {/* Avatar */}
+            <Link href="/mi-perfil" className="relative group flex-shrink-0" title="Editar mi perfil">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-sidebar/20 group-hover:border-sidebar transition-colors">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-sidebar flex items-center justify-center">
+                    <span className="text-white text-xl font-bold">{initials}</span>
+                  </div>
                 )}
-              </Link>
+              </div>
+              {!avatarUrl && (
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] text-sidebar font-medium bg-sidebar/10 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                  Sube tu foto
+                </span>
+              )}
+            </Link>
 
-              <div className="min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                  &iexcl;Hola {firstName}!
-                </h1>
-                {/* Streak hidden for now */}
+            {/* Name + stats inline */}
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">&iexcl;Hola {firstName}!</h1>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {sessionsCompleted} {sessionsCompleted === 1 ? "sesi\u00f3n" : "sesiones"} &middot; {modulesCompleted}/10 m&oacute;dulos &middot; {totalActiveMinutes} min
+              </p>
+            </div>
 
-                {/* Stats: Sesiones + Módulos */}
-                <div className="flex gap-6 mt-4">
-                  <div>
-                    <p className="text-2xl font-bold text-gray-900">{sessionsCompleted}</p>
-                    <p className="text-xs text-gray-400">sesiones</p>
-                    <p className="text-[10px] text-gray-300 mt-0.5">
-                      {totalActiveMinutes} min totales
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-gray-900">{modulesCompleted}<span className="text-sm font-normal text-gray-300">/10</span></p>
-                    <p className="text-xs text-gray-400">m&oacute;dulos</p>
-                  </div>
+            {/* Quick actions — 1x4 row */}
+            <div className="hidden sm:flex items-center gap-2">
+              <Link href="/pacientes" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[80px]">
+                <div className="w-8 h-8 rounded-lg bg-sidebar/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-sidebar/20 transition-colors">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A55A2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
                 </div>
-              </div>
+                <p className="text-[10px] font-semibold text-gray-700">Practicar</p>
+              </Link>
+              <Link href="/aprendizaje" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[80px]">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-emerald-500/20 transition-colors">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                </div>
+                <p className="text-[10px] font-semibold text-gray-700">Aprender</p>
+              </Link>
+              <Link href="/progreso" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[80px]">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-amber-500/20 transition-colors">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                </div>
+                <p className="text-[10px] font-semibold text-gray-700">Progreso</p>
+              </Link>
+              <Link href="/historial" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[80px]">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-purple-500/20 transition-colors">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <p className="text-[10px] font-semibold text-gray-700">Historial</p>
+              </Link>
             </div>
+          </div>
 
-            {/* Right: Quick Actions 2x2 */}
-            <div className="w-full sm:w-auto sm:ml-auto flex-shrink-0">
-              <p className="text-xs font-semibold text-gray-500 mb-2">&iquest;Qu&eacute; quieres hacer hoy?</p>
-              <div className="grid grid-cols-4 sm:grid-cols-2 gap-2">
-                <Link href="/pacientes" className="bg-gray-50 rounded-xl border border-gray-200 p-2.5 sm:p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center sm:w-[100px]">
-                  <div className="w-8 h-8 rounded-lg bg-sidebar/10 flex items-center justify-center mx-auto mb-1 sm:mb-1.5 group-hover:bg-sidebar/20 transition-colors">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A55A2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-                  </div>
-                  <p className="text-[10px] sm:text-[11px] font-semibold text-gray-900">Practicar</p>
-                </Link>
-                <Link href="/aprendizaje" className="bg-gray-50 rounded-xl border border-gray-200 p-2.5 sm:p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center sm:w-[100px]">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center mx-auto mb-1 sm:mb-1.5 group-hover:bg-emerald-500/20 transition-colors">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                  </div>
-                  <p className="text-[10px] sm:text-[11px] font-semibold text-gray-900">Aprender</p>
-                </Link>
-                <Link href="/progreso" className="bg-gray-50 rounded-xl border border-gray-200 p-2.5 sm:p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center sm:w-[100px]">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center mx-auto mb-1 sm:mb-1.5 group-hover:bg-amber-500/20 transition-colors">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                  </div>
-                  <p className="text-[10px] sm:text-[11px] font-semibold text-gray-900">Progreso</p>
-                </Link>
-                <Link href="/historial" className="bg-gray-50 rounded-xl border border-gray-200 p-2.5 sm:p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center sm:w-[100px]">
-                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center mx-auto mb-1 sm:mb-1.5 group-hover:bg-purple-500/20 transition-colors">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  </div>
-                  <p className="text-[10px] sm:text-[11px] font-semibold text-gray-900">Historial</p>
-                </Link>
+          {/* Mobile: quick actions below as 4-col */}
+          <div className="sm:hidden grid grid-cols-4 gap-2 mt-3 pt-3 border-t border-gray-100">
+            <Link href="/pacientes" className="bg-gray-50 rounded-xl border border-gray-200 p-2 hover:border-sidebar/30 transition-all group text-center">
+              <div className="w-7 h-7 rounded-lg bg-sidebar/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-sidebar/20 transition-colors">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A55A2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
               </div>
-            </div>
+              <p className="text-[9px] font-semibold text-gray-700">Practicar</p>
+            </Link>
+            <Link href="/aprendizaje" className="bg-gray-50 rounded-xl border border-gray-200 p-2 hover:border-sidebar/30 transition-all group text-center">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-emerald-500/20 transition-colors">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              </div>
+              <p className="text-[9px] font-semibold text-gray-700">Aprender</p>
+            </Link>
+            <Link href="/progreso" className="bg-gray-50 rounded-xl border border-gray-200 p-2 hover:border-sidebar/30 transition-all group text-center">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-amber-500/20 transition-colors">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              </div>
+              <p className="text-[9px] font-semibold text-gray-700">Progreso</p>
+            </Link>
+            <Link href="/historial" className="bg-gray-50 rounded-xl border border-gray-200 p-2 hover:border-sidebar/30 transition-all group text-center">
+              <div className="w-7 h-7 rounded-lg bg-purple-500/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-purple-500/20 transition-colors">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <p className="text-[9px] font-semibold text-gray-700">Historial</p>
+            </Link>
           </div>
         </div>
 
