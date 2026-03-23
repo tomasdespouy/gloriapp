@@ -390,6 +390,14 @@ p a:hover, span a:hover, li a:hover {
   background-size: 16px 16px;
 }
 
+.dashboard-pattern {
+  background-color: #F0F0F5;
+  background-image:
+    linear-gradient(#dddde4 1px, transparent 1px),
+    linear-gradient(90deg, #dddde4 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
 /* Session completed — animated checkmark */
 @keyframes check-draw {
   0% { stroke-dashoffset: 48; }
