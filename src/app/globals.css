@@ -391,11 +391,11 @@ p a:hover, span a:hover, li a:hover {
 }
 
 .dashboard-pattern {
-  background-color: #F0F0F5;
+  background-color: #EDEDF2;
   background-image:
-    linear-gradient(#dddde4 1px, transparent 1px),
-    linear-gradient(90deg, #dddde4 1px, transparent 1px);
-  background-size: 32px 32px;
+    linear-gradient(#d8d8e0 1.5px, transparent 1.5px),
+    linear-gradient(90deg, #d8d8e0 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
 }
 
 /* Session completed — animated checkmark */
