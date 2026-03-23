@@ -109,22 +109,39 @@ TU ROL COMO PACIENTE:
 
   const memoryPromise = loadMemory(supabase, user.id, patientId, now);
 
-  // 5. Create or use existing conversation
+  // 5. Create or reuse existing conversation
   if (!conversationId) {
-    const { count } = await supabase
+    // Check for an existing active/abandoned session with this patient
+    const { data: existing } = await supabase
       .from("conversations")
-      .select("id", { count: "exact", head: true })
-      .eq("student_id", user.id)
-      .eq("ai_patient_id", patientId);
-
-    const { data: conv } = await supabase
-      .from("conversations")
-      .insert({ student_id: user.id, ai_patient_id: patientId, session_number: (count || 0) + 1, status: "active" })
       .select("id")
+      .eq("student_id", user.id)
+      .eq("ai_patient_id", patientId)
+      .in("status", ["active", "abandoned"])
+      .order("created_at", { ascending: false })
+      .limit(1)
       .single();
 
-    if (!conv) return NextResponse.json({ error: "Failed to create conversation" }, { status: 500 });
-    conversationId = conv.id;
+    if (existing) {
+      conversationId = existing.id;
+      // Re-activate if it was abandoned
+      await supabase.from("conversations").update({ status: "active" }).eq("id", conversationId);
+    } else {
+      const { count } = await supabase
+        .from("conversations")
+        .select("id", { count: "exact", head: true })
+        .eq("student_id", user.id)
+        .eq("ai_patient_id", patientId);
+
+      const { data: conv } = await supabase
+        .from("conversations")
+        .insert({ student_id: user.id, ai_patient_id: patientId, session_number: (count || 0) + 1, status: "active" })
+        .select("id")
+        .single();
+
+      if (!conv) return NextResponse.json({ error: "Failed to create conversation" }, { status: 500 });
+      conversationId = conv.id;
+    }
   }
 
   // 6. Save message + load history + await memory — all in parallel
