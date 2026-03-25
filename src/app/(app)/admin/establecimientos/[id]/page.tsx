@@ -31,6 +31,7 @@ export default async function EstablishmentDetailPage({
     { data: profiles },
     { data: assignedPatientRows },
     { data: allPatients },
+    { data: moduleRows },
   ] = await Promise.all([
     admin.from("admin_establishments").select("admin_id").eq("establishment_id", id),
     admin.from("profiles").select("id, full_name, email").eq("role", "admin"),
@@ -40,6 +41,7 @@ export default async function EstablishmentDetailPage({
       .eq("establishment_id", id).order("full_name"),
     admin.from("establishment_patients").select("ai_patient_id").eq("establishment_id", id),
     admin.from("ai_patients").select("id, name, age, occupation, difficulty_level, country, is_active, tags, country_origin, country_residence").order("name"),
+    admin.from("establishment_modules").select("module_key, is_active").eq("establishment_id", id),
   ]);
 
   const assignedAdminIds = new Set(assignments?.map((a) => a.admin_id) || []);
@@ -99,6 +101,7 @@ export default async function EstablishmentDetailPage({
           allPatients={allPatients || []}
           assignedPatientIds={Array.from(assignedPatientIds)}
           estCountry={estCountry}
+          modules={(moduleRows || []) as { module_key: string; is_active: boolean }[]}
         />
       </div>
     </div>

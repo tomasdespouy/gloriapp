@@ -1,3 +1,6 @@
+import { PRESS_ITEMS } from "@/lib/press-items";
+import { ExternalLink } from "lucide-react";
+
 export default function SobrePage() {
   return (
     <div className="min-h-screen">
@@ -6,7 +9,7 @@ export default function SobrePage() {
         <img src="/branding/gloria-logo.png" alt="GlorIA" className="h-10 w-auto mb-3" />
         <h1 className="text-2xl font-bold text-gray-900">Sobre GlorIA</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Conoce la plataforma, su propósito y como protegemos tus datos
+          Conoce la plataforma, su prop&oacute;sito y c&oacute;mo protegemos tus datos
         </p>
       </header>
 
@@ -271,6 +274,52 @@ export default function SobrePage() {
                 </li>
               ))}
             </ul>
+          </div>
+        </section>
+
+        {/* Noticias */}
+        <section id="noticias">
+          <h2 className="text-lg font-bold text-gray-900 mb-3">
+            GlorIA en los medios
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            {"Lo que dicen sobre la plataforma y la innovaci\u00f3n en formaci\u00f3n cl\u00ednica con IA."}
+          </p>
+          <div className="space-y-3">
+            {PRESS_ITEMS.map((item, i) => (
+              <a
+                key={i}
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`block rounded-xl border p-5 transition-all hover:shadow-md hover:-translate-y-0.5 group ${
+                  item.highlight
+                    ? "border-sidebar/20 bg-sidebar/[0.02]"
+                    : "border-gray-200 bg-white"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                        item.highlight ? "text-sidebar" : "text-gray-400"
+                      }`}>
+                        {item.source}
+                      </span>
+                      <span className="text-[10px] text-gray-300">&middot;</span>
+                      <span className="text-[10px] text-gray-400">{item.date}</span>
+                    </div>
+                    <h3 className="text-sm font-bold text-gray-900 mb-1.5 group-hover:text-sidebar transition-colors leading-snug">
+                      {item.title}
+                    </h3>
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      {item.excerpt}
+                    </p>
+                  </div>
+                  <ExternalLink size={14} className="text-gray-300 group-hover:text-sidebar transition-colors flex-shrink-0 mt-1" />
+                </div>
+              </a>
+            ))}
           </div>
         </section>
 

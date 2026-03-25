@@ -6,8 +6,9 @@ import { toast } from "sonner";
 import {
   Settings, ShieldCheck, BookOpen, GraduationCap, Users,
   Plus, Trash2, ChevronDown, ChevronRight, UserPlus, X,
-  UserRound, Check, Globe, Star,
+  UserRound, Check, Globe, Star, Puzzle,
 } from "lucide-react";
+import { MODULE_DEFINITIONS } from "@/lib/modules";
 import EstablishmentForm from "../EstablishmentForm";
 
 type Profile = { id: string; full_name: string | null; email: string; role?: string; course_id?: string | null; section_id?: string | null };
@@ -27,10 +28,12 @@ type Props = {
   allPatients: Patient[];
   assignedPatientIds: string[];
   estCountry: string | null;
+  modules: { module_key: string; is_active: boolean }[];
 };
 
 const TABS = [
   { key: "general", label: "General", icon: Settings },
+  { key: "modules", label: "M\u00f3dulos", icon: Puzzle },
   { key: "patients", label: "Pacientes", icon: UserRound },
   { key: "admins", label: "Administradores", icon: ShieldCheck },
   { key: "courses", label: "Asignaturas", icon: BookOpen },
@@ -62,6 +65,7 @@ export default function InstitutionTabs(props: Props) {
       </div>
 
       {tab === "general" && <TabGeneral establishment={props.establishment} isSuperadmin={props.isSuperadmin} />}
+      {tab === "modules" && <TabModules estId={String(props.establishment.id)} modules={props.modules} isSuperadmin={props.isSuperadmin} />}
       {tab === "patients" && <TabPatients estId={String(props.establishment.id)} allPatients={props.allPatients} assignedPatientIds={props.assignedPatientIds} estCountry={props.estCountry} isSuperadmin={props.isSuperadmin} />}
       {tab === "admins" && <TabAdmins estId={String(props.establishment.id)} assigned={props.assignedAdmins} available={props.availableAdmins} />}
       {tab === "courses" && <TabCourses estId={String(props.establishment.id)} courses={props.courses} courseSections={props.courseSections} />}
@@ -1042,6 +1046,87 @@ function TabPatients({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
+// TAB: Módulos
+// ════════════════════════════════════════════
+function TabModules({ estId, modules, isSuperadmin }: { estId: string; modules: { module_key: string; is_active: boolean }[]; isSuperadmin: boolean }) {
+  const router = useRouter();
+  const [states, setStates] = useState<Record<string, boolean>>(() => {
+    const map: Record<string, boolean> = {};
+    for (const key of Object.keys(MODULE_DEFINITIONS)) {
+      const row = modules.find((m) => m.module_key === key);
+      map[key] = row ? row.is_active : true; // default enabled
+    }
+    return map;
+  });
+  const [loading, setLoading] = useState<string | null>(null);
+
+  const toggle = async (key: string) => {
+    const newValue = !states[key];
+    setLoading(key);
+    try {
+      const res = await fetch(`/api/admin/establishments/${estId}/modules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ module_key: key, is_active: newValue }),
+      });
+      if (!res.ok) throw new Error();
+      setStates((prev) => ({ ...prev, [key]: newValue }));
+      toast.success(`M\u00f3dulo "${MODULE_DEFINITIONS[key].label}" ${newValue ? "activado" : "desactivado"}`);
+      router.refresh();
+    } catch {
+      toast.error("Error al actualizar el m\u00f3dulo");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-6">
+      <div className="mb-4">
+        <h3 className="text-sm font-bold text-gray-900">{"M\u00f3dulos de la plataforma"}</h3>
+        <p className="text-xs text-gray-500 mt-0.5">
+          {"Activa o desactiva funcionalidades para los estudiantes de esta instituci\u00f3n. Los m\u00f3dulos desactivados no aparecer\u00e1n en el men\u00fa lateral."}
+        </p>
+      </div>
+      <div className="space-y-3">
+        {Object.entries(MODULE_DEFINITIONS).map(([key, def]) => (
+          <div
+            key={key}
+            className="flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900">{def.label}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{def.description}</p>
+            </div>
+            {isSuperadmin ? (
+              <button
+                onClick={() => toggle(key)}
+                disabled={loading === key}
+                className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ml-4 cursor-pointer disabled:opacity-50 ${
+                  states[key] ? "bg-sidebar" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    states[key] ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            ) : (
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ml-4 ${
+                states[key] ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"
+              }`}>
+                {states[key] ? "Activo" : "Inactivo"}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

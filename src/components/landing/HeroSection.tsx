@@ -1,25 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import ScrollReveal from "./ScrollReveal";
 
 export default function HeroSection() {
   return (
-    <section className="relative min-h-[calc(100vh-64px)] flex items-center overflow-hidden">
-      {/* Background image */}
-      <div className="absolute inset-0">
-        <Image
-          src="/branding/hero-bg.jpg"
-          alt=""
-          fill
-          priority
-          className="object-cover"
-        />
-        {/* Light overlay to ensure readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#2D3561]/60 via-[#2D3561]/50 to-[#4A55A2]/40" />
-      </div>
-
+    <section className="relative min-h-[calc(100vh-64px)] flex items-center overflow-hidden bg-gradient-to-b from-[#2D3561] via-[#3A4280] to-[#4A55A2]">
       {/* Content */}
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28 text-center">
         <ScrollReveal>
@@ -30,7 +16,7 @@ export default function HeroSection() {
           </h1>
 
           {/* Subtitle */}
-          <p className="text-lg sm:text-xl text-white/80 max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-lg sm:text-xl text-white/85 max-w-2xl mx-auto mb-10 leading-relaxed">
             Pr&aacute;ctica terap&eacute;utica con pacientes simulados por IA. Un entorno seguro para aprender, equivocarte y crecer.
           </p>
 
@@ -38,7 +24,7 @@ export default function HeroSection() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center font-semibold text-white bg-[#4A55A2] px-8 py-3.5 rounded-xl hover:bg-[#5C6BB5] transition-colors text-base shadow-lg shadow-[#4A55A2]/30"
+              className="inline-flex items-center justify-center font-semibold text-white bg-[#4A55A2] px-8 py-3.5 rounded-xl hover:bg-[#5C6BB5] transition-colors text-base shadow-lg shadow-black/20 border border-white/15"
             >
               Comienza tu Pr&aacute;ctica
               <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

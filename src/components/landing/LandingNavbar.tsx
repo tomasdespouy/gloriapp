@@ -16,8 +16,9 @@ export default function LandingNavbar() {
   const [open, setOpen] = useState(false);
 
   const navLinks = [
-    { label: "Como funciona", href: "#como-funciona" },
+    { label: "C\u00f3mo funciona", href: "#como-funciona" },
     { label: "Pacientes", href: "#pacientes" },
+    { label: "Noticias", href: "#noticias" },
     { label: "Testimonios", href: "#testimonios" },
     { label: "Contacto", href: "#contacto" },
   ];
@@ -90,8 +91,8 @@ export default function LandingNavbar() {
                 </button>
               </SheetTrigger>
               <SheetContent side="right" className="w-[280px] bg-white">
-                <SheetTitle className="sr-only">Menu de navegaci&oacute;n</SheetTitle>
-                <div className="flex flex-col gap-6 mt-8">
+                <SheetTitle className="sr-only">{"Men\u00fa de navegaci\u00f3n"}</SheetTitle>
+                <div className="flex flex-col gap-5 mt-8 px-2">
                   {navLinks.map((link) => (
                     <a
                       key={link.href}
@@ -104,20 +105,22 @@ export default function LandingNavbar() {
                   ))}
 
                   <hr className="border-gray-200" />
-                  <Link
-                    href="/login"
-                    className="text-base font-medium text-[#4A55A2]"
-                    onClick={() => setOpen(false)}
-                  >
-                    Iniciar Sesi&oacute;n
-                  </Link>
-                  <Link
-                    href="/signup"
-                    className="text-center font-medium text-white bg-[#4A55A2] px-4 py-3 rounded-lg hover:bg-[#3D4890] transition-colors"
-                    onClick={() => setOpen(false)}
-                  >
-                    Comenzar
-                  </Link>
+                  <div className="flex flex-col gap-3">
+                    <Link
+                      href="/login"
+                      className="text-center font-medium text-[#4A55A2] border border-[#4A55A2] px-4 py-3 rounded-lg hover:bg-[#4A55A2]/5 transition-colors"
+                      onClick={() => setOpen(false)}
+                    >
+                      Iniciar Sesi&oacute;n
+                    </Link>
+                    <Link
+                      href="/signup"
+                      className="text-center font-medium text-white bg-[#4A55A2] px-4 py-3 rounded-lg hover:bg-[#3D4890] transition-colors"
+                      onClick={() => setOpen(false)}
+                    >
+                      Comenzar
+                    </Link>
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>

@@ -18,7 +18,7 @@ export default async function ReviewPage({
   // Get conversation (user client) + patient info (admin, bypasses RLS)
   const { data: conversation } = await supabase
     .from("conversations")
-    .select("id, session_number, ai_patient_id, active_seconds, started_at, ended_at")
+    .select("id, session_number, ai_patient_id, active_seconds, started_at, ended_at, student_notes_v2")
     .eq("id", conversationId)
     .single();
 
@@ -98,6 +98,7 @@ export default async function ReviewPage({
       startedAt={conversation.started_at || null}
       endedAt={conversation.ended_at || null}
       actionItems={actionItems || []}
+      initialSessionNotes={conversation.student_notes_v2 || ""}
     />
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Bell, User, LogOut, ChevronDown, LifeBuoy, BarChart3, Info } from "lucide-react";
+import { Bell, User, LogOut, ChevronDown, LifeBuoy, BarChart3, Info, Eye, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { setImpersonation, clearImpersonation } from "@/lib/actions/impersonate";
 
 type Notification = {
   id: string;
@@ -19,10 +20,14 @@ interface Props {
   userName: string;
   userEmail: string;
   userRole: string;
+  realRole: string;
   avatarUrl?: string | null;
+  isImpersonating: boolean;
+  impersonationLabel?: string;
+  establishments?: { id: string; name: string }[];
 }
 
-export default function TopHeader({ userName, userEmail, userRole, avatarUrl }: Props) {
+export default function TopHeader({ userName, userEmail, userRole, realRole, avatarUrl, isImpersonating, impersonationLabel, establishments }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
@@ -104,8 +109,82 @@ export default function TopHeader({ userName, userEmail, userRole, avatarUrl }: 
     superadmin: "Superadmin",
   };
 
+  // Impersonation state
+  const isSuperadmin = realRole === "superadmin";
+  const [impRole, setImpRole] = useState<string>(isImpersonating ? userRole : "");
+  const [impEstId, setImpEstId] = useState<string>("");
+  const [impLoading, setImpLoading] = useState(false);
+
+  const handleImpersonate = async (role: string, estId: string) => {
+    if (!role || !estId || !establishments) return;
+    const est = establishments.find((e) => e.id === estId);
+    if (!est) return;
+    setImpLoading(true);
+    await setImpersonation(role as "student" | "instructor" | "admin", estId, est.name);
+    const targetPath = role === "instructor" ? "/docente/dashboard" : role === "admin" ? "/admin/dashboard" : "/dashboard";
+    window.location.href = targetPath;
+  };
+
+  const handleClearImpersonation = async () => {
+    setImpLoading(true);
+    setImpRole("");
+    setImpEstId("");
+    await clearImpersonation();
+    window.location.href = "/admin/dashboard";
+  };
+
   return (
+    <>
+      {/* Impersonation banner */}
+      {isImpersonating && (
+        <div className="h-8 bg-amber-500 flex items-center justify-center gap-3 px-4">
+          <Eye size={14} className="text-white" />
+          <span className="text-xs font-medium text-white">
+            Viendo como: {impersonationLabel}
+          </span>
+          <button
+            onClick={handleClearImpersonation}
+            disabled={impLoading}
+            className="text-white/80 hover:text-white transition-colors disabled:opacity-50"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
     <header className="h-12 bg-[#2D3561] flex items-center justify-end pl-3 sm:pl-5 pr-3 sm:pr-5 gap-2">
+      {/* Impersonation controls (superadmin only) */}
+      {isSuperadmin && !isImpersonating && (
+        <div className="hidden sm:flex items-center gap-1.5 mr-auto">
+          <Eye size={13} className="text-white/40" />
+          <select
+            value={impRole}
+            onChange={(e) => { setImpRole(e.target.value); setImpEstId(""); }}
+            className="bg-white/10 text-white/80 text-[11px] rounded px-2 py-1 border border-white/10 focus:outline-none focus:ring-1 focus:ring-white/30 cursor-pointer"
+          >
+            <option value="" className="text-gray-900">Ver como...</option>
+            <option value="student" className="text-gray-900">Estudiante</option>
+            <option value="instructor" className="text-gray-900">Docente</option>
+            <option value="admin" className="text-gray-900">Admin</option>
+          </select>
+          {impRole && establishments && (
+            <select
+              value={impEstId}
+              onChange={(e) => {
+                setImpEstId(e.target.value);
+                if (e.target.value) handleImpersonate(impRole, e.target.value);
+              }}
+              disabled={impLoading}
+              className="bg-white/10 text-white/80 text-[11px] rounded px-2 py-1 border border-white/10 focus:outline-none focus:ring-1 focus:ring-white/30 cursor-pointer disabled:opacity-50 max-w-[180px]"
+            >
+              <option value="" className="text-gray-900">{"Instituci\u00f3n..."}</option>
+              {establishments.map((e) => (
+                <option key={e.id} value={e.id} className="text-gray-900">{e.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
       {/* Notifications */}
       <div ref={notifRef} className="relative">
         <button
@@ -337,5 +416,6 @@ export default function TopHeader({ userName, userEmail, userRole, avatarUrl }: 
         </div>
       )}
     </header>
+    </>
   );
 }

@@ -19,11 +19,11 @@ export default async function RevisionesPage() {
     .eq("status", "completed")
     .order("created_at", { ascending: false });
 
-  // Get student names
-  const { data: students } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .eq("role", "student");
+  // Get student names (include all roles so impersonating superadmins are visible too)
+  const studentIds = [...new Set((sessions || []).map((s) => s.student_id))];
+  const { data: students } = studentIds.length > 0
+    ? await supabase.from("profiles").select("id, full_name").in("id", studentIds)
+    : { data: [] as { id: string; full_name: string | null }[] };
 
   // Build student name map
   const studentMap: Record<string, string> = {};

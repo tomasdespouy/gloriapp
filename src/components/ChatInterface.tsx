@@ -94,10 +94,16 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     } catch { return null; }
   };
 
-  // Play queued TTS chunks sequentially
+  // Play queued TTS chunks sequentially (walkie-talkie: mic OFF while playing)
   const drainTtsQueue = async () => {
     if (ttsPlayingRef.current) return;
     ttsPlayingRef.current = true;
+
+    // Walkie-talkie: mute mic while AI speaks
+    if (voiceModeRef.current && voiceRecognitionRef.current) {
+      try { voiceRecognitionRef.current.stop(); } catch {}
+      setIsRecording(false);
+    }
 
     while (ttsQueueRef.current.length > 0) {
       const sentence = ttsQueueRef.current.shift()!;
@@ -141,13 +147,28 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           });
           if (charIdx >= fullText.length) {
             clearInterval(typeInterval);
+            // Walkie-talkie: re-enable mic after AI finishes speaking
             if (voiceModeRef.current && voiceRecognitionRef.current) {
               setTimeout(() => {
                 try { voiceRecognitionRef.current?.start(); setIsRecording(true); } catch {}
               }, 500);
             }
+            // Start silence timers AFTER TTS playback finishes (not during)
+            if (voiceModeRef.current) {
+              setSilenceTrigger((c) => c + 1);
+            }
           }
         }, CHAR_DELAY_MS);
+      } else {
+        // No text to type — reactivate mic immediately
+        if (voiceModeRef.current && voiceRecognitionRef.current) {
+          setTimeout(() => {
+            try { voiceRecognitionRef.current?.start(); setIsRecording(true); } catch {}
+          }, 500);
+        }
+        if (voiceModeRef.current) {
+          setSilenceTrigger((c) => c + 1);
+        }
       }
     }
   };
@@ -358,7 +379,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // Stage 3 (180s): aviso de retiro
   // Stage 4 (300s): cierre de sesión
   const SILENCE_TIMERS_TEXT = [60_000, 90_000, 180_000, 300_000];
-  const SILENCE_TIMERS_VOICE = [30_000, 60_000, 90_000, 120_000];
+  const SILENCE_TIMERS_VOICE = [60_000, 120_000, 180_000];
   const silenceStageRef = useRef(0);
   const silenceTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -369,12 +390,18 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
   const fireSilenceStage = async (stage: number) => {
     if (!conversationId || isStreamingRef.current) return;
+    // Don't fire silence while TTS is playing (voice mode walkie-talkie)
+    if (voiceModeRef.current && ttsPlayingRef.current) return;
+
+    // Voice mode has 3 stages; map stage 3 → closure prompt (stage 4 on server)
+    const isVoice = voiceModeRef.current;
+    const serverStage = (isVoice && stage === 3) ? 4 : stage;
 
     try {
       const res = await fetch("/api/chat/silence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId: patient.id, conversationId, stage }),
+        body: JSON.stringify({ patientId: patient.id, conversationId, stage: serverStage }),
       });
 
       if (res.ok) {
@@ -386,13 +413,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             created_at: new Date().toISOString(),
           }]);
 
-          // In voice mode, play TTS for silence messages
+          // In voice mode, play TTS for silence messages (walkie-talkie: mute mic)
           if (voiceModeRef.current && patient.voice_id) {
             const msgIdx = messagesRef.current.length;
-            autoPlayTts(data.message, msgIdx);
+            autoPlayTtsAndResumeMic(data.message, msgIdx);
           }
 
-          // Stage 3: session closed by patient — show disconnect modal
+          // Session closed by patient — show disconnect modal
           if (data.sessionClosed) {
             if (voiceModeRef.current) stopVoiceMode();
             clearSilenceTimers();
@@ -833,7 +860,12 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     setPhase("thinking");
     streamDoneRef.current = false;
     // Reset interrupt flags on new message — trigger new silence countdown
-    setSilenceTrigger((c) => c + 1);
+    // In voice mode, silence timers start AFTER TTS finishes (walkie-talkie)
+    if (!voiceModeRef.current) {
+      setSilenceTrigger((c) => c + 1);
+    } else {
+      clearSilenceTimers();
+    }
     tokenBufferRef.current = "";
     lastAssistantMsgRef.current = "";
 
@@ -1528,12 +1560,12 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 handleTypingActivity();
                 const el = e.target;
                 el.style.height = "auto";
-                el.style.height = Math.min(el.scrollHeight, 160) + "px";
+                el.style.height = Math.min(el.scrollHeight, voiceMode ? 300 : 160) + "px";
               }}
               onKeyDown={handleKeyDown}
               placeholder={sessionStarted ? "Escribe tu mensaje..." : "Presiona \"Iniciar sesión\" para comenzar"}
               rows={1}
-              className="w-full resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar disabled:bg-gray-100 disabled:text-gray-400 overflow-hidden"
+              className={`w-full resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar disabled:bg-gray-100 disabled:text-gray-400 ${voiceMode ? "overflow-y-auto" : "overflow-hidden"}`}
               disabled={!sessionStarted}
             />
           </div>

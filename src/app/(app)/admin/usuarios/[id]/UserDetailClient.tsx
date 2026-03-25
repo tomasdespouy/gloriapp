@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 type Props = {
   userId: string;
+  currentFullName: string;
   currentRole: string;
   currentEstablishmentId: string | null;
   currentCourseId: string | null;
@@ -17,6 +18,7 @@ type Section = { id: string; name: string };
 
 export default function UserDetailClient({
   userId,
+  currentFullName,
   currentRole,
   currentEstablishmentId,
   currentCourseId,
@@ -24,6 +26,7 @@ export default function UserDetailClient({
   establishments,
 }: Props) {
   const router = useRouter();
+  const [fullName, setFullName] = useState(currentFullName);
   const [role, setRole] = useState(currentRole);
   const [estId, setEstId] = useState(currentEstablishmentId || "");
   const [courseId, setCourseId] = useState(currentCourseId || "");
@@ -63,6 +66,7 @@ export default function UserDetailClient({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        full_name: fullName.trim() || null,
         role,
         establishment_id: estId || null,
         course_id: courseId || null,
@@ -119,6 +123,18 @@ export default function UserDetailClient({
       <h3 className="text-sm font-semibold text-gray-900 mb-5">Modificar usuario</h3>
 
       <div className="space-y-5">
+        {/* Nombre */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Nombre completo</label>
+          <input
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+            placeholder="Nombre y apellido"
+          />
+        </div>
+
         {/* Rol */}
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Rol</label>

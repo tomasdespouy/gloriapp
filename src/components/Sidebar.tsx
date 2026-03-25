@@ -46,11 +46,38 @@ const adminNav = (isSuperadmin: boolean) => [
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];
 
-export default function Sidebar({ role = "student" }: { role?: string }) {
+const MODULE_NAV_MAP: Record<string, string> = {
+  grabacion: "/observacion",
+  aprendizaje: "/aprendizaje",
+  progreso: "/progreso",
+};
+
+export default function Sidebar({
+  role = "student",
+  establishmentLogoUrl,
+  activeModules,
+}: {
+  role?: string;
+  establishmentLogoUrl?: string | null;
+  activeModules?: string[] | null;
+}) {
   const pathname = usePathname();
   const isAdmin = role === "admin" || role === "superadmin";
   const isInstructor = role === "instructor";
-  const navItems = isAdmin ? adminNav(role === "superadmin") : isInstructor ? instructorNav : studentNav;
+  const baseNavItems = isAdmin ? adminNav(role === "superadmin") : isInstructor ? instructorNav : studentNav;
+
+  // Filter nav items based on active modules (only for students)
+  const navItems = (!isAdmin && !isInstructor && activeModules)
+    ? (() => {
+        const disabledPaths = new Set(
+          Object.entries(MODULE_NAV_MAP)
+            .filter(([key]) => !activeModules.includes(key))
+            .map(([, path]) => path)
+        );
+        return baseNavItems.filter((item) => !disabledPaths.has(item.href));
+      })()
+    : baseNavItems;
+
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Close mobile drawer on route change
@@ -96,11 +123,15 @@ export default function Sidebar({ role = "student" }: { role?: string }) {
         })}
       </nav>
 
-      {/* Footer */}
+      {/* Footer — institution logo or default */}
       <div className="mt-auto px-6 pb-6">
         <div className="flex items-center justify-center pt-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/branding/ugm-logo.png" alt="Universidad Gabriela Mistral" className="h-12 w-auto" />
+          <img
+            src={establishmentLogoUrl || "/branding/ugm-logo.png"}
+            alt="Instituci\u00f3n"
+            className="h-12 w-auto"
+          />
         </div>
       </div>
     </div>

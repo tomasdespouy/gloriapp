@@ -11,13 +11,13 @@ export default function CompetencyTooltip({ compKey }: { compKey: string }) {
 
   return (
     <div className="relative inline-block">
-      <button
+      <span
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
-        className="w-4 h-4 rounded-full bg-sidebar/10 text-sidebar flex items-center justify-center text-[9px] font-bold hover:bg-sidebar/20 transition-colors"
+        className="w-4 h-4 rounded-full bg-sidebar/10 text-sidebar inline-flex items-center justify-center text-[9px] font-bold hover:bg-sidebar/20 transition-colors cursor-help"
       >
         i
-      </button>
+      </span>
       {show && (
         <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-gray-900 text-white text-[11px] leading-relaxed rounded-lg px-3 py-2.5 shadow-lg pointer-events-auto">
           <p className="font-bold mb-1">{info.name}</p>

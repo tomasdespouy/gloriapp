@@ -108,6 +108,7 @@ export default async function UserDetailPage({
         {ctx.isSuperadmin && (
           <UserDetailClient
             userId={userProfile.id}
+            currentFullName={userProfile.full_name || ""}
             currentRole={userProfile.role}
             currentEstablishmentId={userProfile.establishment_id}
             currentCourseId={userProfile.course_id}

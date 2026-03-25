@@ -34,6 +34,7 @@ interface Props {
   startedAt: string | null;
   endedAt: string | null;
   actionItems: ActionItem[];
+  initialSessionNotes: string;
 }
 
 export default function ReviewClient({
@@ -50,6 +51,7 @@ export default function ReviewClient({
   startedAt,
   endedAt,
   actionItems: initialActionItems,
+  initialSessionNotes,
 }: Props) {
   const router = useRouter();
   const canSeeResults = feedbackStatus === "approved";
@@ -72,7 +74,7 @@ export default function ReviewClient({
   const [nonverbalCues, setNonverbalCues] = useState("");
   const [interventionTypes, setInterventionTypes] = useState("");
   const [clinicalHypothesis, setClinicalHypothesis] = useState("");
-  const [sessionNotes, setSessionNotes] = useState("");
+  const [sessionNotes, setSessionNotes] = useState(initialSessionNotes);
   const [showEmptyConfirm, setShowEmptyConfirm] = useState(false);
   const [results, setResults] = useState<Record<string, unknown> | null>(
     existingEvaluation
@@ -455,8 +457,8 @@ export default function ReviewClient({
                   </p>
                 </div>
 
-                {/* Question cards — Option D design */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+                {/* Question cards */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {([
                   {
                     num: "01",
@@ -524,8 +526,8 @@ export default function ReviewClient({
                     <textarea
                       value={q.value}
                       onChange={(e) => q.onChange(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-sidebar/30 focus:border-sidebar/50 placeholder:text-gray-400/70"
-                      rows={5}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-sidebar/30 focus:border-sidebar/50 placeholder:text-gray-400/70"
+                      rows={4}
                       placeholder={q.placeholder}
                       disabled={audioProcessing !== "idle"}
                     />

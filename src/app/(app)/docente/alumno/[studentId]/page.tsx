@@ -39,7 +39,6 @@ export default async function DocenteAlumnoPage({ params }: Props) {
     .from("profiles")
     .select("id, full_name, email, created_at")
     .eq("id", studentId)
-    .eq("role", "student")
     .single();
 
   if (!student) redirect("/docente/dashboard");
@@ -66,12 +65,6 @@ export default async function DocenteAlumnoPage({ params }: Props) {
     .eq("student_id", studentId)
     .order("created_at", { ascending: false });
 
-  const { data: achievements } = await supabase
-    .from("student_achievements")
-    .select("earned_at, achievements(name, description, icon)")
-    .eq("student_id", studentId)
-    .order("earned_at", { ascending: false });
-
   // Session summaries for AI-generated recap (admin client — docente can't read student summaries via RLS)
   const admin = createAdminClient();
   const { data: summaries } = await admin
@@ -82,8 +75,10 @@ export default async function DocenteAlumnoPage({ params }: Props) {
   const summaryMap = new Map<string, string>();
   summaries?.forEach(s => summaryMap.set(s.conversation_id, s.summary));
 
-  const completedSessions = sessions?.filter((s) => s.status === "completed") || [];
-  const totalSessions = completedSessions.length;
+  const allSessions = sessions || [];
+  const completedSessions = allSessions.filter((s) => s.status === "completed");
+  const totalSessions = allSessions.length;
+  const totalActiveMinutes = Math.round(allSessions.reduce((sum, s) => sum + ((s as Record<string, unknown>).active_seconds as number || 0), 0) / 60);
 
   // Compute average V2 competencies
   const allComps = completedSessions.flatMap((s) => {
@@ -100,15 +95,23 @@ export default async function DocenteAlumnoPage({ params }: Props) {
     ? allComps.map(c => Number(c.overall_score_v2)).filter(v => !isNaN(v)).reduce((a, b) => a + b, 0) / allComps.length
     : 0;
 
-  const reviewedCount = completedSessions.filter((s) => {
-    const fb = (s.session_feedback as FbRow[] | null)?.[0];
-    return fb?.teacher_comment || fb?.teacher_score != null;
-  }).length;
-
   const pendingCount = completedSessions.filter((s) => {
     const comp = (s.session_competencies as CompRow[] | null)?.[0];
     const fb = (s.session_feedback as FbRow[] | null)?.[0];
     return comp && !(fb?.teacher_comment || fb?.teacher_score != null);
+  }).length;
+
+  const reviewedCount = completedSessions.filter((s) => {
+    const fb = (s.session_feedback as FbRow[] | null)?.[0];
+    const comp = (s.session_competencies as CompRow[] | null)?.[0];
+    const hasReview = fb?.teacher_comment || fb?.teacher_score != null;
+    const isApproved = comp && String(comp.feedback_status) === "approved";
+    return hasReview && !isApproved;
+  }).length;
+
+  const closedCount = completedSessions.filter((s) => {
+    const comp = (s.session_competencies as CompRow[] | null)?.[0];
+    return comp && String(comp.feedback_status) === "approved";
   }).length;
 
   const initials = student.full_name
@@ -140,18 +143,11 @@ export default async function DocenteAlumnoPage({ params }: Props) {
             <span className="text-white text-sm font-bold">{initials}</span>
           </div>
           <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-lg font-bold text-gray-900">
-                {student.full_name || student.email}
-              </h1>
-              {progress?.level_name && (
-                <span className="text-[10px] font-medium text-sidebar bg-sidebar/10 px-2 py-0.5 rounded-full">
-                  {progress.level_name}
-                </span>
-              )}
-            </div>
+            <h1 className="text-lg font-bold text-gray-900">
+              {student.full_name || student.email}
+            </h1>
             <p className="text-xs text-gray-500">
-              {totalSessions} sesiones &middot; {student.email}
+              {totalSessions} sesiones &middot; {totalActiveMinutes} min &middot; {student.email}
             </p>
           </div>
           <DownloadReportButton studentId={studentId} />
@@ -196,22 +192,26 @@ export default async function DocenteAlumnoPage({ params }: Props) {
         )}
 
         {/* Stats row (compact) */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-5 gap-3">
           <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
             <p className="text-2xl font-bold text-gray-900">{totalSessions}</p>
             <p className="text-[10px] text-gray-400">Sesiones</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-            <p className="text-2xl font-bold text-green-600">{reviewedCount}</p>
-            <p className="text-[10px] text-gray-400">Revisadas</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
             <p className="text-2xl font-bold text-amber-500">{pendingCount}</p>
             <p className="text-[10px] text-gray-400">Por revisar</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-            <p className="text-2xl font-bold text-gray-900">{progress?.total_xp || 0}</p>
-            <p className="text-[10px] text-gray-400">XP total</p>
+            <p className="text-2xl font-bold text-blue-500">{reviewedCount}</p>
+            <p className="text-[10px] text-gray-400">{"Retroalimentaci\u00f3n enviada"}</p>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
+            <p className="text-2xl font-bold text-green-600">{closedCount}</p>
+            <p className="text-[10px] text-gray-400">Cerradas</p>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
+            <p className="text-2xl font-bold text-gray-900">{totalActiveMinutes}</p>
+            <p className="text-[10px] text-gray-400">{"Min en sesi\u00f3n"}</p>
           </div>
         </div>
 
@@ -340,29 +340,6 @@ export default async function DocenteAlumnoPage({ params }: Props) {
           )}
         </div>
 
-        {/* Achievements */}
-        {achievements && achievements.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Logros del alumno</h3>
-            <div className="flex flex-wrap gap-2">
-              {achievements.map((a, i) => {
-                const ach = a.achievements as unknown as { name: string; description: string } | null;
-                return (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 bg-sidebar/5 rounded-lg px-3 py-2"
-                    title={ach?.description}
-                  >
-                    <div className="w-6 h-6 rounded-full bg-sidebar/10 flex items-center justify-center text-[10px] text-sidebar font-bold">
-                      *
-                    </div>
-                    <span className="text-xs font-medium text-gray-700">{ach?.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

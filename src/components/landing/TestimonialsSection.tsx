@@ -8,36 +8,42 @@ export default function TestimonialsSection() {
       name: "Docente UPC",
       year: "28 a\u00f1os",
       career: "Universidad Peruana de Ciencias Aplicadas, Per\u00fa",
+      flag: "/flags/pe.png",
     },
     {
       quote: "La interacci\u00f3n con el paciente del simulador fue una experiencia fascinante para m\u00ed. Al principio ten\u00eda temor de equivocarme, pero al final entend\u00ed que era justo para esto: ayudarnos como futuros psic\u00f3logos a interactuar en una consulta.",
       name: "Estudiante UNICARIBE",
       year: "37 a\u00f1os",
       career: "Universidad del Caribe, Rep. Dominicana",
+      flag: "/flags/do.png",
     },
     {
       quote: "La presentaci\u00f3n del caso fue muy acertada y cercana a lo que se puede presentar en la vida real. El personaje sostuvo la l\u00ednea de su motivo de consulta y aquello que le aquejaba.",
       name: "Estudiante USB Cali",
       year: "19 a\u00f1os",
       career: "Universidad de San Buenaventura, Colombia",
+      flag: "/flags/co.png",
     },
     {
       quote: "Nunca hab\u00eda realizado un proceso de evaluaci\u00f3n a un paciente. Me ayud\u00f3 bastante a entender el cuidado de las preguntas y la importancia de preguntar ciertas cosas cuidadosamente para poder saber c\u00f3mo ayudarlo.",
       name: "Estudiante USMP",
       year: "22 a\u00f1os",
       career: "Universidad de San Mart\u00edn de Porres, Per\u00fa",
+      flag: "/flags/pe.png",
     },
     {
       quote: "Es una herramienta muy valiosa e importante para los estudiantes de psicolog\u00eda. Est\u00e1 incre\u00edble que ahora se pueda usar la IA como un apoyo para formarnos como profesionales, adem\u00e1s de que ayuda a practicar continuamente.",
       name: "Estudiante UPC",
       year: "23 a\u00f1os",
       career: "Universidad Peruana de Ciencias Aplicadas, Per\u00fa",
+      flag: "/flags/pe.png",
     },
     {
       quote: "Tener esta experiencia virtual es una forma en la que nosotros podemos practicar y sentirnos un poco m\u00e1s preparados al momento de tener un acercamiento con un paciente en la vida real.",
       name: "Estudiante USB Cali",
       year: "24 a\u00f1os",
       career: "Universidad de San Buenaventura, Colombia",
+      flag: "/flags/co.png",
     },
   ];
 
@@ -70,10 +76,18 @@ export default function TestimonialsSection() {
                   {item.quote}
                 </p>
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#4A55A2]/10 flex items-center justify-center">
+                  <div className="relative w-9 h-9 rounded-full bg-[#4A55A2]/10 flex items-center justify-center">
                     <span className="text-xs font-bold text-[#4A55A2]">
                       {item.name.split(" ").map((n) => n[0]).join("")}
                     </span>
+                    {item.flag && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.flag}
+                        alt=""
+                        className="absolute -bottom-0.5 -right-0.5 w-4 h-3 rounded-sm object-cover border border-white shadow-sm"
+                      />
+                    )}
                   </div>
                   <div>
                     <p className="font-semibold text-sm text-gray-900">{item.name}</p>

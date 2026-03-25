@@ -79,7 +79,7 @@ export default async function Dashboard() {
     admin.from("ai_patients").select("id, name, birthday, age").eq("is_active", true).not("birthday", "is", null),
     supabase.from("learning_progress").select("competency").eq("student_id", userProfile.id).neq("competency", "tutor"),
     supabase.from("student_achievements").select("id").eq("student_id", userProfile.id),
-    admin.from("ai_patients").select("id, name, age, occupation, difficulty_level").eq("is_active", true).limit(4),
+    admin.from("ai_patients").select("id, name, age, occupation, difficulty_level").eq("is_active", true),
     supabase.from("conversations").select("active_seconds").eq("student_id", userProfile.id),
   ]);
 
@@ -122,11 +122,35 @@ export default async function Dashboard() {
     (!visiblePatientIds || visiblePatientIds.includes(s.patientId))
   );
 
-  const patientSuggestions = (suggestedPatients || [])
-    .filter((p) => !visiblePatientIds || visiblePatientIds.includes(p.id))
-    .map((p) => ({
-      id: p.id, name: p.name, age: p.age, occupation: p.occupation, difficulty: p.difficulty_level,
-    }));
+  // Smart patient suggestions: prioritize un-practiced, then least-recent, with difficulty variety
+  const practicedPatientIds = new Set((recentSessions || []).map((s) => s.ai_patient_id));
+  const visibleSuggestions = (suggestedPatients || [])
+    .filter((p) => !visiblePatientIds || visiblePatientIds.includes(p.id));
+
+  // Split into never-practiced vs already-practiced
+  const neverPracticed = visibleSuggestions.filter((p) => !practicedPatientIds.has(p.id));
+  const alreadyPracticed = visibleSuggestions.filter((p) => practicedPatientIds.has(p.id));
+
+  // Shuffle never-practiced for variety, then append already-practiced
+  const shuffled = [...neverPracticed].sort(() => Math.random() - 0.5);
+  const fallback = [...alreadyPracticed].sort(() => Math.random() - 0.5);
+  const candidatePool = [...shuffled, ...fallback];
+
+  // Pick 4 with difficulty variety: try to get at least 1 of each level
+  const picked: typeof candidatePool = [];
+  const diffLevels = ["beginner", "intermediate", "advanced"];
+  for (const level of diffLevels) {
+    const match = candidatePool.find((p) => p.difficulty_level === level && !picked.includes(p));
+    if (match) picked.push(match);
+  }
+  for (const p of candidatePool) {
+    if (picked.length >= 4) break;
+    if (!picked.includes(p)) picked.push(p);
+  }
+
+  const patientSuggestions = picked.map((p) => ({
+    id: p.id, name: p.name, age: p.age, occupation: p.occupation, difficulty: p.difficulty_level,
+  }));
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const slug = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
@@ -263,7 +287,7 @@ export default async function Dashboard() {
             <h2 className="text-sm font-semibold text-gray-900">&iquest;Con qui&eacute;n quieres practicar?</h2>
             <Link href="/pacientes" className="text-xs text-sidebar hover:underline">Ver todos</Link>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="flex gap-3 overflow-x-auto scroll-smooth scrollbar-hide pb-1">
             {patientSuggestions.map((p) => {
               const pSlug = slug(p.name);
               const diffColor = p.difficulty === "beginner" ? "text-emerald-600 bg-emerald-50" : p.difficulty === "intermediate" ? "text-amber-600 bg-amber-50" : "text-red-600 bg-red-50";
@@ -272,20 +296,24 @@ export default async function Dashboard() {
                 <Link
                   key={p.id}
                   href={`/chat/${p.id}`}
-                  className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-sidebar/30 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 group"
+                  className="flex-shrink-0 w-[160px] sm:w-[180px] bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all group"
                 >
-                  <div className="aspect-[4/5] overflow-hidden bg-gray-100">
+                  <div className="aspect-square overflow-hidden bg-gray-100 relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={`${supabaseUrl}/storage/v1/object/public/patients/${pSlug}.png`}
                       alt={p.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 bg-sidebar text-white font-semibold text-[10px] px-2.5 py-1 rounded-lg opacity-90 group-hover:opacity-100 transition-opacity">
+                      Practicar →
+                    </span>
                   </div>
-                  <div className="p-3">
-                    <p className="text-sm font-bold text-gray-900 group-hover:text-sidebar transition-colors">{p.name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{p.age} a&ntilde;os &middot; {p.occupation}</p>
-                    <span className={`inline-block mt-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full ${diffColor}`}>
+                  <div className="p-2.5">
+                    <p className="text-xs font-bold text-gray-900">{p.name}</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">{p.age} a&ntilde;os &middot; {p.occupation}</p>
+                    <span className={`inline-block mt-1 text-[9px] font-medium px-2 py-0.5 rounded-full ${diffColor}`}>
                       {diffLabel}
                     </span>
                   </div>

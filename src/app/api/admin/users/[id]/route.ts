@@ -31,9 +31,10 @@ export async function PATCH(
   }
 
   const body = await request.json();
-  const { role, establishment_id, course_id, section_id, is_disabled } = body;
+  const { full_name, role, establishment_id, course_id, section_id, is_disabled } = body;
 
   const updates: Record<string, unknown> = {};
+  if (full_name !== undefined) updates.full_name = full_name;
   if (role !== undefined) updates.role = role;
   if (establishment_id !== undefined) updates.establishment_id = establishment_id;
   if (course_id !== undefined) updates.course_id = course_id;

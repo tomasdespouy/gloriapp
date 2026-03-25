@@ -29,7 +29,7 @@ export default function HowItWorks() {
         <ScrollReveal>
           <div className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-              Como funciona
+              {"C\u00f3mo funciona"}
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
               Tres pasos para comenzar a desarrollar tus habilidades cl&iacute;nicas

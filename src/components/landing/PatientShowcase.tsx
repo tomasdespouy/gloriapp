@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ScrollReveal from "./ScrollReveal";
 
@@ -17,6 +17,82 @@ function slugify(name: string) {
 
 interface PatientShowcaseProps {
   patients: Patient[];
+}
+
+function PatientVideoCard({ patient, supabaseUrl }: { patient: Patient; supabaseUrl: string | undefined }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting);
+        const video = videoRef.current;
+        if (!video) return;
+        if (entry.isIntersecting) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const slug = slugify(patient.name);
+  const country = patient.country_origin || patient.country_residence || "";
+  const videoSrc = `${supabaseUrl}/storage/v1/object/public/patients/${slug}.mp4`;
+  const posterSrc = `${supabaseUrl}/storage/v1/object/public/patients/${slug}.png`;
+
+  return (
+    <div
+      ref={cardRef}
+      className="flex-shrink-0 w-[180px] sm:w-[220px] group/card"
+    >
+      <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-200 shadow-md group-hover/card:shadow-xl transition-shadow duration-300">
+        {isVisible ? (
+          <video
+            ref={videoRef}
+            src={videoSrc}
+            poster={posterSrc}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              const target = e.currentTarget;
+              target.style.display = "none";
+              const parent = target.parentElement;
+              if (parent && !parent.querySelector("img")) {
+                const img = document.createElement("img");
+                img.src = posterSrc;
+                img.alt = patient.name;
+                img.className = "w-full h-full object-cover absolute inset-0";
+                parent.appendChild(img);
+              }
+            }}
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={posterSrc} alt={patient.name} className="w-full h-full object-cover" />
+        )}
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 to-transparent" />
+        <div className="absolute bottom-0 inset-x-0 p-3 sm:p-4 text-white">
+          <h3 className="text-sm sm:text-base font-bold leading-tight">{patient.name}</h3>
+          <p className="text-xs sm:text-sm text-white/80 mt-0.5">
+            {patient.age} a&ntilde;os{country ? ` \u00b7 ${country}` : ""}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function PatientShowcase({ patients }: PatientShowcaseProps) {
@@ -49,12 +125,12 @@ export default function PatientShowcase({ patients }: PatientShowcaseProps) {
     return () => cancelAnimationFrame(animId);
   }, [patients.length]);
 
-  const updateArrows = () => {
+  const updateArrows = useCallback(() => {
     const track = trackRef.current;
     if (!track) return;
     setCanScrollLeft(track.scrollLeft > 10);
     setCanScrollRight(track.scrollLeft < track.scrollWidth - track.clientWidth - 10);
-  };
+  }, []);
 
   useEffect(() => {
     const track = trackRef.current;
@@ -62,7 +138,7 @@ export default function PatientShowcase({ patients }: PatientShowcaseProps) {
     track.addEventListener("scroll", updateArrows);
     updateArrows();
     return () => track.removeEventListener("scroll", updateArrows);
-  }, []);
+  }, [updateArrows]);
 
   const scroll = (direction: "left" | "right") => {
     const track = trackRef.current;
@@ -123,50 +199,13 @@ export default function PatientShowcase({ patients }: PatientShowcaseProps) {
             className="flex gap-4 sm:gap-5 overflow-x-auto scrollbar-hide px-1 py-2"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
-            {displayed.map((patient, i) => {
-              const slug = slugify(patient.name);
-              const country = patient.country_origin || patient.country_residence || "";
-              const videoSrc = `${supabaseUrl}/storage/v1/object/public/patients/${slug}.mp4`;
-              const posterSrc = `${supabaseUrl}/storage/v1/object/public/patients/${slug}.png`;
-
-              return (
-                <div
-                  key={`${patient.name}-${i}`}
-                  className="flex-shrink-0 w-[180px] sm:w-[220px] group/card"
-                >
-                  <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-200 shadow-md group-hover/card:shadow-xl transition-shadow duration-300">
-                    <video
-                      src={videoSrc}
-                      poster={posterSrc}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        target.style.display = "none";
-                        const parent = target.parentElement;
-                        if (parent && !parent.querySelector("img")) {
-                          const img = document.createElement("img");
-                          img.src = posterSrc;
-                          img.alt = patient.name;
-                          img.className = "w-full h-full object-cover absolute inset-0";
-                          parent.appendChild(img);
-                        }
-                      }}
-                    />
-                    <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 to-transparent" />
-                    <div className="absolute bottom-0 inset-x-0 p-3 sm:p-4 text-white">
-                      <h3 className="text-sm sm:text-base font-bold leading-tight">{patient.name}</h3>
-                      <p className="text-xs sm:text-sm text-white/80 mt-0.5">
-                        {patient.age} a&ntilde;os{country ? ` \u00b7 ${country}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {displayed.map((patient, i) => (
+              <PatientVideoCard
+                key={`${patient.name}-${i}`}
+                patient={patient}
+                supabaseUrl={supabaseUrl}
+              />
+            ))}
           </div>
         </div>
       </div>

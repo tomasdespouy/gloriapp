@@ -46,7 +46,7 @@ export default function FeaturesSection() {
         <ScrollReveal>
           <div className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-              Por que elegir GloriA
+              {"Por qu\u00e9 elegir GlorIA"}
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
               Herramientas disenadas para la formaci&oacute;n cl&iacute;nica del siglo XXI

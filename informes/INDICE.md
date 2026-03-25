@@ -15,3 +15,5 @@
 | INF-2026-011 | 2026-03-21 | Desarrollo | Hover visual global: translateY + box-shadow en button/a/select via globals.css, 0 componentes tocados | Mejora UX | desarrollo/INF-2026-011.pdf |
 | INF-2026-012 | 2026-03-23 | Desarrollo | Grabación en vivo: análisis semántico, pre-sesión, mobile-first, historial dual, fix micrófono | Mejora UX + Nueva funcionalidad | desarrollo/INF-2026-012.pdf |
 | INF-2026-013 | 2026-03-23 | Desarrollo | Comparativo GlorIA 1.0 vs 5.0 + Análisis incidente OpenAI Assistants API (runs queued) | Informativo + Preventivo | desarrollo/INF-2026-013.pdf |
+| INF-2026-014 | 2026-03-25 | Incidente | Corrección bugs GlorIA 1.0: JWT 1h→8h + modal historial docente (ESC/X/overlay) | Correctivo | incidente/INF-2026-014.pdf |
+| INF-2026-015 | 2026-03-25 | Desarrollo | GlorIA 5.0: landing, módulos institucionales, impersonación, walkie-talkie, vista docente/estudiante | Informativo | desarrollo/INF-2026-015.pdf |
