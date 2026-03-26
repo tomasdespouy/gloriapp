@@ -106,6 +106,7 @@ export default function TeacherReviewClient({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(!!feedback?.teacher_comment || !!feedback?.teacher_score);
   const [editingAI, setEditingAI] = useState(false);
+  const [regeneratingEval, setRegeneratingEval] = useState(false);
   const [aiCommentary, setAiCommentary] = useState(competencies?.ai_commentary || "");
   const [editedScores, setEditedScores] = useState<Record<string, number>>({});
   const [editedStrengths, setEditedStrengths] = useState<string[]>(competencies?.strengths || []);
@@ -551,6 +552,35 @@ export default function TeacherReviewClient({
                 </div>
               </div>
             )}
+            {!competencies && (
+              <div className="bg-white rounded-xl border border-amber-200 p-5 text-center">
+                <Brain size={24} className="mx-auto text-amber-400 mb-2" />
+                <p className="text-sm font-medium text-gray-700 mb-1">Evaluación de competencias no disponible</p>
+                <p className="text-xs text-gray-400 mb-3">La evaluación IA no se generó al completar la sesión.</p>
+                <button
+                  onClick={async () => {
+                    setRegeneratingEval(true);
+                    try {
+                      const res = await fetch(`/api/sessions/${conversationId}/evaluate`, { method: "POST" });
+                      if (res.ok) {
+                        toast.success("Evaluación generada. Recargando...");
+                        setTimeout(() => window.location.reload(), 1000);
+                      } else {
+                        toast.error("Error al generar la evaluación.");
+                      }
+                    } catch {
+                      toast.error("Error de conexión.");
+                    }
+                    setRegeneratingEval(false);
+                  }}
+                  disabled={regeneratingEval}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-sidebar text-white text-sm font-medium rounded-lg hover:bg-[#354080] disabled:opacity-50 cursor-pointer"
+                >
+                  {regeneratingEval ? <Loader2 size={14} className="animate-spin" /> : <Brain size={14} />}
+                  {regeneratingEval ? "Generando..." : "Generar análisis de competencias"}
+                </button>
+              </div>
+            )}
 
             {/* Action Items — between competencies and teacher evaluation */}
             <ActionItemsPanel
@@ -681,6 +711,7 @@ function ActionItemsPanel({ conversationId, studentId, studentName, competencies
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [prevItems, setPrevItems] = useState<{ content: string; status: string; created_at: string }[]>([]);
+  const [manualItems, setManualItems] = useState<string[]>(["", "", ""]);
   const [showPrev, setShowPrev] = useState(false);
 
   // Load existing items for this conversation
@@ -723,7 +754,11 @@ function ActionItemsPanel({ conversationId, studentId, studentName, competencies
   const saveItems = async () => {
     setSaving(true);
     try {
-      const toSave = suggestions.map(s => ({ content: s }));
+      const allItems = [
+        ...suggestions.map(s => ({ content: s })),
+        ...manualItems.filter(m => m.trim()).map(m => ({ content: m.trim() })),
+      ];
+      const toSave = allItems;
       const res = await fetch("/api/docente/action-items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -732,6 +767,7 @@ function ActionItemsPanel({ conversationId, studentId, studentName, competencies
       if (!res.ok) throw new Error("Error al guardar accionables");
       toast.success("Accionables enviados al estudiante");
       setSuggestions([]);
+      setManualItems(["", "", ""]);
       // Reload
       const r = await fetch("/api/docente/action-items?conversation_id=" + conversationId);
       if (r.ok) setItems(await r.json());
@@ -810,9 +846,36 @@ function ActionItemsPanel({ conversationId, studentId, studentName, competencies
         </div>
       )}
 
-      {/* No items yet */}
-      {items.length === 0 && suggestions.length === 0 && !generating && (
-        <p className="text-xs text-gray-400 text-center py-3">Sin accionables. Usa "Sugerir con IA" para generar.</p>
+      {/* Manual input fields */}
+      {items.length === 0 && (
+        <div className="space-y-2 mb-3">
+          <p className="text-[10px] text-gray-500 font-medium">Accionables manuales:</p>
+          {manualItems.map((item, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <span className="text-[10px] text-gray-400 w-4 text-right">{i + 1}.</span>
+              <input
+                value={item}
+                onChange={(e) => setManualItems(prev => { const u = [...prev]; u[i] = e.target.value; return u; })}
+                placeholder="Escribe un accionable..."
+                className="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-sidebar/30"
+              />
+              {i >= 3 && (
+                <button onClick={() => setManualItems(prev => prev.filter((_, j) => j !== i))}
+                  className="text-gray-300 hover:text-red-400 text-xs">x</button>
+              )}
+            </div>
+          ))}
+          <button onClick={() => setManualItems(prev => [...prev, ""])}
+            className="text-[10px] text-sidebar hover:underline cursor-pointer">
+            + Agregar otro
+          </button>
+          {(manualItems.some(m => m.trim()) || suggestions.length > 0) && (
+            <button onClick={saveItems} disabled={saving}
+              className="w-full text-xs bg-emerald-600 text-white px-3 py-2 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 cursor-pointer mt-1">
+              {saving ? "Enviando..." : "Enviar accionables al estudiante"}
+            </button>
+          )}
+        </div>
       )}
 
       {/* Previous agreements */}

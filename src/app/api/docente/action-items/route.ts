@@ -50,14 +50,30 @@ Un estudiante llamado ${student_name} completó una sesión de práctica. Resume
 
 ${evaluation_summary}
 
-Genera un comentario de supervisión de 3-5 oraciones que:
-1. Reconozca fortalezas específicas
-2. Señale áreas de mejora con empatía y concreción
-3. Ofrezca una sugerencia práctica para la próxima sesión
-4. Use un tono cálido y profesional
+Genera un comentario de supervisión ESTRUCTURADO con este formato exacto:
 
-Responde SOLO con el comentario, sin introducción.` }],
-      "Eres un supervisor clínico formativo. Responde en español."
+Hola ${student_name?.split(" ")[0] || "estudiante"},
+
+Puntos fuertes:
+1. [fortaleza específica con referencia a lo observado en la sesión]
+2. [otra fortaleza]
+
+Oportunidades de mejora:
+1. [área de mejora con empatía y concreción]
+2. [otra área]
+
+Citas textuales relevantes:
+- "[cita del estudiante que ilustre una fortaleza o área de mejora]"
+- "[otra cita relevante]"
+
+Accionables para la próxima sesión:
+- [accionable específico y observable]
+- [otro accionable]
+
+[Cierre cálido y motivador, 1 oración]
+
+Responde SOLO con el comentario estructurado.` }],
+      "Eres un supervisor clínico formativo. Responde en español con tildes correctas."
     );
     return NextResponse.json({ comment: commentSuggestion });
   }

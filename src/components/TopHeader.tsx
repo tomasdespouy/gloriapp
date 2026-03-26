@@ -46,7 +46,7 @@ export default function TopHeader({ userName, userEmail, userRole, realRole, ava
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const loadNotifications = useCallback(async () => {
-    const res = await fetch("/api/notifications");
+    const res = await fetch(`/api/notifications?role=${userRole}`);
     if (res.ok) {
       setNotifications(await res.json());
       setNotifLoaded(true);

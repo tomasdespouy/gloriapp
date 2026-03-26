@@ -129,7 +129,7 @@ export default function DocenteStudentList({ students, defaultFilter }: Props) {
                   </p>
                   <p className="text-[11px] text-gray-400">
                     {student.sessions_completed > 0
-                      ? `${student.sessions_completed} ${student.sessions_completed === 1 ? "sesión" : "sesiones"}`
+                      ? `${student.sessions_completed} ${student.sessions_completed === 1 ? "sesión" : "sesiones"}${student.pending_count > 0 ? ` · ${student.pending_count} por evaluar` : ""}`
                       : "Sin actividad"}
                   </p>
                 </div>
