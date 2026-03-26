@@ -5,6 +5,7 @@ import {
   Users, ClipboardCheck, TrendingUp, AlertTriangle,
   ChevronRight, MessageSquare, Clock, Calendar,
 } from "lucide-react";
+import { getUserProfile } from "@/lib/supabase/user-profile";
 import DocenteStudentList, { type StudentData } from "./DocenteStudentList";
 
 export default async function DocenteDashboard({
@@ -17,18 +18,28 @@ export default async function DocenteDashboard({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const userProfile = await getUserProfile();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name")
+    .select("full_name, establishment_id")
     .eq("id", user.id)
     .single();
 
-  // All students
-  const { data: students } = await supabase
+  // Use the impersonated establishment_id for proper scoping
+  const establishmentId = userProfile?.establishmentId || profile?.establishment_id;
+
+  // Students scoped to establishment
+  let studentsQuery = supabase
     .from("profiles")
     .select("id, full_name, email, created_at")
     .eq("role", "student")
     .order("full_name");
+
+  if (establishmentId) {
+    studentsQuery = studentsQuery.eq("establishment_id", establishmentId);
+  }
+
+  const { data: students } = await studentsQuery;
 
   const studentIds = students?.map((s) => s.id) || [];
 

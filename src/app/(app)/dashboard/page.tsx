@@ -11,30 +11,22 @@ export default async function Dashboard() {
   if (!userProfile) redirect("/login");
 
   const supabase = await createClient();
+  const admin = createAdminClient();
 
-  // Tutor onboarding check
-  if (userProfile.role === "student") {
-    const { data: tutorProgress } = await supabase
-      .from("learning_progress")
-      .select("id")
-      .eq("student_id", userProfile.id)
-      .eq("competency", "tutor")
-      .limit(1);
+  // Round 1: Tutor check + profile + establishment data in parallel
+  const [{ data: tutorProgress }, { data: studentProfile }] = await Promise.all([
+    userProfile.role === "student"
+      ? supabase.from("learning_progress").select("id").eq("student_id", userProfile.id).eq("competency", "tutor").limit(1)
+      : Promise.resolve({ data: [{ id: "skip" }] }),
+    supabase.from("profiles").select("establishment_id").eq("id", userProfile.id).single(),
+  ]);
 
-    if (!tutorProgress || tutorProgress.length === 0) {
-      redirect("/aprendizaje/tutor");
-    }
+  if (userProfile.role === "student" && (!tutorProgress || tutorProgress.length === 0)) {
+    redirect("/aprendizaje/tutor");
   }
 
-  // Get student's visible patient IDs (by establishment country + explicit assignments)
-  const { data: studentProfile } = await supabase
-    .from("profiles")
-    .select("establishment_id")
-    .eq("id", userProfile.id)
-    .single();
-
-  const admin = createAdminClient();
-  let visiblePatientIds: string[] | null = null; // null = no filtering (superadmin/no establishment)
+  // Round 2: Establishment-based patient visibility (only if establishment exists)
+  let visiblePatientIds: string[] | null = null;
   if (studentProfile?.establishment_id) {
     const { data: est } = await admin
       .from("establishments")
@@ -59,7 +51,7 @@ export default async function Dashboard() {
     visiblePatientIds = Array.from(ids);
   }
 
-  // All queries in parallel
+  // Round 3: All main data in parallel (single batch)
   const [
     { data: progress },
     { data: recentSessions },

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import TeacherReviewClient from "./TeacherReviewClient";
 
@@ -47,12 +48,20 @@ export default async function DocenteSesionPage({ params }: Props) {
     .eq("conversation_id", conversationId)
     .single();
 
-  // Get feedback (student reflection + teacher evaluation)
-  const { data: feedback } = await supabase
-    .from("session_feedback")
-    .select("*")
-    .eq("conversation_id", conversationId)
-    .single();
+  // Get feedback + summary in parallel
+  const admin = createAdminClient();
+  const [{ data: feedback }, { data: summaryRow }] = await Promise.all([
+    supabase
+      .from("session_feedback")
+      .select("*")
+      .eq("conversation_id", conversationId)
+      .single(),
+    admin
+      .from("session_summaries")
+      .select("summary")
+      .eq("conversation_id", conversationId)
+      .maybeSingle(),
+  ]);
 
   const patient = conversation.ai_patients as unknown as {
     name: string; age: number; occupation: string; difficulty_level: string;
@@ -68,7 +77,9 @@ export default async function DocenteSesionPage({ params }: Props) {
       messages={messages || []}
       competencies={competencies}
       feedback={feedback}
-      feedbackStatus={(competencies?.feedback_status as "pending" | "approved") || "pending"}
+      feedbackStatus={(competencies?.feedback_status as "pending" | "approved" | "evaluated") || "pending"}
+      summary={summaryRow?.summary || null}
+      messageCount={messages?.length || 0}
     />
   );
 }

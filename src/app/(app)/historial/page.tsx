@@ -14,6 +14,7 @@ export default async function HistorialPage() {
       .from("conversations")
       .select(`
         id, ai_patient_id, session_number, status, created_at, ended_at, active_seconds, student_notes_v2,
+        messages(count),
         session_competencies(overall_score_v2, eval_version, ai_commentary, strengths, areas_to_improve, feedback_status,
           setting_terapeutico, motivo_consulta, datos_contextuales, objetivos,
           escucha_activa, actitud_no_valorativa, optimismo, presencia, conducta_no_verbal, contencion_afectos),
@@ -39,10 +40,14 @@ export default async function HistorialPage() {
     : { data: [] };
 
   const patientMap = new Map((patientsData || []).map((p) => [p.id, p]));
-  const sessions = (rawSessions || []).map((s) => ({
-    ...s,
-    ai_patients: patientMap.get(s.ai_patient_id) || null,
-  }));
+  const sessions = (rawSessions || []).map((s) => {
+    const msgArr = s.messages as unknown as { count: number }[] | null;
+    return {
+      ...s,
+      ai_patients: patientMap.get(s.ai_patient_id) || null,
+      message_count: msgArr?.[0]?.count ?? 0,
+    };
+  });
 
   const summaryMap: Record<string, { summary: string; revelations: string[] }> = {};
   summaries?.forEach(s => {
@@ -67,9 +72,20 @@ export default async function HistorialPage() {
     <div className="min-h-screen">
       <header className="px-4 sm:px-8 py-5">
         <h1 className="text-2xl font-bold text-gray-900">Mi historial</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {completedCount} sesiones &middot; {patientCount} pacientes &middot; {observationCount} grabaciones
-        </p>
+        <div className="flex items-center gap-3 mt-3">
+          <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 flex items-center gap-2">
+            <span className="text-lg font-bold text-sidebar">{completedCount}</span>
+            <span className="text-xs text-gray-500">sesiones</span>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 flex items-center gap-2">
+            <span className="text-lg font-bold text-sidebar">{patientCount}</span>
+            <span className="text-xs text-gray-500">pacientes</span>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 flex items-center gap-2">
+            <span className="text-lg font-bold text-sidebar">{observationCount}</span>
+            <span className="text-xs text-gray-500">grabaciones</span>
+          </div>
+        </div>
       </header>
       <div className="px-4 sm:px-8 pb-8">
         <HistorialClient sessions={sessions || []} summaryMap={summaryMap} observations={observations} />

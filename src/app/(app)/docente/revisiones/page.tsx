@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
+import { getUserProfile } from "@/lib/supabase/user-profile";
 import RevisionesClient from "./RevisionesClient";
 
 export default async function RevisionesPage() {
@@ -7,8 +9,23 @@ export default async function RevisionesPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch all completed sessions needing review
-  const { data: sessions } = await supabase
+  const userProfile = await getUserProfile();
+  const establishmentId = userProfile?.establishmentId;
+
+  // Get student IDs scoped to establishment
+  const admin = createAdminClient();
+  let studentIdsInScope: string[] | null = null;
+  if (establishmentId) {
+    const { data: scopedStudents } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("role", "student")
+      .eq("establishment_id", establishmentId);
+    studentIdsInScope = scopedStudents?.map(s => s.id) || [];
+  }
+
+  // Fetch completed sessions scoped to establishment students
+  let sessionsQuery = supabase
     .from("conversations")
     .select(`
       id, student_id, ai_patient_id, session_number, status, created_at,
@@ -19,10 +36,19 @@ export default async function RevisionesPage() {
     .eq("status", "completed")
     .order("created_at", { ascending: false });
 
-  // Get student names (include all roles so impersonating superadmins are visible too)
+  if (studentIdsInScope && studentIdsInScope.length > 0) {
+    sessionsQuery = sessionsQuery.in("student_id", studentIdsInScope);
+  } else if (studentIdsInScope && studentIdsInScope.length === 0) {
+    // No students in this establishment
+    sessionsQuery = sessionsQuery.in("student_id", ["00000000-0000-0000-0000-000000000000"]);
+  }
+
+  const { data: sessions } = await sessionsQuery;
+
+  // Get student names
   const studentIds = [...new Set((sessions || []).map((s) => s.student_id))];
   const { data: students } = studentIds.length > 0
-    ? await supabase.from("profiles").select("id, full_name").in("id", studentIds)
+    ? await admin.from("profiles").select("id, full_name").in("id", studentIds)
     : { data: [] as { id: string; full_name: string | null }[] };
 
   // Build student name map

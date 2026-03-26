@@ -18,6 +18,7 @@ interface Session {
   ended_at: string | null;
   active_seconds: number | null;
   student_notes_v2: string | null;
+  message_count: number;
   ai_patients: unknown;
   session_competencies: unknown;
   session_feedback: unknown;
@@ -47,7 +48,7 @@ interface Props {
 export default function HistorialClient({ sessions, summaryMap, observations: initialObservations = [] }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "completed" | "active">("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPatient, setFilterPatient] = useState<string>("all");
   const [view, setView] = useState<"list" | "grouped">("list");
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -59,6 +60,8 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
   const [observationsList, setObservationsList] = useState(initialObservations);
   const [deletingObs, setDeletingObs] = useState<string | null>(null);
   const [confirmDeleteObs, setConfirmDeleteObs] = useState<string | null>(null);
+  const [generatingSummary, setGeneratingSummary] = useState<string | null>(null);
+  const [localSummaries, setLocalSummaries] = useState<Record<string, { summary: string; revelations: string[] }>>(summaryMap);
 
   const loadMessages = async (conversationId: string) => {
     if (messagesMap[conversationId]) return; // already loaded
@@ -74,6 +77,19 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
     }
   };
 
+  const generateSummary = async (conversationId: string) => {
+    setGeneratingSummary(conversationId);
+    try {
+      const res = await fetch(`/api/sessions/${conversationId}/summary`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setLocalSummaries(prev => ({ ...prev, [conversationId]: { summary: data.summary, revelations: data.key_revelations || [] } }));
+      }
+    } finally {
+      setGeneratingSummary(null);
+    }
+  };
+
   const patients = useMemo(() => {
     const map = new Map<string, string>();
     sessions.forEach(s => { const p = s.ai_patients as Patient | null; if (p) map.set(s.ai_patient_id, p.name); });
@@ -84,10 +100,19 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
     return sessions.filter(s => {
       const p = s.ai_patients as Patient | null;
       if (search && !(p?.name || "").toLowerCase().includes(search.toLowerCase())) return false;
-      if (filterStatus === "completed" && s.status !== "completed") return false;
+      const comp = ((s.session_competencies as Comp[] | null)?.[0]) ?? null;
+      const fbStatus = comp?.feedback_status;
       if (filterStatus === "active" && s.status !== "active" && s.status !== "abandoned") return false;
+      if (filterStatus === "pending" && !(s.status === "completed" && (!fbStatus || fbStatus === "pending"))) return false;
+      if (filterStatus === "approved" && fbStatus !== "approved") return false;
+      if (filterStatus === "evaluated" && fbStatus !== "evaluated") return false;
+      if (filterStatus === "completed" && s.status !== "completed") return false;
       if (filterPatient !== "all" && s.ai_patient_id !== filterPatient) return false;
       return true;
+    }).sort((a, b) => {
+      const aDate = a.ended_at || a.created_at;
+      const bDate = b.ended_at || b.created_at;
+      return new Date(bDate).getTime() - new Date(aDate).getTime();
     });
   }, [sessions, search, filterStatus, filterPatient]);
 
@@ -111,11 +136,11 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
     }
   };
 
-  // Group by date
+  // Group by date (using ended_at when available)
   const groupedByDate = useMemo(() => {
     const map = new Map<string, Session[]>();
     filtered.forEach(s => {
-      const d = new Date(s.created_at);
+      const d = new Date(s.ended_at || s.created_at);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(s);
@@ -141,11 +166,23 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
   const formatDateLabel = (key: string) => {
     const d = new Date(key + "T12:00:00");
     const today = new Date();
+    const days = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
     const months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    const full = `${days[d.getDay()]} ${d.getDate()} de ${months[d.getMonth()]}`;
+    if (d.toDateString() === today.toDateString()) return `Hoy - ${full}`;
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return `Ayer - ${full}`;
+    return full;
+  };
+
+  const formatShortDate = (iso: string) => {
+    const d = new Date(iso);
+    const today = new Date();
     if (d.toDateString() === today.toDateString()) return "Hoy";
     const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
     if (d.toDateString() === yesterday.toDateString()) return "Ayer";
-    return `${d.getDate()} de ${months[d.getMonth()]} ${d.getFullYear()}`;
+    const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    return `${days[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`;
   };
 
   const formatDuration = (sec: number | null) => {
@@ -184,7 +221,7 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
     const patient = session.ai_patients as Patient | null;
     const comp = ((session.session_competencies as Comp[] | null)?.[0]) ?? null;
     const fb = ((session.session_feedback as Fb[] | null)?.[0]) ?? null;
-    const summary = summaryMap[session.id];
+    const summary = localSummaries[session.id];
     const msgs = messagesMap[session.id] || [];
     const slug = getSlug(patient?.name || "");
     const currentNotes = notes[session.id] ?? session.student_notes_v2 ?? "";
@@ -313,9 +350,21 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-gray-400 text-center py-4">
-                  {session.status === "completed" ? "Resumen no disponible" : "Se genera al completar la sesión"}
-                </p>
+                <div className="text-center py-4">
+                  <p className="text-xs text-gray-400 mb-2">
+                    {session.status === "completed" ? "Resumen no disponible" : "Se genera al completar la sesión"}
+                  </p>
+                  {session.status === "completed" && (
+                    <button
+                      onClick={() => generateSummary(session.id)}
+                      disabled={generatingSummary === session.id}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sidebar text-white text-xs font-medium rounded-lg hover:bg-[#354080] disabled:opacity-50 cursor-pointer"
+                    >
+                      <Sparkles size={11} />
+                      {generatingSummary === session.id ? "Generando..." : "Generar resumen"}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
 
@@ -356,9 +405,10 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
     const comp = ((session.session_competencies as Comp[] | null)?.[0]) ?? null;
     const fb = ((session.session_feedback as Fb[] | null)?.[0]) ?? null;
     const isCompleted = session.status === "completed";
-    const isApproved = comp?.feedback_status === "approved";
+    const isEvaluated = comp?.feedback_status === "evaluated";
+    const isApproved = comp?.feedback_status === "approved" || isEvaluated;
     const score = comp && Number(comp.eval_version) === 2 ? Number(comp.overall_score_v2) : null;
-    const summary = summaryMap[session.id];
+    const summary = localSummaries[session.id];
     const slug = getSlug(patient?.name || "");
 
     return (
@@ -366,7 +416,7 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
         key={session.id}
         onClick={() => handleSessionClick(session)}
         className={`w-full text-left bg-white rounded-xl border overflow-hidden hover:shadow-md transition-all cursor-pointer ${
-          !isCompleted ? "border-gray-100" : isApproved ? "border-gray-200" : "border-amber-200"
+          !isCompleted ? "border-gray-100" : isEvaluated ? "border-green-200" : isApproved ? "border-gray-200" : "border-amber-200"
         }`}
       >
         <div className="flex items-start gap-3 p-4">
@@ -376,10 +426,23 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-gray-900">Sesión #{session.session_number} &middot; {patient?.name}</p>
-            <p className="text-[11px] text-gray-400 flex items-center gap-1 mt-0.5">
-              <Clock size={10} /> {formatTime(session.created_at)}
-              {session.active_seconds ? ` · ${formatDuration(session.active_seconds)}` : ""}
-            </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[11px] text-gray-400">
+              {(() => {
+                const sameDay = session.ended_at && session.created_at.substring(0, 10) === session.ended_at.substring(0, 10);
+                return (
+                  <>
+                    <span className="flex items-center gap-1">
+                      <Clock size={10} /> Inicio: {!sameDay && session.ended_at ? `${formatShortDate(session.created_at)} ` : ""}{formatTime(session.created_at)}
+                    </span>
+                    {session.ended_at && (
+                      <span>Término: {!sameDay ? `${formatShortDate(session.ended_at)} ` : ""}{formatTime(session.ended_at)}</span>
+                    )}
+                  </>
+                );
+              })()}
+              {session.active_seconds ? <span>Duración: {formatDuration(session.active_seconds)}</span> : null}
+              {session.message_count > 0 && <span>{session.message_count} mensajes</span>}
+            </div>
             {summary && (
               <p className="text-[11px] text-gray-500 mt-1.5 line-clamp-2 leading-relaxed">{summary.summary}</p>
             )}
@@ -391,12 +454,16 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
                 <span className="text-sm font-bold text-sidebar">{score.toFixed(1)}</span>
               </div>
             )}
-            {isApproved ? (
+            {isEvaluated ? (
               <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <CheckCircle2 size={9} /> Evaluada
+              </span>
+            ) : isApproved ? (
+              <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full flex items-center gap-1">
                 <CheckCircle2 size={9} /> Revisada
               </span>
             ) : isCompleted ? (
-              <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Pendiente</span>
+              <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Pendiente de revisi&oacute;n</span>
             ) : session.status === "abandoned" ? (
               <span className="text-[10px] text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Abandonada</span>
             ) : (
@@ -512,36 +579,41 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
         </div>
       )}
 
+      {/* Filters — full width above the two-column layout */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-white rounded-xl border border-gray-200 p-3 mb-4">
+        <div className="w-full sm:flex-1 sm:min-w-[180px] relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..."
+            className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30 focus:bg-white" />
+        </div>
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+          className="flex-1 sm:flex-none px-2 sm:px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm text-gray-700 hover:border-gray-300 cursor-pointer">
+          <option value="all">Todas</option>
+          <option value="active">En curso</option>
+          <option value="pending">Pendiente de revisión</option>
+          <option value="approved">Revisada</option>
+          <option value="evaluated">Evaluada</option>
+          <option value="completed">Completadas</option>
+        </select>
+        <select value={filterPatient} onChange={(e) => setFilterPatient(e.target.value)}
+          className="flex-1 sm:flex-none px-2 sm:px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm text-gray-700 hover:border-gray-300 cursor-pointer min-w-0">
+          <option value="all">Todos los pacientes</option>
+          {patients.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
+        <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+          <button onClick={() => setView("list")} className={`px-2.5 sm:px-3 py-2 cursor-pointer ${view === "list" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><List size={14} /></button>
+          <button onClick={() => setView("grouped")} className={`px-2.5 sm:px-3 py-2 cursor-pointer ${view === "grouped" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><LayoutGrid size={14} /></button>
+        </div>
+      </div>
+
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
         {/* LEFT: Conversations */}
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <div className="w-full sm:flex-1 sm:min-w-[180px] relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30" />
-            </div>
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as "all" | "completed" | "active")}
-              className="flex-1 sm:flex-none px-2 sm:px-3 py-2 border border-gray-200 rounded-lg text-xs sm:text-sm text-gray-600 hover:border-gray-300 cursor-pointer">
-              <option value="all">Todas</option>
-              <option value="completed">Completadas</option>
-              <option value="active">En curso</option>
-            </select>
-            <select value={filterPatient} onChange={(e) => setFilterPatient(e.target.value)}
-              className="flex-1 sm:flex-none px-2 sm:px-3 py-2 border border-gray-200 rounded-lg text-xs sm:text-sm text-gray-600 hover:border-gray-300 cursor-pointer min-w-0">
-              <option value="all">Todos los pacientes</option>
-              {patients.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-            </select>
-            <div className="flex border border-gray-200 rounded-lg overflow-hidden">
-              <button onClick={() => setView("list")} className={`px-2.5 sm:px-3 py-2 cursor-pointer ${view === "list" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><List size={14} /></button>
-              <button onClick={() => setView("grouped")} className={`px-2.5 sm:px-3 py-2 cursor-pointer ${view === "grouped" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}><LayoutGrid size={14} /></button>
-            </div>
-          </div>
-
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1 flex items-center gap-1.5">
-            <MessageSquare size={12} /> Conversaciones con pacientes IA ({filtered.length})
-          </p>
+          <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2 px-1">
+            <MessageSquare size={14} className="text-sidebar" /> Conversaciones con pacientes IA
+            <span className="text-xs font-normal text-gray-400">({filtered.length})</span>
+          </h2>
 
           {filtered.length === 0 ? (
             <div className="text-center py-12">
@@ -591,15 +663,18 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
                       {patientSessions.map(s => {
                         const comp = ((s.session_competencies as Comp[] | null)?.[0]) ?? null;
                         const score = comp && Number(comp.eval_version) === 2 ? Number(comp.overall_score_v2) : null;
-                        const isApproved = comp?.feedback_status === "approved";
+                        const isEvaluated = comp?.feedback_status === "evaluated";
+                        const isApproved = comp?.feedback_status === "approved" || isEvaluated;
                         return (
                           <button key={s.id} onClick={() => handleSessionClick(s)}
                             className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left cursor-pointer">
                             <span className="text-xs text-gray-600 w-20">Sesión #{s.session_number}</span>
                             <span className="text-[11px] text-gray-400 flex-1">{formatTime(s.created_at)} {formatDuration(s.active_seconds) ? `· ${formatDuration(s.active_seconds)}` : ""}</span>
                             <span className="text-xs font-medium text-sidebar w-10">{score && score > 0 ? score.toFixed(1) : "—"}</span>
-                            {isApproved ? (
-                              <span className="text-[10px] text-green-600">Revisada</span>
+                            {isEvaluated ? (
+                              <span className="text-[10px] text-green-600">Evaluada</span>
+                            ) : isApproved ? (
+                              <span className="text-[10px] text-blue-600">Revisada</span>
                             ) : s.status === "completed" ? (
                               <span className="text-[10px] text-amber-600">Pendiente</span>
                             ) : (
@@ -619,9 +694,10 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
 
         {/* RIGHT: Recordings */}
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1 flex items-center gap-1.5">
-            <Radio size={12} /> Grabaciones en vivo ({filteredObservations.length})
-          </p>
+          <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2 px-1">
+            <Radio size={14} className="text-sidebar" /> Grabaciones en vivo
+            <span className="text-xs font-normal text-gray-400">({filteredObservations.length})</span>
+          </h2>
 
           {filteredObservations.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-xl border border-gray-200">

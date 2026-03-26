@@ -39,10 +39,12 @@ export type ChatMessage = {
  */
 export async function chat(
   messages: ChatMessage[],
-  systemPrompt?: string
+  systemPrompt?: string,
+  options?: { lite?: boolean }
 ): Promise<string> {
+  const model = options?.lite ? chatModel : evalModel;
   if (provider === "openai") {
-    return chatOpenAI(messages, systemPrompt, evalModel);
+    return chatOpenAI(messages, systemPrompt, model);
   }
   return chatGemini(messages, systemPrompt);
 }

@@ -64,7 +64,9 @@ interface Props {
   messages: Message[];
   competencies: Competencies | null;
   feedback: Feedback | null;
-  feedbackStatus: "pending" | "approved";
+  feedbackStatus: "pending" | "approved" | "evaluated";
+  summary?: string | null;
+  messageCount?: number;
 }
 
 const COMP_V2_LABELS: { key: string; label: string; domain: string }[] = [
@@ -90,10 +92,13 @@ export default function TeacherReviewClient({
   competencies,
   feedback,
   feedbackStatus,
+  summary,
+  messageCount,
 }: Props) {
   const router = useRouter();
   const [comment, setComment] = useState(feedback?.teacher_comment || "");
-  const [isApproved, setIsApproved] = useState(feedbackStatus === "approved");
+  const isEvaluated = feedbackStatus === "evaluated";
+  const [isApproved, setIsApproved] = useState(feedbackStatus === "approved" || feedbackStatus === "evaluated");
   const [approving, setApproving] = useState(false);
   const [score, setScore] = useState<string>(
     feedback?.teacher_score != null ? String(feedback.teacher_score) : ""
@@ -238,10 +243,16 @@ export default function TeacherReviewClient({
               Pendiente de aprobación
             </span>
           )}
-          {isApproved && (
-            <span className="text-[10px] font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full flex items-center gap-1">
+          {isApproved && !isEvaluated && (
+            <span className="text-[10px] font-medium text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full flex items-center gap-1">
               <CheckCircle size={10} />
               Aprobada
+            </span>
+          )}
+          {isEvaluated && (
+            <span className="text-[10px] font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full flex items-center gap-1">
+              <CheckCircle size={10} />
+              Evaluada
             </span>
           )}
         </div>
@@ -288,10 +299,21 @@ export default function TeacherReviewClient({
               <div className="flex items-center gap-4 text-xs text-gray-400">
                 <span className="flex items-center gap-1">
                   <MessageSquare size={12} />
-                  {chatMessages.length} msgs
+                  {messageCount || chatMessages.length} mensajes
                 </span>
               </div>
             </div>
+
+            {/* AI Summary */}
+            {summary && (
+              <div className="bg-sidebar/5 border border-sidebar/15 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles size={14} className="text-sidebar" />
+                  <p className="text-xs font-semibold text-sidebar">Resumen de la sesión (IA)</p>
+                </div>
+                <p className="text-sm text-gray-700 leading-relaxed">{summary}</p>
+              </div>
+            )}
 
             {/* Chat transcript */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -670,6 +692,7 @@ export default function TeacherReviewClient({
                                 if (!res.ok) throw new Error("Error al aprobar");
                                 setIsApproved(true);
                                 toast.success("Retroalimentaci\u00f3n aprobada y enviada al estudiante");
+                                setTimeout(() => router.push("/docente/revisiones"), 1500);
                               } catch {
                                 toast.error("Error al aprobar. Intenta de nuevo.");
                               }

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { LEARNING_DATA } from "@/lib/learning-data";
 import { createClient } from "@/lib/supabase/server";
 import { GraduationCap, Lock } from "lucide-react";
-import AskGloriaBubble from "./AskGloriaBubble";
 
 export default async function AprendizajePage() {
   const supabase = await createClient();
@@ -138,7 +137,6 @@ export default async function AprendizajePage() {
           })}
         </div>
       </div>
-      <AskGloriaBubble />
     </div>
   );
 }

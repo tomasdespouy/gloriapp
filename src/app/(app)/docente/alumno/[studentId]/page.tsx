@@ -97,21 +97,18 @@ export default async function DocenteAlumnoPage({ params }: Props) {
 
   const pendingCount = completedSessions.filter((s) => {
     const comp = (s.session_competencies as CompRow[] | null)?.[0];
-    const fb = (s.session_feedback as FbRow[] | null)?.[0];
-    return comp && !(fb?.teacher_comment || fb?.teacher_score != null);
+    const status = comp ? String(comp.feedback_status) : "pending";
+    return status === "pending" || !comp;
   }).length;
 
   const reviewedCount = completedSessions.filter((s) => {
-    const fb = (s.session_feedback as FbRow[] | null)?.[0];
     const comp = (s.session_competencies as CompRow[] | null)?.[0];
-    const hasReview = fb?.teacher_comment || fb?.teacher_score != null;
-    const isApproved = comp && String(comp.feedback_status) === "approved";
-    return hasReview && !isApproved;
+    return comp && String(comp.feedback_status) === "approved";
   }).length;
 
   const closedCount = completedSessions.filter((s) => {
     const comp = (s.session_competencies as CompRow[] | null)?.[0];
-    return comp && String(comp.feedback_status) === "approved";
+    return comp && String(comp.feedback_status) === "evaluated";
   }).length;
 
   const initials = student.full_name
