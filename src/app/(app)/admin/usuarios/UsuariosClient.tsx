@@ -7,7 +7,7 @@ import {
   ToggleLeft, ToggleRight, Trash2, RotateCcw, Pencil,
   ChevronLeft, ChevronRight,
   Upload, FileText, AlertCircle, CheckCircle,
-  CheckSquare, X, Loader2,
+  CheckSquare, X, Loader2, KeyRound,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -94,6 +94,7 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [resetConfirm, setResetConfirm] = useState<string | null>(null);
   const [toggleConfirm, setToggleConfirm] = useState<string | null>(null);
+  const [passwordResetConfirm, setPasswordResetConfirm] = useState<string | null>(null);
 
   // Bulk selection state
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
@@ -248,6 +249,25 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
     }
   };
 
+  const resetPassword = async (userId: string) => {
+    setActionLoading(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/reset-password`, { method: "POST" });
+      if (!res.ok) throw new Error("Error del servidor");
+      const data = await res.json();
+      if (data.emailSent) {
+        toast.success("Contraseña restablecida y correo enviado");
+      } else {
+        toast.success("Contraseña restablecida (correo no configurado)");
+      }
+      setPasswordResetConfirm(null);
+    } catch {
+      toast.error("Error al restablecer la contraseña");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const SortHeader = ({ label, sortKeyName, align = "left" }: { label: string; sortKeyName: SortKey; align?: string }) => (
     <th
       className={`text-${align} text-xs font-semibold text-gray-500 px-4 py-3 cursor-pointer hover:text-sidebar hover:bg-gray-50 transition-colors select-none`}
@@ -368,6 +388,11 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
                     )}
                     {isSuperadmin && u.role !== "superadmin" && (
                       <>
+                        <button onClick={() => setPasswordResetConfirm(u.id)} disabled={isLoading}
+                          className="action-btn action-btn-sidebar text-gray-300"
+                          title="Restablecer contraseña">
+                          <KeyRound size={14} />
+                        </button>
                         <button onClick={() => setResetConfirm(u.id)} disabled={isLoading}
                           className="action-btn action-btn-amber text-gray-300"
                           title="Restaurar datos iniciales">
@@ -491,6 +516,11 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
                       <td className="px-4 py-3">
                         {isSuperadmin && u.role !== "superadmin" && (
                           <div className="flex items-center justify-center gap-1">
+                            <button onClick={() => setPasswordResetConfirm(u.id)} disabled={isLoading}
+                              className="action-btn action-btn-sidebar text-gray-300"
+                              title="Restablecer contraseña">
+                              <KeyRound size={14} />
+                            </button>
                             <button onClick={() => setResetConfirm(u.id)} disabled={isLoading}
                               className="action-btn action-btn-amber text-gray-300"
                               title="Restaurar datos iniciales">
@@ -700,6 +730,47 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
                   {actionLoading === toggleConfirm ? "Procesando..." : willDisable ? "Sí, desactivar" : "Sí, activar"}
                 </button>
                 <button onClick={() => setToggleConfirm(null)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Password reset confirmation modal */}
+      {passwordResetConfirm && (() => {
+        const u = users.find((x) => x.id === passwordResetConfirm);
+        if (!u) return null;
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setPasswordResetConfirm(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4 animate-pop" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-sidebar/10 flex items-center justify-center">
+                  <KeyRound size={24} className="text-sidebar" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">¿Restablecer contraseña?</h3>
+                  <p className="text-xs text-gray-400">{u.full_name || u.email}</p>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-sm text-blue-800 font-medium mb-2">Al restablecer la contraseña:</p>
+                <ul className="space-y-1.5 text-sm text-blue-700">
+                  <li className="flex items-start gap-2"><span className="mt-0.5">•</span> Se generará una nueva contraseña temporal</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5">•</span> Se enviará un correo a <strong>{u.email}</strong> con las nuevas credenciales</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5">•</span> La contraseña anterior dejará de funcionar inmediatamente</li>
+                </ul>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button onClick={() => resetPassword(passwordResetConfirm)} disabled={actionLoading === passwordResetConfirm}
+                  className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold cursor-pointer hover:opacity-90 transition-opacity">
+                  {actionLoading === passwordResetConfirm ? "Enviando..." : "Sí, restablecer contraseña"}
+                </button>
+                <button onClick={() => setPasswordResetConfirm(null)}
                   className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">
                   Cancelar
                 </button>
