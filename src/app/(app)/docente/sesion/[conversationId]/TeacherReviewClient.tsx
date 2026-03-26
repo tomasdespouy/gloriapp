@@ -107,6 +107,7 @@ export default function TeacherReviewClient({
   const [saved, setSaved] = useState(!!feedback?.teacher_comment || !!feedback?.teacher_score);
   const [editingAI, setEditingAI] = useState(false);
   const [regeneratingEval, setRegeneratingEval] = useState(false);
+  const [feedbackStyle, setFeedbackStyle] = useState<"executive" | "descriptive">("executive");
   const [aiCommentary, setAiCommentary] = useState(competencies?.ai_commentary || "");
   const [editedScores, setEditedScores] = useState<Record<string, number>>({});
   const [editedStrengths, setEditedStrengths] = useState<string[]>(competencies?.strengths || []);
@@ -155,6 +156,7 @@ export default function TeacherReviewClient({
           conversation_id: conversationId,
           student_name: student.full_name,
           evaluation_summary: summary,
+          style: feedbackStyle,
         }),
       });
       const data = await res.json();
@@ -323,7 +325,7 @@ export default function TeacherReviewClient({
                   Transcripción del chat
                 </p>
               </div>
-              <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+              <div className="p-4 space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto">
                 {chatMessages.map((msg) => {
                   const isStudent = msg.role === "user";
                   return (
@@ -393,6 +395,13 @@ export default function TeacherReviewClient({
                 <div className="flex items-center gap-2 mb-3">
                   <Brain size={16} className="text-sidebar" />
                   <h3 className="text-sm font-semibold text-gray-900">Evaluación IA</h3>
+                  {!editingAI ? (
+                    <button onClick={() => setEditingAI(true)} className="text-[10px] text-sidebar hover:underline cursor-pointer ml-1">Ajustar</button>
+                  ) : (
+                    <button onClick={saveAIEdits} disabled={savingEdits} className="text-[10px] text-green-600 font-medium hover:underline cursor-pointer ml-1">
+                      {savingEdits ? "Guardando..." : "Guardar"}
+                    </button>
+                  )}
                   <span className="ml-auto text-lg font-bold text-sidebar">
                     {(Number(competencies.overall_score_v2) || Number(competencies.overall_score) || 0).toFixed(1)}
                     <span className="text-[10px] font-normal text-gray-400 ml-0.5">/4</span>
@@ -613,11 +622,23 @@ export default function TeacherReviewClient({
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-medium text-gray-700">Comentario de supervisión</label>
-                  <button onClick={generateSupervisorComment} disabled={generatingComment}
-                    className="flex items-center gap-1 text-[11px] text-purple-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
-                    {generatingComment ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                    {generatingComment ? "Generando..." : "Sugerir con IA"}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                      <button onClick={() => setFeedbackStyle("executive")}
+                        className={`text-[9px] px-2 py-1 cursor-pointer ${feedbackStyle === "executive" ? "bg-purple-600 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
+                        Ejecutivo
+                      </button>
+                      <button onClick={() => setFeedbackStyle("descriptive")}
+                        className={`text-[9px] px-2 py-1 cursor-pointer ${feedbackStyle === "descriptive" ? "bg-purple-600 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
+                        Descriptivo
+                      </button>
+                    </div>
+                    <button onClick={generateSupervisorComment} disabled={generatingComment}
+                      className="flex items-center gap-1 text-[11px] text-purple-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+                      {generatingComment ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                      {generatingComment ? "Generando..." : "Sugerir con IA"}
+                    </button>
+                  </div>
                 </div>
                 <textarea value={comment}
                   onChange={(e) => { setComment(e.target.value); setSaved(false); }}

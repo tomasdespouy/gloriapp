@@ -43,12 +43,13 @@ export default async function DocenteDashboard({
 
   const studentIds = students?.map((s) => s.id) || [];
 
-  // All progress rows + all completed sessions in parallel
-  const [{ data: allProgress }, { data: allSessions }] = await Promise.all([
+  // All progress rows + ALL sessions (not just completed) in parallel
+  const noStudents = ["00000000-0000-0000-0000-000000000000"];
+  const [{ data: allProgress }, { data: allConversations }] = await Promise.all([
     supabase
       .from("student_progress")
       .select("student_id, level, level_name, total_xp, sessions_completed, current_streak, last_session_date")
-      .in("student_id", studentIds.length > 0 ? studentIds : ["00000000-0000-0000-0000-000000000000"]),
+      .in("student_id", studentIds.length > 0 ? studentIds : noStudents),
     supabase
       .from("conversations")
       .select(`
@@ -57,10 +58,12 @@ export default async function DocenteDashboard({
         session_feedback(teacher_comment, teacher_score),
         session_competencies(overall_score)
       `)
-      .eq("status", "completed")
-      .in("student_id", studentIds.length > 0 ? studentIds : ["00000000-0000-0000-0000-000000000000"])
+      .in("student_id", studentIds.length > 0 ? studentIds : noStudents)
       .order("created_at", { ascending: false }),
   ]);
+
+  const allSessions = allConversations?.filter(s => s.status === "completed") || [];
+  const allSessionsIncludingActive = allConversations || [];
 
   // Build progress map
   const progressMap = new Map<string, typeof allProgress extends (infer T)[] | null ? T : never>();
@@ -68,7 +71,7 @@ export default async function DocenteDashboard({
 
   // Compute metrics
   const totalStudents = students?.length || 0;
-  const totalSessions = allSessions?.length || 0;
+  const totalSessions = allSessionsIncludingActive.length;
 
   type FbRow = { teacher_comment: string | null; teacher_score: number | null };
   type CompRow = { overall_score: number };
@@ -94,7 +97,7 @@ export default async function DocenteDashboard({
   // Count sessions and pending per student from actual conversations
   const sessionsByStudent = new Map<string, number>();
   const pendingByStudent = new Map<string, number>();
-  allSessions?.forEach((s) => {
+  allSessionsIncludingActive.forEach((s) => {
     sessionsByStudent.set(s.student_id, (sessionsByStudent.get(s.student_id) || 0) + 1);
   });
   pendingSessions.forEach((s) => {

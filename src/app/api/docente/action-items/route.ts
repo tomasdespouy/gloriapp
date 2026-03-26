@@ -42,20 +42,25 @@ export async function POST(request: Request) {
 
   // AI supervisor comment generation
   if (body.action === "suggest_comment") {
-    const { student_name, evaluation_summary } = body;
-    const commentSuggestion = await chat(
-      [{ role: "user", content: `Eres un docente supervisor de psicología clínica con enfoque formativo.
+    const { student_name, evaluation_summary, style } = body;
+    const firstName = student_name?.split(" ")[0] || "estudiante";
+    const isDescriptive = style === "descriptive";
 
-Un estudiante llamado ${student_name} completó una sesión de práctica. Resumen de la evaluación IA:
+    const styleInstructions = isDescriptive
+      ? `Escribe en párrafos narrativos fluidos (NO en formato de punteo/lista).
+Párrafo 1: Saludo y valoración del espacio de supervisión y la formación clínica.
+Párrafo 2: Describe las fortalezas observadas con detalle y citas textuales integradas en la narrativa.
+Párrafo 3: Describe las oportunidades de mejora con empatía, integrando citas textuales que ilustren.
+Párrafo 4: Propón accionables concretos para la próxima sesión.
+Párrafo 5: Cierre mencionando que habrá un espacio conjunto para profundizar en esta retroalimentación.`
+      : `Usa formato estructurado con este esquema:
 
-${evaluation_summary}
+Hola ${firstName},
 
-Genera un comentario de supervisión ESTRUCTURADO con este formato exacto:
-
-Hola ${student_name?.split(" ")[0] || "estudiante"},
+[1-2 oraciones valorando el espacio de supervisión y la importancia de la formación clínica]
 
 Puntos fuertes:
-1. [fortaleza específica con referencia a lo observado en la sesión]
+1. [fortaleza específica con referencia a lo observado]
 2. [otra fortaleza]
 
 Oportunidades de mejora:
@@ -70,9 +75,20 @@ Accionables para la próxima sesión:
 - [accionable específico y observable]
 - [otro accionable]
 
-[Cierre cálido y motivador, 1 oración]
+[Cierre motivador mencionando que habrá un espacio conjunto para profundizar en esta retroalimentación]`;
 
-Responde SOLO con el comentario estructurado.` }],
+    const commentSuggestion = await chat(
+      [{ role: "user", content: `Eres un docente supervisor de psicología clínica con enfoque formativo.
+
+Un estudiante llamado ${student_name} completó una sesión de práctica. Resumen de la evaluación IA:
+
+${evaluation_summary}
+
+Genera un comentario de supervisión con el siguiente estilo:
+
+${styleInstructions}
+
+Responde SOLO con el comentario.` }],
       "Eres un supervisor clínico formativo. Responde en español con tildes correctas."
     );
     return NextResponse.json({ comment: commentSuggestion });
@@ -89,7 +105,7 @@ Un estudiante llamado ${student_name} completó una sesión de práctica. Aquí 
 
 ${evaluation_summary}
 
-Genera 3-5 accionables específicos para la próxima sesión. Cada accionable debe:
+Genera exactamente 3 accionables específicos para la próxima sesión (ni más ni menos). Cada accionable debe:
 1. Ser específico y observable (no genérico)
 2. Tener mentalidad de crecimiento (no punitivo)
 3. Incluir una acción concreta que el estudiante puede practicar
