@@ -55,7 +55,7 @@ export default async function AppLayout({
     <div className="flex h-screen overflow-hidden">
       <Suspense><NavigationProgress /></Suspense>
       <Sidebar role={role} establishmentLogoUrl={establishmentLogoUrl} activeModules={activeModules} />
-      <div className="ml-0 md:ml-[260px] flex-1 flex flex-col min-h-0">
+      <div className="ml-0 md:ml-[260px] flex-1 flex flex-col min-h-0 min-w-0">
         <TopHeader
           userName={fullName}
           userEmail={email}
