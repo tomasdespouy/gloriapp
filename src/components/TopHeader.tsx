@@ -251,7 +251,7 @@ export default function TopHeader({ userName, userEmail, userRole, realRole, ava
                         </p>
                         {n.body && <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-2">{n.body}</p>}
                         <p className="text-[10px] text-gray-300 mt-1">
-                          {new Date(n.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                          {new Date(n.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short" })} {new Date(n.created_at).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                         </p>
                       </div>
                     </div>

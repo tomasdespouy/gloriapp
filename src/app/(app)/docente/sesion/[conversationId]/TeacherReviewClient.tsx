@@ -294,7 +294,7 @@ export default function TeacherReviewClient({
               })()}
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-900">
-                  {patient.name}, {patient.age} años
+                  {patient.name}, {patient.age} años — Sesión #{sessionNumber}
                 </p>
                 <p className="text-xs text-gray-500">
                   {patient.occupation} &middot; {difficultyLabel[patient.difficulty_level] || patient.difficulty_level}
@@ -396,12 +396,14 @@ export default function TeacherReviewClient({
                 <div className="flex items-center gap-2 mb-3">
                   <Brain size={16} className="text-sidebar" />
                   <h3 className="text-sm font-semibold text-gray-900">Evaluación IA</h3>
-                  {!editingAI ? (
-                    <button onClick={() => setEditingAI(true)} className="text-[10px] text-sidebar hover:underline cursor-pointer ml-1">Ajustar</button>
-                  ) : (
-                    <button onClick={saveAIEdits} disabled={savingEdits} className="text-[10px] text-green-600 font-medium hover:underline cursor-pointer ml-1">
-                      {savingEdits ? "Guardando..." : "Guardar"}
-                    </button>
+                  {!wasAlreadyApproved && (
+                    !editingAI ? (
+                      <button onClick={() => setEditingAI(true)} className="text-[10px] text-sidebar hover:underline cursor-pointer ml-1">Ajustar</button>
+                    ) : (
+                      <button onClick={saveAIEdits} disabled={savingEdits} className="text-[10px] text-green-600 font-medium hover:underline cursor-pointer ml-1">
+                        {savingEdits ? "Guardando..." : "Guardar"}
+                      </button>
+                    )
                   )}
                   <span className="ml-auto text-lg font-bold text-sidebar">
                     {(Number(competencies.overall_score_v2) || Number(competencies.overall_score) || 0).toFixed(1)}
@@ -598,6 +600,7 @@ export default function TeacherReviewClient({
               studentId={student.id}
               studentName={student.full_name}
               competencies={competencies}
+              locked={wasAlreadyApproved}
             />
 
             {/* Teacher evaluation form */}
@@ -730,8 +733,8 @@ export default function TeacherReviewClient({
   );
 }
 
-function ActionItemsPanel({ conversationId, studentId, studentName, competencies }: {
-  conversationId: string; studentId: string; studentName: string; competencies: Competencies | null;
+function ActionItemsPanel({ conversationId, studentId, studentName, competencies, locked = false }: {
+  conversationId: string; studentId: string; studentName: string; competencies: Competencies | null; locked?: boolean;
 }) {
   const [items, setItems] = useState<{ id: string; content: string; status: string; resource_link: string | null; student_comment: string | null }[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -818,7 +821,7 @@ function ActionItemsPanel({ conversationId, studentId, studentName, competencies
           <CheckCircle size={16} className="text-emerald-500" />
           <h3 className="text-sm font-semibold text-gray-900">Accionables</h3>
         </div>
-        {items.length === 0 && suggestions.length === 0 && (
+        {!locked && items.length === 0 && suggestions.length === 0 && (
           <button onClick={generateSuggestions} disabled={generating}
             className="text-[10px] text-sidebar font-medium hover:underline flex items-center gap-1">
             {generating ? "Generando..." : "Sugerir con IA"}
@@ -875,7 +878,7 @@ function ActionItemsPanel({ conversationId, studentId, studentName, competencies
       )}
 
       {/* Manual input fields */}
-      {items.length === 0 && (
+      {!locked && items.length === 0 && (
         <div className="space-y-2 mb-3">
           <p className="text-[10px] text-gray-500 font-medium">Accionables manuales:</p>
           {manualItems.map((item, i) => (

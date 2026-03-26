@@ -56,7 +56,7 @@ export default async function DocenteDashboard({
         id, student_id, ai_patient_id, session_number, status, created_at,
         ai_patients(name, tags),
         session_feedback(teacher_comment, teacher_score),
-        session_competencies(overall_score)
+        session_competencies(overall_score, overall_score_v2, feedback_status)
       `)
       .in("student_id", studentIds.length > 0 ? studentIds : noStudents)
       .order("created_at", { ascending: false }),
@@ -73,23 +73,25 @@ export default async function DocenteDashboard({
   const totalStudents = students?.length || 0;
   const totalSessions = allSessionsIncludingActive.length;
 
-  type FbRow = { teacher_comment: string | null; teacher_score: number | null };
-  type CompRow = { overall_score: number };
+  type CompRow = { overall_score: number; overall_score_v2: number; feedback_status: string };
 
-  const pendingSessions = allSessions?.filter((s) => {
-    const fb = (s.session_feedback as FbRow[] | null)?.[0];
-    return !fb?.teacher_comment && !fb?.teacher_score;
-  }) || [];
-
-  const reviewedSessions = allSessions?.filter((s) => {
-    const fb = (s.session_feedback as FbRow[] | null)?.[0];
-    return fb?.teacher_comment || fb?.teacher_score;
-  }) || [];
-
-  const allScores = allSessions?.flatMap((s) => {
+  const pendingSessions = allSessions.filter((s) => {
     const comp = (s.session_competencies as CompRow[] | null)?.[0];
-    return comp?.overall_score != null ? [Number(comp.overall_score)] : [];
-  }) || [];
+    const status = comp?.feedback_status || "pending";
+    return status === "pending";
+  });
+
+  const reviewedSessions = allSessions.filter((s) => {
+    const comp = (s.session_competencies as CompRow[] | null)?.[0];
+    const status = comp?.feedback_status;
+    return status === "approved" || status === "evaluated";
+  });
+
+  const allScores = allSessions.flatMap((s) => {
+    const comp = (s.session_competencies as CompRow[] | null)?.[0];
+    const score = comp?.overall_score_v2 ?? comp?.overall_score;
+    return score != null && Number(score) > 0 ? [Number(score)] : [];
+  });
   const avgScore = allScores.length > 0
     ? (allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(1)
     : "\u2014";
