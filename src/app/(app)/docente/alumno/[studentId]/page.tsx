@@ -54,6 +54,7 @@ export default async function DocenteAlumnoPage({ params }: Props) {
     .from("conversations")
     .select(`
       id, ai_patient_id, session_number, status, created_at, ended_at, active_seconds,
+      messages(count),
       ai_patients(name, difficulty_level, tags),
       session_competencies(
         setting_terapeutico, motivo_consulta, datos_contextuales, objetivos,
@@ -238,6 +239,8 @@ export default async function DocenteAlumnoPage({ params }: Props) {
 
                 const patientSlug = patient?.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-") || "";
                 const sessionSummary = summaryMap.get(session.id);
+                const msgArr = (session as Record<string, unknown>).messages as unknown as { count: number }[] | null;
+                const messageCount = msgArr?.[0]?.count ?? 0;
 
                 return (
                   <Link
@@ -267,7 +270,7 @@ export default async function DocenteAlumnoPage({ params }: Props) {
                             <AlertTriangle size={12} className="text-red-500 flex-shrink-0" />
                           )}
                           <p className="text-sm font-bold text-gray-900 truncate">
-                            #{session.session_number} {patient?.name}
+                            {patient?.name} - Sesión #{session.session_number}
                           </p>
                         </div>
                         <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${
@@ -296,6 +299,7 @@ export default async function DocenteAlumnoPage({ params }: Props) {
                         {durationMin != null && (
                           <span className="text-gray-500 font-medium">Efectivo: {durationMin}:{durationSec} minutos</span>
                         )}
+                        {messageCount > 0 && <span>{messageCount} mensajes</span>}
                       </div>
                     </div>
 

@@ -8,9 +8,7 @@ export interface StudentData {
   id: string;
   full_name: string | null;
   email: string;
-  level_name: string | null;
   sessions_completed: number;
-  current_streak: number;
   last_session_date: string | null;
   pending_count: number;
 }
@@ -35,12 +33,8 @@ export default function DocenteStudentList({ students, defaultFilter }: Props) {
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
   const filtered = students.filter((s) => {
-    // Search filter
     const q = search.toLowerCase();
-    if (q && !(s.full_name?.toLowerCase().includes(q) || s.email.toLowerCase().includes(q))) {
-      return false;
-    }
-    // Status filter
+    if (q && !(s.full_name?.toLowerCase().includes(q) || s.email.toLowerCase().includes(q))) return false;
     if (filter === "pending" && s.pending_count === 0) return false;
     if (filter === "inactive") {
       if (s.last_session_date && new Date(s.last_session_date) >= sevenDaysAgo) return false;
@@ -114,7 +108,7 @@ export default function DocenteStudentList({ students, defaultFilter }: Props) {
 
       {/* Student list */}
       {filtered.length > 0 ? (
-        <div className="space-y-1 max-h-[400px] overflow-y-auto">
+        <div className="space-y-1">
           {filtered.map((student) => {
             const initials = student.full_name
               ?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "?";
@@ -134,9 +128,9 @@ export default function DocenteStudentList({ students, defaultFilter }: Props) {
                     {student.full_name || student.email}
                   </p>
                   <p className="text-[11px] text-gray-400">
-                    {student.level_name || "Sin actividad"} &middot; {student.sessions_completed}{" "}
-                    {student.sessions_completed === 1 ? "sesi\u00f3n" : "sesiones"}
-                    {student.current_streak > 0 && <span> &middot; {student.current_streak}d racha</span>}
+                    {student.sessions_completed > 0
+                      ? `${student.sessions_completed} ${student.sessions_completed === 1 ? "sesión" : "sesiones"}`
+                      : "Sin actividad"}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

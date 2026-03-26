@@ -552,93 +552,64 @@ export default function TeacherReviewClient({
               </div>
             )}
 
+            {/* Action Items — between competencies and teacher evaluation */}
+            <ActionItemsPanel
+              conversationId={conversationId}
+              studentId={student.id}
+              studentName={student.full_name}
+              competencies={competencies}
+            />
+
             {/* Teacher evaluation form */}
             <div className="bg-white rounded-xl border border-purple-200 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <GraduationCap size={16} className="text-purple-600" />
-                <h3 className="text-sm font-semibold text-gray-900">
-                  {saved ? "Tu evaluación" : "Evaluar esta sesión"}
-                </h3>
-                {saved && (
-                  <CheckCircle size={14} className="text-green-500 ml-auto" />
-                )}
+                <h3 className="text-sm font-semibold text-gray-900">Tu evaluación</h3>
+                {saved && <CheckCircle size={14} className="text-green-500 ml-auto" />}
               </div>
 
               {/* Score input */}
               <div className="mb-4">
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Nota (0 - 10)
-                </label>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Nota (0 - 10)</label>
                 <input
-                  type="number"
-                  min="0"
-                  max="10"
-                  step="0.5"
-                  value={score}
+                  type="number" min="0" max="10" step="0.5" value={score}
                   onChange={(e) => { setScore(e.target.value); setSaved(false); }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                  placeholder="7.5"
+                  placeholder=""
                 />
               </div>
 
-              {/* Comment */}
+              {/* Structured comment */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-medium text-gray-700">
-                    Comentario de supervisión
-                  </label>
-                  <button
-                    onClick={generateSupervisorComment}
-                    disabled={generatingComment}
-                    className="flex items-center gap-1 text-[11px] text-purple-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
+                  <label className="block text-xs font-medium text-gray-700">Comentario de supervisión</label>
+                  <button onClick={generateSupervisorComment} disabled={generatingComment}
+                    className="flex items-center gap-1 text-[11px] text-purple-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
                     {generatingComment ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                     {generatingComment ? "Generando..." : "Sugerir con IA"}
                   </button>
                 </div>
-                <textarea
-                  value={comment}
+                <textarea value={comment}
                   onChange={(e) => { setComment(e.target.value); setSaved(false); }}
-                  rows={5}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-400"
-                  placeholder="Observaciones sobre la sesión, técnicas utilizadas, sugerencias..."
+                  rows={8}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  placeholder={"Puntos fuertes:\n1. \n2. \n\nOportunidades de mejora:\n1. \n2. \n\nCitas textuales relevantes:\n- \n\nAccionables para la próxima sesión:\n- "}
                 />
               </div>
 
-              <button
-                onClick={handleSubmit}
-                disabled={saving || saved || (!comment.trim() && !score)}
+              <button onClick={handleSubmit} disabled={saving || saved || (!comment.trim() && !score)}
                 className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 hover:shadow-md ${
-                  saved
-                    ? "bg-green-100 text-green-700 cursor-default"
-                    : saving
-                    ? "bg-purple-300 text-white cursor-wait"
+                  saved ? "bg-green-100 text-green-700 cursor-default"
+                    : saving ? "bg-purple-300 text-white cursor-wait"
                     : "bg-purple-600 hover:bg-purple-700 text-white cursor-pointer"
-                }`}
-              >
-                {saved ? (
-                  <>
-                    <CheckCircle size={16} />
-                    Evaluación guardada
-                  </>
-                ) : saving ? (
-                  "Guardando..."
-                ) : (
-                  <>
-                    <Send size={16} />
-                    Guardar evaluación
-                  </>
-                )}
+                }`}>
+                {saved ? (<><CheckCircle size={16} /> Evaluación guardada</>) : saving ? "Guardando..." : (<><Send size={16} /> Guardar evaluación</>)}
               </button>
 
-              {/* Approve & release feedback button */}
-              <div className={`mt-4 p-4 rounded-xl border-2 ${
-                isApproved
-                  ? "bg-green-50 border-green-200"
-                  : "bg-amber-50 border-amber-200"
-              }`}>
+              {/* Approve */}
+              <div className={`mt-4 p-4 rounded-xl border-2 ${isApproved ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
                 {isApproved ? (
-                  <div className="flex items-center gap-2 text-green-700">
+                  <div className="flex items-center gap-2 text-green-700 animate-fade-in">
                     <CheckCircle size={18} />
                     <span className="text-sm font-medium">Retroalimentación aprobada y visible para el estudiante</span>
                   </div>
@@ -647,40 +618,26 @@ export default function TeacherReviewClient({
                     <p className="text-xs text-amber-700 font-medium mb-2">
                       El estudiante NO puede ver la retroalimentación hasta que la apruebes.
                     </p>
-                    <button
-                      onClick={() => setShowApproveConfirm(true)}
-                      disabled={approving}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 hover:shadow-md"
-                    >
-                      {approving ? "Aprobando..." : (
-                        <>
-                          <CheckCircle size={16} />
-                          Aprobar y liberar retroalimentación
-                        </>
-                      )}
+                    <button onClick={() => setShowApproveConfirm(true)} disabled={approving}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 hover:shadow-md">
+                      {approving ? "Aprobando..." : (<><CheckCircle size={16} /> Aprobar y liberar retroalimentación</>)}
                     </button>
-                    <p className="text-[10px] text-amber-600 mt-2">
-                      Se notificará al estudiante por la plataforma y por correo electrónico.
-                    </p>
+                    <p className="text-[10px] text-amber-600 mt-2">Se notificará al estudiante por la plataforma y por correo electrónico.</p>
 
-                    {/* Confirmation dialog */}
                     <Dialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
                       <DialogContent className="sm:max-w-md">
                         <DialogHeader>
-                          <DialogTitle>{"Confirmar aprobaci\u00f3n"}</DialogTitle>
+                          <DialogTitle>{"Confirmar aprobación"}</DialogTitle>
                           <DialogDescription>
-                            {"Al aprobar, el estudiante podr\u00e1 ver la retroalimentaci\u00f3n completa (evaluaci\u00f3n IA, tu comentario y nota). Esta acci\u00f3n no se puede deshacer."}
+                            {"Al aprobar, el estudiante podrá ver la retroalimentación completa (evaluación IA, tu comentario y nota). Esta acción no se puede deshacer."}
                           </DialogDescription>
                         </DialogHeader>
                         <DialogFooter className="gap-2 sm:gap-0">
-                          <button
-                            onClick={() => setShowApproveConfirm(false)}
-                            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-                          >
+                          <button onClick={() => setShowApproveConfirm(false)}
+                            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer">
                             Cancelar
                           </button>
-                          <button
-                            onClick={async () => {
+                          <button onClick={async () => {
                               setShowApproveConfirm(false);
                               setApproving(true);
                               try {
@@ -691,15 +648,14 @@ export default function TeacherReviewClient({
                                 });
                                 if (!res.ok) throw new Error("Error al aprobar");
                                 setIsApproved(true);
-                                toast.success("Retroalimentaci\u00f3n aprobada y enviada al estudiante");
+                                toast.success("Retroalimentación aprobada y enviada al estudiante");
                                 setTimeout(() => router.push("/docente/revisiones"), 1500);
                               } catch {
                                 toast.error("Error al aprobar. Intenta de nuevo.");
                               }
                               setApproving(false);
                             }}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors cursor-pointer hover:shadow-md"
-                          >
+                            className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors cursor-pointer hover:shadow-md">
                             Aprobar y liberar
                           </button>
                         </DialogFooter>
@@ -709,14 +665,6 @@ export default function TeacherReviewClient({
                 )}
               </div>
             </div>
-
-            {/* Action Items */}
-            <ActionItemsPanel
-              conversationId={conversationId}
-              studentId={student.id}
-              studentName={student.full_name}
-              competencies={competencies}
-            />
           </div>
         </div>
       </div>

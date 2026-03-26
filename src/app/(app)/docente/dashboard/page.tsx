@@ -91,8 +91,12 @@ export default async function DocenteDashboard({
     ? (allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(1)
     : "\u2014";
 
-  // Pending per student (for student list badges)
+  // Count sessions and pending per student from actual conversations
+  const sessionsByStudent = new Map<string, number>();
   const pendingByStudent = new Map<string, number>();
+  allSessions?.forEach((s) => {
+    sessionsByStudent.set(s.student_id, (sessionsByStudent.get(s.student_id) || 0) + 1);
+  });
   pendingSessions.forEach((s) => {
     pendingByStudent.set(s.student_id, (pendingByStudent.get(s.student_id) || 0) + 1);
   });
@@ -104,9 +108,7 @@ export default async function DocenteDashboard({
       id: s.id,
       full_name: s.full_name,
       email: s.email,
-      level_name: prog?.level_name || null,
-      sessions_completed: prog?.sessions_completed || 0,
-      current_streak: prog?.current_streak || 0,
+      sessions_completed: sessionsByStudent.get(s.id) || 0,
       last_session_date: prog?.last_session_date || null,
       pending_count: pendingByStudent.get(s.id) || 0,
     };
