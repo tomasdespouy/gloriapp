@@ -98,7 +98,8 @@ export default function TeacherReviewClient({
   const router = useRouter();
   const [comment, setComment] = useState(feedback?.teacher_comment || "");
   const isEvaluated = feedbackStatus === "evaluated";
-  const [isApproved, setIsApproved] = useState(feedbackStatus === "approved" || feedbackStatus === "evaluated");
+  const wasAlreadyApproved = feedbackStatus === "approved" || feedbackStatus === "evaluated";
+  const [isApproved, setIsApproved] = useState(wasAlreadyApproved);
   const [approving, setApproving] = useState(false);
   const [score, setScore] = useState<string>(
     feedback?.teacher_score != null ? String(feedback.teacher_score) : ""
@@ -613,7 +614,8 @@ export default function TeacherReviewClient({
                 <input
                   type="number" min="0" max="10" step="0.5" value={score}
                   onChange={(e) => { setScore(e.target.value); setSaved(false); }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  disabled={wasAlreadyApproved}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 ${wasAlreadyApproved ? "bg-gray-50 text-gray-500" : ""}`}
                   placeholder=""
                 />
               </div>
@@ -622,6 +624,7 @@ export default function TeacherReviewClient({
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-medium text-gray-700">Comentario de supervisión</label>
+                  {!wasAlreadyApproved && (
                   <div className="flex items-center gap-2">
                     <div className="flex border border-gray-200 rounded-lg overflow-hidden">
                       <button onClick={() => setFeedbackStyle("executive")}
@@ -639,15 +642,18 @@ export default function TeacherReviewClient({
                       {generatingComment ? "Generando..." : "Sugerir con IA"}
                     </button>
                   </div>
+                  )}
                 </div>
                 <textarea value={comment}
                   onChange={(e) => { setComment(e.target.value); setSaved(false); }}
+                  disabled={wasAlreadyApproved}
                   rows={8}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-purple-400 ${wasAlreadyApproved ? "bg-gray-50 text-gray-500" : ""}`}
                   placeholder={"Puntos fuertes:\n1. \n2. \n\nOportunidades de mejora:\n1. \n2. \n\nCitas textuales relevantes:\n- \n\nAccionables para la próxima sesión:\n- "}
                 />
               </div>
 
+              {!wasAlreadyApproved && (
               <button onClick={handleSubmit} disabled={saving || saved || (!comment.trim() && !score)}
                 className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 hover:shadow-md ${
                   saved ? "bg-green-100 text-green-700 cursor-default"
@@ -656,6 +662,7 @@ export default function TeacherReviewClient({
                 }`}>
                 {saved ? (<><CheckCircle size={16} /> Evaluación guardada</>) : saving ? "Guardando..." : (<><Send size={16} /> Guardar evaluación</>)}
               </button>
+              )}
 
               {/* Approve */}
               <div className={`mt-4 p-4 rounded-xl border-2 ${isApproved ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>

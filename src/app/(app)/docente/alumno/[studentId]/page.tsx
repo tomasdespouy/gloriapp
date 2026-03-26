@@ -104,7 +104,8 @@ export default async function DocenteAlumnoPage({ params }: Props) {
 
   const reviewedCount = completedSessions.filter((s) => {
     const comp = (s.session_competencies as CompRow[] | null)?.[0];
-    return comp && String(comp.feedback_status) === "approved";
+    const st = comp ? String(comp.feedback_status) : "";
+    return st === "approved" || st === "evaluated";
   }).length;
 
   const closedCount = completedSessions.filter((s) => {
@@ -224,7 +225,8 @@ export default async function DocenteAlumnoPage({ params }: Props) {
                 const comp = (session.session_competencies as CompRow[] | null)?.[0];
                 const fb = (session.session_feedback as FbRow[] | null)?.[0];
                 const isCompleted = session.status === "completed";
-                const hasTeacherReview = fb?.teacher_comment || fb?.teacher_score != null;
+                const fbStatus = comp ? String(comp.feedback_status) : null;
+                const isApproved = fbStatus === "approved" || fbStatus === "evaluated";
                 const isV2 = comp && Number(comp.eval_version) === 2;
                 const score = isV2 ? Number(comp.overall_score_v2) : null;
 
@@ -249,8 +251,8 @@ export default async function DocenteAlumnoPage({ params }: Props) {
                     className={`block bg-white rounded-xl border overflow-hidden transition-all ${
                       isCompleted ? "hover:shadow-md cursor-pointer" : "opacity-50 border-gray-100 pointer-events-none"
                     } ${
-                      hasRisk && !hasTeacherReview ? "border-red-300 ring-1 ring-red-200" :
-                      isCompleted && hasTeacherReview ? "border-gray-200" :
+                      hasRisk && !isApproved ? "border-red-300 ring-1 ring-red-200" :
+                      isApproved ? "border-green-200" :
                       isCompleted ? "border-amber-200" : "border-gray-100"
                     }`}
                   >
@@ -266,7 +268,7 @@ export default async function DocenteAlumnoPage({ params }: Props) {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          {hasRisk && !hasTeacherReview && (
+                          {hasRisk && !isApproved && (
                             <AlertTriangle size={12} className="text-red-500 flex-shrink-0" />
                           )}
                           <p className="text-sm font-bold text-gray-900 truncate">
@@ -314,10 +316,13 @@ export default async function DocenteAlumnoPage({ params }: Props) {
 
                     {/* Footer: status */}
                     <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                      {hasTeacherReview ? (
+                      {fbStatus === "evaluated" ? (
                         <span className="flex items-center gap-1 text-[10px] text-green-600">
-                          <CheckCircle2 size={11} />
-                          Revisada{fb?.teacher_score != null ? ` · ${Number(fb.teacher_score).toFixed(0)}/10` : ""}
+                          <CheckCircle2 size={11} /> Evaluada{fb?.teacher_score != null ? ` · ${Number(fb.teacher_score).toFixed(0)}/10` : ""}
+                        </span>
+                      ) : fbStatus === "approved" ? (
+                        <span className="flex items-center gap-1 text-[10px] text-blue-600">
+                          <CheckCircle2 size={11} /> Aprobada{fb?.teacher_score != null ? ` · ${Number(fb.teacher_score).toFixed(0)}/10` : ""}
                         </span>
                       ) : isCompleted ? (
                         <span className="flex items-center gap-1 text-[10px] font-medium text-amber-600">
