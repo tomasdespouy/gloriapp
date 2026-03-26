@@ -154,7 +154,7 @@ export default function TopHeader({ userName, userEmail, userRole, realRole, ava
     <header className="h-12 bg-[#2D3561] flex items-center justify-end pl-3 sm:pl-5 pr-3 sm:pr-5 gap-2">
       {/* Impersonation controls (superadmin only) */}
       {isSuperadmin && !isImpersonating && (
-        <div className="hidden sm:flex items-center gap-1.5 mr-auto">
+        <div className="hidden lg:flex items-center gap-1.5 mr-auto">
           <Eye size={13} className="text-white/40" />
           <select
             value={impRole}
@@ -290,7 +290,7 @@ export default function TopHeader({ userName, userEmail, userRole, realRole, ava
               <span className="text-[10px] font-bold text-white">{initials}</span>
             )}
           </div>
-          <span className="text-xs text-white/80 font-medium hidden sm:block max-w-[120px] truncate group-hover:text-white transition-colors">
+          <span className="text-xs text-white/80 font-medium hidden lg:block max-w-[120px] truncate group-hover:text-white transition-colors">
             {userName.split(" ")[0]}
           </span>
           <ChevronDown size={12} className={`text-white/50 transition-transform ${profileOpen ? "rotate-180" : ""}`} />

@@ -53,12 +53,22 @@ export async function GET() {
     error: process.env.RESEND_API_KEY ? undefined : "not configured (optional)",
   };
 
-  // Overall status
+  // Overall status: healthy | warning | degraded
   const criticalChecks = ["database", "openai", "llm_provider"];
   const allCriticalOk = criticalChecks.every((k) => checks[k]?.ok);
 
+  const dbMs = checks.database?.ms ?? 0;
+  const storageMs = checks.storage?.ms ?? 0;
+  const highLatency = dbMs > 500 || storageMs > 2000;
+
+  const status = !allCriticalOk
+    ? "degraded"
+    : highLatency
+      ? "warning"
+      : "healthy";
+
   return NextResponse.json({
-    status: allCriticalOk ? "healthy" : "degraded",
+    status,
     version: "2.0.0",
     uptime_ms: Date.now() - start,
     timestamp: new Date().toISOString(),

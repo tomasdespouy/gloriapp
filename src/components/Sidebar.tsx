@@ -4,11 +4,11 @@ import {
   Home, User, History, BarChart3, BookOpen, Info,
   Users, ClipboardCheck, LayoutDashboard, Building2,
   Accessibility, LifeBuoy, FlaskConical, DollarSign, Activity, FileText,
-  Briefcase, Rocket, Bell, Radio,
+  Briefcase, Rocket, Bell, Radio, ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Portal from "@/components/Portal";
 
 const studentNav = [
@@ -79,16 +79,30 @@ export default function Sidebar({
     : baseNavItems;
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [drawerIn, setDrawerIn] = useState(false);
 
-  // Close mobile drawer on route change
+  const openSidebar = () => {
+    setMobileOpen(true);
+    setTimeout(() => setDrawerIn(true), 10);
+  };
+
+  const closeSidebar = () => {
+    setDrawerIn(false);
+    setTimeout(() => setMobileOpen(false), 200);
+  };
+
+  // Close on route change (instant, no animation)
   const currentPath = pathname;
-  useState(() => { setMobileOpen(false); });
+  useEffect(() => {
+    setMobileOpen(false);
+    setDrawerIn(false);
+  }, [currentPath]);
 
   const sidebarContent = (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Logo */}
       <div className="px-6 pt-6 mb-10 flex-shrink-0">
-        <Link href={isAdmin ? "/admin/dashboard" : isInstructor ? "/docente/dashboard" : "/dashboard"} onClick={() => setMobileOpen(false)}>
+        <Link href={isAdmin ? "/admin/dashboard" : isInstructor ? "/docente/dashboard" : "/dashboard"} onClick={closeSidebar}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/branding/gloria-side-logo.png" alt="GlorIA" className="h-9 w-auto" />
         </Link>
@@ -111,7 +125,7 @@ export default function Sidebar({
             <Link
               key={item.label}
               href={item.href}
-              onClick={() => setMobileOpen(false)}
+              onClick={closeSidebar}
               className={`sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium w-full text-left ${
                 isActive ? "active text-white" : "text-white/70"
               }`}
@@ -147,8 +161,23 @@ export default function Sidebar({
       {/* Mobile overlay + drawer */}
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/50 cursor-pointer" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute left-0 top-0 h-full w-[280px] bg-sidebar flex flex-col text-white animate-slide-in-left">
+          <div
+            className="absolute inset-0 bg-black/50 cursor-pointer transition-opacity duration-200"
+            style={{ opacity: drawerIn ? 1 : 0 }}
+            onClick={closeSidebar}
+          />
+          <aside
+            className="absolute left-0 top-0 h-full w-[280px] bg-sidebar flex flex-col text-white transition-transform duration-200 ease-out"
+            style={{ transform: drawerIn ? "translateX(0)" : "translateX(-100%)" }}
+          >
+            {/* Close button */}
+            <button
+              onClick={closeSidebar}
+              className="absolute top-5 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer z-10"
+              aria-label="Cerrar menú"
+            >
+              <ArrowLeft size={18} />
+            </button>
             {sidebarContent}
           </aside>
         </div>
@@ -156,7 +185,7 @@ export default function Sidebar({
 
       {/* Mobile hamburger button — fixed top-left */}
       <button
-        onClick={() => setMobileOpen(true)}
+        onClick={openSidebar}
         className="md:hidden fixed top-3 left-3 z-40 w-10 h-10 rounded-lg bg-sidebar text-white flex items-center justify-center shadow-lg cursor-pointer hover:bg-white/10"
         aria-label="Abrir menú"
       >

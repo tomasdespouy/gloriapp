@@ -16,6 +16,7 @@ import {
   TrendingUp,
   TrendingDown,
   Loader2,
+  ExternalLink,
   FileText,
   Beaker,
   Calendar,
@@ -569,6 +570,7 @@ export default function AdminDashboardClient() {
         <div className="px-6 pb-8 space-y-6">
           {/* ── KPIs ── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {d.isSuperadmin && <SystemStatusCard />}
             <KPICard icon={Users} label="Inscritos" value={d.kpis.totalStudents} trend={d.trends.totalStudents} color="blue" />
             <KPICard icon={Activity} label="Activos" value={d.kpis.activeStudents} trend={d.trends.activeStudents} color="green" />
             <KPICard icon={Monitor} label="T. plataforma/día" value={`${d.kpis.avgPlatformMinutesPerDay} min`} trend={d.trends.avgPlatformMinutes} subtitle={`${d.kpis.avgPlatformMinutesTotal} min total`} color="cyan" />
@@ -1463,5 +1465,78 @@ function KPICard({
       <p className="text-[10px] text-gray-500 mt-0.5">{label}</p>
       {subtitle && <p className="text-[9px] text-gray-400">{subtitle}</p>}
     </div>
+  );
+}
+
+/* ─── System Status Card (superadmin only) ─── */
+
+type HealthStatus = "healthy" | "warning" | "degraded" | "loading" | "error";
+type HealthCheck = { ok: boolean; ms: number; error?: string };
+
+const STATUS_CONFIG: Record<HealthStatus, { label: string; color: string; dotColor: string; borderColor: string; bgColor: string }> = {
+  healthy:  { label: "Operativo",      color: "text-green-700",  dotColor: "bg-green-500",  borderColor: "border-green-200", bgColor: "bg-green-50" },
+  warning:  { label: "Latencia alta",  color: "text-amber-700",  dotColor: "bg-amber-400",  borderColor: "border-amber-200", bgColor: "bg-amber-50" },
+  degraded: { label: "Con problemas",  color: "text-red-700",    dotColor: "bg-red-500",    borderColor: "border-red-200",   bgColor: "bg-red-50" },
+  loading:  { label: "Verificando...", color: "text-gray-400",   dotColor: "bg-gray-300",   borderColor: "border-gray-200",  bgColor: "bg-gray-50" },
+  error:    { label: "Sin conexión",   color: "text-red-700",    dotColor: "bg-red-500",    borderColor: "border-red-200",   bgColor: "bg-red-50" },
+};
+
+function SystemStatusCard() {
+  const [status, setStatus] = useState<HealthStatus>("loading");
+  const [checks, setChecks] = useState<Record<string, HealthCheck> | null>(null);
+
+  const fetchHealth = useCallback(async () => {
+    try {
+      const res = await fetch("/api/health", { cache: "no-store" });
+      if (!res.ok) { setStatus("error"); return; }
+      const data = await res.json();
+      setStatus(data.status as HealthStatus);
+      setChecks(data.checks);
+    } catch {
+      setStatus("error");
+      setChecks(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHealth();
+    const interval = setInterval(fetchHealth, 60_000);
+    return () => clearInterval(interval);
+  }, [fetchHealth]);
+
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.error;
+
+  // Count OK / total from checks
+  const checkEntries = checks ? Object.values(checks) : [];
+  const okCount = checkEntries.filter((c) => c.ok).length;
+  const totalCount = checkEntries.length;
+
+  return (
+    <Link
+      href="/admin/monitoreo"
+      className={`bg-white rounded-xl border ${cfg.borderColor} p-3.5 hover:shadow-md transition-shadow group block`}
+    >
+      <div className="flex items-center gap-2 mb-1.5">
+        <div className={`w-7 h-7 rounded-lg ${cfg.bgColor} flex items-center justify-center relative`}>
+          {/* Pulsing ring animation */}
+          <span className={`absolute inset-0 rounded-lg ${cfg.dotColor} opacity-20 animate-[ping_2s_ease-in-out_infinite]`} />
+          {/* Solid dot */}
+          <span className={`relative w-2.5 h-2.5 rounded-full ${cfg.dotColor} shadow-sm`}>
+            <span className={`absolute inset-0 rounded-full ${cfg.dotColor} animate-[pulse_2s_ease-in-out_infinite]`} />
+          </span>
+        </div>
+        <ExternalLink size={10} className="text-gray-300 ml-auto group-hover:text-sidebar transition-colors" />
+      </div>
+      <p className={`text-lg font-bold leading-tight ${status === "loading" ? "text-gray-300" : cfg.color}`}>
+        {cfg.label}
+      </p>
+      <p className="text-[10px] text-gray-500 mt-0.5">Estado sistema</p>
+      {checks && status !== "loading" && (
+        <p className="text-[9px] text-gray-400">
+          {okCount}/{totalCount} servicios OK
+          {checks.database && <span> · DB {checks.database.ms}ms</span>}
+        </p>
+      )}
+    </Link>
   );
 }

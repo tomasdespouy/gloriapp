@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopHeader from "@/components/TopHeader";
+import NavigationProgress from "@/components/NavigationProgress";
 import WelcomeVideoModal from "@/components/WelcomeVideoModal";
 import SurveyModal from "@/components/SurveyModal";
 import PlatformActivityTracker from "@/components/PlatformActivityTracker";
@@ -51,6 +53,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex h-screen overflow-hidden">
+      <Suspense><NavigationProgress /></Suspense>
       <Sidebar role={role} establishmentLogoUrl={establishmentLogoUrl} activeModules={activeModules} />
       <div className="ml-0 md:ml-[260px] flex-1 flex flex-col min-h-0">
         <TopHeader
