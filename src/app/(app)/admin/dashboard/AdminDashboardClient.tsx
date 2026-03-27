@@ -46,6 +46,7 @@ import {
   Marker,
 } from "react-simple-maps";
 import Link from "next/link";
+import LiveKPIPanel, { InfoTip } from "./LiveKPIPanel";
 
 /* ─────────────────────── Types ─────────────────────── */
 
@@ -54,6 +55,9 @@ type DashboardData = {
   kpis: {
     totalStudents: number;
     activeStudents: number;
+    onlineNow: number;
+    inSession: number;
+    platformMinutesToday: number;
     avgSessionMinutes: number;
     avgPlatformMinutesPerDay: number;
     avgPlatformMinutesTotal: number;
@@ -161,6 +165,16 @@ const CHART_TABS = [
   "Registros",
   "Institución",
   "Heatmap",
+];
+
+const DATE_PRESETS = [
+  { key: "today", label: "Hoy" },
+  { key: "7d", label: "7d" },
+  { key: "14d", label: "14d" },
+  { key: "30d", label: "30d" },
+  { key: "sem", label: "Sem" },
+  { key: "all", label: "Todo" },
+  { key: "custom", label: "Rango" },
 ];
 
 const FUNNEL_STEPS: { key: keyof DashboardData["funnel"]; label: string }[] = [
@@ -379,15 +393,7 @@ export default function AdminDashboardClient() {
     fetchData();
   }, [fetchData]);
 
-  // ── Auto-refresh every 5 minutes ──
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchData();
-      setLastRefresh(new Date());
-    }, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
 
   const handleManualRefresh = () => {
     fetchData();
@@ -426,12 +432,14 @@ export default function AdminDashboardClient() {
 
   const applyPreset = (key: string) => {
     setDatePreset(key);
+    if (key === "custom") return; // keep current dates, show pickers
     const now = new Date();
     const to = now.toISOString().split("T")[0];
     setDateTo(to);
-    if (key === "7d") setDateFrom(new Date(now.getTime() - 7 * 86400000).toISOString().split("T")[0]);
+    if (key === "today") setDateFrom(to);
+    else if (key === "7d") setDateFrom(new Date(now.getTime() - 7 * 86400000).toISOString().split("T")[0]);
+    else if (key === "14d") setDateFrom(new Date(now.getTime() - 14 * 86400000).toISOString().split("T")[0]);
     else if (key === "30d") setDateFrom(new Date(now.getTime() - 30 * 86400000).toISOString().split("T")[0]);
-    else if (key === "90d") setDateFrom(new Date(now.getTime() - 90 * 86400000).toISOString().split("T")[0]);
     else if (key === "sem") {
       const month = now.getMonth();
       const year = now.getFullYear();
@@ -478,9 +486,6 @@ export default function AdminDashboardClient() {
           establishment={establishment}
           course={course}
           section={section}
-          datePreset={datePreset}
-          dateFrom={dateFrom}
-          dateTo={dateTo}
           filteredEsts={filteredEsts}
           filteredCourses={filteredCourses}
           filteredSections={filteredSections}
@@ -488,11 +493,7 @@ export default function AdminDashboardClient() {
           onEst={handleEst}
           onCourse={handleCourse}
           onSection={(v) => setSection(v)}
-          onPreset={applyPreset}
-          onDateFrom={setDateFrom}
-          onDateTo={setDateTo}
           hasAlerts={hasAlerts}
-          loading={loading}
         />
       </aside>
 
@@ -520,9 +521,6 @@ export default function AdminDashboardClient() {
               establishment={establishment}
               course={course}
               section={section}
-              datePreset={datePreset}
-              dateFrom={dateFrom}
-              dateTo={dateTo}
               filteredEsts={filteredEsts}
               filteredCourses={filteredCourses}
               filteredSections={filteredSections}
@@ -530,11 +528,7 @@ export default function AdminDashboardClient() {
               onEst={handleEst}
               onCourse={handleCourse}
               onSection={(v) => setSection(v)}
-              onPreset={applyPreset}
-              onDateFrom={setDateFrom}
-              onDateTo={setDateTo}
               hasAlerts={hasAlerts}
-              loading={loading}
             />
           </aside>
         </div>
@@ -568,18 +562,65 @@ export default function AdminDashboardClient() {
         </header>
 
         <div className="px-6 pb-8 space-y-6">
-          {/* ── KPIs ── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {d.isSuperadmin && <SystemStatusCard />}
-            <KPICard icon={Users} label="Inscritos" value={d.kpis.totalStudents} trend={d.trends.totalStudents} color="blue" />
-            <KPICard icon={Activity} label="Activos" value={d.kpis.activeStudents} trend={d.trends.activeStudents} color="green" />
-            <KPICard icon={Monitor} label="T. plataforma/día" value={`${d.kpis.avgPlatformMinutesPerDay} min`} trend={d.trends.avgPlatformMinutes} subtitle={`${d.kpis.avgPlatformMinutesTotal} min total`} color="cyan" />
-            <KPICard icon={Clock} label="T. sesión prom." value={`${d.kpis.avgSessionMinutes} min`} trend={d.trends.avgSessionMinutes} color="amber" />
-            <KPICard icon={Target} label="Satisf. 1ra sesión" value={`${d.kpis.firstSessionScore}/4`} color="purple" />
-            <KPICard icon={ClipboardCheck} label="Autoevaluaciones" value={`${d.kpis.selfEvaluations.completed}/${d.kpis.selfEvaluations.total}`} subtitle={d.kpis.selfEvaluations.total > 0 ? `${Math.round((d.kpis.selfEvaluations.completed / d.kpis.selfEvaluations.total) * 100)}%` : undefined} color="teal" />
-            <KPICard icon={GraduationCap} label="Evals docentes" value={`${d.kpis.teacherEvaluations.completed}/${d.kpis.teacherEvaluations.total}`} subtitle={d.kpis.teacherEvaluations.total > 0 ? `${Math.round((d.kpis.teacherEvaluations.completed / d.kpis.teacherEvaluations.total) * 100)}%` : undefined} color="indigo" />
-            <KPICard icon={RefreshCw} label="Tasa retorno" value={`${d.kpis.returnRate}%`} color="emerald" />
-            <KPICard icon={FlaskConical} label="Pilotos" value={`${d.kpis.pilots.active} activos`} subtitle={`${d.kpis.pilots.completed} completos`} color="rose" />
+          {/* ── En vivo (self-polling panel) ── */}
+          <LiveKPIPanel showSystemStatus={d.isSuperadmin} />
+
+          {/* ── Acumulados ── */}
+          <div>
+            <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+              <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Acumulados</h2>
+              <div className="flex items-center gap-1 ml-auto">
+                {DATE_PRESETS.map((p) => (
+                  <button
+                    key={p.key}
+                    onClick={() => applyPreset(p.key)}
+                    className={`px-2 py-0.5 text-[10px] rounded-full transition-colors cursor-pointer ${
+                      datePreset === p.key
+                        ? "bg-sidebar text-white font-medium"
+                        : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {datePreset === "custom" && (
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="text-[11px] border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-sidebar/30"
+                />
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="text-[11px] border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-sidebar/30"
+                />
+              </div>
+            )}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <KPICard icon={Users} label="Inscritos" value={d.kpis.totalStudents} trend={d.trends.totalStudents} color="blue"
+                tooltip="Total de perfiles con rol estudiante dentro de las instituciones en tu alcance." />
+              <KPICard icon={Activity} label="Con sesiones" value={d.kpis.activeStudents} trend={d.trends.activeStudents} color="lime" alive={d.kpis.activeStudents > 0}
+                tooltip="Estudiantes que iniciaron al menos 1 conversación con un paciente IA en el período seleccionado." />
+              <KPICard icon={Monitor} label="T. plataforma/día" value={`${d.kpis.avgPlatformMinutesPerDay} min`} trend={d.trends.avgPlatformMinutes} subtitle={`${d.kpis.avgPlatformMinutesTotal} min total`} color="cyan" alive={d.kpis.avgPlatformMinutesPerDay > 0}
+                tooltip="Promedio diario de minutos en la plataforma por usuario activo. Se registra con un heartbeat cada 30 s." />
+              <KPICard icon={Clock} label="T. sesión prom." value={`${d.kpis.avgSessionMinutes} min`} trend={d.trends.avgSessionMinutes} color="amber"
+                tooltip="Duración promedio de las sesiones completadas (active_seconds > 0) en el período." />
+              <KPICard icon={Target} label="Satisf. 1ra sesión" value={`${d.kpis.firstSessionScore}/4`} color="purple"
+                tooltip="Puntaje promedio de competencias (escala 0-4) en la primera sesión completada de cada estudiante." />
+              <KPICard icon={ClipboardCheck} label="Autoevaluaciones" value={`${d.kpis.selfEvaluations.completed}/${d.kpis.selfEvaluations.total}`} subtitle={d.kpis.selfEvaluations.total > 0 ? `${Math.round((d.kpis.selfEvaluations.completed / d.kpis.selfEvaluations.total) * 100)}%` : undefined} color="teal"
+                tooltip="Estudiantes que completaron al menos una autoevaluación sobre el total con sesiones completadas." />
+              <KPICard icon={GraduationCap} label="Evals docentes" value={`${d.kpis.teacherEvaluations.completed}/${d.kpis.teacherEvaluations.total}`} subtitle={d.kpis.teacherEvaluations.total > 0 ? `${Math.round((d.kpis.teacherEvaluations.completed / d.kpis.teacherEvaluations.total) * 100)}%` : undefined} color="indigo"
+                tooltip="Estudiantes con al menos una evaluación de competencias aprobada por un docente." />
+              <KPICard icon={RefreshCw} label="Tasa retorno" value={`${d.kpis.returnRate}%`} color="emerald"
+                tooltip="Porcentaje de estudiantes con 2 o más sesiones completadas, sobre los que completaron al menos 1." />
+              <KPICard icon={FlaskConical} label="Pilotos" value={`${d.kpis.pilots.active} activos`} subtitle={`${d.kpis.pilots.completed} completos`} color="rose"
+                tooltip="Pilotos activos (en curso, validados o enviados) y finalizados registrados en el sistema." />
+            </div>
           </div>
 
           {/* ── Map + Funnel ── */}
@@ -1148,9 +1189,6 @@ function SidebarContent({
   establishment,
   course,
   section,
-  datePreset,
-  dateFrom,
-  dateTo,
   filteredEsts,
   filteredCourses,
   filteredSections,
@@ -1158,20 +1196,13 @@ function SidebarContent({
   onEst,
   onCourse,
   onSection,
-  onPreset,
-  onDateFrom,
-  onDateTo,
   hasAlerts,
-  loading,
 }: {
   d: DashboardData;
   country: string;
   establishment: string;
   course: string;
   section: string;
-  datePreset: string;
-  dateFrom: string;
-  dateTo: string;
   filteredEsts: { id: string; name: string; country: string }[];
   filteredCourses: { id: string; name: string; establishment_id: string }[];
   filteredSections: { id: string; name: string; course_id: string }[];
@@ -1179,11 +1210,7 @@ function SidebarContent({
   onEst: (v: string) => void;
   onCourse: (v: string) => void;
   onSection: (v: string) => void;
-  onPreset: (k: string) => void;
-  onDateFrom: (v: string) => void;
-  onDateTo: (v: string) => void;
   hasAlerts: boolean;
-  loading: boolean;
 }) {
   return (
     <>
@@ -1197,54 +1224,6 @@ function SidebarContent({
           <SidebarSelect label="Institución" value={establishment} onChange={onEst} options={filteredEsts.map((e) => ({ value: e.id, label: e.name }))} />
           <SidebarSelect label="Asignatura" value={course} onChange={onCourse} options={filteredCourses.map((c) => ({ value: c.id, label: c.name }))} />
           <SidebarSelect label="Sección" value={section} onChange={onSection} options={filteredSections.map((s) => ({ value: s.id, label: s.name }))} />
-        </div>
-      </div>
-
-      <div className="border-t border-gray-100 pt-4 mb-5">
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2.5">
-          Rango
-        </p>
-        <div className="space-y-1">
-          {[
-            { key: "7d", label: "7 días" },
-            { key: "30d", label: "30 días" },
-            { key: "90d", label: "90 días" },
-            { key: "sem", label: "Semestre" },
-            { key: "all", label: "Todo" },
-          ].map((p) => (
-            <button
-              key={p.key}
-              onClick={() => onPreset(p.key)}
-              className={`flex items-center gap-2 w-full text-left px-2 py-1 rounded-md text-xs transition-colors ${
-                datePreset === p.key
-                  ? "bg-sidebar/10 text-sidebar font-medium"
-                  : "text-gray-500 hover:bg-gray-50"
-              }`}
-            >
-              <div
-                className={`w-2.5 h-2.5 rounded-full border-2 ${
-                  datePreset === p.key
-                    ? "border-sidebar bg-sidebar"
-                    : "border-gray-300"
-                }`}
-              />
-              {p.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1.5 mt-2">
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => onDateFrom(e.target.value)}
-            className="flex-1 text-[10px] border border-gray-200 rounded-md px-1.5 py-1 text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-sidebar/30"
-          />
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => onDateTo(e.target.value)}
-            className="flex-1 text-[10px] border border-gray-200 rounded-md px-1.5 py-1 text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-sidebar/30"
-          />
         </div>
       </div>
 
@@ -1425,6 +1404,7 @@ const COLOR_MAP: Record<string, { bg: string; text: string }> = {
   emerald: { bg: "bg-emerald-50", text: "text-emerald-500" },
   rose: { bg: "bg-rose-50", text: "text-rose-500" },
   cyan: { bg: "bg-cyan-50", text: "text-cyan-500" },
+  lime: { bg: "bg-lime-50", text: "text-lime-600" },
 };
 
 function KPICard({
@@ -1434,6 +1414,8 @@ function KPICard({
   trend,
   subtitle,
   color = "blue",
+  alive,
+  tooltip,
 }: {
   icon: React.ComponentType<{ size?: number; className?: string }>;
   label: string;
@@ -1441,13 +1423,16 @@ function KPICard({
   trend?: number;
   subtitle?: string;
   color?: string;
+  alive?: boolean;
+  tooltip?: string;
 }) {
   const c = COLOR_MAP[color] || COLOR_MAP.blue;
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-3.5">
       <div className="flex items-center gap-2 mb-1.5">
-        <div className={`w-7 h-7 rounded-lg ${c.bg} flex items-center justify-center`}>
-          <Icon size={13} className={c.text} />
+        <div className={`w-7 h-7 rounded-lg ${c.bg} flex items-center justify-center relative`}>
+          {alive && <span className={`absolute inset-0 rounded-lg ${c.bg} animate-kpi-alive`} />}
+          <Icon size={13} className={`${c.text} relative`} />
         </div>
         {trend !== undefined && trend !== 0 && (
           <div
@@ -1462,7 +1447,10 @@ function KPICard({
         )}
       </div>
       <p className="text-lg font-bold text-gray-900 leading-tight">{value}</p>
-      <p className="text-[10px] text-gray-500 mt-0.5">{label}</p>
+      <div className="flex items-center gap-1 mt-0.5">
+        <p className="text-[10px] text-gray-500">{label}</p>
+        {tooltip && <InfoTip text={tooltip} />}
+      </div>
       {subtitle && <p className="text-[9px] text-gray-400">{subtitle}</p>}
     </div>
   );

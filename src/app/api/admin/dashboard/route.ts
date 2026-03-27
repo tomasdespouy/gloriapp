@@ -193,6 +193,56 @@ export async function GET(req: NextRequest) {
     const platformActivity = platformActivityData || [];
     const platformActivityPrev = platformActivityPrevData || [];
 
+    // ── Live metrics ──
+    const twoMinAgo = new Date(Date.now() - 2 * 60_000).toISOString();
+    const todayDate = now.toISOString().split("T")[0];
+
+    let onlineQ = admin
+      .from("profiles")
+      .select("id")
+      .gte("last_seen_at", twoMinAgo);
+    if (scopeEstIds !== null) {
+      onlineQ = onlineQ.in(
+        "establishment_id",
+        scopeEstIds.length > 0 ? scopeEstIds : SAFE_EMPTY
+      );
+    }
+
+    const [{ data: onlineUsers }, { data: todayActivityData }] =
+      await Promise.all([
+        onlineQ,
+        admin
+          .from("platform_activity")
+          .select("active_seconds")
+          .eq("activity_date", todayDate),
+      ]);
+
+    const onlineNow = onlineUsers?.length || 0;
+    const onlineIds = (onlineUsers || []).map(
+      (u: { id: string }) => u.id
+    );
+
+    // In-session: online users with active conversations
+    let inSession = 0;
+    if (onlineIds.length > 0) {
+      const { data: activeConvs } = await admin
+        .from("conversations")
+        .select("student_id")
+        .eq("status", "active")
+        .in("student_id", onlineIds);
+      inSession = new Set(
+        (activeConvs || []).map((c: { student_id: string }) => c.student_id)
+      ).size;
+    }
+
+    const platformMinutesToday = Math.round(
+      (todayActivityData || []).reduce(
+        (s: number, a: { active_seconds: number }) =>
+          s + (a.active_seconds || 0),
+        0
+      ) / 60
+    );
+
     // ── KPIs ──
     const totalStudents = studentIds.length;
     const activeStudentSet = new Set(conversations.map((c) => c.student_id));
@@ -628,6 +678,9 @@ export async function GET(req: NextRequest) {
       kpis: {
         totalStudents,
         activeStudents,
+        onlineNow,
+        inSession,
+        platformMinutesToday,
         avgSessionMinutes: Math.round(avgTimeMinutes * 10) / 10,
         avgPlatformMinutesPerDay: Math.round(avgPlatformMinutesPerDay * 10) / 10,
         avgPlatformMinutesTotal: Math.round(avgPlatformMinutesTotal * 10) / 10,
