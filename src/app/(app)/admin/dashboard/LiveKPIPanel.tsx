@@ -71,10 +71,10 @@ const SPARK_COLORS: Record<
   string,
   { stroke: string; fill: string; dot: string; bg: string; text: string; aliveBg: string }
 > = {
-  amber: { stroke: "#f59e0b", fill: "rgba(245,158,11,0.15)", dot: "#f59e0b", bg: "bg-amber-50", text: "text-amber-500", aliveBg: "bg-amber-50" },
-  green: { stroke: "#22c55e", fill: "rgba(34,197,94,0.15)", dot: "#22c55e", bg: "bg-green-50", text: "text-green-500", aliveBg: "bg-green-50" },
-  blue: { stroke: "#3b82f6", fill: "rgba(59,130,246,0.15)", dot: "#3b82f6", bg: "bg-blue-50", text: "text-blue-500", aliveBg: "bg-blue-50" },
-  cyan: { stroke: "#06b6d4", fill: "rgba(6,182,212,0.15)", dot: "#06b6d4", bg: "bg-cyan-50", text: "text-cyan-500", aliveBg: "bg-cyan-50" },
+  amber: { stroke: "#f59e0b", fill: "rgba(245,158,11,0.15)", dot: "#f59e0b", bg: "bg-amber-50", text: "text-amber-500", aliveBg: "bg-amber-400" },
+  green: { stroke: "#22c55e", fill: "rgba(34,197,94,0.15)", dot: "#22c55e", bg: "bg-green-50", text: "text-green-500", aliveBg: "bg-green-400" },
+  blue: { stroke: "#3b82f6", fill: "rgba(59,130,246,0.15)", dot: "#3b82f6", bg: "bg-blue-50", text: "text-blue-500", aliveBg: "bg-blue-400" },
+  cyan: { stroke: "#06b6d4", fill: "rgba(6,182,212,0.15)", dot: "#06b6d4", bg: "bg-cyan-50", text: "text-cyan-500", aliveBg: "bg-cyan-400" },
 };
 
 /* ─── Sparkline SVG ─── */

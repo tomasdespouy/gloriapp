@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
 
     let onlineQ = admin
       .from("profiles")
-      .select("id")
+      .select("id, role")
       .gte("last_seen_at", twoMinAgo);
     if (scopeEstIds !== null) {
       onlineQ = onlineQ.in(
@@ -218,18 +218,19 @@ export async function GET(req: NextRequest) {
       ]);
 
     const onlineNow = onlineUsers?.length || 0;
-    const onlineIds = (onlineUsers || []).map(
-      (u: { id: string }) => u.id
-    );
+    // Only students can be "in session"
+    const onlineStudentIds = (onlineUsers || [])
+      .filter((u: { id: string; role: string }) => u.role === "student")
+      .map((u: { id: string; role: string }) => u.id);
 
-    // In-session: online users with active conversations
+    // In-session: online students with active conversations
     let inSession = 0;
-    if (onlineIds.length > 0) {
+    if (onlineStudentIds.length > 0) {
       const { data: activeConvs } = await admin
         .from("conversations")
         .select("student_id")
         .eq("status", "active")
-        .in("student_id", onlineIds);
+        .in("student_id", onlineStudentIds);
       inSession = new Set(
         (activeConvs || []).map((c: { student_id: string }) => c.student_id)
       ).size;

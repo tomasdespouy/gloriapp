@@ -154,6 +154,7 @@ export async function POST(
   await admin.from("session_competencies").upsert({
     conversation_id: conversationId,
     student_id: user.id,
+    feedback_status: "pending",
     // V2 competencies
     setting_terapeutico: evaluation.setting_terapeutico || 0,
     motivo_consulta: evaluation.motivo_consulta || 0,
@@ -300,16 +301,58 @@ export async function POST(
     const patientRow = await admin.from("ai_patients").select("name").eq("id", conversation.ai_patient_id).single();
     const patientName = patientRow.data?.name || "paciente";
 
-    const notifications = (instructors || []).map((inst) => ({
-      user_id: inst.id,
-      type: "pending_review",
-      title: "Sesión pendiente de revisión",
-      body: `${student.full_name || "Estudiante"} completó una sesión con ${patientName}`,
-      href: `/docente/sesion/${conversationId}`,
-      is_read: false,
-    }));
+    const notifications = (instructors || [])
+      .filter((inst) => inst.id !== user.id) // Don't notify yourself
+      .map((inst) => ({
+        user_id: inst.id,
+        type: "pending_review",
+        title: "Sesión pendiente de revisión",
+        body: `${student.full_name || "Estudiante"} completó una sesión con ${patientName}`,
+        href: `/docente/sesion/${conversationId}`,
+        is_read: false,
+      }));
     if (notifications.length > 0) {
       await admin.from("notifications").insert(notifications);
+    }
+
+    // Send email to instructors via Resend
+    const recipientIds = (instructors || [])
+      .filter((inst) => inst.id !== user.id)
+      .map((i) => i.id);
+
+    if (process.env.RESEND_API_KEY && recipientIds.length > 0) {
+      try {
+        const { Resend } = await import("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+
+        const { data: instructorProfiles } = await admin
+          .from("profiles")
+          .select("email, full_name")
+          .in("id", recipientIds);
+
+        const emails = (instructorProfiles || [])
+          .filter((p) => p.email)
+          .map((p) => p.email as string);
+
+        if (emails.length > 0) {
+          await resend.emails.send({
+            from: "GlorIA <onboarding@resend.dev>",
+            to: emails[0],
+            ...(emails.length > 1 ? { bcc: emails.slice(1) } : {}),
+            subject: `Sesión pendiente de revisión — ${student.full_name || "Estudiante"}`,
+            html: `
+              <div style="font-family: sans-serif; max-width: 500px;">
+                <h2 style="color: #4A55A2;">Nueva sesión por revisar</h2>
+                <p><strong>${student.full_name || "Un estudiante"}</strong> completó una sesión con <strong>${patientName}</strong> y está pendiente de tu revisión.</p>
+                <p>Ingresa a GlorIA para revisar la evaluación de la IA, la autorreflexión del estudiante, y enviar tu retroalimentación.</p>
+                <p style="color: #999; font-size: 12px; margin-top: 24px;">GlorIA — Plataforma de entrenamiento clínico</p>
+              </div>
+            `,
+          });
+        }
+      } catch {
+        // Email is optional — don't fail the request
+      }
     }
   }
 

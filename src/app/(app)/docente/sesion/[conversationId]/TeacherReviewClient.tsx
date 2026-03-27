@@ -118,6 +118,7 @@ export default function TeacherReviewClient({
   const [selectedEvidence, setSelectedEvidence] = useState<string | null>(null);
   const [showAllEvidence, setShowAllEvidence] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [actionItemsSent, setActionItemsSent] = useState(false);
 
   const saveAIEdits = async () => {
     setSavingEdits(true);
@@ -178,6 +179,7 @@ export default function TeacherReviewClient({
 
     setSaving(true);
     try {
+      // Single call: saves comment + approves + notifies student
       const res = await fetch("/api/docente/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -187,11 +189,15 @@ export default function TeacherReviewClient({
           teacher_score: numScore,
         }),
       });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Error al guardar");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Error al enviar");
       setSaved(true);
-      toast.success("Evaluación guardada");
+      setIsApproved(true);
+      toast.success("Retroalimentación enviada al estudiante");
+      setTimeout(() => {
+        window.location.href = "/docente/revisiones";
+      }, 1500);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al guardar la evaluación");
+      toast.error(err instanceof Error ? err.message : "Error al enviar la retroalimentación");
     } finally {
       setSaving(false);
     }
@@ -244,19 +250,19 @@ export default function TeacherReviewClient({
           {!isApproved && (
             <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full flex items-center gap-1">
               <Clock size={10} />
-              Pendiente de aprobación
+              Por revisar
             </span>
           )}
           {isApproved && !isEvaluated && (
-            <span className="text-[10px] font-medium text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full flex items-center gap-1">
+            <span className="text-[10px] font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full flex items-center gap-1">
               <CheckCircle size={10} />
-              Aprobada
+              Retroalimentación enviada
             </span>
           )}
           {isEvaluated && (
             <span className="text-[10px] font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full flex items-center gap-1">
               <CheckCircle size={10} />
-              Evaluada
+              Cerrada
             </span>
           )}
         </div>
@@ -601,15 +607,22 @@ export default function TeacherReviewClient({
               studentName={student.full_name}
               competencies={competencies}
               locked={wasAlreadyApproved}
+              onItemsChange={(count) => setActionItemsSent(count > 0)}
             />
 
             {/* Teacher evaluation form */}
-            <div className="bg-white rounded-xl border border-purple-200 p-5">
+            <div className={`bg-white rounded-xl border p-5 ${!actionItemsSent && !wasAlreadyApproved ? "border-gray-200 opacity-60" : "border-purple-200"}`}>
               <div className="flex items-center gap-2 mb-4">
-                <GraduationCap size={16} className="text-purple-600" />
+                <GraduationCap size={16} className={actionItemsSent || wasAlreadyApproved ? "text-purple-600" : "text-gray-400"} />
                 <h3 className="text-sm font-semibold text-gray-900">Tu evaluación</h3>
                 {saved && <CheckCircle size={14} className="text-green-500 ml-auto" />}
               </div>
+              {!actionItemsSent && !wasAlreadyApproved && (
+                <div className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg mb-4 flex items-center gap-2">
+                  <Clock size={12} />
+                  Primero completa los accionables para avanzar con el mensaje al estudiante.
+                </div>
+              )}
 
               {/* Score input */}
               <div className="mb-4">
@@ -617,8 +630,8 @@ export default function TeacherReviewClient({
                 <input
                   type="number" min="0" max="10" step="0.5" value={score}
                   onChange={(e) => { setScore(e.target.value); setSaved(false); }}
-                  disabled={wasAlreadyApproved}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 ${wasAlreadyApproved ? "bg-gray-50 text-gray-500" : ""}`}
+                  disabled={wasAlreadyApproved || (!actionItemsSent && !wasAlreadyApproved)}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 ${wasAlreadyApproved || !actionItemsSent ? "bg-gray-50 text-gray-500" : ""}`}
                   placeholder=""
                 />
               </div>
@@ -649,82 +662,33 @@ export default function TeacherReviewClient({
                 </div>
                 <textarea value={comment}
                   onChange={(e) => { setComment(e.target.value); setSaved(false); }}
-                  disabled={wasAlreadyApproved}
+                  disabled={wasAlreadyApproved || (!actionItemsSent && !wasAlreadyApproved)}
                   rows={8}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-purple-400 ${wasAlreadyApproved ? "bg-gray-50 text-gray-500" : ""}`}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-purple-400 ${wasAlreadyApproved || !actionItemsSent ? "bg-gray-50 text-gray-500" : ""}`}
                   placeholder={"Puntos fuertes:\n1. \n2. \n\nOportunidades de mejora:\n1. \n2. \n\nCitas textuales relevantes:\n- \n\nAccionables para la próxima sesión:\n- "}
                 />
               </div>
 
-              {!wasAlreadyApproved && (
-              <button onClick={handleSubmit} disabled={saving || saved || (!comment.trim() && !score)}
-                className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 hover:shadow-md ${
-                  saved ? "bg-green-100 text-green-700 cursor-default"
-                    : saving ? "bg-purple-300 text-white cursor-wait"
-                    : "bg-purple-600 hover:bg-purple-700 text-white cursor-pointer"
-                }`}>
-                {saved ? (<><CheckCircle size={16} /> Evaluación guardada</>) : saving ? "Guardando..." : (<><Send size={16} /> Guardar evaluación</>)}
-              </button>
-              )}
-
-              {/* Approve */}
-              <div className={`mt-4 p-4 rounded-xl border-2 ${isApproved ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
-                {isApproved ? (
+              {/* Single send button — saves + approves + notifies */}
+              {isApproved ? (
+                <div className="p-4 rounded-xl border-2 bg-green-50 border-green-200">
                   <div className="flex items-center gap-2 text-green-700 animate-fade-in">
                     <CheckCircle size={18} />
-                    <span className="text-sm font-medium">Retroalimentación aprobada y visible para el estudiante</span>
+                    <span className="text-sm font-medium">Retroalimentación enviada y visible para el estudiante</span>
                   </div>
-                ) : (
-                  <>
-                    <p className="text-xs text-amber-700 font-medium mb-2">
-                      El estudiante NO puede ver la retroalimentación hasta que la apruebes.
-                    </p>
-                    <button onClick={() => setShowApproveConfirm(true)} disabled={approving}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 hover:shadow-md">
-                      {approving ? "Aprobando..." : (<><CheckCircle size={16} /> Aprobar y liberar retroalimentación</>)}
-                    </button>
-                    <p className="text-[10px] text-amber-600 mt-2">Se notificará al estudiante por la plataforma y por correo electrónico.</p>
-
-                    <Dialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
-                      <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                          <DialogTitle>{"Confirmar aprobación"}</DialogTitle>
-                          <DialogDescription>
-                            {"Al aprobar, el estudiante podrá ver la retroalimentación completa (evaluación IA, tu comentario y nota). Esta acción no se puede deshacer."}
-                          </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter className="gap-2 sm:gap-0">
-                          <button onClick={() => setShowApproveConfirm(false)}
-                            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer">
-                            Cancelar
-                          </button>
-                          <button onClick={async () => {
-                              setShowApproveConfirm(false);
-                              setApproving(true);
-                              try {
-                                const res = await fetch("/api/docente/approve", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ conversation_id: conversationId }),
-                                });
-                                if (!res.ok) throw new Error("Error al aprobar");
-                                setIsApproved(true);
-                                toast.success("Retroalimentación aprobada y enviada al estudiante");
-                                setTimeout(() => router.push("/docente/revisiones"), 1500);
-                              } catch {
-                                toast.error("Error al aprobar. Intenta de nuevo.");
-                              }
-                              setApproving(false);
-                            }}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors cursor-pointer hover:shadow-md">
-                            Aprobar y liberar
-                          </button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div>
+                  <button onClick={handleSubmit} disabled={saving || (!comment.trim() && !score) || !actionItemsSent}
+                    className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 hover:shadow-md ${
+                      saving ? "bg-green-400 text-white cursor-wait"
+                        : "bg-green-600 hover:bg-green-700 text-white cursor-pointer"
+                    }`}>
+                    {saving ? "Enviando..." : (<><Send size={16} /> Enviar retroalimentación al estudiante</>)}
+                  </button>
+                  <p className="text-[10px] text-gray-400 mt-2 text-center">Se notificará al estudiante por la plataforma y por correo electrónico.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -733,8 +697,8 @@ export default function TeacherReviewClient({
   );
 }
 
-function ActionItemsPanel({ conversationId, studentId, studentName, competencies, locked = false }: {
-  conversationId: string; studentId: string; studentName: string; competencies: Competencies | null; locked?: boolean;
+function ActionItemsPanel({ conversationId, studentId, studentName, competencies, locked = false, onItemsChange }: {
+  conversationId: string; studentId: string; studentName: string; competencies: Competencies | null; locked?: boolean; onItemsChange?: (count: number) => void;
 }) {
   const [items, setItems] = useState<{ id: string; content: string; status: string; resource_link: string | null; student_comment: string | null }[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -749,7 +713,7 @@ function ActionItemsPanel({ conversationId, studentId, studentName, competencies
   useEffect(() => {
     fetch("/api/docente/action-items?conversation_id=" + conversationId)
       .then(r => r.json())
-      .then(data => { setItems(data); setLoaded(true); });
+      .then(data => { setItems(data); setLoaded(true); onItemsChange?.(data.length); });
     // Load previous action items for this student
     fetch("/api/docente/action-items?student_id=" + studentId)
       .then(r => r.json())
@@ -796,12 +760,16 @@ function ActionItemsPanel({ conversationId, studentId, studentName, competencies
         body: JSON.stringify({ conversation_id: conversationId, student_id: studentId, items: toSave }),
       });
       if (!res.ok) throw new Error("Error al guardar accionables");
-      toast.success("Accionables enviados al estudiante");
+      toast.success("Accionables guardados");
       setSuggestions([]);
       setManualItems(["", "", ""]);
       // Reload
       const r = await fetch("/api/docente/action-items?conversation_id=" + conversationId);
-      if (r.ok) setItems(await r.json());
+      if (r.ok) {
+        const updated = await r.json();
+        setItems(updated);
+        onItemsChange?.(updated.length);
+      }
     } catch {
       toast.error("Error al enviar los accionables. Intenta de nuevo.");
     }
@@ -867,7 +835,7 @@ function ActionItemsPanel({ conversationId, studentId, studentName, competencies
           <div className="flex items-center gap-2">
             <button onClick={saveItems} disabled={saving}
               className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50">
-              {saving ? "Enviando..." : "Enviar accionables al estudiante"}
+              {saving ? "Enviando..." : "Guardar accionables"}
             </button>
             <button onClick={generateSuggestions} disabled={generating}
               className="text-[10px] text-sidebar hover:underline">
@@ -903,7 +871,7 @@ function ActionItemsPanel({ conversationId, studentId, studentName, competencies
           {(manualItems.some(m => m.trim()) || suggestions.length > 0) && (
             <button onClick={saveItems} disabled={saving}
               className="w-full text-xs bg-emerald-600 text-white px-3 py-2 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 cursor-pointer mt-1">
-              {saving ? "Enviando..." : "Enviar accionables al estudiante"}
+              {saving ? "Enviando..." : "Guardar accionables"}
             </button>
           )}
         </div>

@@ -43,12 +43,12 @@ interface Props {
 
 const RISK_KEYWORDS = ["ideacion", "suicida", "autolesion", "crisis", "riesgo"];
 
-type TabKey = "pendientes" | "revisadas" | "aprobadas" | "todas";
+type TabKey = "pendientes" | "enviadas" | "cerradas" | "todas";
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: "pendientes", label: "Pendientes" },
-  { key: "revisadas", label: "Revisadas" },
-  { key: "aprobadas", label: "Aprobadas" },
+  { key: "pendientes", label: "Por revisar" },
+  { key: "enviadas", label: "Enviadas" },
+  { key: "cerradas", label: "Cerradas" },
   { key: "todas", label: "Todas" },
 ];
 
@@ -59,13 +59,17 @@ function getPatient(session: Session): PatientRow | null {
 }
 
 function getFeedback(session: Session): FbRow | null {
-  const arr = session.session_feedback as FbRow[] | null;
-  return arr?.[0] ?? null;
+  const raw = session.session_feedback;
+  if (!raw) return null;
+  if (Array.isArray(raw)) return (raw as FbRow[])[0] ?? null;
+  return raw as FbRow;
 }
 
 function getCompetencies(session: Session): CompRow | null {
-  const arr = session.session_competencies as CompRow[] | null;
-  return arr?.[0] ?? null;
+  const raw = session.session_competencies;
+  if (!raw) return null;
+  if (Array.isArray(raw)) return (raw as CompRow[])[0] ?? null;
+  return raw as CompRow;
 }
 
 function hasRisk(patient: PatientRow | null): boolean {
@@ -92,13 +96,12 @@ function formatDate(iso: string): string {
 }
 
 function getReviewStatus(
-  fb: FbRow | null,
+  _fb: FbRow | null,
   comp: CompRow | null
-): "pending" | "reviewed" | "approved" {
-  const hasTeacherReview = !!(fb?.teacher_comment || fb?.teacher_score);
-  if (!hasTeacherReview) return "pending";
+): "pending" | "approved" | "evaluated" {
+  if (comp?.feedback_status === "evaluated") return "evaluated";
   if (comp?.feedback_status === "approved") return "approved";
-  return "reviewed";
+  return "pending";
 }
 
 // ── Component ──────────────────────────────────────────
@@ -125,12 +128,12 @@ export default function RevisionesClient({ sessions, studentMap }: Props) {
 
   // Tab counts
   const counts = useMemo(() => {
-    const c = { pendientes: 0, revisadas: 0, aprobadas: 0, todas: 0 };
+    const c = { pendientes: 0, enviadas: 0, cerradas: 0, todas: 0 };
     categorized.forEach(({ status }) => {
       c.todas++;
       if (status === "pending") c.pendientes++;
-      else if (status === "reviewed") c.revisadas++;
-      else if (status === "approved") c.aprobadas++;
+      else if (status === "approved") c.enviadas++;
+      else if (status === "evaluated") c.cerradas++;
     });
     return c;
   }, [categorized]);
@@ -140,8 +143,8 @@ export default function RevisionesClient({ sessions, studentMap }: Props) {
     return categorized.filter((item) => {
       // Tab filter
       if (activeTab === "pendientes" && item.status !== "pending") return false;
-      if (activeTab === "revisadas" && item.status !== "reviewed") return false;
-      if (activeTab === "aprobadas" && item.status !== "approved") return false;
+      if (activeTab === "enviadas" && item.status !== "approved") return false;
+      if (activeTab === "cerradas" && item.status !== "evaluated") return false;
 
       // Risk filter
       if (riskOnly && !item.risk) return false;
@@ -239,11 +242,11 @@ export default function RevisionesClient({ sessions, studentMap }: Props) {
           <ClipboardCheck size={40} className="mx-auto text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">
             {activeTab === "pendientes"
-              ? "No hay sesiones pendientes de revisión"
-              : activeTab === "revisadas"
-              ? "No hay sesiones revisadas sin aprobar"
-              : activeTab === "aprobadas"
-              ? "No hay sesiones aprobadas"
+              ? "No hay sesiones por revisar"
+              : activeTab === "enviadas"
+              ? "No hay sesiones con retroalimentación enviada"
+              : activeTab === "cerradas"
+              ? "No hay sesiones cerradas"
               : "No se encontraron sesiones"}
           </p>
           {search && (
@@ -275,7 +278,9 @@ export default function RevisionesClient({ sessions, studentMap }: Props) {
                       ? "border-red-200 bg-red-50/30"
                       : status === "pending"
                       ? "border-amber-200"
-                      : status === "reviewed"
+                      : status === "evaluated"
+                      ? "border-green-200"
+                      : status === "approved"
                       ? "border-blue-200"
                       : "border-gray-200"
                   }`}
@@ -335,17 +340,17 @@ export default function RevisionesClient({ sessions, studentMap }: Props) {
                       {status === "pending" ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
                           <Clock size={10} />
-                          Pendiente
+                          Por revisar
                         </span>
-                      ) : status === "reviewed" ? (
+                      ) : status === "approved" ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
                           <ClipboardCheck size={10} />
-                          Revisada
+                          Retroalimentación enviada
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
                           <CheckCircle2 size={10} />
-                          Aprobada
+                          Cerrada
                         </span>
                       )}
                     </div>

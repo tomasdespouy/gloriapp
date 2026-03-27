@@ -26,6 +26,12 @@ interface Session {
 
 type Comp = { overall_score_v2: number; eval_version: number; ai_commentary: string; strengths: string[]; areas_to_improve: string[]; feedback_status: string } & Record<string, number>;
 type Fb = { teacher_comment: string | null; teacher_score: number | null };
+const getComp = (s: { session_competencies: unknown }): Comp | null => {
+  const raw = s.session_competencies;
+  if (!raw) return null;
+  if (Array.isArray(raw)) return (raw as Comp[])[0] ?? null;
+  return raw as Comp;
+};
 type Patient = { name: string; age: number; occupation: string; difficulty_level: string; country: string };
 type Msg = { role: string; content: string; created_at: string };
 
@@ -100,7 +106,7 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
     return sessions.filter(s => {
       const p = s.ai_patients as Patient | null;
       if (search && !(p?.name || "").toLowerCase().includes(search.toLowerCase())) return false;
-      const comp = ((s.session_competencies as Comp[] | null)?.[0]) ?? null;
+      const comp = getComp(s) ?? null;
       const fbStatus = comp?.feedback_status;
       if (filterStatus === "active" && s.status !== "active" && s.status !== "abandoned") return false;
       if (filterStatus === "pending" && !(s.status === "completed" && (!fbStatus || fbStatus === "pending"))) return false;
@@ -219,7 +225,7 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
     const session = sessions.find(s => s.id === detailId);
     if (!session) { setDetailId(null); return null; }
     const patient = session.ai_patients as Patient | null;
-    const comp = ((session.session_competencies as Comp[] | null)?.[0]) ?? null;
+    const comp = getComp(session) ?? null;
     const fb = ((session.session_feedback as Fb[] | null)?.[0]) ?? null;
     const summary = localSummaries[session.id];
     const msgs = messagesMap[session.id] || [];
@@ -402,7 +408,7 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
 
   const renderSessionCard = (session: Session) => {
     const patient = session.ai_patients as Patient | null;
-    const comp = ((session.session_competencies as Comp[] | null)?.[0]) ?? null;
+    const comp = getComp(session) ?? null;
     const fb = ((session.session_feedback as Fb[] | null)?.[0]) ?? null;
     const isCompleted = session.status === "completed";
     const isEvaluated = comp?.feedback_status === "evaluated";
@@ -456,14 +462,14 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
             )}
             {isEvaluated ? (
               <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <CheckCircle2 size={9} /> Evaluada
+                <CheckCircle2 size={9} /> Cerrada
               </span>
             ) : isApproved ? (
               <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <CheckCircle2 size={9} /> Revisada
+                <CheckCircle2 size={9} /> Retroalimentación enviada
               </span>
             ) : isCompleted ? (
-              <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Pendiente de revisi&oacute;n</span>
+              <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Pendiente de revisión</span>
             ) : session.status === "abandoned" ? (
               <span className="text-[10px] text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Abandonada</span>
             ) : (
@@ -591,8 +597,8 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
           <option value="all">Todas</option>
           <option value="active">En curso</option>
           <option value="pending">Pendiente de revisión</option>
-          <option value="approved">Revisada</option>
-          <option value="evaluated">Evaluada</option>
+          <option value="approved">Retroalimentación enviada</option>
+          <option value="evaluated">Cerrada</option>
           <option value="completed">Completadas</option>
         </select>
         <select value={filterPatient} onChange={(e) => setFilterPatient(e.target.value)}
@@ -639,7 +645,7 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
               {groupedByPatient.map(([patientId, patientSessions]) => {
                 const patient = patientSessions[0].ai_patients as Patient | null;
                 const slug = getSlug(patient?.name || "");
-                const scores = patientSessions.map(s => ((s.session_competencies as Comp[] | null)?.[0])).filter(c => c && Number(c.eval_version) === 2).map(c => Number(c!.overall_score_v2)).filter(v => v > 0);
+                const scores = patientSessions.map(s => getComp(s)).filter(c => c && Number(c.eval_version) === 2).map(c => Number(c!.overall_score_v2)).filter(v => v > 0);
                 const trend = scores.length >= 2 ? ((scores[0] - scores[scores.length - 1]) / scores[scores.length - 1] * 100) : null;
 
                 return (
@@ -661,7 +667,7 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
                     </div>
                     <div className="divide-y divide-gray-50">
                       {patientSessions.map(s => {
-                        const comp = ((s.session_competencies as Comp[] | null)?.[0]) ?? null;
+                        const comp = getComp(s) ?? null;
                         const score = comp && Number(comp.eval_version) === 2 ? Number(comp.overall_score_v2) : null;
                         const isEvaluated = comp?.feedback_status === "evaluated";
                         const isApproved = comp?.feedback_status === "approved" || isEvaluated;
@@ -672,9 +678,9 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
                             <span className="text-[11px] text-gray-400 flex-1">{formatTime(s.created_at)} {formatDuration(s.active_seconds) ? `· ${formatDuration(s.active_seconds)}` : ""}</span>
                             <span className="text-xs font-medium text-sidebar w-10">{score && score > 0 ? score.toFixed(1) : "—"}</span>
                             {isEvaluated ? (
-                              <span className="text-[10px] text-green-600">Evaluada</span>
+                              <span className="text-[10px] text-green-600">Cerrada</span>
                             ) : isApproved ? (
-                              <span className="text-[10px] text-blue-600">Revisada</span>
+                              <span className="text-[10px] text-blue-600">Retroalimentación enviada</span>
                             ) : s.status === "completed" ? (
                               <span className="text-[10px] text-amber-600">Pendiente</span>
                             ) : (

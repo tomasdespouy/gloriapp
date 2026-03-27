@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import RevisionesClient from "./RevisionesClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function RevisionesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -25,7 +27,8 @@ export default async function RevisionesPage() {
   }
 
   // Fetch completed sessions scoped to establishment students
-  let sessionsQuery = supabase
+  // Use admin client to bypass RLS — page is already auth-gated and scoped by establishment
+  let sessionsQuery = admin
     .from("conversations")
     .select(`
       id, student_id, ai_patient_id, session_number, status, created_at,

@@ -33,23 +33,24 @@ export async function GET() {
     const dbStart = Date.now();
     const { data: onlineUsers } = await admin
       .from("profiles")
-      .select("id")
+      .select("id, role")
       .gte("last_seen_at", twoMinAgo);
     const latencyMs = Date.now() - dbStart;
 
     const onlineNow = onlineUsers?.length || 0;
-    const onlineIds = (onlineUsers || []).map(
-      (u: { id: string }) => u.id
-    );
+    // Only students can be "in session"
+    const onlineStudentIds = (onlineUsers || [])
+      .filter((u: { id: string; role: string }) => u.role === "student")
+      .map((u: { id: string; role: string }) => u.id);
 
     // In-session + platform time today in parallel
     const [activeConvsResult, todayActivityResult] = await Promise.all([
-      onlineIds.length > 0
+      onlineStudentIds.length > 0
         ? admin
             .from("conversations")
             .select("student_id")
             .eq("status", "active")
-            .in("student_id", onlineIds)
+            .in("student_id", onlineStudentIds)
         : Promise.resolve({ data: [] }),
       admin
         .from("platform_activity")

@@ -4,14 +4,22 @@ import {
   Home, User, History, BarChart3, BookOpen, Info,
   Users, ClipboardCheck, LayoutDashboard, Building2,
   Accessibility, LifeBuoy, FlaskConical, DollarSign, Activity, FileText,
-  Briefcase, Rocket, Bell, Radio, ArrowLeft,
+  Briefcase, Rocket, Bell, Radio, ArrowLeft, ArrowRight,
 } from "lucide-react";
+import { useSidebar } from "./SidebarContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import Portal from "@/components/Portal";
 
-const studentNav = [
+type NavItem = {
+  icon: React.ComponentType<{ size?: number }>;
+  label: string;
+  href: string;
+};
+type NavSection = { title?: string; items: NavItem[] };
+
+const studentNav: NavItem[] = [
   { icon: Home, label: "Inicio", href: "/dashboard" },
   { icon: BarChart3, label: "Mi progreso", href: "/progreso" },
   { icon: BookOpen, label: "Aprendizaje", href: "/aprendizaje" },
@@ -21,30 +29,63 @@ const studentNav = [
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];
 
-const instructorNav = [
+const instructorNav: NavItem[] = [
   { icon: LayoutDashboard, label: "Panel docente", href: "/docente/dashboard" },
   { icon: ClipboardCheck, label: "Revisiones", href: "/docente/revisiones" },
   { icon: User, label: "Pacientes", href: "/perfiles" },
-  { icon: BarChart3, label: "M\u00e9tricas", href: "/docente/metricas" },
+  { icon: BarChart3, label: "Métricas", href: "/docente/metricas" },
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];
 
-const adminNav = (isSuperadmin: boolean) => [
-  { icon: LayoutDashboard, label: "Panel", href: "/admin/dashboard" },
-  ...(isSuperadmin ? [{ icon: Building2, label: "Instituciones", href: "/admin/establecimientos" }] : []),
-  { icon: Users, label: "Usuarios", href: "/admin/usuarios" },
-  { icon: User, label: "Pacientes IA", href: "/perfiles" },
-  { icon: BookOpen, label: "Retroalimentación", href: "/admin/retroalimentacion" },
-  { icon: BarChart3, label: "Métricas", href: "/admin/metricas" },
-  ...(isSuperadmin ? [{ icon: DollarSign, label: "Costos", href: "/admin/costos" }] : []),
-  ...(isSuperadmin ? [{ icon: Activity, label: "Monitoreo", href: "/admin/monitoreo" }] : []),
-  ...(isSuperadmin ? [{ icon: FlaskConical, label: "Investigación y Fondos", href: "/admin/investigacion" }] : []),
-  ...(isSuperadmin ? [{ icon: FileText, label: "Informes técnicos", href: "/admin/informes" }] : []),
-  ...(isSuperadmin ? [{ icon: Briefcase, label: "CRM", href: "/admin/crm" }] : []),
-  ...(isSuperadmin ? [{ icon: Rocket, label: "Pilotos", href: "/admin/pilotos" }] : []),
-  ...(isSuperadmin ? [{ icon: Bell, label: "Notificaciones", href: "/admin/notificaciones" }] : []),
-  { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
-];
+const adminSections = (isSuperadmin: boolean): NavSection[] =>
+  isSuperadmin
+    ? [
+        {
+          title: "Principal",
+          items: [
+            { icon: LayoutDashboard, label: "Panel", href: "/admin/dashboard" },
+            { icon: Building2, label: "Instituciones", href: "/admin/establecimientos" },
+            { icon: Users, label: "Usuarios", href: "/admin/usuarios" },
+          ],
+        },
+        {
+          title: "Académico",
+          items: [
+            { icon: User, label: "Pacientes IA", href: "/perfiles" },
+            { icon: BookOpen, label: "Retroalimentación", href: "/admin/retroalimentacion" },
+            { icon: BarChart3, label: "Métricas", href: "/admin/metricas" },
+            { icon: Rocket, label: "Pilotos", href: "/admin/pilotos" },
+          ],
+        },
+        {
+          title: "Operaciones",
+          items: [
+            { icon: DollarSign, label: "Costos", href: "/admin/costos" },
+            { icon: Activity, label: "Monitoreo", href: "/admin/monitoreo" },
+            { icon: Bell, label: "Notificaciones", href: "/admin/notificaciones" },
+          ],
+        },
+        {
+          title: "Estrategia",
+          items: [
+            { icon: FlaskConical, label: "Investigación y Fondos", href: "/admin/investigacion" },
+            { icon: FileText, label: "Informes técnicos", href: "/admin/informes" },
+            { icon: Briefcase, label: "CRM", href: "/admin/crm" },
+          ],
+        },
+      ]
+    : [
+        {
+          items: [
+            { icon: LayoutDashboard, label: "Panel", href: "/admin/dashboard" },
+            { icon: Users, label: "Usuarios", href: "/admin/usuarios" },
+            { icon: User, label: "Pacientes IA", href: "/perfiles" },
+            { icon: BookOpen, label: "Retroalimentación", href: "/admin/retroalimentacion" },
+            { icon: BarChart3, label: "Métricas", href: "/admin/metricas" },
+            { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
+          ],
+        },
+      ];
 
 const MODULE_NAV_MAP: Record<string, string> = {
   grabacion: "/observacion",
@@ -64,20 +105,27 @@ export default function Sidebar({
   const pathname = usePathname();
   const isAdmin = role === "admin" || role === "superadmin";
   const isInstructor = role === "instructor";
-  const baseNavItems = isAdmin ? adminNav(role === "superadmin") : isInstructor ? instructorNav : studentNav;
 
-  // Filter nav items based on active modules (only for students)
-  const navItems = (!isAdmin && !isInstructor && activeModules)
-    ? (() => {
-        const disabledPaths = new Set(
-          Object.entries(MODULE_NAV_MAP)
-            .filter(([key]) => !activeModules.includes(key))
-            .map(([, path]) => path)
-        );
-        return baseNavItems.filter((item) => !disabledPaths.has(item.href));
-      })()
-    : baseNavItems;
+  // Build nav sections
+  const navSections: NavSection[] = isAdmin
+    ? adminSections(role === "superadmin")
+    : (() => {
+        const flat = isInstructor ? instructorNav : studentNav;
+        const filtered =
+          !isInstructor && activeModules
+            ? (() => {
+                const disabledPaths = new Set(
+                  Object.entries(MODULE_NAV_MAP)
+                    .filter(([key]) => !activeModules.includes(key))
+                    .map(([, path]) => path)
+                );
+                return flat.filter((item) => !disabledPaths.has(item.href));
+              })()
+            : flat;
+        return [{ items: filtered }];
+      })();
 
+  const { collapsed, toggleSidebar, ready } = useSidebar();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [drawerIn, setDrawerIn] = useState(false);
 
@@ -99,52 +147,60 @@ export default function Sidebar({
   }, [currentPath]);
 
   const sidebarContent = (
-    <div className="flex flex-col h-full overflow-y-auto">
-      {/* Logo */}
-      <div className="px-6 pt-6 mb-10 flex-shrink-0">
+    <div className="flex flex-col h-full">
+      {/* Logo + badge */}
+      <div className="px-6 pt-6 mb-6 flex-shrink-0">
         <Link href={isAdmin ? "/admin/dashboard" : isInstructor ? "/docente/dashboard" : "/dashboard"} onClick={closeSidebar}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/branding/gloria-side-logo.png" alt="GlorIA" className="h-9 w-auto" />
         </Link>
       </div>
 
-      {/* Role badge */}
       {(isAdmin || isInstructor) && (
-        <div className="px-6 mb-4">
+        <div className="px-6 mb-4 flex-shrink-0">
           <span className="text-[10px] uppercase tracking-widest font-semibold text-white/50 bg-white/10 px-3 py-1 rounded-full">
             {role === "superadmin" ? "Superadmin" : role === "admin" ? "Admin" : "Docente"}
           </span>
         </div>
       )}
 
-      {/* Navigation */}
-      <nav className="flex flex-col gap-2 px-6">
-        {navItems.map((item) => {
-          const isActive = currentPath === item.href || currentPath.startsWith(item.href + "/");
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={closeSidebar}
-              className={`sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium w-full text-left ${
-                isActive ? "active text-white" : "text-white/70"
-              }`}
-            >
-              <item.icon size={18} />
-              {item.label}
-            </Link>
-          );
-        })}
+      {/* Navigation — only this area scrolls */}
+      <nav className="flex flex-col px-4 flex-1 min-h-0 overflow-y-auto">
+        {navSections.map((section, si) => (
+          <div key={si}>
+            {section.title && (
+              <p className={`text-[9px] uppercase tracking-wider text-white/30 font-semibold px-4 mb-1.5 ${si === 0 ? "mt-1" : "mt-4"}`}>
+                {section.title}
+              </p>
+            )}
+            {section.items.map((item) => {
+              const isActive = currentPath === item.href || currentPath.startsWith(item.href + "/");
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={closeSidebar}
+                  className={`sidebar-link flex items-center gap-3 px-4 py-2.5 rounded-lg text-[13px] font-medium w-full text-left ${
+                    isActive ? "active text-white" : "text-white/70"
+                  }`}
+                >
+                  <item.icon size={16} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
-      {/* Footer — institution logo or default */}
-      <div className="mt-auto px-6 pb-6">
-        <div className="flex items-center justify-center pt-1">
+      {/* Footer — institution logo, always pinned to bottom */}
+      <div className="px-6 pb-5 pt-3 flex-shrink-0">
+        <div className="flex items-center justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={establishmentLogoUrl || "/branding/ugm-logo.png"}
-            alt="Instituci\u00f3n"
-            className="h-12 w-auto"
+            alt="Institución"
+            className="h-10 w-auto"
           />
         </div>
       </div>
@@ -154,9 +210,26 @@ export default function Sidebar({
   return (
     <>
       {/* Desktop sidebar — hidden on mobile */}
-      <aside className="hidden md:flex fixed left-0 top-0 h-screen w-[260px] bg-sidebar flex-col text-white z-50 overflow-hidden">
+      <aside
+        className={`hidden md:flex fixed left-0 top-0 h-screen w-[260px] bg-sidebar flex-col text-white z-50 overflow-hidden ${
+          ready ? "transition-transform duration-200 ease-out" : ""
+        } ${collapsed ? "-translate-x-full" : "translate-x-0"}`}
+      >
         {sidebarContent}
       </aside>
+
+      {/* Desktop collapse/expand toggle */}
+      <button
+        onClick={toggleSidebar}
+        style={{
+          left: collapsed ? 0 : 260,
+          transition: ready ? "left 200ms ease-out" : "none",
+        }}
+        className="hidden md:flex fixed top-1/2 -translate-y-1/2 z-[51] w-5 h-10 rounded-r-md items-center justify-center cursor-pointer bg-sidebar text-white/60 hover:text-white hover:bg-sidebar-hover shadow-md"
+        aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
+      >
+        {collapsed ? <ArrowRight size={12} /> : <ArrowLeft size={12} />}
+      </button>
 
       {/* Mobile overlay + drawer */}
       {mobileOpen && (

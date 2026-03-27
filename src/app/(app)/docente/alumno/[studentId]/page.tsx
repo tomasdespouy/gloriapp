@@ -27,6 +27,12 @@ const V2_COMP_KEYS = [
 ];
 
 type CompRow = Record<string, number | string | string[] | null>;
+const getComp = (s: { session_competencies: unknown }): CompRow | null => {
+  const raw = s.session_competencies;
+  if (!raw) return null;
+  if (Array.isArray(raw)) return (raw as CompRow[])[0] ?? null;
+  return raw as CompRow;
+};
 type FbRow = { teacher_comment: string | null; teacher_score: number | null };
 
 export default async function DocenteAlumnoPage({ params }: Props) {
@@ -83,7 +89,7 @@ export default async function DocenteAlumnoPage({ params }: Props) {
 
   // Compute average V2 competencies
   const allComps = completedSessions.flatMap((s) => {
-    const comp = (s.session_competencies as CompRow[] | null)?.[0];
+    const comp = getComp(s);
     return comp && Number(comp.eval_version) === 2 ? [comp] : [];
   });
 
@@ -97,19 +103,19 @@ export default async function DocenteAlumnoPage({ params }: Props) {
     : 0;
 
   const pendingCount = completedSessions.filter((s) => {
-    const comp = (s.session_competencies as CompRow[] | null)?.[0];
+    const comp = getComp(s);
     const status = comp ? String(comp.feedback_status) : "pending";
     return status === "pending" || !comp;
   }).length;
 
   const reviewedCount = completedSessions.filter((s) => {
-    const comp = (s.session_competencies as CompRow[] | null)?.[0];
+    const comp = getComp(s);
     const st = comp ? String(comp.feedback_status) : "";
     return st === "approved" || st === "evaluated";
   }).length;
 
   const closedCount = completedSessions.filter((s) => {
-    const comp = (s.session_competencies as CompRow[] | null)?.[0];
+    const comp = getComp(s);
     return comp && String(comp.feedback_status) === "evaluated";
   }).length;
 
@@ -222,7 +228,7 @@ export default async function DocenteAlumnoPage({ params }: Props) {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {sessions.map((session) => {
                 const patient = session.ai_patients as unknown as { name: string; difficulty_level: string; tags: string[] | null } | null;
-                const comp = (session.session_competencies as CompRow[] | null)?.[0];
+                const comp = getComp(session);
                 const fb = (session.session_feedback as FbRow[] | null)?.[0];
                 const isCompleted = session.status === "completed";
                 const fbStatus = comp ? String(comp.feedback_status) : null;

@@ -17,3 +17,7 @@
 | INF-2026-013 | 2026-03-23 | Desarrollo | Comparativo GlorIA 1.0 vs 5.0 + Análisis incidente OpenAI Assistants API (runs queued) | Informativo + Preventivo | desarrollo/INF-2026-013.pdf |
 | INF-2026-014 | 2026-03-25 | Incidente | Corrección bugs GlorIA 1.0: JWT 1h→8h + modal historial docente (ESC/X/overlay) | Correctivo | incidente/INF-2026-014.pdf |
 | INF-2026-015 | 2026-03-25 | Desarrollo | GlorIA 5.0: landing, módulos institucionales, impersonación, walkie-talkie, vista docente/estudiante | Informativo | desarrollo/INF-2026-015.pdf |
+| INF-2026-016 | 2026-03-25 | Infraestructura | Health Check diario: GlorIA 5.0 + 1.0, semáforo 8 verde / 2 amarillo, prompt de referencia incluido | Informativo | desarrollo/INF-2026-016.pdf |
+| INF-2026-017 | 2026-03-25 | Estratégica | Hoja de Ruta: GlorIA como Plataforma de Lifelong Learning para Psicólogos LATAM — costos LLM, 18 features, visión LATAM | Informativo | desarrollo/INF-2026-017.pdf |
+| INF-2026-018 | 2026-03-27 | Desarrollo + Incidente | Dashboard en Vivo (sparklines 5s), Sidebar colapsable + secciones, Bug retroalimentación docente (session_competencies faltantes) | Correctivo + Mejora UX | desarrollo/INF-2026-018.pdf |
+| INF-2026-019 | 2026-03-27 | Infraestructura | Optimización Disk IO Supabase: 4 índices compuestos, polling 5s→5min, heartbeat 30s→60s, fix «En sesión» fantasma | Correctivo + Preventivo | infraestructura/INF-2026-019.pdf |

@@ -74,21 +74,27 @@ export default async function DocenteDashboard({
   const totalSessions = allSessionsIncludingActive.length;
 
   type CompRow = { overall_score: number; overall_score_v2: number; feedback_status: string };
+  const getComp = (s: { session_competencies: unknown }): CompRow | null => {
+    const raw = s.session_competencies;
+    if (!raw) return null;
+    if (Array.isArray(raw)) return (raw as CompRow[])[0] ?? null;
+    return raw as CompRow;
+  };
 
   const pendingSessions = allSessions.filter((s) => {
-    const comp = (s.session_competencies as CompRow[] | null)?.[0];
+    const comp = getComp(s);
     const status = comp?.feedback_status || "pending";
     return status === "pending";
   });
 
   const reviewedSessions = allSessions.filter((s) => {
-    const comp = (s.session_competencies as CompRow[] | null)?.[0];
+    const comp = getComp(s);
     const status = comp?.feedback_status;
     return status === "approved" || status === "evaluated";
   });
 
   const allScores = allSessions.flatMap((s) => {
-    const comp = (s.session_competencies as CompRow[] | null)?.[0];
+    const comp = getComp(s);
     const score = comp?.overall_score_v2 ?? comp?.overall_score;
     return score != null && Number(score) > 0 ? [Number(score)] : [];
   });
@@ -249,7 +255,7 @@ export default async function DocenteDashboard({
                   {sessionsToReview.slice(0, 8).map((session) => {
                     const patient = session.ai_patients as unknown as { name: string; tags: string[] | null } | null;
                     const studentName = students?.find((s) => s.id === session.student_id)?.full_name || "Alumno";
-                    const comp = (session.session_competencies as CompRow[] | null)?.[0];
+                    const comp = getComp(session);
                     const date = new Date(session.created_at).toLocaleDateString("es-CL", {
                       day: "numeric", month: "short",
                     });
