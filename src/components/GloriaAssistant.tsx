@@ -23,14 +23,46 @@ const PAGE_LABELS: Record<string, string> = {
   "/sobre": "Sobre GlorIA",
 };
 
-const SUGGESTIONS = [
-  "¿Cómo puedo mejorar mi escucha activa?",
-  "¿Con qué paciente debería practicar?",
-  "Explícame mis competencias",
-  "Tengo un problema técnico",
-];
+const SUGGESTIONS_BY_ROLE: Record<string, string[]> = {
+  student: [
+    "¿Cómo puedo mejorar mi escucha activa?",
+    "¿Con qué paciente debería practicar?",
+    "Explícame mis competencias",
+    "Tengo un problema técnico",
+  ],
+  instructor: [
+    "¿Cómo va mi grupo esta semana?",
+    "¿Quién tiene sesiones pendientes de revisión?",
+    "¿Qué alumnos están inactivos?",
+    "Ayúdame a redactar feedback",
+  ],
+  admin: [
+    "Dame un resumen de mi institución",
+    "¿Cuántos usuarios activos hay?",
+    "¿Qué pilotos están activos?",
+    "¿Cuántas sesiones se han realizado?",
+  ],
+  superadmin: [
+    "Dame un resumen ejecutivo de la plataforma",
+    "¿Cuántos pilotos están activos?",
+    "¿Qué instituciones tienen más actividad?",
+    "¿Cuántas sesiones se han realizado este mes?",
+  ],
+};
 
-const GREETING = "Hola, soy GlorIA. Estoy aquí para acompañarte mientras aprendes. Pregúntame lo que necesites.";
+const GREETING_BY_ROLE: Record<string, string> = {
+  student: "Hola, soy GlorIA. Estoy aquí para acompañarte mientras aprendes. Pregúntame lo que necesites.",
+  instructor: "Hola, soy GlorIA. Puedo ayudarte a supervisar a tus alumnos, revisar sesiones pendientes y analizar el progreso de tu grupo.",
+  admin: "Hola, soy GlorIA. Puedo ayudarte con métricas de tu institución, gestión de usuarios y estado de pilotos.",
+  superadmin: "Hola, soy GlorIA. Puedo darte resúmenes ejecutivos, métricas globales y estado de pilotos en toda la plataforma.",
+};
+
+const SUBTITLE_BY_ROLE: Record<string, string> = {
+  student: "Tu tutora virtual",
+  instructor: "Tu asistente de supervisión",
+  admin: "Tu asistente ejecutivo",
+  superadmin: "Tu asistente ejecutivo",
+};
 
 // Render message content with markdown links as clickable
 function MessageContent({ content, onNavigate }: { content: string; onNavigate: (href: string) => void }) {
@@ -56,13 +88,14 @@ function MessageContent({ content, onNavigate }: { content: string; onNavigate: 
   );
 }
 
-export default function GloriaAssistant({ userName }: { userName: string }) {
+export default function GloriaAssistant({ userName, userRole = "student" }: { userName: string; userRole?: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [muted, setMuted] = useState(false);
+  const greeting = GREETING_BY_ROLE[userRole] || GREETING_BY_ROLE.student;
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: GREETING },
+    { role: "assistant", content: greeting },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -242,7 +275,7 @@ export default function GloriaAssistant({ userName }: { userName: string }) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-white">GlorIA</p>
-              <p className="text-[10px] text-white/50">Tu tutora virtual</p>
+              <p className="text-[10px] text-white/50">{SUBTITLE_BY_ROLE[userRole] || SUBTITLE_BY_ROLE.student}</p>
             </div>
             <button
               onClick={() => setMuted(true)}
@@ -302,7 +335,7 @@ export default function GloriaAssistant({ userName }: { userName: string }) {
             {/* Quick suggestions */}
             {showSuggestions && (
               <div className="flex flex-wrap gap-1.5 pt-1">
-                {SUGGESTIONS.map((s) => (
+                {(SUGGESTIONS_BY_ROLE[userRole] || SUGGESTIONS_BY_ROLE.student).map((s) => (
                   <button
                     key={s}
                     onClick={() => sendMessage(s)}

@@ -74,9 +74,7 @@ export default async function AppLayout({
             {children}
           </main>
         </ContentWrapper>
-        {(role === "student" || role === "instructor") && (
-          <GloriaAssistant userName={fullName} />
-        )}
+        <GloriaAssistant userName={fullName} userRole={role} />
         <WelcomeVideoModal />
         <SurveyModal />
         <PlatformActivityTracker />
