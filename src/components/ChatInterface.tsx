@@ -578,19 +578,22 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     recognition.continuous = true;
     recognition.interimResults = true;
 
-    let finalTranscript = input; // Preserve existing text
+    const baseText = input; // Preserve existing text
+    let processedUpTo = 0;
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let final_ = "";
       let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      for (let i = 0; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
-          finalTranscript += result[0].transcript;
-        } else {
+          final_ += result[0].transcript;
+          processedUpTo = i + 1;
+        } else if (i >= processedUpTo) {
           interim += result[0].transcript;
         }
       }
-      setInput(finalTranscript + interim);
+      setInput(baseText + final_ + interim);
     };
 
     recognition.onend = () => setIsRecording(false);
@@ -759,18 +762,20 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     recognition.interimResults = true;
 
     let transcript = "";
+    let processedUpTo = 0;
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = "";
       let finalText = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      for (let i = 0; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
           finalText += event.results[i][0].transcript;
-        } else {
+          processedUpTo = i + 1;
+        } else if (i >= processedUpTo) {
           interim += event.results[i][0].transcript;
         }
       }
-      if (finalText) transcript += finalText;
+      transcript = finalText;
       setInput(transcript + interim);
 
       // Auto-send after 2s of silence (reset timer on each result)
