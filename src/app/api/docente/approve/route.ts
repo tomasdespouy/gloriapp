@@ -32,18 +32,62 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Conversación no encontrada" }, { status: 404 });
   }
 
-  // Mark as approved
-  const { error: updateError } = await admin
+  // Check if session_competencies exists
+  const { data: existing } = await admin
     .from("session_competencies")
-    .update({
-      feedback_status: "approved",
-      approved_by: user.id,
-      approved_at: new Date().toISOString(),
-    })
-    .eq("conversation_id", conversation_id);
+    .select("id")
+    .eq("conversation_id", conversation_id)
+    .maybeSingle();
 
-  if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  if (existing) {
+    // Normal path — update existing record
+    const { error: updateError } = await admin
+      .from("session_competencies")
+      .update({
+        feedback_status: "approved",
+        approved_by: user.id,
+        approved_at: new Date().toISOString(),
+      })
+      .eq("conversation_id", conversation_id);
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+  } else {
+    // Fallback — AI evaluation never ran; create record so the flow can proceed
+    const { error: insertError } = await admin
+      .from("session_competencies")
+      .insert({
+        conversation_id,
+        student_id: conversation.student_id,
+        feedback_status: "approved",
+        approved_by: user.id,
+        approved_at: new Date().toISOString(),
+        eval_version: 2,
+        overall_score_v2: 0,
+        overall_score: 0,
+        setting_terapeutico: 0,
+        motivo_consulta: 0,
+        datos_contextuales: 0,
+        objetivos: 0,
+        escucha_activa: 0,
+        actitud_no_valorativa: 0,
+        optimismo: 0,
+        presencia: 0,
+        conducta_no_verbal: 0,
+        contencion_afectos: 0,
+        empathy: 0,
+        active_listening: 0,
+        open_questions: 0,
+        reformulation: 0,
+        confrontation: 0,
+        silence_management: 0,
+        rapport: 0,
+      });
+
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
   }
 
   const patientName = (conversation.ai_patients as unknown as { name: string })?.name || "paciente";

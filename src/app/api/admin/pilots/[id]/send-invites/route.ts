@@ -20,6 +20,15 @@ export async function POST(
 
   const { id } = await params;
 
+  // Parse optional custom body
+  let customBody: string | undefined;
+  try {
+    const body = await request.json();
+    customBody = body.customBody || undefined;
+  } catch {
+    // No body or invalid JSON — use default
+  }
+
   // Get pilot details
   const { data: pilot, error: pilotError } = await supabase
     .from("pilots")
@@ -52,7 +61,7 @@ export async function POST(
   }
 
   const admin = createAdminClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://gloria-app.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.glor-ia.com";
 
   const results: {
     email: string;
@@ -110,6 +119,7 @@ export async function POST(
         pilotName: pilot.name,
         appUrl,
         endedAt: pilot.ended_at || null,
+        customBody: customBody || null,
       });
 
       const res = await fetch("https://api.resend.com/emails", {
@@ -172,6 +182,7 @@ function generateInviteEmail(opts: {
   pilotName: string;
   appUrl: string;
   endedAt: string | null;
+  customBody: string | null;
 }) {
   const endDateStr = opts.endedAt
     ? new Date(opts.endedAt).toLocaleDateString("es-CL", {
@@ -208,7 +219,9 @@ function generateInviteEmail(opts: {
           de <strong>${opts.institution}</strong> como <strong>${opts.roleLabel}</strong>.
         </p>
 
-        <div style="background: #F0F0FF; border-left: 4px solid #4A55A2; border-radius: 0 8px 8px 0; padding: 16px 20px; margin: 20px 0;">
+        ${opts.customBody
+          ? opts.customBody.split("\n\n").map(p => `<p style="font-size: 14px; color: #555; line-height: 1.6;">${p.replace(/\n/g, "<br/>")}</p>`).join("")
+          : `<div style="background: #F0F0FF; border-left: 4px solid #4A55A2; border-radius: 0 8px 8px 0; padding: 16px 20px; margin: 20px 0;">
           <p style="font-size: 14px; color: #4A55A2; margin: 0; font-weight: 600; line-height: 1.5;">
             La evidencia muestra que la pr\u00e1ctica con simulaci\u00f3n cl\u00ednica mejora
             hasta un 40% las competencias terap\u00e9uticas en el primer a\u00f1o.
@@ -220,7 +233,7 @@ function generateInviteEmail(opts: {
           Practicar\u00e1s entrevistas cl\u00ednicas con pacientes virtuales impulsados por
           inteligencia artificial, recibiendo retroalimentaci\u00f3n inmediata sobre tus
           competencias terap\u00e9uticas. Sin riesgos, sin presiones, las veces que necesites.
-        </p>
+        </p>`}
 
         <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin: 24px 0;">
           <p style="margin: 0 0 12px; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px;">

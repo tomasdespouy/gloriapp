@@ -27,6 +27,8 @@ type CompRow = {
   overall_score_v2: number | null;
   feedback_status: string | null;
   eval_version: number | null;
+  approved_at: string | null;
+  evaluated_at: string | null;
 };
 type PatientRow = {
   name: string;
@@ -93,6 +95,12 @@ function getScore(comp: CompRow | null): number | null {
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
+}
+
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("es-CL", { day: "numeric", month: "short" }) + " " +
+    d.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
 }
 
 function getReviewStatus(
@@ -261,7 +269,7 @@ export default function RevisionesClient({ sessions, studentMap }: Props) {
       ) : (
         <div className="space-y-2">
           {filtered.map(
-            ({ session, patient, status, score, risk, studentName }) => {
+            ({ session, comp, patient, status, score, risk, studentName }) => {
               const firstName = studentName.split(" ")[0];
               const date = formatDate(session.created_at);
               const scoreLabel =
@@ -336,22 +344,32 @@ export default function RevisionesClient({ sessions, studentMap }: Props) {
                     </div>
 
                     {/* Status badge */}
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 text-right">
                       {status === "pending" ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
                           <Clock size={10} />
                           Por revisar
                         </span>
                       ) : status === "approved" ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                          <ClipboardCheck size={10} />
-                          Retroalimentación enviada
-                        </span>
+                        <>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                            <ClipboardCheck size={10} />
+                            Retroalimentación enviada
+                          </span>
+                          {comp?.approved_at && (
+                            <p className="text-[9px] text-gray-400 mt-0.5">{formatDateTime(comp.approved_at)}</p>
+                          )}
+                        </>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                          <CheckCircle2 size={10} />
-                          Cerrada
-                        </span>
+                        <>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                            <CheckCircle2 size={10} />
+                            Cerrada
+                          </span>
+                          {comp?.evaluated_at && (
+                            <p className="text-[9px] text-gray-400 mt-0.5">{formatDateTime(comp.evaluated_at)}</p>
+                          )}
+                        </>
                       )}
                     </div>
 

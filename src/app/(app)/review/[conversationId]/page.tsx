@@ -66,7 +66,7 @@ export default async function ReviewPage({
     difficulty_level: string;
   };
 
-  const feedbackStatus = (existingEval?.feedback_status as "pending" | "approved") || null;
+  const feedbackStatus = (existingEval?.feedback_status as "pending" | "approved" | "evaluated") || null;
 
   // Get teacher feedback (comment + score)
   const { data: teacherFeedback } = await supabase

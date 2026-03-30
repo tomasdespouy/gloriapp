@@ -87,6 +87,10 @@ type Insight = {
   status: string;
   priority: string;
   created_at: string;
+  reference_title: string | null;
+  reference_authors: string | null;
+  reference_year: number | null;
+  reference_url: string | null;
 };
 
 export default function ResearchClient() {
@@ -470,6 +474,14 @@ export default function ResearchClient() {
                 <p className="text-sm text-gray-500">
                   La plataforma analiza la base de datos para detectar relaciones semánticas, correlaciones y tendencias relevantes para publicaciones académicas.
                 </p>
+                {insights.length > 0 && (
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Última generación: {new Date(insights.reduce((latest, ins) =>
+                      ins.created_at > latest ? ins.created_at : latest, insights[0].created_at
+                    )).toLocaleString("es-CL", { dateStyle: "long", timeStyle: "short" })}
+                    {" "} ({insights.length} insights)
+                  </p>
+                )}
               </div>
               <button
                 onClick={async () => {
@@ -481,7 +493,13 @@ export default function ResearchClient() {
                   });
                   if (res.ok) {
                     const data = await res.json();
-                    if (Array.isArray(data)) setInsights(prev => [...data, ...prev]);
+                    if (Array.isArray(data)) {
+                      setInsights(prev => {
+                        const newIds = new Set(data.map((d: { id: string }) => d.id));
+                        const reviewedOld = prev.filter(p => p.status !== "nuevo" && !newIds.has(p.id));
+                        return [...data, ...reviewedOld];
+                      });
+                    }
                   }
                   setGeneratingInsights(false);
                 }}
@@ -506,7 +524,9 @@ export default function ResearchClient() {
                 {insights.map((ins) => {
                   const catIcons: Record<string, typeof Lightbulb> = {
                     competencias: BarChart3, uso_plataforma: TrendingUp, correlación: Zap,
-                    varianza: BarChart3, causalidad: Brain, tendencia: TrendingUp, comparación: Sparkles,
+                    varianza: BarChart3, causalidad: Brain, tendencia: TrendingUp,
+                    comparación: Sparkles, revisión_sistemática: BookOpen,
+                    desarrollo_producto: FileText, metodología: GraduationCap,
                   };
                   const catColors: Record<string, string> = {
                     competencias: "border-l-blue-500 bg-blue-50/30",
@@ -516,6 +536,9 @@ export default function ResearchClient() {
                     causalidad: "border-l-red-500 bg-red-50/30",
                     tendencia: "border-l-emerald-500 bg-emerald-50/30",
                     comparación: "border-l-indigo-500 bg-indigo-50/30",
+                    revisión_sistemática: "border-l-cyan-500 bg-cyan-50/30",
+                    desarrollo_producto: "border-l-amber-500 bg-amber-50/30",
+                    metodología: "border-l-violet-500 bg-violet-50/30",
                   };
                   const Icon = catIcons[ins.category] || Lightbulb;
                   const isExpanded = expandedInsight === ins.id;
@@ -534,7 +557,7 @@ export default function ResearchClient() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wide">
-                                {ins.category.replace("_", " ")}
+                                {ins.category.replace(/_/g, " ")}
                               </span>
                               {ins.sample_size && (
                                 <span className="text-[10px] text-gray-400">n={ins.sample_size}</span>
@@ -578,6 +601,27 @@ export default function ResearchClient() {
                                   </span>
                                 ))}
                               </div>
+                            </div>
+                          )}
+                          {ins.reference_title && (
+                            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                              <p className="text-[10px] uppercase font-bold text-gray-400 mb-1.5">Paper similar publicado</p>
+                              <p className="text-xs text-gray-800 font-medium leading-snug">{ins.reference_title}</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5">
+                                {ins.reference_authors}{ins.reference_year ? ` (${ins.reference_year})` : ""}
+                              </p>
+                              {ins.reference_url && (
+                                <a
+                                  href={ins.reference_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[10px] text-indigo-600 hover:text-indigo-800 mt-1.5 font-medium"
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  <ExternalLink size={10} />
+                                  Ver paper
+                                </a>
+                              )}
                             </div>
                           )}
                           <div className="text-[10px] text-gray-400">

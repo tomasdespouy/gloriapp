@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 async function requireSuperadmin() {
   const supabase = await createClient();
@@ -39,7 +40,86 @@ export async function GET(
     .eq("pilot_id", id)
     .order("full_name");
 
-  return NextResponse.json({ ...pilot, participants: participants || [] });
+  // Enrich participants with live data from profiles + conversations
+  const enriched = await enrichParticipants(participants || [], auth.supabase);
+
+  return NextResponse.json({ ...pilot, participants: enriched });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function enrichParticipants(participants: any[], supabase: any) {
+  const withUserId = participants.filter((p) => p.user_id);
+  if (withUserId.length === 0) return participants;
+
+  const userIds = withUserId.map((p) => p.user_id);
+
+  // Fetch last sign-in from auth.users via admin client
+  const admin = createAdminClient();
+  const loginMap = new Map<string, string | null>();
+  // Batch fetch auth users
+  for (const uid of userIds) {
+    const { data } = await admin.auth.admin.getUserById(uid);
+    if (data?.user) {
+      loginMap.set(uid, data.user.last_sign_in_at || null);
+    }
+  }
+
+  // Fetch session counts and last activity from conversations
+  const { data: sessionStats } = await supabase
+    .from("conversations")
+    .select("student_id, created_at")
+    .in("student_id", userIds);
+
+  const sessionsMap = new Map<string, { count: number; lastAt: string | null }>();
+  for (const row of sessionStats || []) {
+    const prev = sessionsMap.get(row.student_id) || { count: 0, lastAt: null };
+    prev.count += 1;
+    if (!prev.lastAt || row.created_at > prev.lastAt) prev.lastAt = row.created_at;
+    sessionsMap.set(row.student_id, prev);
+  }
+
+  // Merge into participants and update DB in background
+  return participants.map((p) => {
+    if (!p.user_id) return p;
+
+    const lastSignIn = loginMap.get(p.user_id) || null;
+    const stats = sessionsMap.get(p.user_id);
+    const sessionsCount = stats?.count || 0;
+    const lastActive = stats?.lastAt || lastSignIn || null;
+    const firstLogin = lastSignIn || null;
+
+    // Determine live status
+    let status = p.status;
+    if (p.status === "invitado" && firstLogin) {
+      status = "activo";
+    }
+
+    // Fire-and-forget update to keep pilot_participants in sync
+    if (
+      p.first_login_at !== firstLogin ||
+      p.sessions_count !== sessionsCount ||
+      p.status !== status
+    ) {
+      supabase
+        .from("pilot_participants")
+        .update({
+          first_login_at: firstLogin,
+          sessions_count: sessionsCount,
+          last_active_at: lastActive,
+          status,
+        })
+        .eq("id", p.id)
+        .then(() => {});
+    }
+
+    return {
+      ...p,
+      first_login_at: firstLogin,
+      sessions_count: sessionsCount,
+      last_active_at: lastActive,
+      status,
+    };
+  });
 }
 
 export async function PATCH(

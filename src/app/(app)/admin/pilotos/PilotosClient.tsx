@@ -362,7 +362,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
   // Step 3: Send invites
   // ────────────────────────────────
 
-  const handleSendInvites = async () => {
+  const handleSendInvites = async (customBody?: string) => {
     if (!selectedPilot) return;
     setSending(true);
     setSendResult(null);
@@ -370,6 +370,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
     const res = await fetch(`/api/admin/pilots/${selectedPilot.id}/send-invites`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customBody: customBody || undefined }),
     });
 
     if (res.ok) {
@@ -397,10 +398,10 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
     setRefreshing(false);
   }, [selectedPilot]);
 
-  // Auto-refresh every 30 seconds on Step 4
+  // Auto-refresh every 15 seconds on Step 4
   useEffect(() => {
     if (step !== 3 || !selectedPilot) return;
-    const interval = setInterval(refreshDashboard, 30000);
+    const interval = setInterval(refreshDashboard, 15000);
     return () => clearInterval(interval);
   }, [step, selectedPilot, refreshDashboard]);
 
@@ -1189,19 +1190,25 @@ function Step2Validate({
 // Step 3: Preview Email & Send
 // ════════════════════════════════════════════
 
+const DEFAULT_EMAIL_BODY = `La evidencia muestra que la práctica con simulación clínica mejora hasta un 40% las competencias terapéuticas en el primer año. Con GlorIA, cada sesión cuenta.
+
+Practicarás entrevistas clínicas con pacientes virtuales impulsados por inteligencia artificial, recibiendo retroalimentación inmediata sobre tus competencias terapéuticas. Sin riesgos, sin presiones, las veces que necesites.`;
+
 function Step3Preview({
   pilot, sending, sendResult, onSend, onNext,
 }: {
   pilot: Pilot | null;
   sending: boolean;
   sendResult: { total: number; success: number; failed: number } | null;
-  onSend: () => void;
+  onSend: (customBody?: string) => void;
   onNext: () => void;
 }) {
-  const appUrl = typeof window !== "undefined" ? window.location.origin : "https://gloria-app.vercel.app";
+  const appUrl = "https://app.glor-ia.com";
 
   const [assigningPatients, setAssigningPatients] = useState(false);
   const [patientMsg, setPatientMsg] = useState("");
+  const [emailBody, setEmailBody] = useState(DEFAULT_EMAIL_BODY);
+  const [editingBody, setEditingBody] = useState(false);
 
   const assignPatients = async (queryParams = "") => {
     if (!pilot?.establishment_id) {
@@ -1278,113 +1285,135 @@ function Step3Preview({
         </div>
       </div>
 
-      {/* Email preview */}
+      {/* Email body editor */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">Previsualización del email</h3>
-
-        <div className="mb-4 space-y-3">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-500 w-20">De:</span>
-            <span className="text-xs text-gray-700 font-medium">GlorIA &lt;noreply@glor-ia.com&gt;</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-500 w-20">Asunto:</span>
-            <span className="text-xs text-gray-700 font-medium">Bienvenidos a GlorIA — Tus credenciales de acceso</span>
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-gray-900">Cuerpo del mensaje</h3>
+          <button
+            onClick={() => setEditingBody(!editingBody)}
+            className="text-xs text-sidebar font-medium hover:underline cursor-pointer"
+          >
+            {editingBody ? "Ver previsualización" : "Editar mensaje"}
+          </button>
         </div>
 
-        {/* Email mockup */}
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <div style={{ background: "#4A55A2", padding: "20px 28px", borderRadius: "8px 8px 0 0" }}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p style={{ color: "white", margin: 0, fontSize: "18px", fontWeight: 700 }}>
-                  Bienvenidos a GlorIA
-                </p>
-                <p style={{ color: "rgba(255,255,255,0.7)", margin: "4px 0 0", fontSize: "12px" }}>
-                  Plataforma de Entrenamiento Clínico con IA
-                </p>
-              </div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="https://ndwmnxlwbfqfwwtekjun.supabase.co/storage/v1/object/public/patients/gloria-side-logo.png"
-                alt="GlorIA"
-                style={{ height: 36 }}
-              />
-            </div>
-          </div>
-          <div className="p-6 bg-gray-50 text-sm text-gray-700 leading-relaxed">
-            <p>Hola <strong>[Nombre del participante]</strong>,</p>
-            <p className="mt-3">
-              Has sido invitado/a a participar en el piloto <strong>{pilot?.name || "—"}</strong>{" "}
-              de <strong>{pilot?.institution || "—"}</strong> como <strong>[Rol]</strong>.
+        {editingBody ? (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">
+              Edita el cuerpo del mensaje. El saludo, credenciales, instrucciones de ingreso y firma se incluyen automáticamente.
             </p>
-
-            <div className="my-4 bg-indigo-50 border-l-4 border-sidebar rounded-r-lg px-4 py-3">
-              <p className="text-sm text-sidebar font-semibold leading-relaxed">
-                La evidencia muestra que la práctica con simulación clínica mejora
-                hasta un 40% las competencias terapéuticas en el primer año.
-                Con GlorIA, cada sesión cuenta.
-              </p>
-            </div>
-
-            <p className="mt-3">
-              Practicarás entrevistas clínicas con pacientes virtuales impulsados por
-              inteligencia artificial, recibiendo retroalimentación inmediata sobre tus
-              competencias terapéuticas. Sin riesgos, sin presiones, las veces que necesites.
-            </p>
-
-            <div className="bg-white border border-gray-200 rounded-lg p-4 my-4">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 font-semibold">
-                Credenciales de acceso
-              </p>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex gap-2">
-                  <span className="text-gray-500 w-24">Plataforma:</span>
-                  <span className="text-sidebar font-medium">{appUrl}</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="text-gray-500 w-24">Email:</span>
-                  <span className="font-semibold">[email@ejemplo.com]</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="text-gray-500 w-24">Contraseña:</span>
-                  <span className="font-mono font-bold text-sidebar">Gloria_Abc123</span>
-                </div>
-              </div>
-            </div>
-
-            {pilot?.ended_at && (
-              <div className="my-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg px-4 py-2.5">
-                <p className="text-xs text-amber-800 font-semibold">
-                  Tu acceso estará disponible hasta el{" "}
-                  {new Date(pilot.ended_at).toLocaleDateString("es-CL", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}.
-                </p>
-              </div>
+            <textarea
+              value={emailBody}
+              onChange={(e) => setEmailBody(e.target.value)}
+              rows={6}
+              className="w-full text-sm text-gray-700 border border-gray-200 rounded-lg p-4 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar/40 resize-y"
+            />
+            {emailBody !== DEFAULT_EMAIL_BODY && (
+              <button
+                onClick={() => setEmailBody(DEFAULT_EMAIL_BODY)}
+                className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                Restaurar texto original
+              </button>
             )}
-
-            <p className="font-semibold mt-4">Cómo ingresar:</p>
-            <ol className="list-decimal ml-5 mt-1 space-y-0.5 text-xs">
-              <li>Ingresa a <span className="text-sidebar">{appUrl}/login</span></li>
-              <li>Escribe tu email y la contraseña temporal indicada arriba</li>
-              <li>Explora los pacientes virtuales y comienza tu primera sesión</li>
-            </ol>
-
-            <div className="mt-6 pt-4 border-t border-gray-200">
-              <p className="text-sm text-gray-600">Con entusiasmo,</p>
-              <p className="text-sm text-gray-900 font-bold mt-0.5">Equipo GlorIA</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                Si tienes problemas para acceder, escríbenos a soporte@glor-ia.com
-              </p>
-            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="mb-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-500 w-20">De:</span>
+                <span className="text-xs text-gray-700 font-medium">GlorIA &lt;noreply@glor-ia.com&gt;</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-500 w-20">Asunto:</span>
+                <span className="text-xs text-gray-700 font-medium">Bienvenidos a GlorIA — Tus credenciales de acceso</span>
+              </div>
+            </div>
+
+            {/* Email mockup */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div style={{ background: "#4A55A2", padding: "20px 28px", borderRadius: "8px 8px 0 0" }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p style={{ color: "white", margin: 0, fontSize: "18px", fontWeight: 700 }}>
+                      Bienvenidos a GlorIA
+                    </p>
+                    <p style={{ color: "rgba(255,255,255,0.7)", margin: "4px 0 0", fontSize: "12px" }}>
+                      Plataforma de Entrenamiento Clínico con IA
+                    </p>
+                  </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="https://ndwmnxlwbfqfwwtekjun.supabase.co/storage/v1/object/public/patients/gloria-side-logo.png"
+                    alt="GlorIA"
+                    style={{ height: 36 }}
+                  />
+                </div>
+              </div>
+              <div className="p-6 bg-gray-50 text-sm text-gray-700 leading-relaxed">
+                <p>Hola <strong>[Nombre del participante]</strong>,</p>
+                <p className="mt-3">
+                  Has sido invitado/a a participar en el piloto <strong>{pilot?.name || "—"}</strong>{" "}
+                  de <strong>{pilot?.institution || "—"}</strong> como <strong>[Rol]</strong>.
+                </p>
+
+                {emailBody.split("\n\n").map((paragraph, i) => (
+                  <p key={i} className="mt-3">{paragraph}</p>
+                ))}
+
+                <div className="bg-white border border-gray-200 rounded-lg p-4 my-4">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 font-semibold">
+                    Credenciales de acceso
+                  </p>
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex gap-2">
+                      <span className="text-gray-500 w-24">Plataforma:</span>
+                      <span className="text-sidebar font-medium">{appUrl}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="text-gray-500 w-24">Email:</span>
+                      <span className="font-semibold">[email@ejemplo.com]</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="text-gray-500 w-24">Contraseña:</span>
+                      <span className="font-mono font-bold text-sidebar">Gloria_Abc123</span>
+                    </div>
+                  </div>
+                </div>
+
+                {pilot?.ended_at && (
+                  <div className="my-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg px-4 py-2.5">
+                    <p className="text-xs text-amber-800 font-semibold">
+                      Tu acceso estará disponible hasta el{" "}
+                      {new Date(pilot.ended_at).toLocaleDateString("es-CL", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}.
+                    </p>
+                  </div>
+                )}
+
+                <p className="font-semibold mt-4">Cómo ingresar:</p>
+                <ol className="list-decimal ml-5 mt-1 space-y-0.5 text-xs">
+                  <li>Ingresa a <span className="text-sidebar">{appUrl}/login</span></li>
+                  <li>Escribe tu email y la contraseña temporal indicada arriba</li>
+                  <li>Explora los pacientes virtuales y comienza tu primera sesión</li>
+                </ol>
+
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-600">Con entusiasmo,</p>
+                  <p className="text-sm text-gray-900 font-bold mt-0.5">Equipo GlorIA</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Si tienes problemas para acceder, escríbenos a soporte@glor-ia.com
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Send results */}
@@ -1420,7 +1449,7 @@ function Step3Preview({
       <div className="flex items-center gap-3 justify-end">
         {!sendResult && (
           <button
-            onClick={onSend}
+            onClick={() => onSend(emailBody !== DEFAULT_EMAIL_BODY ? emailBody : undefined)}
             disabled={sending}
             className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >

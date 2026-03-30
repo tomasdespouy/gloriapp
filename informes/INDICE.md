@@ -21,3 +21,4 @@
 | INF-2026-017 | 2026-03-25 | Estratégica | Hoja de Ruta: GlorIA como Plataforma de Lifelong Learning para Psicólogos LATAM — costos LLM, 18 features, visión LATAM | Informativo | desarrollo/INF-2026-017.pdf |
 | INF-2026-018 | 2026-03-27 | Desarrollo + Incidente | Dashboard en Vivo (sparklines 5s), Sidebar colapsable + secciones, Bug retroalimentación docente (session_competencies faltantes) | Correctivo + Mejora UX | desarrollo/INF-2026-018.pdf |
 | INF-2026-019 | 2026-03-27 | Infraestructura | Optimización Disk IO Supabase: 4 índices compuestos, polling 5s→5min, heartbeat 30s→60s, fix «En sesión» fantasma | Correctivo + Preventivo | infraestructura/INF-2026-019.pdf |
+| INF-2026-020 | 2026-03-27 | Desarrollo | Root Cause Analysis: feedback_status invisible por join 1-a-1 Supabase (22 ocurrencias en 7 archivos) | Correctivo | desarrollo/INF-2026-020.pdf |

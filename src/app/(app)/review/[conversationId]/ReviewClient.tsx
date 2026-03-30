@@ -25,7 +25,7 @@ interface Props {
   sessionNumber: number;
   messageCount: number;
   existingEvaluation: Record<string, unknown> | null;
-  feedbackStatus: "pending" | "approved" | null;
+  feedbackStatus: "pending" | "approved" | "evaluated" | null;
   tooShort: boolean;
   durationMinutes: number;
   activeSeconds: number;
@@ -54,11 +54,13 @@ export default function ReviewClient({
   initialSessionNotes,
 }: Props) {
   const router = useRouter();
-  const canSeeResults = feedbackStatus === "approved";
+  const canSeeResults = feedbackStatus === "approved" || feedbackStatus === "evaluated";
   const [showRadarModal, setShowRadarModal] = useState(false);
   const [actionItems, setActionItems] = useState<ActionItem[]>(initialActionItems);
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const [respondComment, setRespondComment] = useState("");
+  const [currentFeedbackStatus, setCurrentFeedbackStatus] = useState(feedbackStatus);
+  const [acknowledging, setAcknowledging] = useState(false);
   const [step, setStep] = useState<"reflect" | "loading" | "results" | "pending">(
     existingEvaluation
       ? canSeeResults ? "results" : "pending"
@@ -224,13 +226,30 @@ export default function ReviewClient({
         body: JSON.stringify({ id: itemId, status, comment: respondComment || undefined }),
       });
       if (res.ok) {
+        const data = await res.json();
         setActionItems((prev) =>
           prev.map((a) => a.id === itemId ? { ...a, status, student_comment: respondComment || null } : a)
         );
         setRespondComment("");
+        if (data.all_responded) {
+          setCurrentFeedbackStatus("evaluated");
+        }
       }
     } catch { /* ignore */ }
     setRespondingId(null);
+  };
+
+  const acknowledgeReview = async () => {
+    setAcknowledging(true);
+    try {
+      const res = await fetch(`/api/sessions/${conversationId}/acknowledge`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        setCurrentFeedbackStatus("evaluated");
+      }
+    } catch { /* ignore */ }
+    setAcknowledging(false);
   };
 
   const handleSubmit = async () => {
@@ -854,6 +873,33 @@ export default function ReviewClient({
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* Evaluated banner */}
+                {currentFeedbackStatus === "evaluated" && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-5 flex items-center gap-3">
+                    <CheckCircle size={22} className="text-green-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-green-800">Sesión evaluada</p>
+                      <p className="text-xs text-green-600">El ciclo de evaluación se completó. Tu docente fue notificado.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Confirm review button (when no action items and status is approved) */}
+                {currentFeedbackStatus === "approved" && actionItems.length === 0 && (
+                  <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5">
+                    <p className="text-sm text-gray-700 mb-3">
+                      Revisa los resultados y confirma que los revisaste para cerrar el ciclo de evaluación.
+                    </p>
+                    <button
+                      onClick={acknowledgeReview}
+                      disabled={acknowledging}
+                      className="bg-sidebar text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {acknowledging ? "Confirmando..." : "Confirmar revisión"}
+                    </button>
                   </div>
                 )}
 

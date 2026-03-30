@@ -373,19 +373,24 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     setDisplaySeconds(seconds);
   }, [activeSecondsExtRef]);
 
-  // Multi-stage silence timers (from last assistant message)
+  // Multi-stage silence detection (timestamp-based, resistant to browser throttling)
   // Stage 1 (60s):  saludo extrañado
   // Stage 2 (90s):  pregunta si está ahí
   // Stage 3 (180s): aviso de retiro
   // Stage 4 (300s): cierre de sesión
-  const SILENCE_TIMERS_TEXT = [60_000, 90_000, 180_000, 300_000];
-  const SILENCE_TIMERS_VOICE = [60_000, 120_000, 180_000];
+  const SILENCE_THRESHOLDS_TEXT = [60_000, 90_000, 180_000, 300_000];
+  const SILENCE_THRESHOLDS_VOICE = [60_000, 120_000, 180_000];
+  const silenceStartRef = useRef<number | null>(null);
   const silenceStageRef = useRef(0);
-  const silenceTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const silenceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const clearSilenceTimers = () => {
-    silenceTimersRef.current.forEach((t) => clearTimeout(t));
-    silenceTimersRef.current = [];
+    if (silenceIntervalRef.current) {
+      clearInterval(silenceIntervalRef.current);
+      silenceIntervalRef.current = null;
+    }
+    silenceStartRef.current = null;
+    silenceStageRef.current = 0;
   };
 
   const fireSilenceStage = async (stage: number) => {
@@ -432,13 +437,25 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
   const startSilenceTimers = () => {
     clearSilenceTimers();
+    silenceStartRef.current = Date.now();
     silenceStageRef.current = 0;
-    const timers = voiceModeRef.current ? SILENCE_TIMERS_VOICE : SILENCE_TIMERS_TEXT;
 
-    timers.forEach((delay, i) => {
-      const t = setTimeout(() => fireSilenceStage(i + 1), delay);
-      silenceTimersRef.current.push(t);
-    });
+    // Poll every 5s using timestamps — immune to browser tab throttling
+    silenceIntervalRef.current = setInterval(() => {
+      if (!silenceStartRef.current) return;
+      const elapsed = Date.now() - silenceStartRef.current;
+      const thresholds = voiceModeRef.current ? SILENCE_THRESHOLDS_VOICE : SILENCE_THRESHOLDS_TEXT;
+      const nextStage = silenceStageRef.current + 1;
+
+      if (nextStage <= thresholds.length && elapsed >= thresholds[nextStage - 1]) {
+        silenceStageRef.current = nextStage;
+        fireSilenceStage(nextStage);
+        // Stop polling after the last stage
+        if (nextStage >= thresholds.length) {
+          clearSilenceTimers();
+        }
+      }
+    }, 5_000);
   };
 
   // Start silence timers when user SENDS a message.

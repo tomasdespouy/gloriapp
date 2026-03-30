@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
@@ -44,13 +45,15 @@ export default async function DocenteDashboard({
   const studentIds = students?.map((s) => s.id) || [];
 
   // All progress rows + ALL sessions (not just completed) in parallel
+  // Use admin client for conversations to bypass RLS on session_competencies join
+  const admin = createAdminClient();
   const noStudents = ["00000000-0000-0000-0000-000000000000"];
   const [{ data: allProgress }, { data: allConversations }] = await Promise.all([
     supabase
       .from("student_progress")
       .select("student_id, level, level_name, total_xp, sessions_completed, current_streak, last_session_date")
       .in("student_id", studentIds.length > 0 ? studentIds : noStudents),
-    supabase
+    admin
       .from("conversations")
       .select(`
         id, student_id, ai_patient_id, session_number, status, created_at,

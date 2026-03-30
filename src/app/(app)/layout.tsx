@@ -1,10 +1,13 @@
 import { Suspense } from "react";
 import Sidebar from "@/components/Sidebar";
+import { SidebarProvider } from "@/components/SidebarContext";
+import ContentWrapper from "@/components/ContentWrapper";
 import TopHeader from "@/components/TopHeader";
 import NavigationProgress from "@/components/NavigationProgress";
 import WelcomeVideoModal from "@/components/WelcomeVideoModal";
 import SurveyModal from "@/components/SurveyModal";
 import PlatformActivityTracker from "@/components/PlatformActivityTracker";
+import GloriaAssistant from "@/components/GloriaAssistant";
 import { Toaster } from "sonner";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -52,28 +55,33 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Suspense><NavigationProgress /></Suspense>
-      <Sidebar role={role} establishmentLogoUrl={establishmentLogoUrl} activeModules={activeModules} />
-      <div className="ml-0 md:ml-[260px] flex-1 flex flex-col min-h-0 min-w-0">
-        <TopHeader
-          userName={fullName}
-          userEmail={email}
-          userRole={role}
-          realRole={realRole}
-          avatarUrl={avatarUrl}
-          isImpersonating={profile?.isImpersonating || false}
-          impersonationLabel={profile?.impersonationLabel}
-          establishments={isTrulySuperadmin ? allEstablishments : undefined}
-        />
-        <main id="main-content" className="flex-1 bg-bg-main min-h-0 overflow-auto dashboard-pattern">
-          {children}
-        </main>
+    <SidebarProvider>
+      <div className="flex h-screen overflow-hidden">
+        <Suspense><NavigationProgress /></Suspense>
+        <Sidebar role={role} establishmentLogoUrl={establishmentLogoUrl} activeModules={activeModules} />
+        <ContentWrapper>
+          <TopHeader
+            userName={fullName}
+            userEmail={email}
+            userRole={role}
+            realRole={realRole}
+            avatarUrl={avatarUrl}
+            isImpersonating={profile?.isImpersonating || false}
+            impersonationLabel={profile?.impersonationLabel}
+            establishments={isTrulySuperadmin ? allEstablishments : undefined}
+          />
+          <main id="main-content" className="flex-1 bg-bg-main min-h-0 overflow-auto dashboard-pattern">
+            {children}
+          </main>
+        </ContentWrapper>
+        {(role === "student" || role === "instructor") && (
+          <GloriaAssistant userName={fullName} />
+        )}
+        <WelcomeVideoModal />
+        <SurveyModal />
+        <PlatformActivityTracker />
+        <Toaster position="top-right" richColors closeButton />
       </div>
-      <WelcomeVideoModal />
-      <SurveyModal />
-      <PlatformActivityTracker />
-      <Toaster position="top-right" richColors closeButton />
-    </div>
+    </SidebarProvider>
   );
 }

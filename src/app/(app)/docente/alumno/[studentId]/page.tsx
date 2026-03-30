@@ -49,6 +49,8 @@ export default async function DocenteAlumnoPage({ params }: Props) {
 
   if (!student) redirect("/docente/dashboard");
 
+  const admin = createAdminClient();
+
   const { data: progress } = await supabase
     .from("student_progress")
     .select("*")
@@ -56,7 +58,8 @@ export default async function DocenteAlumnoPage({ params }: Props) {
     .single();
 
   // All sessions with V2 evaluations + feedback + strengths/areas
-  const { data: sessions } = await supabase
+  // Use admin client — page is auth-gated and scoped by studentId
+  const { data: sessions } = await admin
     .from("conversations")
     .select(`
       id, ai_patient_id, session_number, status, created_at, ended_at, active_seconds,
@@ -72,8 +75,7 @@ export default async function DocenteAlumnoPage({ params }: Props) {
     .eq("student_id", studentId)
     .order("created_at", { ascending: false });
 
-  // Session summaries for AI-generated recap (admin client — docente can't read student summaries via RLS)
-  const admin = createAdminClient();
+  // Session summaries for AI-generated recap
   const { data: summaries } = await admin
     .from("session_summaries")
     .select("conversation_id, summary")
@@ -229,10 +231,12 @@ export default async function DocenteAlumnoPage({ params }: Props) {
               {sessions.map((session) => {
                 const patient = session.ai_patients as unknown as { name: string; difficulty_level: string; tags: string[] | null } | null;
                 const comp = getComp(session);
-                const fb = (session.session_feedback as FbRow[] | null)?.[0];
+                const rawFb = session.session_feedback;
+                const fb = !rawFb ? null : Array.isArray(rawFb) ? (rawFb as FbRow[])[0] ?? null : rawFb as FbRow;
                 const isCompleted = session.status === "completed";
                 const fbStatus = comp ? String(comp.feedback_status) : null;
-                const isApproved = fbStatus === "approved" || fbStatus === "evaluated";
+                const isEvaluated = fbStatus === "evaluated";
+                const isApproved = fbStatus === "approved" || isEvaluated;
                 const isV2 = comp && Number(comp.eval_version) === 2;
                 const score = isV2 ? Number(comp.overall_score_v2) : null;
 
@@ -258,7 +262,8 @@ export default async function DocenteAlumnoPage({ params }: Props) {
                       isCompleted ? "hover:shadow-md cursor-pointer" : "opacity-50 border-gray-100 pointer-events-none"
                     } ${
                       hasRisk && !isApproved ? "border-red-300 ring-1 ring-red-200" :
-                      isApproved ? "border-green-200" :
+                      isEvaluated ? "border-green-200" :
+                      isApproved ? "border-blue-200" :
                       isCompleted ? "border-amber-200" : "border-gray-100"
                     }`}
                   >
@@ -324,11 +329,11 @@ export default async function DocenteAlumnoPage({ params }: Props) {
                     <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
                       {fbStatus === "evaluated" ? (
                         <span className="flex items-center gap-1 text-[10px] text-green-600">
-                          <CheckCircle2 size={11} /> Evaluada{fb?.teacher_score != null ? ` · ${Number(fb.teacher_score).toFixed(0)}/10` : ""}
+                          <CheckCircle2 size={11} /> Cerrada{fb?.teacher_score != null ? ` · ${Number(fb.teacher_score).toFixed(0)}/10` : ""}
                         </span>
                       ) : fbStatus === "approved" ? (
                         <span className="flex items-center gap-1 text-[10px] text-blue-600">
-                          <CheckCircle2 size={11} /> Aprobada{fb?.teacher_score != null ? ` · ${Number(fb.teacher_score).toFixed(0)}/10` : ""}
+                          <CheckCircle2 size={11} /> Retroalimentación enviada{fb?.teacher_score != null ? ` · ${Number(fb.teacher_score).toFixed(0)}/10` : ""}
                         </span>
                       ) : isCompleted ? (
                         <span className="flex items-center gap-1 text-[10px] font-medium text-amber-600">
