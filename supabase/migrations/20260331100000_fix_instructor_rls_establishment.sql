@@ -128,9 +128,10 @@ CREATE POLICY "Instructors view establishment message annotations"
     public.is_instructor_or_above()
     AND (
       EXISTS (
-        SELECT 1 FROM public.conversations c
+        SELECT 1 FROM public.messages m
+        JOIN public.conversations c ON c.id = m.conversation_id
         JOIN public.profiles p ON p.id = c.student_id
-        WHERE c.id = conversation_id
+        WHERE m.id = message_id
         AND p.establishment_id = public.get_my_establishment_id()
       )
       OR public.is_admin_or_superadmin()
