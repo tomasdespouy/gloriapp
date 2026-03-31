@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { emailLimiter, checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   request: Request,
@@ -16,6 +17,10 @@ export async function POST(
     .single();
 
   if (profile?.role !== "superadmin") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+
+  // Rate limit: 20 emails/hour global
+  const rateLimited = await checkRateLimit(emailLimiter, "global");
+  if (rateLimited) return rateLimited;
 
   const { id } = await params;
   const body = await request.json();

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+import { uploadLimiter, checkRateLimit } from "@/lib/rate-limit";
 
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
 
@@ -19,6 +20,10 @@ export async function POST(request: Request) {
   if (!profile || !["admin", "superadmin"].includes(profile.role)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
+
+  // Rate limit: 10 uploads/hour per user
+  const rateLimited = await checkRateLimit(uploadLimiter, user.id);
+  if (rateLimited) return rateLimited;
 
   const formData = await request.formData();
   const file = formData.get("file") as File | null;

@@ -5,6 +5,7 @@ import { Send, ArrowLeft, LogOut, Mic, MicOff, Volume2, Square, Loader2, Clock, 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SessionTimer, { useActiveSecondsRef } from "@/components/SessionTimer";
+import { sanitizeHTML } from "@/lib/sanitize";
 
 interface Patient {
   id: string;
@@ -1029,13 +1030,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   };
 
   const renderContent = (content: string) => {
-    return content
+    const html = content
       // Bold: **text**
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       // Italic: *text* (single asterisks, not inside bold)
       .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
       // Non-verbal cues: [action]
       .replace(/\[([^\]]*)\]/g, '<span class="text-gray-400 italic text-xs">[$1]</span>');
+    return sanitizeHTML(html);
   };
 
   const formatTime = (isoString?: string) => {

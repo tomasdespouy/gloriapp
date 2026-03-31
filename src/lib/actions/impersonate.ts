@@ -32,8 +32,10 @@ export async function setImpersonation(
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, JSON.stringify({ role, establishmentId, establishmentName }), {
     path: "/",
-    sameSite: "lax",
-    maxAge: 86400, // 24h auto-expire
+    httpOnly: true,
+    sameSite: "strict",
+    secure: true,
+    maxAge: 3600, // 1h auto-expire (was 24h)
   });
 }
 

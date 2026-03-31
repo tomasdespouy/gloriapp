@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Sparkles, Send, X, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import Portal from "@/components/Portal";
+import { sanitizeHTML } from "@/lib/sanitize";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -31,7 +32,7 @@ function renderContent(text: string) {
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
     if (html !== part) {
-      return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
+      return <span key={i} dangerouslySetInnerHTML={{ __html: sanitizeHTML(html) }} />;
     }
     return <span key={i}>{part}</span>;
   });

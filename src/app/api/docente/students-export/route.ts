@@ -6,14 +6,21 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const { data: profile } = await supabase.from("profiles").select("role, establishment_id").eq("id", user.id).single();
   if (profile?.role !== "instructor" && profile?.role !== "admin" && profile?.role !== "superadmin") {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  // Fetch students + progress
+  // Fetch students + progress — scoped by establishment
+  let studentsQuery = supabase.from("profiles").select("id, full_name, email, created_at").eq("role", "student").order("full_name");
+
+  // Instructors and admins only see their establishment; superadmins see all
+  if (profile.role !== "superadmin" && profile.establishment_id) {
+    studentsQuery = studentsQuery.eq("establishment_id", profile.establishment_id);
+  }
+
   const [{ data: students }, { data: progress }] = await Promise.all([
-    supabase.from("profiles").select("id, full_name, email, created_at").eq("role", "student").order("full_name"),
+    studentsQuery,
     supabase.from("student_progress").select("student_id, level_name, sessions_completed, total_xp, current_streak, last_session_date"),
   ]);
 

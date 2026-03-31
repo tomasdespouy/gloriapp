@@ -8,6 +8,7 @@ import {
   Phone, ChevronDown, ChevronUp, X, ExternalLink, MessageSquare,
   Calendar, Trash2, Edit3, Save, MapPin, Send, Loader2, FileText,
 } from "lucide-react";
+import { sanitizeHTML } from "@/lib/sanitize";
 
 type University = {
   id: string;
@@ -819,7 +820,7 @@ export default function CRMClient({ universities: initial }: { universities: Uni
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Vista previa</label>
                   <div
                     className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-sm"
-                    dangerouslySetInnerHTML={{ __html: emailBody }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(emailBody) }}
                   />
                 </div>
               )}

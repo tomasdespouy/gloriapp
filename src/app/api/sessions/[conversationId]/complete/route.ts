@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat } from "@/lib/ai";
 import { calculateSessionXp, getLevelInfo, LEVELS } from "@/lib/gamification";
+import { evalLimiter, checkRateLimit } from "@/lib/rate-limit";
 
 const EVALUATION_PROMPT = `Eres un supervisor clínico experto evaluando la sesión de un estudiante de psicología.
 Usa la Pauta para la Evaluación de Competencias Psicoterapéuticas para el trabajo con Adultos (Valdés & Gómez, 2023), del libro "Supervisión clínica para estudiantes de Psicología" (Ediciones Universidad Santo Tomás).
@@ -74,6 +75,10 @@ export async function POST(
   // Verify auth
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  // Rate limit: 5 evaluations/hour per user
+  const rateLimited = await checkRateLimit(evalLimiter, user.id);
+  if (rateLimited) return rateLimited;
 
   // Get reflection data from body
   const body = await request.json().catch(() => ({}));
