@@ -2,10 +2,23 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  // Role check: only admin/superadmin can upload patient assets
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || !["admin", "superadmin"].includes(profile.role)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
 
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
@@ -17,6 +30,11 @@ export async function POST(request: Request) {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    if (buffer.length > MAX_VIDEO_SIZE) {
+      return NextResponse.json({ error: "Archivo excede el límite de 50 MB" }, { status: 413 });
+    }
+
     const admin = createAdminClient();
 
     const { error } = await admin.storage
