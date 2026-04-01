@@ -124,19 +124,43 @@ export default async function DocenteAlumnoPage({ params }: Props) {
   const initials = student.full_name
     ?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "?";
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-    return `${d.getDate()} ${months[d.getMonth()]}`;
-  };
+  const TZ = "America/Santiago";
+
+  const formatDate = (iso: string) =>
+    new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short", timeZone: TZ }).format(new Date(iso));
 
   const formatDateTime = (iso: string) => {
     const d = new Date(iso);
-    const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-    const h = d.getHours().toString().padStart(2, "0");
-    const m = d.getMinutes().toString().padStart(2, "0");
-    return `${d.getDate()} ${months[d.getMonth()]} ${h}:${m}`;
+    const date = new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short", timeZone: TZ }).format(d);
+    const time = new Intl.DateTimeFormat("es-CL", { hour: "2-digit", minute: "2-digit", timeZone: TZ }).format(d);
+    return `${date} ${time}`;
   };
+
+  const getChileDateKey = (iso: string) =>
+    new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: TZ }).format(new Date(iso));
+
+  const formatDateLabel = (dateKey: string) => {
+    const todayKey = getChileDateKey(new Date().toISOString());
+    const yd = new Date(); yd.setDate(yd.getDate() - 1);
+    const yesterdayKey = getChileDateKey(yd.toISOString());
+    const [y, m, d] = dateKey.split("-").map(Number);
+    const date = new Date(y, m - 1, d, 12);
+    const days = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    const months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    const label = `${days[date.getDay()]} ${date.getDate()} de ${months[date.getMonth()]}`;
+    if (dateKey === todayKey) return `Hoy — ${label}`;
+    if (dateKey === yesterdayKey) return `Ayer — ${label}`;
+    return label;
+  };
+
+  // Group sessions by Chile date
+  const groupedSessions: Map<string, typeof allSessions> = new Map();
+  allSessions.forEach(s => {
+    const key = getChileDateKey(s.created_at);
+    if (!groupedSessions.has(key)) groupedSessions.set(key, []);
+    groupedSessions.get(key)!.push(s);
+  });
+  const dateGroups = Array.from(groupedSessions.entries());
 
   return (
     <div className="min-h-screen">
@@ -226,9 +250,17 @@ export default async function DocenteAlumnoPage({ params }: Props) {
         <div>
           <h3 className="text-sm font-semibold text-gray-900 mb-3">Historial de sesiones</h3>
 
-          {sessions && sessions.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {sessions.map((session) => {
+          {dateGroups.length > 0 ? (
+            <div className="space-y-6">
+              {dateGroups.map(([dateKey, dateSessions]) => (
+                <div key={dateKey}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-px flex-1 bg-gray-200" />
+                    <span className="text-xs font-medium text-gray-500 whitespace-nowrap">{formatDateLabel(dateKey)}</span>
+                    <div className="h-px flex-1 bg-gray-200" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {dateSessions.map((session) => {
                 const patient = session.ai_patients as unknown as { name: string; difficulty_level: string; tags: string[] | null } | null;
                 const comp = getComp(session);
                 const rawFb = session.session_feedback;
@@ -348,7 +380,10 @@ export default async function DocenteAlumnoPage({ params }: Props) {
                     </div>
                   </Link>
                 );
-              })}
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">

@@ -260,7 +260,7 @@ export default async function DocenteDashboard({
                     const studentName = students?.find((s) => s.id === session.student_id)?.full_name || "Alumno";
                     const comp = getComp(session);
                     const date = new Date(session.created_at).toLocaleDateString("es-CL", {
-                      day: "numeric", month: "short",
+                      day: "numeric", month: "short", timeZone: "America/Santiago",
                     });
                     const riskTags = ["ideacion", "suicida", "autolesion", "crisis", "riesgo"];
                     const hasRisk = (patient?.tags || []).some(t => riskTags.some(r => t.toLowerCase().includes(r)));
