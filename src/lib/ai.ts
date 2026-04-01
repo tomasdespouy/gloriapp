@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 
 // --- Provider config ---
-const provider = process.env.LLM_PROVIDER || "openai";
+const primaryProvider = process.env.LLM_PROVIDER || "openai";
 
 // --- Model config ---
 // CHAT_MODEL: used for patient conversations (fast, cheap)
@@ -24,8 +24,25 @@ function getOpenAI() {
   return _openai;
 }
 
-// --- Timeout for LLM calls (90 seconds) ---
+// --- Timeout & retry config ---
 const LLM_TIMEOUT_MS = 90_000;
+const MAX_RETRIES = 2;
+const RETRY_BASE_MS = 1000;
+
+function isRetryable(err: unknown): boolean {
+  if (err instanceof OpenAI.APIError) {
+    return err.status === 429 || err.status === 500 || err.status === 503;
+  }
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    return msg.includes("rate") || msg.includes("overloaded") || msg.includes("503") || msg.includes("429");
+  }
+  return false;
+}
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // --- Unified chat interface ---
 export type ChatMessage = {
@@ -36,6 +53,7 @@ export type ChatMessage = {
 /**
  * Non-streaming chat — uses EVAL model (gpt-4o) by default.
  * Used for: evaluations, profile generation, ficha clínica, tutor feedback.
+ * Includes retry with backoff + automatic failover to secondary provider.
  */
 export async function chat(
   messages: ChatMessage[],
@@ -43,24 +61,103 @@ export async function chat(
   options?: { lite?: boolean }
 ): Promise<string> {
   const model = options?.lite ? chatModel : evalModel;
-  if (provider === "openai") {
-    return chatOpenAI(messages, systemPrompt, model);
+
+  // Try primary provider with retries
+  const primary = primaryProvider === "openai"
+    ? () => chatOpenAI(messages, systemPrompt, model)
+    : () => chatGemini(messages, systemPrompt);
+
+  try {
+    return await withRetry(primary);
+  } catch (primaryErr) {
+    console.warn(`[ai] Primary provider (${primaryProvider}) failed, attempting failover:`, primaryErr instanceof Error ? primaryErr.message : primaryErr);
+
+    // Failover to secondary provider
+    const secondary = primaryProvider === "openai"
+      ? () => chatGemini(messages, systemPrompt)
+      : () => chatOpenAI(messages, systemPrompt, model);
+
+    try {
+      return await secondary();
+    } catch (secondaryErr) {
+      console.error(`[ai] Failover also failed:`, secondaryErr instanceof Error ? secondaryErr.message : secondaryErr);
+      throw primaryErr; // throw original error
+    }
   }
-  return chatGemini(messages, systemPrompt);
 }
 
 /**
  * Streaming chat — uses CHAT model (gpt-4o-mini) for patient conversations.
  * Used for: real-time patient responses in the chat interface.
+ * Includes automatic failover to secondary provider on error.
  */
 export function chatStream(
   messages: ChatMessage[],
   systemPrompt?: string
 ): ReadableStream<string> {
-  if (provider === "openai") {
-    return chatStreamOpenAI(messages, systemPrompt, chatModel);
+  const primary = primaryProvider === "openai"
+    ? () => chatStreamOpenAI(messages, systemPrompt, chatModel)
+    : () => chatStreamGemini(messages, systemPrompt);
+
+  const secondary = primaryProvider === "openai"
+    ? () => chatStreamGemini(messages, systemPrompt)
+    : () => chatStreamOpenAI(messages, systemPrompt, chatModel);
+
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        await pipeStream(primary(), controller);
+      } catch (err) {
+        console.warn(`[ai] Streaming primary (${primaryProvider}) failed, attempting failover:`, err instanceof Error ? err.message : err);
+        try {
+          await pipeStream(secondary(), controller);
+        } catch (fallbackErr) {
+          console.error(`[ai] Streaming failover also failed:`, fallbackErr instanceof Error ? fallbackErr.message : fallbackErr);
+          controller.error(err);
+        }
+      }
+    },
+  });
+}
+
+/** Pipe a ReadableStream into a controller, resolving on close or rejecting on error */
+async function pipeStream(
+  stream: ReadableStream<string>,
+  controller: ReadableStreamDefaultController<string>
+): Promise<void> {
+  const reader = stream.getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        controller.close();
+        return;
+      }
+      controller.enqueue(value);
+    }
+  } finally {
+    reader.releaseLock();
   }
-  return chatStreamGemini(messages, systemPrompt);
+}
+
+/** Retry wrapper with exponential backoff */
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt < MAX_RETRIES && isRetryable(err)) {
+        const delay = RETRY_BASE_MS * Math.pow(2, attempt);
+        console.warn(`[ai] Retryable error (attempt ${attempt + 1}/${MAX_RETRIES}), waiting ${delay}ms:`, err instanceof Error ? err.message : err);
+        await sleep(delay);
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw lastErr;
 }
 
 // --- Non-streaming ---
@@ -76,7 +173,6 @@ async function chatGemini(
       parts: [{ text: m.content }],
     }));
 
-  // Guard: Gemini requires at least one content item
   if (contents.length === 0) {
     contents.push({ role: "user" as const, parts: [{ text: "Hola" }] });
   }
@@ -127,7 +223,6 @@ function chatStreamGemini(
             parts: [{ text: m.content }],
           }));
 
-        // Guard: Gemini requires at least one content item
         if (contents.length === 0) {
           contents.push({ role: "user" as const, parts: [{ text: "Hola" }] });
         }
@@ -188,4 +283,4 @@ function chatStreamOpenAI(
   });
 }
 
-export { provider as currentProvider, chatModel, evalModel };
+export { primaryProvider as currentProvider, chatModel, evalModel };
