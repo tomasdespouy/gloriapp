@@ -7,7 +7,7 @@ const primaryProvider = process.env.LLM_PROVIDER || "openai";
 // --- Model config ---
 // CHAT_MODEL: used for patient conversations (fast, cheap)
 // EVAL_MODEL: used for evaluations and analysis (precise)
-const chatModel = process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini";
+const chatModel = process.env.OPENAI_CHAT_MODEL || "gpt-4.1-mini";
 const evalModel = process.env.OPENAI_EVAL_MODEL || process.env.OPENAI_MODEL || "gpt-4o";
 
 // --- Lazy singleton initialization ---
