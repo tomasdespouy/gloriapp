@@ -44,6 +44,10 @@ CREATE POLICY "Superadmin manage all surveys"
   USING (public.is_superadmin())
   WITH CHECK (public.is_superadmin());
 
+-- NOTE: surveys.scope_id is TEXT (not UUID) because it can hold different
+-- kinds of ids depending on scope_type. We compare against admin_establishments
+-- via an EXISTS with an explicit ::text cast, which is safe regardless of
+-- whether scope_id contains a UUID-shaped string or something else.
 CREATE POLICY "Admin view scoped surveys"
   ON public.surveys FOR SELECT TO authenticated
   USING (
@@ -55,7 +59,11 @@ CREATE POLICY "Admin view scoped surveys"
       scope_type = 'global'
       OR (
         scope_type = 'establishment'
-        AND scope_id = ANY(public.get_my_establishment_ids())
+        AND EXISTS (
+          SELECT 1 FROM public.admin_establishments ae
+          WHERE ae.admin_id = auth.uid()
+            AND ae.establishment_id::text = scope_id
+        )
       )
     )
   );
