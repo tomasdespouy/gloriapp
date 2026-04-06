@@ -11,12 +11,24 @@
 -- ============================================================
 
 -- ─── 1. ai_patients ────────────────────────────────────────
--- Replace the wide-open admin policy with a scoped one.
+-- Replace the wide-open admin policies with a scoped one.
 -- Admin can SELECT patients assigned to their establishments via
 -- establishment_patients. Superadmin keeps full access through the
 -- existing "Superadmin full access on ai_patients" policy.
+--
+-- We drop both "Admin can view all patients" (the original wide-open
+-- policy from 20260315000001_admin_rls.sql) AND "Admin view patients
+-- by country or assignment" (from 20260320011829_establishment_patients.sql),
+-- because the second one allowed admins to see patients sharing their
+-- country via ai_patients.country && get_my_countries(), bypassing the
+-- establishment scope. We also drop the legacy "Instructor view patients
+-- by country or assignment" (singular) that was leftover from the same
+-- migration after 20260331100000_fix_instructor_rls_establishment.sql
+-- created the corrected "Instructors view patients by country or assignment".
 
 DROP POLICY IF EXISTS "Admin can view all patients" ON public.ai_patients;
+DROP POLICY IF EXISTS "Admin view patients by country or assignment" ON public.ai_patients;
+DROP POLICY IF EXISTS "Instructor view patients by country or assignment" ON public.ai_patients;
 
 CREATE POLICY "Admin view scoped patients"
   ON public.ai_patients FOR SELECT TO authenticated
