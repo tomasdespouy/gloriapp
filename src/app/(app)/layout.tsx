@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { SidebarProvider } from "@/components/SidebarContext";
 import ContentWrapper from "@/components/ContentWrapper";
@@ -32,6 +33,41 @@ export default async function AppLayout({
   let activeModules: string[] | null = null; // null = all modules enabled
 
   const admin = createAdminClient();
+
+  // ─── Pilot access window enforcement ──────────────────────────────────
+  // If the user is a pilot participant and the pilot has scheduled_at /
+  // ended_at set, block access outside that window. Superadmins bypass.
+  if (profile?.id && !isTrulySuperadmin) {
+    const { data: participation } = await admin
+      .from("pilot_participants")
+      .select("pilot_id")
+      .eq("user_id", profile.id)
+      .maybeSingle();
+
+    if (participation?.pilot_id) {
+      const { data: pilot } = await admin
+        .from("pilots")
+        .select("scheduled_at, ended_at, status")
+        .eq("id", participation.pilot_id)
+        .single();
+
+      if (pilot) {
+        // eslint-disable-next-line react-hooks/purity
+        const now = Date.now();
+        const startsAt = pilot.scheduled_at ? new Date(pilot.scheduled_at).getTime() : null;
+        const endsAt = pilot.ended_at ? new Date(pilot.ended_at).getTime() : null;
+
+        if (pilot.status === "cancelado") {
+          redirect("/piloto-cerrado?reason=cancelado");
+        } else if (startsAt && now < startsAt) {
+          redirect("/piloto-cerrado?reason=not_yet");
+        } else if ((endsAt && now > endsAt) || pilot.status === "finalizado") {
+          redirect("/piloto-cerrado?reason=ended");
+        }
+      }
+    }
+  }
+  // ──────────────────────────────────────────────────────────────────────
 
   if (profile?.establishmentId) {
     const [{ data: est }, { data: disabledModules }] = await Promise.all([

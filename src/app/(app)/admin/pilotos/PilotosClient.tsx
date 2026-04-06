@@ -108,7 +108,15 @@ const COMPETENCY_LABELS: Record<string, string> = {
 // Main Component
 // ────────────────────────────────────────────
 
-export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot[] }) {
+type Establishment = { id: string; name: string; country: string | null };
+
+export default function PilotosClient({
+  pilots: initialPilots,
+  establishments,
+}: {
+  pilots: Pilot[];
+  establishments: Establishment[];
+}) {
   const router = useRouter();
   const [pilots, setPilots] = useState(initialPilots);
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
@@ -126,6 +134,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
     contact_email: "",
     scheduled_at: "",
     ended_at: "",
+    establishment_id: "",
   });
   const [csvError, setCsvError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -166,7 +175,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
     setShowWizard(false);
     setCreating(false);
     setCsvRows([]);
-    setFormData({ name: "", institution: "", country: "", contact_name: "", contact_email: "", scheduled_at: "", ended_at: "" });
+    setFormData({ name: "", institution: "", country: "", contact_name: "", contact_email: "", scheduled_at: "", ended_at: "", establishment_id: "" });
     setCsvError("");
     setValidationResult(null);
     setSendResult(null);
@@ -189,6 +198,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
         contact_email: data.contact_email || "",
         scheduled_at: data.scheduled_at ? new Date(data.scheduled_at).toISOString().slice(0, 16) : "",
         ended_at: data.ended_at ? new Date(data.ended_at).toISOString().slice(0, 16) : "",
+        establishment_id: data.establishment_id || "",
       });
 
       // Determine step from status or target
@@ -297,7 +307,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
   // ────────────────────────────────
 
   const handleCreatePilot = async () => {
-    if (!formData.name.trim() || !formData.institution.trim() || csvRows.length === 0) return;
+    if (!formData.name.trim() || !formData.institution.trim() || !formData.establishment_id || csvRows.length === 0) return;
     setCreating(true);
 
     // Auto-add contact as instructor if not already in list
@@ -588,6 +598,7 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
           onCreatePilot={handleCreatePilot}
           isEditing={!!selectedPilot}
           onNext={() => setStep(1)}
+          establishments={establishments}
         />}
 
         {step === 1 && <Step2Validate
@@ -611,6 +622,18 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
           pilot={dashboardData || selectedPilot}
           refreshing={refreshing}
           onRefresh={refreshDashboard}
+          onFinalize={async () => {
+            if (!selectedPilot) return;
+            const res = await fetch(`/api/admin/pilots/${selectedPilot.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "finalizado", ended_at: new Date().toISOString() }),
+            });
+            if (res.ok) {
+              await refreshDashboard();
+              setStep(4);
+            }
+          }}
         />}
 
         {step === 4 && <Step5Report
@@ -627,9 +650,9 @@ export default function PilotosClient({ pilots: initialPilots }: { pilots: Pilot
 
 function Step1Upload({
   formData, setFormData, csvRows, setCsvRows, csvError, creating, fileInputRef,
-  onFileDrop, onFileSelect, onCreatePilot, isEditing, onNext,
+  onFileDrop, onFileSelect, onCreatePilot, isEditing, onNext, establishments,
 }: {
-  formData: { name: string; institution: string; country: string; contact_name: string; contact_email: string; scheduled_at: string; ended_at: string };
+  formData: { name: string; institution: string; country: string; contact_name: string; contact_email: string; scheduled_at: string; ended_at: string; establishment_id: string };
   setFormData: (fn: (prev: typeof formData) => typeof formData) => void;
   csvRows: CsvRow[];
   setCsvRows: (rows: CsvRow[]) => void;
@@ -641,12 +664,13 @@ function Step1Upload({
   onCreatePilot: () => void;
   isEditing: boolean;
   onNext?: () => void;
+  establishments: Establishment[];
 }) {
   const [manualForm, setManualForm] = useState({ first_name: "", last_name: "", email: "", role: "student" });
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<CsvRow>({ email: "", full_name: "", role: "student" });
   const [createError, setCreateError] = useState("");
-  const canCreate = formData.name.trim() && formData.institution.trim() && csvRows.length > 0;
+  const canCreate = formData.name.trim() && formData.institution.trim() && formData.establishment_id && csvRows.length > 0;
 
   const handleAddManual = () => {
     if (!manualForm.first_name.trim() || !manualForm.last_name.trim() || !manualForm.email.trim()) return;
@@ -712,6 +736,24 @@ function Step1Upload({
               placeholder="Universidad Gabriela Mistral"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
             />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Establecimiento *</label>
+            <select
+              value={formData.establishment_id}
+              onChange={(e) => setFormData((f) => ({ ...f, establishment_id: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sidebar/30 hover:border-gray-300 cursor-pointer"
+            >
+              <option value="">— Seleccionar establecimiento —</option>
+              {establishments.map((est) => (
+                <option key={est.id} value={est.id}>
+                  {est.name}{est.country ? ` (${est.country})` : ""}
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-gray-400 mt-1">
+              Los participantes quedarán vinculados a este establecimiento y verán solo sus pacientes asignados.
+            </p>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">País</label>
@@ -1476,14 +1518,16 @@ function Step3Preview({
 // ════════════════════════════════════════════
 
 function Step4Dashboard({
-  pilot, refreshing, onRefresh,
+  pilot, refreshing, onRefresh, onFinalize,
 }: {
   pilot: Pilot | null;
   refreshing: boolean;
   onRefresh: () => void;
+  onFinalize: () => Promise<void>;
 }) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [deactivating, setDeactivating] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
   const [creatingSurvey, setCreatingSurvey] = useState(false);
   const [surveyCreated, setSurveyCreated] = useState(false);
   if (!pilot) return null;
@@ -1553,21 +1597,43 @@ function Step4Dashboard({
             </span>
           )}
         </div>
-        {pilot.status !== "cancelado" && pilot.status !== "finalizado" && (
-          <button
-            onClick={handleDeactivate}
-            disabled={deactivating}
-            className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-xs font-medium hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {deactivating ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
-            Desactivar piloto
-          </button>
-        )}
-        {pilot.status === "cancelado" && (
-          <span className="text-xs font-medium text-red-500 bg-red-50 px-3 py-1.5 rounded-lg">
-            Piloto desactivado
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {pilot.status !== "cancelado" && pilot.status !== "finalizado" && (
+            <button
+              onClick={async () => {
+                if (!confirm("¿Finalizar este piloto? Los participantes perderán acceso y se generará el informe de cierre.")) return;
+                setFinalizing(true);
+                await onFinalize();
+                setFinalizing(false);
+              }}
+              disabled={finalizing}
+              className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {finalizing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+              Finalizar piloto
+            </button>
+          )}
+          {pilot.status !== "cancelado" && pilot.status !== "finalizado" && (
+            <button
+              onClick={handleDeactivate}
+              disabled={deactivating}
+              className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-xs font-medium hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {deactivating ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+              Desactivar piloto
+            </button>
+          )}
+          {pilot.status === "cancelado" && (
+            <span className="text-xs font-medium text-red-500 bg-red-50 px-3 py-1.5 rounded-lg">
+              Piloto desactivado
+            </span>
+          )}
+          {pilot.status === "finalizado" && (
+            <span className="text-xs font-medium text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">
+              Piloto finalizado
+            </span>
+          )}
+        </div>
       </div>
 
       {/* KPIs */}
@@ -1769,31 +1835,80 @@ function Step4Dashboard({
 // Step 5: Report
 // ════════════════════════════════════════════
 
+type ReportData = {
+  kpis: {
+    total_participants: number;
+    total_students: number;
+    total_invited: number;
+    total_connected: number;
+    connection_rate: number;
+    total_sessions: number;
+    total_evaluated_sessions: number;
+    avg_sessions_per_student: number;
+    pilot_overall_avg: number;
+  };
+  competency_averages: Record<string, { avg: number; count: number }>;
+  top_strengths: { text: string; count: number }[];
+  top_areas: { text: string; count: number }[];
+};
+
 function Step5Report({ pilot }: { pilot: Pilot | null }) {
   const [downloading, setDownloading] = useState(false);
   const [sendingReport, setSendingReport] = useState(false);
   const [sent, setSent] = useState(false);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+
+  // Fetch aggregated report data when the step opens
+  useEffect(() => {
+    if (!pilot) return;
+    let cancelled = false;
+    setLoadingReport(true);
+    fetch(`/api/admin/pilots/${pilot.id}/report`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled) setReportData(data);
+      })
+      .catch(() => {
+        if (!cancelled) setReportData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingReport(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pilot]);
 
   if (!pilot) return null;
 
   const participants: Participant[] = (pilot as Pilot & { participants?: Participant[] }).participants || [];
   const students = participants.filter((p) => p.role === "student");
 
-  const invited = participants.filter((p) => p.status !== "pendiente").length;
-  const connected = participants.filter((p) => p.first_login_at).length;
+  // Use real data from the report endpoint when available, fall back to local computation.
+  const k = reportData?.kpis;
+  const invited = k?.total_invited ?? participants.filter((p) => p.status !== "pendiente").length;
+  const connected = k?.total_connected ?? participants.filter((p) => p.first_login_at).length;
   const connectionRate = invited > 0 ? Math.round((connected / invited) * 100) : 0;
-  const totalSessions = students.reduce((sum, p) => sum + (p.sessions_count || 0), 0);
-  const avgSessions = students.length > 0 ? (totalSessions / students.length).toFixed(1) : "0";
+  const totalSessions = k?.total_sessions ?? students.reduce((sum, p) => sum + (p.sessions_count || 0), 0);
+  const avgSessions = k
+    ? k.avg_sessions_per_student.toFixed(1)
+    : (students.length > 0 ? (totalSessions / students.length).toFixed(1) : "0");
   const completionRate = students.length > 0
     ? Math.round((students.filter((p) => (p.sessions_count || 0) > 0).length / students.length) * 100)
     : 0;
 
   const handleDownloadPDF = async () => {
     setDownloading(true);
-    // Placeholder: In production, this would call a report generation endpoint
-    await new Promise((r) => setTimeout(r, 1500));
-    setDownloading(false);
-    alert("Función de descarga PDF será implementada con el endpoint de generación de informes.");
+    try {
+      const { generatePilotReportPDF } = await import("@/lib/generate-pilot-report");
+      await generatePilotReportPDF(pilot.id);
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      alert("Error al generar el PDF: " + (err instanceof Error ? err.message : "desconocido"));
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const handleSendReport = async () => {
@@ -1859,35 +1974,89 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
         </div>
       </div>
 
-      {/* Competency radar placeholder */}
+      {/* Competency averages */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">
-          Competencias promedio del piloto
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5">
-          {Object.entries(COMPETENCY_LABELS).map(([key, label]) => {
-            // Placeholder values — in production these come from aggregated session_competencies
-            const val = 0;
-            return (
-              <div key={key} className="flex items-center gap-2">
-                <span className="text-[10px] text-gray-500 w-36 truncate">{label}</span>
-                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-sidebar"
-                    style={{ width: `${(val / 4) * 100}%` }}
-                  />
-                </div>
-                <span className="text-[10px] font-bold text-gray-400 w-6 text-right">
-                  {val > 0 ? val.toFixed(1) : "—"}
-                </span>
-              </div>
-            );
-          })}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-gray-900">
+            Competencias promedio del piloto
+          </h3>
+          {reportData && (
+            <span className="text-[10px] text-gray-400">
+              Basado en {reportData.kpis.total_evaluated_sessions} sesiones evaluadas
+            </span>
+          )}
         </div>
-        <p className="text-xs text-gray-400 mt-4 text-center">
-          Las competencias se calcularán una vez que los participantes completen sesiones evaluadas.
-        </p>
+        {loadingReport && (
+          <p className="text-xs text-gray-400 text-center py-6">Cargando datos del informe...</p>
+        )}
+        {!loadingReport && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5">
+              {Object.entries(COMPETENCY_LABELS).map(([key, label]) => {
+                const stat = reportData?.competency_averages?.[key];
+                const val = stat?.avg ?? 0;
+                return (
+                  <div key={key} className="flex items-center gap-2">
+                    <span className="text-[10px] text-gray-500 w-36 truncate">{label}</span>
+                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-sidebar"
+                        style={{ width: `${(val / 4) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-700 w-10 text-right">
+                      {val > 0 ? val.toFixed(2) : "—"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {reportData && reportData.kpis.total_evaluated_sessions === 0 && (
+              <p className="text-xs text-gray-400 mt-4 text-center">
+                Aún no hay sesiones evaluadas. Las competencias se calcularán cuando los participantes completen sesiones.
+              </p>
+            )}
+          </>
+        )}
       </div>
+
+      {/* Top strengths and areas to improve */}
+      {reportData && (reportData.top_strengths.length > 0 || reportData.top_areas.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {reportData.top_strengths.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h4 className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-3">
+                Principales fortalezas
+              </h4>
+              <ul className="space-y-2">
+                {reportData.top_strengths.map((s, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
+                    <span className="text-emerald-500 mt-0.5">•</span>
+                    <span className="flex-1">{s.text}</span>
+                    <span className="text-gray-400 text-[10px]">{s.count}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {reportData.top_areas.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h4 className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-3">
+                Áreas de mejora
+              </h4>
+              <ul className="space-y-2">
+                {reportData.top_areas.map((a, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
+                    <span className="text-amber-500 mt-0.5">•</span>
+                    <span className="flex-1">{a.text}</span>
+                    <span className="text-gray-400 text-[10px]">{a.count}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Participation breakdown */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">

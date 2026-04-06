@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// Allow up to 60 seconds for sending many invites in one batch.
+// Internally we parallelize in chunks of 10 to stay well under the limit.
+export const maxDuration = 60;
+
+const BATCH_SIZE = 10;
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -63,14 +69,15 @@ export async function POST(
   const admin = createAdminClient();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.glor-ia.com";
 
-  const results: {
+  type InviteResult = {
     email: string;
     success: boolean;
     error?: string;
     tempPassword?: string;
-  }[] = [];
+  };
 
-  for (const participant of participants) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function processOne(participant: any): Promise<InviteResult> {
     try {
       // Generate temporary password
       const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -88,12 +95,12 @@ export async function POST(
           full_name: participant.full_name,
           role: participant.role,
           pilot_id: id,
+          establishment_id: pilot.establishment_id || null,
         },
       });
 
       if (createError) {
-        results.push({ email: participant.email, success: false, error: createError.message });
-        continue;
+        return { email: participant.email, success: false, error: createError.message };
       }
 
       // Update participant with user_id
@@ -139,16 +146,30 @@ export async function POST(
       if (!res.ok) {
         const errText = await res.text();
         console.error(`Resend error for ${participant.email}:`, errText);
-        results.push({ email: participant.email, success: true, tempPassword, error: "Usuario creado pero error al enviar email" });
-      } else {
-        results.push({ email: participant.email, success: true, tempPassword });
+        return { email: participant.email, success: true, tempPassword, error: "Usuario creado pero error al enviar email" };
       }
+      return { email: participant.email, success: true, tempPassword };
     } catch (err) {
-      results.push({
+      return {
         email: participant.email,
         success: false,
         error: err instanceof Error ? err.message : "Error desconocido",
-      });
+      };
+    }
+  }
+
+  // Process in parallel batches to keep total time under maxDuration
+  // and to avoid hammering Resend's rate limit (10 req/s on free tier).
+  const results: InviteResult[] = [];
+  for (let i = 0; i < participants.length; i += BATCH_SIZE) {
+    const batch = participants.slice(i, i + BATCH_SIZE);
+    const settled = await Promise.allSettled(batch.map(processOne));
+    for (const s of settled) {
+      if (s.status === "fulfilled") {
+        results.push(s.value);
+      } else {
+        results.push({ email: "(unknown)", success: false, error: String(s.reason) });
+      }
     }
   }
 

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import PilotosClient from "./PilotosClient";
 
@@ -15,10 +16,19 @@ export default async function PilotosPage() {
 
   if (profile?.role !== "superadmin") redirect("/admin/dashboard");
 
-  const { data: pilots } = await supabase
-    .from("pilots")
-    .select("*, pilot_participants(id)")
-    .order("created_at", { ascending: false });
+  const admin = createAdminClient();
+
+  const [{ data: pilots }, { data: establishments }] = await Promise.all([
+    supabase
+      .from("pilots")
+      .select("*, pilot_participants(id)")
+      .order("created_at", { ascending: false }),
+    admin
+      .from("establishments")
+      .select("id, name, country")
+      .eq("is_active", true)
+      .order("name"),
+  ]);
 
   const pilotList = (pilots || []).map((p) => ({
     ...p,
@@ -26,5 +36,5 @@ export default async function PilotosPage() {
     pilot_participants: undefined,
   }));
 
-  return <PilotosClient pilots={pilotList} />;
+  return <PilotosClient pilots={pilotList} establishments={establishments || []} />;
 }

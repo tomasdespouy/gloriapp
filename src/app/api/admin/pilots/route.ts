@@ -44,10 +44,14 @@ export async function POST(request: Request) {
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await request.json();
-  const { name, institution, country, contact_name, contact_email, csv_data, scheduled_at, ended_at } = body;
+  const { name, institution, country, contact_name, contact_email, csv_data, scheduled_at, ended_at, establishment_id } = body;
 
   if (!name || !institution) {
     return NextResponse.json({ error: "Nombre e institución son requeridos" }, { status: 400 });
+  }
+
+  if (!establishment_id) {
+    return NextResponse.json({ error: "Establecimiento es requerido" }, { status: 400 });
   }
 
   // Create the pilot
@@ -62,6 +66,7 @@ export async function POST(request: Request) {
       csv_data: csv_data || [],
       scheduled_at: scheduled_at || null,
       ended_at: ended_at || null,
+      establishment_id,
       created_by: auth.user.id,
       status: "borrador",
     })
