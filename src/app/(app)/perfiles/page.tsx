@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import PatientTable from "./PatientTable";
 
+const SAFE_EMPTY_ID = "00000000-0000-0000-0000-000000000000";
+
 export default async function PerfilesPage() {
   const supabase = await createClient();
   const {
@@ -16,7 +18,7 @@ export default async function PerfilesPage() {
   // Only admin/superadmin/instructor can access
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, establishment_id")
     .eq("id", user.id)
     .single();
 
@@ -25,13 +27,56 @@ export default async function PerfilesPage() {
     redirect("/dashboard");
   }
 
-  const canEdit = role === "admin" || role === "superadmin";
+  // Only superadmin can create/edit patients. Admin only views.
+  const canEdit = role === "superadmin";
 
   const admin = createAdminClient();
-  const { data: patients } = await admin
+
+  // Resolve which patients this user can see:
+  //  - superadmin: all
+  //  - admin: only patients assigned to their establishments via establishment_patients
+  //  - instructor: same as admin (uses their profile.establishment_id)
+  let visiblePatientIds: string[] | null = null; // null = all (superadmin)
+  if (role === "admin") {
+    const { data: assignments } = await supabase
+      .from("admin_establishments")
+      .select("establishment_id")
+      .eq("admin_id", user.id);
+    const estIds = (assignments || []).map((a) => a.establishment_id);
+    if (estIds.length === 0) {
+      visiblePatientIds = [];
+    } else {
+      const { data: ep } = await admin
+        .from("establishment_patients")
+        .select("ai_patient_id")
+        .in("establishment_id", estIds);
+      visiblePatientIds = (ep || []).map((r) => r.ai_patient_id);
+    }
+  } else if (role === "instructor") {
+    if (!profile?.establishment_id) {
+      visiblePatientIds = [];
+    } else {
+      const { data: ep } = await admin
+        .from("establishment_patients")
+        .select("ai_patient_id")
+        .eq("establishment_id", profile.establishment_id);
+      visiblePatientIds = (ep || []).map((r) => r.ai_patient_id);
+    }
+  }
+
+  let patientsQ = admin
     .from("ai_patients")
-    .select("id, name, age, occupation, quote, presenting_problem, difficulty_level, country, country_origin, country_residence, is_active, created_at, updated_at")
+    .select(
+      "id, name, age, occupation, quote, presenting_problem, difficulty_level, country, country_origin, country_residence, is_active, created_at, updated_at"
+    )
     .order("created_at", { ascending: false });
+  if (visiblePatientIds !== null) {
+    patientsQ = patientsQ.in(
+      "id",
+      visiblePatientIds.length > 0 ? visiblePatientIds : [SAFE_EMPTY_ID]
+    );
+  }
+  const { data: patients } = await patientsQ;
 
   return (
     <div className="min-h-screen p-8">

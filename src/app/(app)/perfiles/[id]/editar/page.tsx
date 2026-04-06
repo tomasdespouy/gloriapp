@@ -18,7 +18,8 @@ export default async function EditarPacientePage({
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id).single();
 
-  if (profile?.role !== "admin" && profile?.role !== "superadmin") {
+  // Only superadmin can edit patients (admin can only view)
+  if (profile?.role !== "superadmin") {
     redirect("/perfiles");
   }
 

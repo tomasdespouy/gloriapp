@@ -35,6 +35,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `No puedes crear usuarios con rol '${role}'` }, { status: 403 });
   }
 
+  // Validate establishment_id scope for admin (superadmin can use any)
+  let validatedEstablishmentId: string | undefined = establishment_id;
+  if (callerRole === "admin") {
+    const { data: assignments } = await supabase
+      .from("admin_establishments")
+      .select("establishment_id")
+      .eq("admin_id", user.id);
+    const allowedIds = (assignments || []).map((a) => a.establishment_id);
+
+    if (allowedIds.length === 0) {
+      return NextResponse.json(
+        { error: "No tienes establecimientos asignados" },
+        { status: 403 }
+      );
+    }
+
+    // If admin didn't pass an establishment_id, default to their first one.
+    // If they passed one, it must be in their allowed list.
+    if (!validatedEstablishmentId) {
+      validatedEstablishmentId = allowedIds[0];
+    } else if (!allowedIds.includes(validatedEstablishmentId)) {
+      return NextResponse.json(
+        { error: "No tienes permiso para crear usuarios en ese establecimiento" },
+        { status: 403 }
+      );
+    }
+  }
+
   const admin = createAdminClient();
 
   // Generate temporary password
@@ -50,7 +78,7 @@ export async function POST(request: Request) {
     user_metadata: {
       full_name,
       role: role || "student",
-      establishment_id: establishment_id || undefined,
+      establishment_id: validatedEstablishmentId || undefined,
     },
   });
 
@@ -134,7 +162,7 @@ export async function POST(request: Request) {
     action: "create_user",
     entityType: "user",
     entityId: newUser?.user?.id,
-    details: { email, role: role || "student", establishment_id },
+    details: { email, role: role || "student", establishment_id: validatedEstablishmentId },
   });
 
   return NextResponse.json({

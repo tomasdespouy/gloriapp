@@ -54,24 +54,50 @@ export async function GET(req: NextRequest) {
     const to = sp.get("to") || now.toISOString().split("T")[0];
 
     // ── Filter options ──
-    const [{ data: rawEsts }, { data: rawCourses }, { data: rawSections }] =
-      await Promise.all([
-        admin
-          .from("establishments")
-          .select("id, name, country")
-          .eq("is_active", true)
-          .order("name"),
-        admin
-          .from("courses")
-          .select("id, name, establishment_id")
-          .eq("is_active", true)
-          .order("name"),
-        admin
-          .from("sections")
-          .select("id, name, course_id")
-          .eq("is_active", true)
-          .order("name"),
-      ]);
+    // Scope establishments / courses / sections to admin's assignments.
+    let estsQ = admin
+      .from("establishments")
+      .select("id, name, country")
+      .eq("is_active", true)
+      .order("name");
+    if (!isSuperadmin) {
+      estsQ = estsQ.in(
+        "id",
+        adminEstIds.length > 0 ? adminEstIds : SAFE_EMPTY
+      );
+    }
+
+    let coursesFilterQ = admin
+      .from("courses")
+      .select("id, name, establishment_id")
+      .eq("is_active", true)
+      .order("name");
+    if (!isSuperadmin) {
+      coursesFilterQ = coursesFilterQ.in(
+        "establishment_id",
+        adminEstIds.length > 0 ? adminEstIds : SAFE_EMPTY
+      );
+    }
+
+    const [{ data: rawEsts }, { data: rawCourses }] = await Promise.all([
+      estsQ,
+      coursesFilterQ,
+    ]);
+
+    // Sections must be filtered by the courses we already scoped to
+    const allowedCourseIds = (rawCourses || []).map((c) => c.id);
+    let sectionsFilterQ = admin
+      .from("sections")
+      .select("id, name, course_id")
+      .eq("is_active", true)
+      .order("name");
+    if (!isSuperadmin) {
+      sectionsFilterQ = sectionsFilterQ.in(
+        "course_id",
+        allowedCourseIds.length > 0 ? allowedCourseIds : SAFE_EMPTY
+      );
+    }
+    const { data: rawSections } = await sectionsFilterQ;
 
     const allEsts = (rawEsts || []).filter(
       (e) => isSuperadmin || adminEstIds.includes(e.id)
@@ -160,7 +186,17 @@ export async function GET(req: NextRequest) {
         .select("conversation_id, student_id")
         .in("student_id", safeIds)
         .limit(5000),
-      admin.from("pilots").select("id, status, country").limit(100),
+      // Pilots: superadmin sees all, admin sees only pilots in their establishments
+      isSuperadmin
+        ? admin.from("pilots").select("id, status, country").limit(100)
+        : admin
+            .from("pilots")
+            .select("id, status, country")
+            .in(
+              "establishment_id",
+              adminEstIds.length > 0 ? adminEstIds : SAFE_EMPTY
+            )
+            .limit(100),
       admin
         .from("conversations")
         .select("id, student_id, status")
@@ -208,14 +244,21 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Today's platform activity must be scoped to admin's users (otherwise
+    // platformMinutesToday inflates with global numbers from other establishments).
+    let todayActivityQ = admin
+      .from("platform_activity")
+      .select("active_seconds")
+      .eq("activity_date", todayDate);
+    if (!isSuperadmin) {
+      todayActivityQ = todayActivityQ.in(
+        "user_id",
+        safeIds
+      );
+    }
+
     const [{ data: onlineUsers }, { data: todayActivityData }] =
-      await Promise.all([
-        onlineQ,
-        admin
-          .from("platform_activity")
-          .select("active_seconds")
-          .eq("activity_date", todayDate),
-      ]);
+      await Promise.all([onlineQ, todayActivityQ]);
 
     const onlineNow = onlineUsers?.length || 0;
     // Only students can be "in session"
@@ -635,18 +678,22 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Research ──
-    const [{ data: opportunities }, { data: insights }] = await Promise.all([
-      admin
-        .from("research_opportunities")
-        .select("id, name, type, status, deadline, url")
-        .order("deadline"),
-      admin
-        .from("research_insights")
-        .select(
-          "id, title, priority, category, sample_size, statistical_sig, suggested_venues, suggested_paper_type, status"
-        )
-        .order("created_at", { ascending: false }),
-    ]);
+    // Only superadmins see research opportunities & insights (it's global gestión).
+    // Admins get empty arrays so the section just doesn't render data for them.
+    const [{ data: opportunities }, { data: insights }] = isSuperadmin
+      ? await Promise.all([
+          admin
+            .from("research_opportunities")
+            .select("id, name, type, status, deadline, url")
+            .order("deadline"),
+          admin
+            .from("research_insights")
+            .select(
+              "id, title, priority, category, sample_size, statistical_sig, suggested_venues, suggested_paper_type, status"
+            )
+            .order("created_at", { ascending: false }),
+        ])
+      : [{ data: [] as { id: string; name: string; type: string; status: string; deadline: string | null; url: string | null }[] }, { data: [] as { id: string; title: string; priority: string; category: string; sample_size: number | null; statistical_sig: boolean | null; suggested_venues: string[] | null; suggested_paper_type: string | null; status: string }[] }];
 
     const opps = (opportunities || []).filter((o) => o.type !== "grant");
     const fundsData = (opportunities || []).filter((o) => o.type === "grant");

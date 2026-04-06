@@ -96,10 +96,30 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // Pre-fetch courses for the admin's establishment to match asignatura by name
-  const establishmentId = profile?.establishment_id;
-  let coursesMap: Record<string, string> = {}; // name -> id
-  let sectionsMap: Record<string, string> = {}; // "courseId:sectionName" -> id
+  // Resolve establishment scope.
+  // Admin: use first establishment from admin_establishments (for now, bulk import
+  // does not support multiple destinations per import). If no assignment, error.
+  // Superadmin: use profile.establishment_id (their default), or null.
+  let establishmentId: string | undefined;
+  if (callerRole === "admin") {
+    const { data: assignments } = await supabase
+      .from("admin_establishments")
+      .select("establishment_id")
+      .eq("admin_id", user.id);
+    const allowedIds = (assignments || []).map((a) => a.establishment_id);
+    if (allowedIds.length === 0) {
+      return NextResponse.json(
+        { error: "No tienes establecimientos asignados" },
+        { status: 403 }
+      );
+    }
+    establishmentId = allowedIds[0];
+  } else {
+    establishmentId = profile?.establishment_id || undefined;
+  }
+
+  const coursesMap: Record<string, string> = {}; // name -> id
+  const sectionsMap: Record<string, string> = {}; // "courseId:sectionName" -> id
 
   if (establishmentId) {
     const { data: courses } = await admin
