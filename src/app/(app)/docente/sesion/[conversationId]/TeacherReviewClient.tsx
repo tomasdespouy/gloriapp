@@ -174,8 +174,14 @@ export default function TeacherReviewClient({
 
   const handleSubmit = async () => {
     const numScore = score ? parseFloat(score) : null;
-    if (numScore != null && (numScore < 0 || numScore > 10)) return;
-    if (!comment.trim() && numScore == null) return;
+    if (numScore != null && (numScore < 0 || numScore > 10)) {
+      toast.error("La nota debe estar entre 0 y 10");
+      return;
+    }
+    if (!comment.trim() && numScore == null) {
+      toast.error("Escribe un comentario o asigna una nota antes de enviar");
+      return;
+    }
 
     setSaving(true);
     try {
