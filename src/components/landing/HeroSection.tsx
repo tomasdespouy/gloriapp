@@ -5,7 +5,25 @@ import ScrollReveal from "./ScrollReveal";
 
 export default function HeroSection() {
   return (
-    <section className="relative min-h-[calc(100vh-64px)] flex items-center overflow-hidden bg-gradient-to-b from-[#2D3561] via-[#3A4280] to-[#4A55A2]">
+    <section className="relative min-h-[calc(100vh-64px)] flex items-center overflow-hidden bg-[#2D3561]">
+      {/* Background image — desktop */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/branding/home-hero.jpg"
+        alt=""
+        className="hidden sm:block absolute inset-0 w-full h-full object-cover object-top"
+      />
+      {/* Background image — mobile */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/branding/home-hero-mobile.jpg"
+        alt=""
+        className="sm:hidden absolute inset-0 w-full h-full object-cover object-top"
+      />
+      {/* Indigo overlay for text legibility */}
+      <div className="absolute inset-0 bg-gradient-to-r from-[#2D3561]/85 via-[#3A4280]/55 to-[#4A55A2]/20 sm:block hidden" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#2D3561]/85 via-[#3A4280]/45 to-[#4A55A2]/25 sm:hidden" />
+
       {/* Content */}
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28 text-center">
         <ScrollReveal>
