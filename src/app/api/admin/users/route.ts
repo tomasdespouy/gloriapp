@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
+import { listUsersQuerySchema, parseSearchParams } from "@/lib/validation/schemas";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -17,17 +18,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  const admin = createAdminClient();
-  const searchParams = request.nextUrl.searchParams;
-  const role = searchParams.get("role");
-  const establishment_id = searchParams.get("establishment_id");
-  const search = searchParams.get("search");
+  const parsed = parseSearchParams(listUsersQuerySchema, request.nextUrl.searchParams);
+  if (!parsed.ok) return parsed.response;
+  const { role, establishment_id, search } = parsed.data;
 
+  const admin = createAdminClient();
   let query = admin.from("profiles").select("id, email, full_name, role, establishment_id, created_at").order("full_name");
 
   if (role) query = query.eq("role", role);
   if (establishment_id) query = query.eq("establishment_id", establishment_id);
-  if (search) query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+  if (search) {
+    // search is sanitized by listUsersQuerySchema (no control chars, max 100).
+    // Escape PostgREST .or() metacharacters that could break out of the filter.
+    const safe = search.replace(/[,()]/g, " ");
+    // nosemgrep: postgrest-or-template-literal -- 'safe' is sanitized above
+    query = query.or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`);
+  }
 
   // Scope for non-superadmin
   if (profile.role !== "superadmin") {

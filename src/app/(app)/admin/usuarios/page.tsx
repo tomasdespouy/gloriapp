@@ -10,7 +10,9 @@ export default async function UsuariosPage({
   const params = await searchParams;
   const currentPage = Math.max(1, parseInt(params.page || "1", 10));
   const perPage = Math.max(1, Math.min(200, parseInt(params.per_page || "50", 10)));
-  const searchQuery = (params.q || "").trim();
+  // Strip PostgREST .or() metacharacters (commas/parentheses) and length-cap
+  // before interpolating into the filter expression.
+  const searchQuery = (params.q || "").trim().slice(0, 100).replace(/[,()]/g, " ");
   const roleFilter = params.role || "";
   const estFilter = params.est || "";
 
@@ -31,6 +33,7 @@ export default async function UsuariosPage({
   if (scopeFilter) countQuery = countQuery.in("establishment_id", scopeFilter);
   if (roleFilter) countQuery = countQuery.eq("role", roleFilter);
   if (estFilter) countQuery = countQuery.eq("establishment_id", estFilter);
+  // nosemgrep: postgrest-or-template-literal -- searchQuery sanitized above
   if (searchQuery) countQuery = countQuery.or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
   const { count: totalCount } = await countQuery;
 
@@ -46,6 +49,7 @@ export default async function UsuariosPage({
   if (scopeFilter) usersQuery = usersQuery.in("establishment_id", scopeFilter);
   if (roleFilter) usersQuery = usersQuery.eq("role", roleFilter);
   if (estFilter) usersQuery = usersQuery.eq("establishment_id", estFilter);
+  // nosemgrep: postgrest-or-template-literal -- searchQuery sanitized above
   if (searchQuery) usersQuery = usersQuery.or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
 
   const { data: users } = await usersQuery;

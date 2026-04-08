@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { logAdminAction } from "@/lib/audit";
+import { createUserSchema, parseBody } from "@/lib/validation/schemas";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -20,12 +21,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Sin permisos para crear usuarios" }, { status: 403 });
   }
 
-  const body = await request.json();
-  const { email, full_name, role, establishment_id, course_id, section_id } = body;
-
-  if (!email || !full_name) {
-    return NextResponse.json({ error: "email y full_name son requeridos" }, { status: 400 });
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Body JSON inválido" }, { status: 400 });
   }
+  const parsed = parseBody(createUserSchema, rawBody);
+  if (!parsed.ok) return parsed.response;
+  const { email, full_name, role, establishment_id, course_id, section_id } = parsed.data;
 
   // Admin can only create students and instructors
   const validRoles = callerRole === "superadmin"

@@ -36,6 +36,8 @@ export default async function RetroalimentacionPage() {
     if (allowedEstIds.length === 0) {
       surveysQ = surveysQ.eq("scope_type", "global");
     } else {
+      // allowedEstIds come from admin_establishments (server-controlled uuids, not user input)
+      // nosemgrep: postgrest-or-template-literal
       surveysQ = surveysQ.or(
         `scope_type.eq.global,and(scope_type.eq.establishment,scope_id.in.(${allowedEstIds.join(",")}))`
       );

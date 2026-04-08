@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendInvitesSchema, parseBody, uuidSchema } from "@/lib/validation/schemas";
 
 // Allow up to 60 seconds for sending many invites in one batch.
 // Internally we parallelize in chunks of 10 to stay well under the limit.
@@ -25,12 +26,18 @@ export async function POST(
   if (profile?.role !== "superadmin") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 
   const { id } = await params;
+  const idCheck = uuidSchema.safeParse(id);
+  if (!idCheck.success) {
+    return NextResponse.json({ error: "ID de piloto inválido" }, { status: 400 });
+  }
 
-  // Parse optional custom body
+  // Parse optional custom body. Empty/missing body is allowed.
   let customBody: string | undefined;
   try {
-    const body = await request.json();
-    customBody = body.customBody || undefined;
+    const raw = await request.json();
+    const parsed = parseBody(sendInvitesSchema, raw);
+    if (!parsed.ok) return parsed.response;
+    customBody = parsed.data.customBody;
   } catch {
     // No body or invalid JSON — use default
   }
