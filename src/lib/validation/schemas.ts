@@ -92,6 +92,28 @@ export const sendInvitesSchema = z.object({
 });
 
 // ─────────────────────────────────────────────────────────────────────────
+// /api/public/pilot-enroll/[slug] (POST) — public consent submission
+// ─────────────────────────────────────────────────────────────────────────
+
+export const pilotEnrollSchema = z.object({
+  full_name: nonEmptyString(150),
+  email: emailSchema,
+  age: z
+    .number()
+    .int()
+    .min(15, "Edad mínima: 15")
+    .max(99, "Edad máxima: 99"),
+  gender: z.enum(["femenino", "masculino", "no_binario", "prefiere_no_decir"]),
+  role: z.enum(["estudiante", "docente", "coordinador"]),
+  university: nonEmptyString(200),
+  signed_name: nonEmptyString(150),
+  accepted: z
+    .boolean()
+    .refine((v) => v === true, { message: "Debes aceptar el consentimiento" }),
+  consent_version: nonEmptyString(40),
+});
+
+// ─────────────────────────────────────────────────────────────────────────
 // /api/contact (POST) — public landing form body
 // ─────────────────────────────────────────────────────────────────────────
 

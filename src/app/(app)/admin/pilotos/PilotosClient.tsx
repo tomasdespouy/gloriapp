@@ -7,8 +7,9 @@ import {
   FileText, Plus, ArrowLeft, ArrowRight, Loader2, Users,
   Calendar, Globe, Building2, Trash2, Eye, RefreshCw,
   Download, Send, Clock, UserCheck, MessageSquare,
-  AlertCircle, Check, ChevronDown,
+  AlertCircle, Check, ChevronDown, RotateCcw,
 } from "lucide-react";
+import PilotConsentPanel from "./PilotConsentPanel";
 
 // ────────────────────────────────────────────
 // Types
@@ -34,6 +35,11 @@ type Pilot = {
   participant_count: number;
   participants?: Participant[];
   establishment_id?: string | null;
+  // Self-enrollment + digital consent
+  enrollment_slug?: string | null;
+  consent_text?: string | null;
+  consent_version?: string | null;
+  test_mode?: boolean | null;
 };
 
 type Participant = {
@@ -416,6 +422,40 @@ export default function PilotosClient({
   }, [step, selectedPilot, refreshDashboard]);
 
   // ────────────────────────────────
+  // Reset a participant for re-testing (test_mode flow)
+  // ────────────────────────────────
+
+  const handleResetParticipant = async (participantId: string, participantEmail: string) => {
+    if (!selectedPilot) return;
+    if (!confirm(
+      `¿Resetear a ${participantEmail}?\n\n` +
+      `Esto borra su consentimiento, elimina su cuenta auth y vuelve su estado a "pendiente". ` +
+      `La próxima vez que entre al link de inscripción podrá volver a firmar y obtener credenciales nuevas. ` +
+      `Las conversaciones anteriores quedan huérfanas (no se borran).`
+    )) return;
+
+    const res = await fetch(
+      `/api/admin/pilots/${selectedPilot.id}/participants/${participantId}/reset`,
+      { method: "POST" },
+    );
+    if (res.ok) {
+      await refreshDashboard();
+    } else {
+      const err = await res.json().catch(() => null);
+      alert(`Error al resetear participante: ${err?.error || res.statusText}`);
+    }
+  };
+
+  // Apply a partial pilot update locally (used by PilotConsentPanel after PATCH)
+  const handlePilotPatched = (update: Partial<Pilot>) => {
+    setSelectedPilot((prev) => (prev ? { ...prev, ...update } : prev));
+    setDashboardData((prev) => (prev ? { ...prev, ...update } : prev));
+    setPilots((prev) =>
+      prev.map((p) => (p.id === selectedPilot?.id ? { ...p, ...update } : p)),
+    );
+  };
+
+  // ────────────────────────────────
   // Delete pilot
   // ────────────────────────────────
 
@@ -618,23 +658,36 @@ export default function PilotosClient({
           onNext={() => setStep(3)}
         />}
 
-        {step === 3 && <Step4Dashboard
-          pilot={dashboardData || selectedPilot}
-          refreshing={refreshing}
-          onRefresh={refreshDashboard}
-          onFinalize={async () => {
-            if (!selectedPilot) return;
-            const res = await fetch(`/api/admin/pilots/${selectedPilot.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: "finalizado", ended_at: new Date().toISOString() }),
-            });
-            if (res.ok) {
-              await refreshDashboard();
-              setStep(4);
-            }
-          }}
-        />}
+        {step === 3 && (
+          <>
+            {(dashboardData || selectedPilot) && (
+              <div className="px-4 sm:px-8 mb-6">
+                <PilotConsentPanel
+                  pilot={(dashboardData || selectedPilot)!}
+                  onPilotUpdated={handlePilotPatched}
+                />
+              </div>
+            )}
+            <Step4Dashboard
+              pilot={dashboardData || selectedPilot}
+              refreshing={refreshing}
+              onRefresh={refreshDashboard}
+              onResetParticipant={handleResetParticipant}
+              onFinalize={async () => {
+                if (!selectedPilot) return;
+                const res = await fetch(`/api/admin/pilots/${selectedPilot.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ status: "finalizado", ended_at: new Date().toISOString() }),
+                });
+                if (res.ok) {
+                  await refreshDashboard();
+                  setStep(4);
+                }
+              }}
+            />
+          </>
+        )}
 
         {step === 4 && <Step5Report
           pilot={dashboardData || selectedPilot}
@@ -1518,12 +1571,13 @@ function Step3Preview({
 // ════════════════════════════════════════════
 
 function Step4Dashboard({
-  pilot, refreshing, onRefresh, onFinalize,
+  pilot, refreshing, onRefresh, onFinalize, onResetParticipant,
 }: {
   pilot: Pilot | null;
   refreshing: boolean;
   onRefresh: () => void;
   onFinalize: () => Promise<void>;
+  onResetParticipant: (participantId: string, participantEmail: string) => Promise<void>;
 }) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [deactivating, setDeactivating] = useState(false);
@@ -1744,6 +1798,9 @@ function Step4Dashboard({
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Estado</th>
                 <th className="text-right px-3 py-2 text-gray-500 font-medium">Sesiones</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Última actividad</th>
+                {pilot.test_mode && (
+                  <th className="text-right px-3 py-2 text-gray-500 font-medium">Acciones</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -1765,11 +1822,23 @@ function Step4Dashboard({
                   <td className="px-3 py-2.5 text-gray-400">
                     {p.last_active_at ? formatRelativeTime(p.last_active_at) : "—"}
                   </td>
+                  {pilot.test_mode && (
+                    <td className="px-3 py-2.5 text-right">
+                      <button
+                        onClick={() => onResetParticipant(p.id, p.email)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md cursor-pointer"
+                        title="Borrar consent + auth user y volver a pendiente. Solo disponible en modo de prueba."
+                      >
+                        <RotateCcw size={11} />
+                        Reset
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
               {filteredParticipants.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-gray-400">
+                  <td colSpan={pilot.test_mode ? 7 : 6} className="px-3 py-8 text-center text-gray-400">
                     No hay participantes con este filtro
                   </td>
                 </tr>

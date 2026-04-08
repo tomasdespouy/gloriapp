@@ -122,6 +122,29 @@ async function enrichParticipants(participants: any[], supabase: any) {
   });
 }
 
+// Whitelist of fields the PATCH endpoint will accept. Anything else in
+// the request body is silently ignored — protects columns like id,
+// created_by, created_at and avoids privilege-escalation surprises.
+const PATCH_ALLOWED_FIELDS = new Set([
+  "name",
+  "institution",
+  "country",
+  "contact_name",
+  "contact_email",
+  "csv_data",
+  "scheduled_at",
+  "started_at",
+  "ended_at",
+  "establishment_id",
+  "status",
+  "email_template",
+  "report_url",
+  "consent_text",
+  "consent_version",
+  "test_mode",
+  "enrollment_slug",
+]);
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -132,9 +155,31 @@ export async function PATCH(
   const { id } = await params;
   const body = await request.json();
 
+  // Filter to whitelisted fields only
+  const update: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (PATCH_ALLOWED_FIELDS.has(k)) update[k] = v;
+  }
+
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json(
+      { error: "Ningún campo válido para actualizar" },
+      { status: 400 },
+    );
+  }
+
+  // If editing consent_text, bump consent_version automatically so any
+  // in-flight enrollment is rejected with a friendly "recarga la página"
+  // message instead of accidentally signing the wrong text.
+  if ("consent_text" in update && !("consent_version" in update)) {
+    update.consent_version = `v${Date.now()}`;
+  }
+
+  update.updated_at = new Date().toISOString();
+
   const { data, error } = await auth.supabase
     .from("pilots")
-    .update({ ...body, updated_at: new Date().toISOString() })
+    .update(update)
     .eq("id", id)
     .select()
     .single();

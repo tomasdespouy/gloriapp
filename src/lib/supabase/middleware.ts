@@ -45,6 +45,8 @@ export async function updateSession(request: NextRequest) {
     !pathname.startsWith("/terminos") &&
     !pathname.startsWith("/sobre") &&
     !pathname.startsWith("/api/health") &&
+    !pathname.startsWith("/api/public/") &&
+    !pathname.startsWith("/piloto/") &&
     !pathname.startsWith("/ANGLO") &&
     !pathname.startsWith("/paulina")
   ) {
