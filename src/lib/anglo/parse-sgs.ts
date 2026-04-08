@@ -25,13 +25,48 @@ export type SheetData = Record<string, number[]>;
 
 type Row = (string | number | null | undefined)[];
 
-// ═══ Helpers (no XLSX import at module level) ═══
-function getRows(XLSX: any, wb: any, name: string): Row[] {
-  const exact = wb.SheetNames.find((n: string) => n === name);
-  const fuzzy = wb.SheetNames.find((n: string) => n.replace(/\s+/g, " ").trim() === name);
-  const sheetName = exact || fuzzy;
-  if (!sheetName) return [];
-  return XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: null });
+// ═══ ExcelJS adapter — converts a worksheet into the legacy Row[] format ═══
+// This adapter preserves row indices (so absolute lookups like rows[14] still
+// work) and normalizes ExcelJS cell value types (formulas, rich text,
+// hyperlinks, dates) into the primitive values the parsers expect.
+function worksheetToRows(ws: any | undefined): Row[] {
+  if (!ws) return [];
+  const rows: Row[] = [];
+  const rowCount: number = ws.rowCount || 0;
+  for (let r = 1; r <= rowCount; r++) {
+    const row = ws.getRow(r);
+    const raw = row?.values;
+    if (!Array.isArray(raw)) {
+      rows.push([]);
+      continue;
+    }
+    // ExcelJS row.values is 1-indexed; index 0 is always undefined.
+    const cleaned: Row = [];
+    for (let i = 1; i < raw.length; i++) {
+      const v = raw[i];
+      if (v == null) {
+        cleaned.push(null);
+      } else if (typeof v === "object") {
+        if ("result" in v) cleaned.push((v as any).result ?? null);
+        else if ("richText" in v) cleaned.push((v as any).richText.map((rt: any) => rt.text).join(""));
+        else if ("text" in v && "hyperlink" in v) cleaned.push((v as any).text);
+        else if (v instanceof Date) cleaned.push((v as Date).toISOString());
+        else cleaned.push(String(v));
+      } else {
+        cleaned.push(v as any);
+      }
+    }
+    rows.push(cleaned);
+  }
+  return rows;
+}
+
+// ═══ Helpers ═══
+function getRows(wb: any, name: string): Row[] {
+  const exact = wb.worksheets.find((w: any) => w.name === name);
+  if (exact) return worksheetToRows(exact);
+  const fuzzy = wb.worksheets.find((w: any) => w.name.replace(/\s+/g, " ").trim() === name);
+  return worksheetToRows(fuzzy);
 }
 
 function isNum(v: unknown): v is number {
@@ -55,8 +90,8 @@ function parseNumericRow(row: Row): { label: string; values: number[] } | null {
   return { label, values };
 }
 
-function parsePortada(XLSX: any, wb: any): { batch: string; weekLabel: string; weekNumber: number; year: number } {
-  const rows = getRows(XLSX, wb, "Portada");
+function parsePortada(wb: any): { batch: string; weekLabel: string; weekNumber: number; year: number } {
+  const rows = getRows(wb, "Portada");
   let batch = "", weekNumber = 0, year = 2026;
 
   for (const row of rows) {
@@ -70,7 +105,7 @@ function parsePortada(XLSX: any, wb: any): { batch: string; weekLabel: string; w
     }
   }
 
-  const idRows = getRows(XLSX, wb, "2. Id Muestras");
+  const idRows = getRows(wb, "2. Id Muestras");
   for (const row of idRows) {
     for (const cell of row) {
       if (cell == null) continue;
@@ -83,9 +118,9 @@ function parsePortada(XLSX: any, wb: any): { batch: string; weekLabel: string; w
   return { batch, weekLabel: `SEM_${String(weekNumber).padStart(2, "0")}_${year}`, weekNumber, year };
 }
 
-function parseSamples(XLSX: any, wb: any): { names: string[]; plant: string } {
+function parseSamples(wb: any): { names: string[]; plant: string } {
   const SHORT_NAMES = ["ALI", "CO FI", "RE RO", "RE SCV", "RE FI Mo"];
-  const rows = getRows(XLSX, wb, "3.2 Modal");
+  const rows = getRows(wb, "3.2 Modal");
   let plant = "PL2";
   const found: string[] = [];
 
@@ -110,8 +145,8 @@ function parseSamples(XLSX: any, wb: any): { names: string[]; plant: string } {
   return { names: found.length > 0 ? found : SHORT_NAMES.slice(0, 5), plant };
 }
 
-function parseTable(XLSX: any, wb: any, sheet: string, startRow: number, endRow: number): SheetData {
-  const rows = getRows(XLSX, wb, sheet);
+function parseTable(wb: any, sheet: string, startRow: number, endRow: number): SheetData {
+  const rows = getRows(wb, sheet);
   const data: SheetData = {};
   for (let i = startRow; i < Math.min(endRow, rows.length); i++) {
     const parsed = parseNumericRow(rows[i]);
@@ -120,8 +155,8 @@ function parseTable(XLSX: any, wb: any, sheet: string, startRow: number, endRow:
   return data;
 }
 
-function parseTwoSections(XLSX: any, wb: any, sheet: string): { abs: SheetData; pct: SheetData } {
-  const rows = getRows(XLSX, wb, sheet);
+function parseTwoSections(wb: any, sheet: string): { abs: SheetData; pct: SheetData } {
+  const rows = getRows(wb, sheet);
   const abs: SheetData = {}, pct: SheetData = {};
   let section: "abs" | "pct" = "abs";
   let foundTotal = false;
@@ -137,8 +172,8 @@ function parseTwoSections(XLSX: any, wb: any, sheet: string): { abs: SheetData; 
   return { abs, pct };
 }
 
-function parseLiberationPct(XLSX: any, wb: any, sheet: string): SheetData {
-  const rows = getRows(XLSX, wb, sheet);
+function parseLiberationPct(wb: any, sheet: string): SheetData {
+  const rows = getRows(wb, sheet);
   const data: SheetData = {};
   let foundTotal = false;
   for (let i = 14; i < Math.min(35, rows.length); i++) {
@@ -152,8 +187,8 @@ function parseLiberationPct(XLSX: any, wb: any, sheet: string): SheetData {
   return data;
 }
 
-function parseGrainSizeMo(XLSX: any, wb: any): SheetData {
-  const rows = getRows(XLSX, wb, "3.17 Mineral Grain Size");
+function parseGrainSizeMo(wb: any): SheetData {
+  const rows = getRows(wb, "3.17 Mineral Grain Size");
   const data: SheetData = {};
   for (let i = 84; i < Math.min(94, rows.length); i++) {
     const row = rows[i];
@@ -171,27 +206,28 @@ function parseGrainSizeMo(XLSX: any, wb: any): SheetData {
   return data;
 }
 
-// ═══ Main parser — dynamic import of xlsx ═══
+// ═══ Main parser — dynamic import of exceljs (replaces vulnerable xlsx) ═══
 export async function parseSGSFile(buffer: ArrayBuffer, fileName: string): Promise<SGSWeekReport> {
-  const XLSX = await import("xlsx");
-  const wb = XLSX.read(buffer, { type: "array" });
+  const ExcelJS = (await import("exceljs")).default;
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer);
 
-  const { batch, weekLabel, weekNumber, year } = parsePortada(XLSX, wb);
-  const { names, plant } = parseSamples(XLSX, wb);
-  const cuDep = parseTwoSections(XLSX, wb, "3.4 Cu Deportment");
-  const sDep = parseTwoSections(XLSX, wb, "3.5 S Deportment");
+  const { batch, weekLabel, weekNumber, year } = parsePortada(wb);
+  const { names, plant } = parseSamples(wb);
+  const cuDep = parseTwoSections(wb, "3.4 Cu Deportment");
+  const sDep = parseTwoSections(wb, "3.5 S Deportment");
 
   return {
     fileName, batch, weekLabel, weekNumber, year, plant,
     sampleNames: names, sampleCount: names.length,
-    modal: parseTable(XLSX, wb, "3.2 Modal", 14, 49),
-    modalDist: parseTable(XLSX, wb, "3.3 Modal Dist", 15, 36),
+    modal: parseTable(wb, "3.2 Modal", 14, 49),
+    modalDist: parseTable(wb, "3.3 Modal Dist", 15, 36),
     cuDeportAbs: cuDep.abs, cuDeportPct: cuDep.pct,
     sDeportAbs: sDep.abs,
-    ccpLibPct: parseLiberationPct(XLSX, wb, "3.7 Ccp liberation"),
-    moLibPct: parseLiberationPct(XLSX, wb, "3.15 Mo Liberation"),
-    cuSulphLibPct: parseLiberationPct(XLSX, wb, "3.20 CuSulph liberation"),
-    grainSizeMoCum: parseGrainSizeMo(XLSX, wb),
+    ccpLibPct: parseLiberationPct(wb, "3.7 Ccp liberation"),
+    moLibPct: parseLiberationPct(wb, "3.15 Mo Liberation"),
+    cuSulphLibPct: parseLiberationPct(wb, "3.20 CuSulph liberation"),
+    grainSizeMoCum: parseGrainSizeMo(wb),
   };
 }
 
