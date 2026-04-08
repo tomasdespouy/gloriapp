@@ -69,3 +69,14 @@ jobs:
         run: |
           echo "Checking for exposed secrets..."
           ! grep -r "sk-proj-\|sbp_\|eyJhbG" src/ --include="*.ts" --include="*.tsx" || echo "WARNING: Possible secrets in source code!"
+
+      - name: Setup Python (for Semgrep)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep static analysis
+        run: semgrep --config .semgrep.yml --error

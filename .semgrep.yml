@@ -1,0 +1,105 @@
+# Semgrep ruleset for GlorIA — adapted from the UGM Next.js 15 security
+# protocol (SECURITY.md) to the Supabase + Next.js stack.
+#
+# Run locally:
+#   pip install semgrep
+#   semgrep --config .semgrep.yml --error
+#
+# This file is also executed by the GitHub Actions CI pipeline
+# (.github/workflows/ci.yml). ERROR-level findings block the pipeline.
+
+rules:
+  # ─────────────────────────────────────────────────────────────────────
+  # Rule 1 — Forbid the 'xlsx' library (CVE history of prototype pollution
+  # → RCE). The project migrated to 'exceljs' on 2026-04-08. Any future
+  # reintroduction of xlsx must be a conscious decision.
+  # ─────────────────────────────────────────────────────────────────────
+  - id: forbid-xlsx-import
+    severity: ERROR
+    languages: [typescript, javascript]
+    message: |
+      Do NOT import the 'xlsx' package. It has known prototype pollution
+      vulnerabilities that can lead to RCE on the server. Use 'exceljs'
+      instead. See SECURITY.md and INF-2026-033.
+    pattern-either:
+      - pattern: import $X from 'xlsx'
+      - pattern: import $X from "xlsx"
+      - pattern: import * as $X from 'xlsx'
+      - pattern: import * as $X from "xlsx"
+      - pattern: import { ... } from 'xlsx'
+      - pattern: import { ... } from "xlsx"
+      - pattern: import('xlsx')
+      - pattern: import("xlsx")
+      - pattern: require('xlsx')
+      - pattern: require("xlsx")
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Rule 2 — Forbid eval() and dynamic Function() construction.
+  # These are code-injection vectors when used with any non-literal input.
+  # ─────────────────────────────────────────────────────────────────────
+  - id: forbid-eval
+    severity: ERROR
+    languages: [typescript, javascript]
+    message: |
+      eval() and the Function() constructor allow arbitrary code execution.
+      They must NEVER be used in this codebase. If you need dynamic dispatch,
+      use a switch statement, lookup table, or first-class function reference.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Rule 3 — Detect PostgREST .or() filter built via template literal with
+  # unvalidated user input. PostgREST .or() uses commas as separators and
+  # parentheses as grouping; an attacker who controls part of the filter
+  # string could break out and access other rows.
+  # ─────────────────────────────────────────────────────────────────────
+  - id: postgrest-or-template-literal
+    severity: WARNING
+    languages: [typescript]
+    message: |
+      Building a Supabase PostgREST .or() filter via template literal can
+      allow filter-syntax injection if the interpolated value contains
+      commas or parentheses. Validate input strictly with Zod
+      (see lib/validation/schemas.ts) and escape metacharacters before
+      passing to .or().
+    patterns:
+      - pattern-either:
+          - pattern: $X.or(`...${$Y}...`)
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Rule 4 — SUPABASE_SERVICE_ROLE_KEY may only be referenced from the
+  # designated admin client module. Any other location is a leak risk.
+  # ─────────────────────────────────────────────────────────────────────
+  - id: service-role-key-outside-admin
+    severity: ERROR
+    languages: [typescript, javascript]
+    paths:
+      include:
+        - "/src/**/*.ts"
+        - "/src/**/*.tsx"
+      exclude:
+        - "/src/lib/supabase/admin.ts"
+    message: |
+      SUPABASE_SERVICE_ROLE_KEY must only be referenced from
+      src/lib/supabase/admin.ts. Other files should call createAdminClient()
+      from that module. Service-role tokens bypass RLS — do not scatter them.
+    pattern: process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  # NOTE: A "createAdminClient without auth.getUser() in same file" rule was
+  # considered but removed: semgrep's pattern-not-regex applies at the match
+  # range, not file scope, producing dozens of false positives. The actual
+  # backstop for missing-auth bugs is the Row-Level Security policies in
+  # Supabase (~150 policies, 70+ migrations), enforced at the database layer.
+  # Authentication on routes is verified during code review and by the
+  # checklist in SECURITY.md.
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Rule 5 — Forbid hardcoded secrets that look like API keys.
+  # ─────────────────────────────────────────────────────────────────────
+  - id: hardcoded-api-key
+    severity: ERROR
+    languages: [typescript, javascript]
+    message: |
+      Possible hardcoded API key or token. Move it to an environment variable.
+    pattern-regex: '("(?:sk-proj-|sbp_|sk_live_|rk_live_)[A-Za-z0-9_-]{20,}")'
