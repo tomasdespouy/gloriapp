@@ -103,7 +103,7 @@ export const pilotEnrollSchema = z.object({
     .int()
     .min(15, "Edad mínima: 15")
     .max(99, "Edad máxima: 99"),
-  gender: z.enum(["femenino", "masculino", "no_binario", "prefiere_no_decir"]),
+  gender: z.enum(["femenino", "masculino", "prefiere_no_decir"]),
   role: z.enum(["estudiante", "docente", "coordinador"]),
   university: nonEmptyString(200),
   signed_name: nonEmptyString(150),

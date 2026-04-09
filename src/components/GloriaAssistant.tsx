@@ -385,18 +385,16 @@ export default function GloriaAssistant({ userName, userRole = "student" }: { us
         </div>
       )}
 
-      {/* Floating button */}
-      <button
-        onClick={() => setOpen(!open)}
-        data-gloria-trigger
-        className={`fixed bottom-6 right-6 z-50 rounded-full shadow-lg hover:shadow-xl transition-all cursor-pointer hover:scale-105 ${
-          open ? "w-14 h-14 bg-sidebar" : "w-16 h-16 bg-white border-2 border-sidebar/20 hover:border-sidebar/40"
-        }`}
-        title={open ? "Cerrar" : "Habla con GlorIA"}
-      >
-        {open ? (
-          <X size={22} className="text-white mx-auto" />
-        ) : (
+      {/* Floating button — only when chat is closed.
+          When the chat is open, the user closes it via the X in the modal
+          header (not via a duplicate floating X button). */}
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          data-gloria-trigger
+          className="fixed bottom-6 right-6 z-50 rounded-full shadow-lg hover:shadow-xl transition-all cursor-pointer hover:scale-105 w-16 h-16 bg-white border-2 border-sidebar/20 hover:border-sidebar/40"
+          title="Habla con GlorIA"
+        >
           <div className="relative w-full h-full rounded-full overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={GLORIA_AVATAR} alt="GlorIA" className="w-full h-full object-cover" />
@@ -404,8 +402,8 @@ export default function GloriaAssistant({ userName, userRole = "student" }: { us
               <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white" />
             )}
           </div>
-        )}
-      </button>
+        </button>
+      )}
     </>
   );
 }

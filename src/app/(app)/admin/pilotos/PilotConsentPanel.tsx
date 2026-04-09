@@ -100,14 +100,22 @@ export default function PilotConsentPanel({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
-      <div className="flex items-center gap-2">
-        <Link2 size={18} className="text-[#4A55A2]" />
-        <h3 className="font-semibold text-gray-900">
-          Inscripción y consentimiento
-        </h3>
+    <div className="bg-white rounded-2xl border-2 border-[#4A55A2]/20 p-6 space-y-6 shadow-lg shadow-[#4A55A2]/5">
+      <div className="flex items-start gap-3 pb-4 border-b border-gray-100">
+        <div className="w-10 h-10 rounded-xl bg-[#4A55A2] flex items-center justify-center flex-shrink-0">
+          <Link2 size={20} className="text-white" />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-lg font-bold text-gray-900">
+            Inscripción y consentimiento
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Comparte el link único con la institución para que cada participante firme su
+            consentimiento y reciba sus credenciales automáticamente.
+          </p>
+        </div>
         {savedToast && (
-          <span className="ml-auto text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
+          <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-full font-medium flex-shrink-0">
             {savedToast}
           </span>
         )}

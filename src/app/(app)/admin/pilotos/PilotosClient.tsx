@@ -593,8 +593,27 @@ export default function PilotosClient({
         )}
       </header>
 
-      {/* Step indicators */}
+      {/* Consent + enrollment panel — TOP of the page once the pilot exists.
+          This is the canonical onboarding mechanism (link único + consent
+          firma digital). Lives ABOVE the legacy step indicators so it's
+          impossible to miss. The legacy CSV→validate→preview wizard stays
+          below as a fallback. */}
+      {selectedPilot && step > 0 && (
+        <div className="px-4 sm:px-8 mb-6">
+          <PilotConsentPanel
+            pilot={(dashboardData || selectedPilot)!}
+            onPilotUpdated={handlePilotPatched}
+          />
+        </div>
+      )}
+
+      {/* Step indicators (legacy CSV-based wizard) */}
       <div className="px-4 sm:px-8 mb-6">
+        {selectedPilot && step > 0 && (
+          <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-2 font-medium">
+            Flujo CSV legacy (opcional — usa el panel de inscripción de arriba)
+          </p>
+        )}
         <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-2 overflow-x-auto">
           {STEPS.map((s, i) => {
             const isActive = i === step;
@@ -622,19 +641,6 @@ export default function PilotosClient({
           })}
         </div>
       </div>
-
-      {/* Consent + enrollment panel — visible on every step once the pilot exists.
-          The new self-enrollment flow makes the link the canonical way to onboard
-          participants, so the panel should NOT be hidden behind the legacy
-          validate→preview→send-invites wizard. */}
-      {selectedPilot && step > 0 && (
-        <div className="px-4 sm:px-8 mb-6">
-          <PilotConsentPanel
-            pilot={(dashboardData || selectedPilot)!}
-            onPilotUpdated={handlePilotPatched}
-          />
-        </div>
-      )}
 
       {/* Step content */}
       <div className="px-4 sm:px-8 pb-8">

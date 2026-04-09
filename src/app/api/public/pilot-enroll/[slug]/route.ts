@@ -264,7 +264,7 @@ export async function POST(
       body: JSON.stringify({
         from: "GlorIA <noreply@glor-ia.com>",
         to: data.email,
-        subject: `Bienvenido/a al piloto ${pilot.name} — Tus credenciales`,
+        subject: `Te damos la bienvenida a GlorIA — Piloto ${pilot.name}`,
         html: buildCredentialsEmail({
           fullName: data.full_name,
           email: data.email,
@@ -323,14 +323,17 @@ function buildCredentialsEmail(opts: {
   institution: string;
   appUrl: string;
 }) {
-  const logoUrl =
-    "https://ndwmnxlwbfqfwwtekjun.supabase.co/storage/v1/object/public/branding/gloria-logo-email.png";
+  // Public URL of the GlorIA logo. The image is served from the live app
+  // (always reachable from email clients), not from a Supabase storage
+  // bucket which previously was unreachable / 404'd.
+  const logoUrl = `${opts.appUrl}/branding/gloria-logo.png`;
+  const loginUrl = `${opts.appUrl}/login`;
   return `
     <div style="font-family: Calibri, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1A1A1A;">
       <div style="background: #4A55A2; padding: 24px 32px; border-radius: 12px 12px 0 0;">
         <div style="display: flex; align-items: center; justify-content: space-between;">
           <div>
-            <h1 style="color: white; margin: 0; font-size: 22px;">¡Bienvenido/a a GlorIA!</h1>
+            <h1 style="color: white; margin: 0; font-size: 22px;">Te damos la bienvenida a GlorIA</h1>
             <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">
               Plataforma de Entrenamiento Cl&iacute;nico con IA
             </p>
@@ -360,7 +363,7 @@ function buildCredentialsEmail(opts: {
             <tr>
               <td style="padding: 8px 0; color: #666; width: 120px;">Plataforma:</td>
               <td style="padding: 8px 0;">
-                <a href="${opts.appUrl}/login" style="color: #4A55A2; text-decoration: none;">${opts.appUrl}</a>
+                <a href="${loginUrl}" style="color: #4A55A2; text-decoration: none; font-weight: 600;">Ingresar a GlorIA</a>
               </td>
             </tr>
             <tr>
@@ -376,12 +379,11 @@ function buildCredentialsEmail(opts: {
           </table>
         </div>
 
-        <p style="font-size: 14px; color: #555; font-weight: 600;">C&oacute;mo ingresar:</p>
-        <ol style="font-size: 14px; color: #555; line-height: 2; padding-left: 20px;">
-          <li>Ingresa a <a href="${opts.appUrl}/login" style="color: #4A55A2;">${opts.appUrl}/login</a></li>
-          <li>Escribe tu email y la contrase&ntilde;a temporal indicada arriba</li>
-          <li>Cambia tu contrase&ntilde;a en tu primera sesi&oacute;n</li>
-        </ol>
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${loginUrl}" style="display: inline-block; background: #4A55A2; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+            Ir al login
+          </a>
+        </div>
 
         <div style="margin-top: 28px; border-top: 1px solid #eee; padding-top: 20px;">
           <p style="font-size: 14px; color: #555; margin: 0;">Con entusiasmo,</p>

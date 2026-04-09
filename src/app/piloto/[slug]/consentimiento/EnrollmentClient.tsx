@@ -196,6 +196,7 @@ export default function EnrollmentClient({ pilot }: { pilot: Pilot }) {
                 setAccepted={setAccepted}
                 signedName={signedName}
                 setSignedName={setSignedName}
+                fullNameHint={fullName}
                 errors={errors}
                 submitting={submitting}
                 onBack={() => setStep("data")}
@@ -347,7 +348,6 @@ function Step1Data(props: {
             <option value="">Selecciona</option>
             <option value="femenino">Femenino</option>
             <option value="masculino">Masculino</option>
-            <option value="no_binario">No binario</option>
             <option value="prefiere_no_decir">Prefiero no decir</option>
           </select>
         </Field>
@@ -396,6 +396,7 @@ function Step2Consent(props: {
   setAccepted: (v: boolean) => void;
   signedName: string;
   setSignedName: (v: string) => void;
+  fullNameHint: string;
   errors: Errors;
   submitting: boolean;
   onBack: () => void;
@@ -449,7 +450,7 @@ function Step2Consent(props: {
           value={props.signedName}
           onChange={(ev) => props.setSignedName(ev.target.value)}
           className={inputCls(!!e.signed_name)}
-          placeholder="Escribe aquí tu nombre completo"
+          placeholder={props.fullNameHint || "Escribe aquí tu nombre completo"}
         />
       </Field>
 
