@@ -1917,6 +1917,37 @@ function Step4Dashboard({
             </div>
           </div>
         </div>
+
+        {/* Export survey responses to CSV */}
+        <div className="mt-5 pt-5 border-t border-gray-100">
+          <p className="text-xs font-semibold text-gray-700 mb-1">
+            Exportar respuestas
+          </p>
+          <p className="text-[11px] text-gray-500 mb-3">
+            Descarga las respuestas de la encuesta de experiencia UGM (10 preguntas)
+            en formato CSV listo para abrir con Excel.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={`/api/admin/pilots/${pilot.id}/survey-responses?format=csv-named`}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-sidebar hover:bg-[#354080] text-white text-xs font-medium rounded-lg transition-colors cursor-pointer"
+            >
+              <Download size={14} />
+              Descargar con nombres
+            </a>
+            <a
+              href={`/api/admin/pilots/${pilot.id}/survey-responses?format=csv-anonymous`}
+              className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-medium rounded-lg transition-colors cursor-pointer"
+            >
+              <Download size={14} />
+              Descargar anonimizado
+            </a>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-2">
+            Versión <strong>nominal</strong>: incluye nombre + email del consentimiento.
+            Versión <strong>anonimizada</strong>: sustituye el nombre por un ID secuencial (P-001, P-002…).
+          </p>
+        </div>
       </div>
     </div>
   );
