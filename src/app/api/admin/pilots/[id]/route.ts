@@ -143,6 +143,7 @@ const PATCH_ALLOWED_FIELDS = new Set([
   "consent_version",
   "test_mode",
   "enrollment_slug",
+  "logo_url",
 ]);
 
 export async function PATCH(

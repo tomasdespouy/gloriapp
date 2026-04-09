@@ -45,7 +45,7 @@ export async function POST(
   const { data: pilot, error: pilotErr } = await admin
     .from("pilots")
     .select(
-      "id, name, institution, status, ended_at, consent_text, consent_version, test_mode, establishment_id",
+      "id, name, institution, status, ended_at, consent_text, consent_version, test_mode, establishment_id, logo_url",
     )
     .eq("enrollment_slug", slug)
     .maybeSingle();
@@ -285,6 +285,7 @@ export async function POST(
           pilotName: pilot.name,
           institution: pilot.institution,
           appUrl,
+          pilotLogoUrl: pilot.logo_url || null,
         }),
       }),
     });
@@ -335,12 +336,24 @@ function buildCredentialsEmail(opts: {
   pilotName: string;
   institution: string;
   appUrl: string;
+  pilotLogoUrl: string | null;
 }) {
   // Public URL of the GlorIA logo. The image is served from the live app
   // (always reachable from email clients), not from a Supabase storage
   // bucket which previously was unreachable / 404'd.
   const logoUrl = `${opts.appUrl}/branding/gloria-logo.png`;
   const loginUrl = `${opts.appUrl}/login`;
+
+  // Header logo block: GlorIA × Pilot logo (if provided)
+  const headerLogos = opts.pilotLogoUrl
+    ? `
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <img src="${logoUrl}" alt="GlorIA" width="100" height="34" style="height: 34px; width: auto; display: block;" />
+        <span style="color: rgba(255,255,255,0.5); font-size: 18px; font-weight: 300;">×</span>
+        <img src="${escapeHtml(opts.pilotLogoUrl)}" alt="${escapeHtml(opts.institution)}" width="100" height="34" style="height: 34px; width: auto; display: block; max-width: 140px; object-fit: contain;" />
+      </div>`
+    : `<img src="${logoUrl}" alt="GlorIA" width="120" height="40" style="height: 40px; width: auto; display: block;" />`;
+
   return `
     <div style="font-family: Calibri, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1A1A1A;">
       <div style="background: #4A55A2; padding: 24px 32px; border-radius: 12px 12px 0 0;">
@@ -351,7 +364,7 @@ function buildCredentialsEmail(opts: {
               Plataforma de Entrenamiento Cl&iacute;nico con IA
             </p>
           </div>
-          <img src="${logoUrl}" alt="GlorIA" width="120" height="40" style="height: 40px; width: auto; display: block;" />
+          ${headerLogos}
         </div>
       </div>
 

@@ -18,6 +18,7 @@ type PilotForEnrollment = {
   test_mode: boolean;
   status: string;
   ended_at: string | null;
+  logo_url: string | null;
 };
 
 export default async function PilotEnrollmentPage({
@@ -31,7 +32,7 @@ export default async function PilotEnrollmentPage({
   const { data: pilot } = await admin
     .from("pilots")
     .select(
-      "id, name, institution, enrollment_slug, consent_text, consent_version, test_mode, status, ended_at",
+      "id, name, institution, enrollment_slug, consent_text, consent_version, test_mode, status, ended_at, logo_url",
     )
     .eq("enrollment_slug", slug)
     .maybeSingle<PilotForEnrollment>();
@@ -84,6 +85,7 @@ export default async function PilotEnrollmentPage({
         consent_text: pilot.consent_text || defaultConsent,
         consent_version: pilot.consent_version,
         test_mode: pilot.test_mode,
+        logo_url: pilot.logo_url,
       }}
     />
   );

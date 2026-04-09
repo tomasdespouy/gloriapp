@@ -28,15 +28,19 @@ export default async function AppLayout({
   const avatarUrl = profile?.avatarUrl || null;
   const isTrulySuperadmin = realRole === "superadmin";
 
-  // Fetch establishment logo + active modules
+  // Fetch establishment logo + active modules.
+  // Sidebar logo cascade: pilot.logo_url → establishment.logo_url → UGM fallback
   let establishmentLogoUrl: string | null = null;
+  let pilotLogoUrl: string | null = null;
   let activeModules: string[] | null = null; // null = all modules enabled
 
   const admin = createAdminClient();
 
-  // ─── Pilot access window enforcement ──────────────────────────────────
+  // ─── Pilot access window enforcement + logo capture ───────────────────
   // If the user is a pilot participant and the pilot has scheduled_at /
   // ended_at set, block access outside that window. Superadmins bypass.
+  // We also pick up pilots.logo_url here so the sidebar can show the
+  // pilot's branding without an extra round trip.
   if (profile?.id && !isTrulySuperadmin) {
     const { data: participation } = await admin
       .from("pilot_participants")
@@ -47,7 +51,7 @@ export default async function AppLayout({
     if (participation?.pilot_id) {
       const { data: pilot } = await admin
         .from("pilots")
-        .select("scheduled_at, ended_at, status")
+        .select("scheduled_at, ended_at, status, logo_url")
         .eq("id", participation.pilot_id)
         .single();
 
@@ -64,6 +68,8 @@ export default async function AppLayout({
         } else if ((endsAt && now > endsAt) || pilot.status === "finalizado") {
           redirect("/piloto-cerrado?reason=ended");
         }
+
+        pilotLogoUrl = pilot.logo_url || null;
       }
     }
   }
@@ -78,6 +84,9 @@ export default async function AppLayout({
     const disabledKeys = new Set((disabledModules || []).map((m: { module_key: string }) => m.module_key));
     activeModules = ALL_MODULE_KEYS.filter((k) => !disabledKeys.has(k));
   }
+
+  // Pilot logo overrides establishment logo when present.
+  const sidebarLogoUrl = pilotLogoUrl || establishmentLogoUrl;
 
   // Fetch all establishments for superadmin impersonation dropdown
   let allEstablishments: { id: string; name: string }[] = [];
@@ -94,7 +103,7 @@ export default async function AppLayout({
     <SidebarProvider>
       <div className="flex h-screen overflow-hidden">
         <Suspense><NavigationProgress /></Suspense>
-        <Sidebar role={role} establishmentLogoUrl={establishmentLogoUrl} activeModules={activeModules} />
+        <Sidebar role={role} establishmentLogoUrl={sidebarLogoUrl} activeModules={activeModules} />
         <ContentWrapper>
           <TopHeader
             userName={fullName}

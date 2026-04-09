@@ -10,6 +10,7 @@ type Pilot = {
   consent_text: string;
   consent_version: string;
   test_mode: boolean;
+  logo_url: string | null;
 };
 
 type Step = "data" | "consent" | "done";
@@ -135,13 +136,26 @@ export default function EnrollmentClient({ pilot }: { pilot: Pilot }) {
       {/* Header */}
       <header className="bg-white border-b border-[#E5E5E5]">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/branding/gloria-logo.png"
-            alt="GlorIA"
-            className="h-9 w-auto"
-          />
-          <span className="text-xs text-gray-500 font-medium">
+          <div className="flex items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/branding/gloria-logo.png"
+              alt="GlorIA"
+              className="h-9 w-auto"
+            />
+            {pilot.logo_url && (
+              <>
+                <span className="text-gray-300 text-xl font-light">×</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={pilot.logo_url}
+                  alt={pilot.institution}
+                  className="h-9 w-auto object-contain"
+                />
+              </>
+            )}
+          </div>
+          <span className="text-xs text-gray-500 font-medium hidden sm:inline">
             Inscripción al piloto
           </span>
         </div>
