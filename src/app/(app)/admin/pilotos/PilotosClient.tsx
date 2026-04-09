@@ -313,7 +313,11 @@ export default function PilotosClient({
   // ────────────────────────────────
 
   const handleCreatePilot = async () => {
-    if (!formData.name.trim() || !formData.institution.trim() || !formData.establishment_id || csvRows.length === 0) return;
+    // CSV is optional now: the canonical onboarding flow is the public
+    // enrollment link, where students self-register with their own
+    // email. Pre-loading a CSV is only needed for closed pilots where
+    // the admin already knows every participant.
+    if (!formData.name.trim() || !formData.institution.trim() || !formData.establishment_id) return;
     setCreating(true);
 
     // Auto-add contact as instructor if not already in list
@@ -732,7 +736,8 @@ function Step1Upload({
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<CsvRow>({ email: "", full_name: "", role: "student" });
   const [createError, setCreateError] = useState("");
-  const canCreate = formData.name.trim() && formData.institution.trim() && formData.establishment_id && csvRows.length > 0;
+  // CSV pre-loading is optional — see handleCreatePilot for context.
+  const canCreate = formData.name.trim() && formData.institution.trim() && formData.establishment_id;
 
   const handleAddManual = () => {
     if (!manualForm.first_name.trim() || !manualForm.last_name.trim() || !manualForm.email.trim()) return;
@@ -889,7 +894,15 @@ function Step1Upload({
 
       {/* CSV Upload */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">Archivo de participantes</h3>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Archivo de participantes <span className="text-gray-400 font-normal">(opcional)</span></h3>
+            <p className="text-xs text-gray-500 mt-1 max-w-2xl">
+              <strong>No es necesario</strong> si vas a usar el link único de inscripción del piloto.
+              Cada estudiante se inscribirá con su propio correo desde ese link y firmará el consentimiento. Sube un CSV solo si necesitas pre-cargar a participantes específicos.
+            </p>
+          </div>
+        </div>
 
         <div
           onDragOver={(e) => e.preventDefault()}
