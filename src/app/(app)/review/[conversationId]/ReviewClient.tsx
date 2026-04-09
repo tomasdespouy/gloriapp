@@ -275,6 +275,14 @@ export default function ReviewClient({
       const data = await res.json();
       setResults(data);
       setStep("pending"); // Student must wait for teacher approval
+
+      // Trigger any pending experience survey now that the student has
+      // completed their post-session reflection. SurveyModal in
+      // (app)/layout.tsx listens for this event and refetches active
+      // surveys, popping the modal if one is found.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("gloria:reflection-submitted"));
+      }
     } catch {
       setStep("reflect");
     }

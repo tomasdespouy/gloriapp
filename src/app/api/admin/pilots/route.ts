@@ -153,5 +153,24 @@ export async function POST(request: Request) {
     }
   }
 
+  // Auto-create the experience survey for this pilot's establishment.
+  // The SurveyModal in (app)/layout.tsx fetches /api/surveys/active on
+  // mount and pops the modal if it finds one the current user has not
+  // yet responded to. By creating the survey here, every participant of
+  // every new pilot gets prompted automatically after their first
+  // session, without the admin having to remember to click anything.
+  const surveyEndsAt = ended_at
+    ? new Date(new Date(ended_at).getTime() + 7 * 24 * 60 * 60 * 1000) // pilot end + 7 days
+    : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);                  // 90 days from now
+  await auth.supabase.from("surveys").insert({
+    title: `Experiencia ${pilot.name} — ${pilot.institution}`,
+    scope_type: "establishment",
+    scope_id: establishment_id,
+    starts_at: scheduled_at || new Date().toISOString(),
+    ends_at: surveyEndsAt.toISOString(),
+    is_active: true,
+    created_by: auth.user.id,
+  });
+
   return NextResponse.json(pilot, { status: 201 });
 }

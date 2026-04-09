@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, ArrowLeft, LogOut, Mic, MicOff, Volume2, Square, Loader2, Clock, X, Phone, PhoneOff } from "lucide-react";
+import { Send, ArrowLeft, LogOut, Mic, MicOff, Volume2, Square, Loader2, Clock, X, Phone, PhoneOff, FileText, CheckCircle2, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SessionTimer, { useActiveSecondsRef } from "@/components/SessionTimer";
@@ -1316,10 +1316,12 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       {showTour && (
         <div className="fixed inset-0 z-[90] bg-black/40 flex items-start justify-center pt-16" onClick={() => { setShowTour(false); localStorage.setItem("gloria_chat_tour_done", "1"); }}>
           <div className="bg-white rounded-2xl shadow-xl max-w-sm mx-4 p-5 animate-pop" onClick={(e) => e.stopPropagation()}>
+            {/* ─── Step 0 — Barra superior: timer, pausar, finalizar ─── */}
             {tourStep === 0 && (
               <div className="space-y-3">
+                <h3 className="text-base font-bold text-gray-900 mb-1">Barra superior</h3>
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-sidebar/10 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-lg bg-sidebar/10 flex items-center justify-center flex-shrink-0">
                     <Clock size={18} className="text-sidebar" />
                   </div>
                   <div>
@@ -1328,69 +1330,132 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="#6b7280"><rect x="5" y="3" width="4" height="18" rx="1" /><rect x="15" y="3" width="4" height="18" rx="1" /></svg>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">Pausar</p>
+                    <p className="text-sm font-semibold text-gray-900">Pausar sesi&oacute;n</p>
                     <p className="text-xs text-gray-500">Puedes salir y volver despu&eacute;s sin afectar la relaci&oacute;n con el paciente.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
                     <LogOut size={16} className="text-red-500" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">Finalizar sesi&oacute;n</p>
-                    <p className="text-xs text-gray-500">Cierra formalmente la sesi&oacute;n. Despu&eacute;s de 5 minutos recibir&aacute;s retroalimentaci&oacute;n.</p>
+                    <p className="text-xs text-gray-500">Cierra formalmente la sesi&oacute;n. Recibes retroalimentaci&oacute;n por IA al terminar.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+                    <FileText size={16} className="text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Notas de sesi&oacute;n</p>
+                    <p className="text-xs text-gray-500">Abre el panel lateral para escribir tus observaciones cl&iacute;nicas mientras conversas. Se guardan autom&aacute;ticamente.</p>
                   </div>
                 </div>
               </div>
             )}
+
+            {/* ─── Step 1 — Caja de texto: input, mic, autocorrector, send ─── */}
             {tourStep === 1 && (
               <div className="space-y-3">
+                <h3 className="text-base font-bold text-gray-900 mb-1">Caja de mensaje</h3>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <MessageSquare size={16} className="text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Escribe tu mensaje</p>
+                    <p className="text-xs text-gray-500">Aqu&iacute; vas a escribir tus intervenciones. Enter para enviar, Shift+Enter para salto de l&iacute;nea.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-sidebar/10 flex items-center justify-center flex-shrink-0">
+                    <Mic size={16} className="text-sidebar" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Bot&oacute;n del micr&oacute;fono</p>
+                    <p className="text-xs text-gray-500">Dicta tu mensaje en voz alta. Tambi&eacute;n puedes presionar <strong>ALT + CTRL</strong>; doble pulsaci&oacute;n para anclar la grabaci&oacute;n.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                    <span className="text-emerald-600 font-bold text-sm">Aa</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Autocorrector</p>
+                    <p className="text-xs text-gray-500">Aparece cuando escribes m&aacute;s de 10 caracteres. Corrige tildes, signos de pregunta y typos antes de enviar.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-sidebar flex items-center justify-center flex-shrink-0">
+                    <Send size={14} className="text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Enviar</p>
+                    <p className="text-xs text-gray-500">Manda tu mensaje al paciente. Tambi&eacute;n con la tecla Enter.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ─── Step 2 — Voz, silencios y consejos ─── */}
+            {tourStep === 2 && (
+              <div className="space-y-3">
+                <h3 className="text-base font-bold text-gray-900 mb-1">Buenas pr&aacute;cticas</h3>
                 {patient.voice_id && (
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-sidebar/10 flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-lg bg-sidebar/10 flex items-center justify-center flex-shrink-0">
                       <Mic size={16} className="text-sidebar" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">Modo voz</p>
-                      <p className="text-xs text-gray-500">{"Este paciente soporta conversación por voz. Activa el modo con el botón en la barra superior."}</p>
+                      <p className="text-sm font-semibold text-gray-900">Modo voz (walkie-talkie)</p>
+                      <p className="text-xs text-gray-500">Este paciente soporta conversaci&oacute;n por voz. Act&iacute;valo desde la barra superior para una experiencia m&aacute;s realista.</p>
                     </div>
                   </div>
                 )}
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
-                    <Mic size={16} className="text-gray-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">Dictado por voz</p>
-                    <p className="text-xs text-gray-500">{"Presiona ALT + CTRL para comenzar a grabar audio. Doble pulsación para anclar la grabación."}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
                     <Clock size={16} className="text-amber-500" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">Silencios</p>
-                    <p className="text-xs text-gray-500">{"Si no respondes, el paciente reaccionará al silencio. Si pasan 5 minutos sin respuesta, se retirará."}</p>
+                    <p className="text-xs text-gray-500">Si no respondes, el paciente reaccionar&aacute; al silencio. Si pasan 5 minutos sin respuesta, se retirar&aacute;.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 size={16} className="text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Consejo</p>
+                    <p className="text-xs text-gray-500">Tr&aacute;tale como a un paciente real. Saluda, presenta el setting, escucha activamente. La IA eval&uacute;a tus intervenciones cl&iacute;nicas.</p>
                   </div>
                 </div>
               </div>
             )}
+
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
-              <span className="text-[10px] text-gray-400">{tourStep + 1} de 2</span>
-              {tourStep === 0 ? (
-                <button onClick={() => setTourStep(1)} className="text-sm text-sidebar font-medium hover:underline cursor-pointer">
-                  Siguiente &rarr;
-                </button>
-              ) : (
-                <button onClick={() => { setShowTour(false); localStorage.setItem("gloria_chat_tour_done", "1"); }} className="bg-sidebar text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-[#354080] transition-colors cursor-pointer">
-                  Entendido
-                </button>
-              )}
+              <span className="text-[10px] text-gray-400">{tourStep + 1} de 3</span>
+              <div className="flex items-center gap-2">
+                {tourStep > 0 && (
+                  <button onClick={() => setTourStep(tourStep - 1)} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">
+                    &larr; Atr&aacute;s
+                  </button>
+                )}
+                {tourStep < 2 ? (
+                  <button onClick={() => setTourStep(tourStep + 1)} className="text-sm text-sidebar font-medium hover:underline cursor-pointer">
+                    Siguiente &rarr;
+                  </button>
+                ) : (
+                  <button onClick={() => { setShowTour(false); localStorage.setItem("gloria_chat_tour_done", "1"); }} className="bg-sidebar text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-[#354080] transition-colors cursor-pointer">
+                    Entendido
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

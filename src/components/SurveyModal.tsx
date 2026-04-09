@@ -17,12 +17,27 @@ export default function SurveyModal() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    fetch("/api/surveys/active")
-      .then(r => r.json())
-      .then((data: Survey[]) => {
-        if (Array.isArray(data) && data.length > 0) setSurvey(data[0]);
-      })
-      .catch(() => {});
+    const fetchActive = () => {
+      fetch("/api/surveys/active")
+        .then(r => r.json())
+        .then((data: Survey[]) => {
+          if (Array.isArray(data) && data.length > 0) setSurvey(data[0]);
+        })
+        .catch(() => {});
+    };
+
+    // Initial fetch on mount (legacy behavior — picks up surveys when
+    // the user navigates to any page in the (app) layout).
+    fetchActive();
+
+    // Re-fetch the moment a student submits a session reflection. This
+    // is the canonical "post-evaluation" moment when the experience
+    // survey for a pilot should pop up — handled via a global custom
+    // event so ReviewClient does not have to import this component
+    // directly.
+    const handler = () => fetchActive();
+    window.addEventListener("gloria:reflection-submitted", handler);
+    return () => window.removeEventListener("gloria:reflection-submitted", handler);
   }, []);
 
   if (!survey || dismissed) return null;

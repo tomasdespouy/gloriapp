@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Check, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Camera, Check, Eye, EyeOff, Loader2, RotateCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface Props {
@@ -286,6 +286,37 @@ export default function ProfileClient({
             Tu contrase&ntilde;a se puede cambiar en cualquier momento.
           </p>
         )}
+      </div>
+
+      {/* Reset onboarding — re-trigger welcome video and chat tour */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+              <RotateCcw size={14} className="text-[#4A55A2]" />
+              Reiniciar onboarding
+            </h3>
+            <p className="text-xs text-gray-500 max-w-md">
+              Restaura el video de bienvenida y el tour del chat como si entraras
+              por primera vez. &Uacute;til si quieres volver a verlos o si est&aacute;s
+              probando la plataforma.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              if (typeof window === "undefined") return;
+              localStorage.removeItem("gloria_welcome_seen");
+              localStorage.removeItem("gloria_chat_tour_done");
+              alert(
+                "Listo. Recarga la p\u00e1gina (F5) y al volver al dashboard ver\u00e1s el video de bienvenida. " +
+                "El tour del chat aparece la pr\u00f3xima vez que inicies una sesi\u00f3n nueva con un paciente.",
+              );
+            }}
+            className="flex-shrink-0 px-4 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-medium rounded-lg transition-colors cursor-pointer"
+          >
+            Reiniciar
+          </button>
+        </div>
       </div>
     </div>
   );
