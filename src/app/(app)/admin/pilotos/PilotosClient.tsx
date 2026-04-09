@@ -623,6 +623,19 @@ export default function PilotosClient({
         </div>
       </div>
 
+      {/* Consent + enrollment panel — visible on every step once the pilot exists.
+          The new self-enrollment flow makes the link the canonical way to onboard
+          participants, so the panel should NOT be hidden behind the legacy
+          validate→preview→send-invites wizard. */}
+      {selectedPilot && step > 0 && (
+        <div className="px-4 sm:px-8 mb-6">
+          <PilotConsentPanel
+            pilot={(dashboardData || selectedPilot)!}
+            onPilotUpdated={handlePilotPatched}
+          />
+        </div>
+      )}
+
       {/* Step content */}
       <div className="px-4 sm:px-8 pb-8">
         {step === 0 && <Step1Upload
@@ -659,34 +672,24 @@ export default function PilotosClient({
         />}
 
         {step === 3 && (
-          <>
-            {(dashboardData || selectedPilot) && (
-              <div className="px-4 sm:px-8 mb-6">
-                <PilotConsentPanel
-                  pilot={(dashboardData || selectedPilot)!}
-                  onPilotUpdated={handlePilotPatched}
-                />
-              </div>
-            )}
-            <Step4Dashboard
-              pilot={dashboardData || selectedPilot}
-              refreshing={refreshing}
-              onRefresh={refreshDashboard}
-              onResetParticipant={handleResetParticipant}
-              onFinalize={async () => {
-                if (!selectedPilot) return;
-                const res = await fetch(`/api/admin/pilots/${selectedPilot.id}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ status: "finalizado", ended_at: new Date().toISOString() }),
-                });
-                if (res.ok) {
-                  await refreshDashboard();
-                  setStep(4);
-                }
-              }}
-            />
-          </>
+          <Step4Dashboard
+            pilot={dashboardData || selectedPilot}
+            refreshing={refreshing}
+            onRefresh={refreshDashboard}
+            onResetParticipant={handleResetParticipant}
+            onFinalize={async () => {
+              if (!selectedPilot) return;
+              const res = await fetch(`/api/admin/pilots/${selectedPilot.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: "finalizado", ended_at: new Date().toISOString() }),
+              });
+              if (res.ok) {
+                await refreshDashboard();
+                setStep(4);
+              }
+            }}
+          />
         )}
 
         {step === 4 && <Step5Report
@@ -780,21 +783,22 @@ function Step1Upload({
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Institución *</label>
-            <input
-              type="text"
-              value={formData.institution}
-              onChange={(e) => setFormData((f) => ({ ...f, institution: e.target.value }))}
-              placeholder="Universidad Gabriela Mistral"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
-            />
-          </div>
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-1">
             <label className="block text-xs font-medium text-gray-600 mb-1">Establecimiento *</label>
             <select
               value={formData.establishment_id}
-              onChange={(e) => setFormData((f) => ({ ...f, establishment_id: e.target.value }))}
+              onChange={(e) => {
+                const newId = e.target.value;
+                const est = establishments.find((x) => x.id === newId);
+                setFormData((f) => ({
+                  ...f,
+                  establishment_id: newId,
+                  // Auto-fill institution + country from the selected establishment.
+                  // The admin can still override them after this.
+                  institution: est?.name || f.institution,
+                  country: est?.country || f.country,
+                }));
+              }}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sidebar/30 hover:border-gray-300 cursor-pointer"
             >
               <option value="">— Seleccionar establecimiento —</option>
@@ -807,6 +811,18 @@ function Step1Upload({
             <p className="text-[10px] text-gray-400 mt-1">
               Los participantes quedarán vinculados a este establecimiento y verán solo sus pacientes asignados.
             </p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Institución <span className="text-gray-400 font-normal">(se rellena al elegir establecimiento)</span>
+            </label>
+            <input
+              type="text"
+              value={formData.institution}
+              onChange={(e) => setFormData((f) => ({ ...f, institution: e.target.value }))}
+              placeholder="Universidad Gabriela Mistral"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">País</label>
