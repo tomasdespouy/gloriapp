@@ -7,18 +7,29 @@ export default async function AprendizajePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  let progressMap: Record<string, number> = {};
+  const progressMap: Record<string, number> = {};
   let tutorCompleted = false;
+  let tutorUnlocked = false;
 
   if (user) {
     const { data: progress } = await supabase
       .from("learning_progress")
-      .select("competency")
+      .select("competency, example_id")
       .eq("student_id", user.id);
 
     progress?.forEach((p) => {
-      progressMap[p.competency] = (progressMap[p.competency] || 0) + 1;
-      if (p.competency === "tutor") tutorCompleted = true;
+      if (p.competency === "tutor") {
+        // ANY tutor row (completed OR skipped) unlocks the rest of the
+        // modules and prevents the dashboard from redirecting back to
+        // /aprendizaje/tutor on every visit.
+        tutorUnlocked = true;
+        // Only the explicit "tutor-session" example marks the tutor card
+        // as fully completed. "tutor-skipped" leaves it in its initial
+        // "Paso 1" state so the user knows they can still come back.
+        if (p.example_id === "tutor-session") tutorCompleted = true;
+      } else {
+        progressMap[p.competency] = (progressMap[p.competency] || 0) + 1;
+      }
     });
   }
 
@@ -74,7 +85,8 @@ export default async function AprendizajePage() {
             const total = comp.examples.length;
             const pct = Math.round((read / total) * 100);
             const isComplete = read >= total;
-            const isLocked = !tutorCompleted;
+            // Modules unlock when the tutor was either completed OR skipped.
+            const isLocked = !tutorUnlocked;
 
             return (
               <div key={comp.key} className="relative">

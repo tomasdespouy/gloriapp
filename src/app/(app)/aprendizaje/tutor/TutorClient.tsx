@@ -277,10 +277,15 @@ export default function TutorClient({
             <button
               onClick={() => {
                 setSelectedComps(competencies.map((c) => c.key));
+                // Mark as SKIPPED, not completed. This still creates a
+                // learning_progress row so the dashboard does not redirect
+                // back here on every navigation, but the example_id is
+                // distinct so the /aprendizaje listing does not show the
+                // tutor card as "Completado".
                 fetch("/api/learning/progress", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ example_id: "tutor-session", competency: "tutor" }),
+                  body: JSON.stringify({ example_id: "tutor-skipped", competency: "tutor" }),
                 }).then(() => window.location.href = "/dashboard");
               }}
               className="text-[11px] text-gray-400 hover:text-gray-600 hover:underline mt-2"

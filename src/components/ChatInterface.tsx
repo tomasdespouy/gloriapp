@@ -395,9 +395,16 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   };
 
   const fireSilenceStage = async (stage: number) => {
-    if (!conversationId || isStreamingRef.current) return;
+    console.log(`[silence] fire stage ${stage}, isStreaming=${isStreamingRef.current}, voiceMode=${voiceModeRef.current}, ttsPlaying=${ttsPlayingRef.current}`);
+    if (!conversationId || isStreamingRef.current) {
+      console.log(`[silence] aborted: ${!conversationId ? "no conversationId" : "streaming"}`);
+      return;
+    }
     // Don't fire silence while TTS is playing (voice mode walkie-talkie)
-    if (voiceModeRef.current && ttsPlayingRef.current) return;
+    if (voiceModeRef.current && ttsPlayingRef.current) {
+      console.log(`[silence] aborted: TTS playing in voice mode`);
+      return;
+    }
 
     // Voice mode has 3 stages; map stage 3 → closure prompt (stage 4 on server)
     const isVoice = voiceModeRef.current;
@@ -410,8 +417,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         body: JSON.stringify({ patientId: patient.id, conversationId, stage: serverStage }),
       });
 
+      console.log(`[silence] response status=${res.status}`);
       if (res.ok) {
         const data = await res.json();
+        console.log(`[silence] received message="${data.message?.slice(0, 60)}...", sessionClosed=${data.sessionClosed}`);
         if (data.message) {
           setMessages((prev) => [...prev, {
             role: "assistant",
@@ -432,8 +441,12 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             setShowDisconnect(true);
           }
         }
+      } else {
+        console.error(`[silence] non-ok response: ${res.status} ${res.statusText}`);
       }
-    } catch { /* silence timer is optional */ }
+    } catch (err) {
+      console.error(`[silence] fetch error:`, err);
+    }
   };
 
   const startSilenceTimers = () => {

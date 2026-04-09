@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import ProfileClient from "./ProfileClient";
 
@@ -15,7 +16,14 @@ export default async function MiPerfilPage() {
 
   let establishmentName: string | null = null;
   if (profile?.establishment_id) {
-    const { data: est } = await supabase
+    // Use admin client to look up the establishment name. The student RLS
+    // policy on `establishments` may not allow students to read the name
+    // of their own establishment, which previously caused the profile to
+    // show "Sin asignar" even when establishment_id was correctly set.
+    // Scoping by the user's own profile.establishment_id (already
+    // authenticated above) keeps this safe — we only ever read the
+    // establishment that belongs to the current user.
+    const { data: est } = await createAdminClient()
       .from("establishments")
       .select("name")
       .eq("id", profile.establishment_id)

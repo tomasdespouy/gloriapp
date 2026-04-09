@@ -87,6 +87,12 @@ export default async function ProgresoPage() {
   const earnedCount = earnedAchievements?.length || 0;
   const totalCount = allAchievements?.length || 0;
 
+  // "Sesiones evaluadas" must reflect the number of real session_competencies
+  // rows, NOT the number of achievements earned. Previously the KPI label
+  // said "Sesiones evaluadas" but the value was earnedCount, which made
+  // brand-new accounts look like they had data.
+  const evaluatedSessionsCount = recentScores?.length || 0;
+
   const hasData = (progress?.sessions_completed || 0) > 0;
   const streak = progress?.current_streak || 0;
   const longestStreak = progress?.longest_streak || 0;
@@ -121,7 +127,7 @@ export default async function ProgresoPage() {
             <p className="text-xs text-gray-500 mt-1">Horas en sesión (aprox.)</p>
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
-            <p className="text-3xl font-bold text-green-600">{earnedCount > 0 ? earnedCount : 0}</p>
+            <p className="text-3xl font-bold text-green-600">{evaluatedSessionsCount}</p>
             <p className="text-xs text-gray-500 mt-1">Sesiones evaluadas</p>
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">

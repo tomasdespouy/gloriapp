@@ -3,6 +3,36 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { chat } from "@/lib/ai";
 import { NextResponse } from "next/server";
 
+// Allow up to 25 seconds for the silence-prompt LLM call. The default
+// Vercel function timeout would otherwise kill the request before the
+// model has a chance to respond, leaving the patient mute.
+export const maxDuration = 30;
+
+// Hardcoded fallback messages for each stage. Used when the LLM call
+// fails for any reason (rate limit, timeout, model down). At least the
+// silence detection still produces SOMETHING so the patient does not
+// look frozen to the student.
+const STAGE_FALLBACKS: Record<number, string[]> = {
+  1: [
+    "Mmm... ¿está todo bien por ahí?",
+    "Me quedé pensando si escuchó lo que dije...",
+    "Bueno... este silencio me pone un poco nerviosa.",
+  ],
+  2: [
+    "¿Sigue ahí? Me estoy preocupando un poco...",
+    "Oiga... ¿me escucha? Llevo un rato esperando.",
+    "No sé si se cortó la conexión o algo.",
+  ],
+  3: [
+    "Mire, si no tiene tiempo, podemos dejarlo para otro momento.",
+    "Voy a esperar un momento más, pero si no hay respuesta tendré que irme.",
+  ],
+  4: [
+    "Bueno... creo que mejor me voy. Espero que la próxima vez podamos hablar de verdad.",
+    "Entiendo que debe estar ocupado/a. Nos vemos en la próxima sesión.",
+  ],
+};
+
 const STAGE_PROMPTS: Record<number, string> = {
   1: `[INSTRUCCI\u00d3N ESPECIAL]
 Ha pasado un minuto sin que el terapeuta diga nada. Reacciona con un saludo extra\u00f1ado, sutil, como si notaras la pausa. Algunas opciones:
@@ -72,19 +102,31 @@ export async function POST(request: Request) {
     : "";
   const silencePrompt = `${patient.system_prompt}\n\n${stagePrompt}${antiRepeat}`;
 
-  const response = await chat(
-    history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
-    silencePrompt
-  );
+  // Try the LLM, but never let a failure leave the patient mute. Falls
+  // back to a hardcoded line for the current stage if the model errors,
+  // times out, or returns an empty string.
+  let response: string | null = null;
+  try {
+    response = await chat(
+      history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      silencePrompt
+    );
+  } catch (err) {
+    console.error(`[silence] LLM call failed for stage ${stage}:`, err);
+  }
+
+  if (!response || !response.trim()) {
+    const pool = STAGE_FALLBACKS[stage] || STAGE_FALLBACKS[1];
+    response = pool[Math.floor(Math.random() * pool.length)];
+    console.warn(`[silence] using fallback message for stage ${stage}`);
+  }
 
   // Save the message
-  if (response) {
-    await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      role: "assistant",
-      content: response,
-    });
-  }
+  await supabase.from("messages").insert({
+    conversation_id: conversationId,
+    role: "assistant",
+    content: response,
+  });
 
   // Stage 4: close the session
   if (stage === 4) {

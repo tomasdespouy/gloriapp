@@ -181,7 +181,7 @@ export default async function Dashboard() {
                 )}
               </div>
               {!avatarUrl && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] text-sidebar font-medium bg-sidebar/10 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 text-[9px] text-sidebar font-medium bg-white border border-sidebar/20 shadow-sm px-2 py-0.5 rounded-full whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                   Sube tu foto
                 </span>
               )}

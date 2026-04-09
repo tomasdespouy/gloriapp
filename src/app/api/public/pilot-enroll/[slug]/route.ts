@@ -147,6 +147,19 @@ export async function POST(
 
   const userId = newAuthUser.user.id;
 
+  // Belt-and-braces: the handle_new_user trigger SHOULD copy
+  // establishment_id from raw_user_meta_data, but we explicitly update
+  // here too in case the trigger fails silently. We also force role to
+  // student / instructor regardless of the trigger's hardcoded default.
+  await admin
+    .from("profiles")
+    .update({
+      full_name: data.full_name,
+      establishment_id: pilot.establishment_id || null,
+      role: data.role === "estudiante" ? "student" : "instructor",
+    })
+    .eq("id", userId);
+
   // ── 6. Find or create the pilot_participants row ─────────────────────
   // The participant may have been pre-loaded from CSV; in that case we
   // just update it. Otherwise we insert a fresh row (self-enrollment).
