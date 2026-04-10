@@ -18,8 +18,12 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("gloria-sidebar-collapsed");
-    if (saved === "true") setCollapsed(true);
+    try {
+      const saved = localStorage.getItem("gloria-sidebar-collapsed");
+      if (saved === "true") setCollapsed(true);
+    } catch {
+      // localStorage unavailable
+    }
     requestAnimationFrame(() => setReady(true));
   }, []);
 

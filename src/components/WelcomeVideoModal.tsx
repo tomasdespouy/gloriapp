@@ -9,11 +9,15 @@ export default function WelcomeVideoModal() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const seen = localStorage.getItem(STORAGE_KEY);
-    if (!seen) {
-      // Small delay so the dashboard renders first
-      const timer = setTimeout(() => setShow(true), 800);
-      return () => clearTimeout(timer);
+    try {
+      const seen = localStorage.getItem(STORAGE_KEY);
+      if (!seen) {
+        // Small delay so the dashboard renders first
+        const timer = setTimeout(() => setShow(true), 800);
+        return () => clearTimeout(timer);
+      }
+    } catch {
+      // localStorage unavailable — skip modal
     }
   }, []);
 
