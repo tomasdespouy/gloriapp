@@ -144,6 +144,7 @@ const PATCH_ALLOWED_FIELDS = new Set([
   "test_mode",
   "enrollment_slug",
   "logo_url",
+  "ui_config",
 ]);
 
 export async function PATCH(

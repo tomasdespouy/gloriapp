@@ -22,7 +22,22 @@ export default async function Dashboard() {
   ]);
 
   if (userProfile.role === "student" && (!tutorProgress || tutorProgress.length === 0)) {
-    redirect("/aprendizaje/tutor");
+    // Check if user is in a pilot that skips tutor onboarding
+    let skipTutor = false;
+    const { data: pp } = await admin
+      .from("pilot_participants")
+      .select("pilot_id")
+      .eq("user_id", userProfile.id)
+      .maybeSingle();
+    if (pp?.pilot_id) {
+      const { data: pilotRow } = await admin
+        .from("pilots")
+        .select("ui_config")
+        .eq("id", pp.pilot_id)
+        .single();
+      skipTutor = !!(pilotRow?.ui_config as Record<string, boolean> | null)?.skip_tutor_redirect;
+    }
+    if (!skipTutor) redirect("/aprendizaje/tutor");
   }
 
   // Round 2: Establishment-based patient visibility (only if establishment exists)

@@ -33,6 +33,7 @@ export default async function AppLayout({
   let establishmentLogoUrl: string | null = null;
   let pilotLogoUrl: string | null = null;
   let activeModules: string[] | null = null; // null = all modules enabled
+  let pilotUiConfig: Record<string, boolean> = {};
 
   const admin = createAdminClient();
 
@@ -51,7 +52,7 @@ export default async function AppLayout({
     if (participation?.pilot_id) {
       const { data: pilot } = await admin
         .from("pilots")
-        .select("scheduled_at, ended_at, status, logo_url")
+        .select("scheduled_at, ended_at, status, logo_url, ui_config")
         .eq("id", participation.pilot_id)
         .single();
 
@@ -70,6 +71,7 @@ export default async function AppLayout({
         }
 
         pilotLogoUrl = pilot.logo_url || null;
+        pilotUiConfig = (pilot.ui_config || {}) as Record<string, boolean>;
       }
     }
   }
@@ -83,6 +85,14 @@ export default async function AppLayout({
     establishmentLogoUrl = est?.logo_url || null;
     const disabledKeys = new Set((disabledModules || []).map((m: { module_key: string }) => m.module_key));
     activeModules = ALL_MODULE_KEYS.filter((k) => !disabledKeys.has(k));
+
+    // Pilot-level overrides: hide modules for this specific pilot
+    if (pilotUiConfig.hide_live_recording) {
+      activeModules = activeModules.filter((m) => m !== "grabacion");
+    }
+    if (pilotUiConfig.hide_microlearning) {
+      activeModules = activeModules.filter((m) => m !== "aprendizaje");
+    }
   }
 
   // Pilot logo overrides establishment logo when present.

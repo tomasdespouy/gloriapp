@@ -35,6 +35,7 @@ interface Props {
   endedAt: string | null;
   actionItems: ActionItem[];
   initialSessionNotes: string;
+  skipReflection?: boolean;
 }
 
 export default function ReviewClient({
@@ -52,6 +53,7 @@ export default function ReviewClient({
   endedAt,
   actionItems: initialActionItems,
   initialSessionNotes,
+  skipReflection = false,
 }: Props) {
   const router = useRouter();
   const canSeeResults = feedbackStatus === "approved" || feedbackStatus === "evaluated";
@@ -90,6 +92,14 @@ export default function ReviewClient({
         }
       : null
   );
+
+  // Pilot: skip reflection and auto-trigger AI evaluation
+  useEffect(() => {
+    if (skipReflection && step === "reflect" && !tooShort) {
+      handleSubmit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skipReflection]);
 
   // Audio recording state
   const [isRecording, setIsRecording] = useState(false);

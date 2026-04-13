@@ -82,6 +82,24 @@ export default async function ReviewPage({
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
 
+  // Check if user is in a pilot that skips self-reflection
+  let skipReflection = false;
+  if (!existingEval) {
+    const { data: pp } = await admin
+      .from("pilot_participants")
+      .select("pilot_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (pp?.pilot_id) {
+      const { data: pilotRow } = await admin
+        .from("pilots")
+        .select("ui_config")
+        .eq("id", pp.pilot_id)
+        .single();
+      skipReflection = !!(pilotRow?.ui_config as Record<string, boolean> | null)?.skip_self_reflection;
+    }
+  }
+
   return (
     <ReviewClient
       conversationId={conversationId}
@@ -99,6 +117,7 @@ export default async function ReviewPage({
       endedAt={conversation.ended_at || null}
       actionItems={actionItems || []}
       initialSessionNotes={conversation.student_notes_v2 || ""}
+      skipReflection={skipReflection}
     />
   );
 }
