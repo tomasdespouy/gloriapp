@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { chat } from "@/lib/ai";
 import { NextResponse } from "next/server";
+import { checkProfanity, checkClinicalRisk } from "@/lib/content-safety";
 
 // Structural rules every patient prompt MUST follow
 const RULES_CHECKLIST = [
@@ -16,6 +17,8 @@ const RULES_CHECKLIST = [
   { id: "example_phrases", label: "Frases ejemplo del paciente entre comillas", test: (p: string) => (p.match(/"/g) || []).length >= 4 },
   { id: "length", label: "Extensión mínima (800+ caracteres)", test: (p: string) => p.length >= 800 },
   { id: "gradual", label: "Apertura gradual (no revela todo al inicio)", test: (p: string) => /gradual|progresiv|poco a poco|eventualmente|con el tiempo|sesion.*avanzad/i.test(p) },
+  { id: "no_profanity", label: "Sin vulgaridades en el prompt", test: (p: string) => checkProfanity(p).length === 0 },
+  { id: "no_clinical_risk", label: "Sin contenido de riesgo clínico no permitido", test: (p: string) => checkClinicalRisk(p).length === 0 },
 ];
 
 export async function POST(request: Request) {
