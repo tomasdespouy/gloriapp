@@ -69,8 +69,14 @@ export default function SurveyModal() {
 
     // Re-fetch after a student submits a session reflection. Wired up
     // by ReviewClient via window.dispatchEvent so the modal pops the
-    // moment the student finishes their post-session reflection.
-    const handler = () => fetchActive();
+    // moment the student finishes their post-session reflection. Reset
+    // dismissed so that if the user said "Ahora no" the first time the
+    // modal showed (e.g. on landing), the post-session trigger can open
+    // it again.
+    const handler = () => {
+      setDismissed(false);
+      fetchActive();
+    };
     window.addEventListener("gloria:reflection-submitted", handler);
     return () =>
       window.removeEventListener("gloria:reflection-submitted", handler);
