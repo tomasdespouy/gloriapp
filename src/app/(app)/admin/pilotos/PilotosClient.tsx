@@ -1620,8 +1620,6 @@ function Step4Dashboard({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [deactivating, setDeactivating] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
-  const [creatingSurvey, setCreatingSurvey] = useState(false);
-  const [surveyCreated, setSurveyCreated] = useState(false);
   if (!pilot) return null;
 
   const participants: Participant[] = (pilot as Pilot & { participants?: Participant[] }).participants || [];
@@ -1648,27 +1646,6 @@ function Step4Dashboard({
       onRefresh();
     }
     setDeactivating(false);
-  };
-
-  const handleCreateSurvey = async () => {
-    setCreatingSurvey(true);
-    try {
-      const res = await fetch("/api/admin/surveys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: `Encuesta de cierre — ${pilot.name}`,
-          scope_type: "establishment",
-          scope_id: pilot.establishment_id || null,
-          starts_at: new Date().toISOString(),
-          ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        }),
-      });
-      if (res.ok) {
-        setSurveyCreated(true);
-      }
-    } catch { /* ignore */ }
-    setCreatingSurvey(false);
   };
 
   return (
@@ -1830,21 +1807,23 @@ function Step4Dashboard({
           <table className="w-full text-xs">
             <thead className="bg-gray-50">
               <tr>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium w-8">#</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Nombre</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Email</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Rol</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Estado</th>
                 <th className="text-right px-3 py-2 text-gray-500 font-medium">Sesiones</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">Última actividad</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Encuesta</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">Última actividad</th>
                 {pilot.test_mode && (
                   <th className="text-right px-3 py-2 text-gray-500 font-medium">Acciones</th>
                 )}
               </tr>
             </thead>
             <tbody>
-              {filteredParticipants.map((p) => (
+              {filteredParticipants.map((p, idx) => (
                 <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50">
+                  <td className="px-3 py-2.5 text-gray-400 tabular-nums">{idx + 1}</td>
                   <td className="px-3 py-2.5 text-gray-900 font-medium">{p.full_name}</td>
                   <td className="px-3 py-2.5 text-gray-600">{p.email}</td>
                   <td className="px-3 py-2.5">
@@ -1858,9 +1837,6 @@ function Step4Dashboard({
                     <StatusIndicator status={p.status} />
                   </td>
                   <td className="px-3 py-2.5 text-right font-bold text-gray-700">{p.sessions_count || 0}</td>
-                  <td className="px-3 py-2.5 text-gray-400">
-                    {p.last_active_at ? formatRelativeTime(p.last_active_at) : "—"}
-                  </td>
                   <td className="px-3 py-2.5">
                     {p.survey_completed_at ? (
                       <span
@@ -1875,6 +1851,9 @@ function Step4Dashboard({
                         Pendiente
                       </span>
                     )}
+                  </td>
+                  <td className="px-3 py-2.5 text-gray-400">
+                    {p.last_active_at ? formatRelativeTime(p.last_active_at) : "—"}
                   </td>
                   {pilot.test_mode && (
                     <td className="px-3 py-2.5 text-right">
@@ -1892,7 +1871,7 @@ function Step4Dashboard({
               ))}
               {filteredParticipants.length === 0 && (
                 <tr>
-                  <td colSpan={pilot.test_mode ? 8 : 7} className="px-3 py-8 text-center text-gray-400">
+                  <td colSpan={pilot.test_mode ? 9 : 8} className="px-3 py-8 text-center text-gray-400">
                     No hay participantes con este filtro
                   </td>
                 </tr>
@@ -1902,85 +1881,8 @@ function Step4Dashboard({
         </div>
       </div>
 
-      {/* Closure survey */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900">Encuesta de cierre</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Envía una encuesta a los participantes al finalizar el piloto.
-            </p>
-          </div>
-          <button
-            onClick={handleCreateSurvey}
-            disabled={creatingSurvey || surveyCreated}
-            className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {creatingSurvey ? <Loader2 size={14} className="animate-spin" /> : surveyCreated ? <Check size={14} /> : <Send size={14} />}
-            {surveyCreated ? "Encuesta creada" : "Enviar encuesta de cierre"}
-          </button>
-        </div>
-
-        <div className="space-y-3 border border-gray-100 rounded-lg p-4 bg-gray-50">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-2">
-            Preguntas incluidas
-          </p>
-
-          <div className="space-y-2">
-            <div className="flex items-start gap-2">
-              <span className="text-xs font-bold text-sidebar mt-0.5">NPS</span>
-              <p className="text-xs text-gray-700">
-                ¿Qué tan probable es que recomiendes GlorIA a otros estudiantes? (0-10)
-              </p>
-            </div>
-
-            <div className="flex items-start gap-2">
-              <span className="text-xs font-bold text-emerald-600 mt-0.5">F1</span>
-              <p className="text-xs text-gray-700">
-                ¿Cuáles fueron las principales fortalezas de tu experiencia con GlorIA?
-              </p>
-            </div>
-
-            <div className="flex items-start gap-2">
-              <span className="text-xs font-bold text-amber-600 mt-0.5">D1</span>
-              <p className="text-xs text-gray-700">
-                ¿Qué aspectos mejorarías de la plataforma?
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Export survey responses to CSV */}
-        <div className="mt-5 pt-5 border-t border-gray-100">
-          <p className="text-xs font-semibold text-gray-700 mb-1">
-            Exportar respuestas
-          </p>
-          <p className="text-[11px] text-gray-500 mb-3">
-            Descarga las respuestas de la encuesta de experiencia UGM (10 preguntas)
-            en formato CSV listo para abrir con Excel.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <a
-              href={`/api/admin/pilots/${pilot.id}/survey-responses?format=csv-named`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-sidebar hover:bg-[#354080] text-white text-xs font-medium rounded-lg transition-colors cursor-pointer"
-            >
-              <Download size={14} />
-              Descargar con nombres
-            </a>
-            <a
-              href={`/api/admin/pilots/${pilot.id}/survey-responses?format=csv-anonymous`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-medium rounded-lg transition-colors cursor-pointer"
-            >
-              <Download size={14} />
-              Descargar anonimizado
-            </a>
-          </div>
-          <p className="text-[10px] text-gray-400 mt-2">
-            Versión <strong>nominal</strong>: incluye nombre + email del consentimiento.
-            Versión <strong>anonimizada</strong>: sustituye el nombre por un ID secuencial (P-001, P-002…).
-          </p>
-        </div>
-      </div>
+      {/* Open answers from the automatic closure survey — cards / table toggle + export */}
+      <OpenAnswersSection pilotId={pilot.id} />
     </div>
   );
 }
@@ -2324,4 +2226,200 @@ function formatRelativeTime(iso: string): string {
   const d = new Date(iso);
   const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
   return `${d.getDate()} ${months[d.getMonth()]}`;
+}
+
+// ════════════════════════════════════════════
+// Open answers from the UGM closure survey
+// ════════════════════════════════════════════
+
+type OpenAnswerRow = {
+  response_id: string;
+  user_id: string;
+  full_name: string;
+  email: string;
+  created_at: string;
+  answers: Record<string, unknown>;
+};
+
+const OPEN_QUESTIONS = [
+  { key: "q7_mas_gusto", label: "10. ¿Qué fue lo que más te gustó?" },
+  { key: "q8_mejoras", label: "11. ¿Qué mejorarías?" },
+  { key: "q9_integracion", label: "12. ¿Cómo integrarla mejor?" },
+  { key: "q10_comentarios", label: "13. Comentarios adicionales" },
+] as const;
+
+function OpenAnswersSection({ pilotId }: { pilotId: string }) {
+  const [view, setView] = useState<"cards" | "table">("cards");
+  const [rows, setRows] = useState<OpenAnswerRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/admin/pilots/${pilotId}/survey-responses?format=json`)
+      .then(async (r) => {
+        if (!r.ok) {
+          const data = await r.json().catch(() => null);
+          throw new Error(data?.error || `Error ${r.status}`);
+        }
+        return r.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setRows((data.rows || []) as OpenAnswerRow[]);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Error al cargar respuestas");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pilotId]);
+
+  const exportLinks = [
+    { label: "XLSX con nombres", href: `/api/admin/pilots/${pilotId}/survey-responses?format=xlsx-named`, primary: true },
+    { label: "XLSX anonimizado", href: `/api/admin/pilots/${pilotId}/survey-responses?format=xlsx-anonymous`, primary: false },
+    { label: "CSV con nombres", href: `/api/admin/pilots/${pilotId}/survey-responses?format=csv-named`, primary: false },
+    { label: "CSV anonimizado", href: `/api/admin/pilots/${pilotId}/survey-responses?format=csv-anonymous`, primary: false },
+  ];
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">Respuestas abiertas de la encuesta</h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {loading
+              ? "Cargando respuestas…"
+              : rows.length > 0
+                ? `${rows.length} respuesta${rows.length === 1 ? "" : "s"} recibida${rows.length === 1 ? "" : "s"}.`
+                : "Aún no hay respuestas."}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+            <button
+              onClick={() => setView("cards")}
+              className={`px-2.5 py-1 text-[11px] font-medium cursor-pointer ${view === "cards" ? "bg-sidebar text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+            >
+              Cards
+            </button>
+            <button
+              onClick={() => setView("table")}
+              className={`px-2.5 py-1 text-[11px] font-medium cursor-pointer border-l border-gray-200 ${view === "table" ? "bg-sidebar text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+            >
+              Tabla
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Export bar */}
+      <div className="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b border-gray-100">
+        <span className="text-[11px] text-gray-500 mr-1">Exportar:</span>
+        {exportLinks.map((l) => (
+          <a
+            key={l.href}
+            href={l.href}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-lg cursor-pointer transition-colors ${
+              l.primary
+                ? "bg-sidebar hover:bg-[#354080] text-white"
+                : "border border-gray-200 hover:bg-gray-50 text-gray-700"
+            }`}
+          >
+            <Download size={12} />
+            {l.label}
+          </a>
+        ))}
+      </div>
+
+      {/* Content */}
+      {error && (
+        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+          {error}
+        </p>
+      )}
+
+      {!error && !loading && rows.length === 0 && (
+        <p className="text-xs text-gray-400 italic text-center py-6">
+          Todavía nadie ha respondido la encuesta de cierre en este piloto.
+        </p>
+      )}
+
+      {!error && !loading && rows.length > 0 && view === "cards" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {rows.map((r) => (
+            <div key={r.response_id} className="border border-gray-100 rounded-lg p-3 bg-gray-50/50">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-gray-900 truncate">{r.full_name || "(sin nombre)"}</p>
+                <span className="text-[10px] text-gray-400 shrink-0 ml-2">
+                  {new Date(r.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {OPEN_QUESTIONS.map(({ key, label }) => {
+                  const val = r.answers?.[key];
+                  const text = typeof val === "string" ? val.trim() : "";
+                  return (
+                    <div key={key}>
+                      <p className="text-[10px] font-medium text-gray-500">{label}</p>
+                      <p className="text-xs text-gray-800 whitespace-pre-wrap">
+                        {text || <span className="text-gray-300 italic">—</span>}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!error && !loading && rows.length > 0 && view === "table" && (
+        <div className="border border-gray-200 rounded-lg overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium w-8">#</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">Nombre</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium whitespace-nowrap">Fecha</th>
+                {OPEN_QUESTIONS.map((q) => (
+                  <th key={q.key} className="text-left px-3 py-2 text-gray-500 font-medium min-w-[200px]">
+                    {q.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, idx) => (
+                <tr key={r.response_id} className="border-t border-gray-100 align-top">
+                  <td className="px-3 py-2.5 text-gray-400 tabular-nums">{idx + 1}</td>
+                  <td className="px-3 py-2.5 text-gray-900 font-medium whitespace-nowrap">{r.full_name || "(sin nombre)"}</td>
+                  <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap">
+                    {new Date(r.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
+                  </td>
+                  {OPEN_QUESTIONS.map(({ key }) => {
+                    const val = r.answers?.[key];
+                    const text = typeof val === "string" ? val.trim() : "";
+                    return (
+                      <td key={key} className="px-3 py-2.5 text-gray-700 whitespace-pre-wrap">
+                        {text || <span className="text-gray-300 italic">—</span>}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }

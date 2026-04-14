@@ -1,27 +1,43 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import ExcelJS from "exceljs";
 
-// Export survey responses for a pilot as CSV. Two formats supported:
+// Export survey responses for a pilot. Four formats supported:
 //
-//   GET /api/admin/pilots/{id}/survey-responses?format=csv-named
-//     Includes full_name and email from pilot_consents.
+//   GET .../survey-responses?format=csv-named
+//   GET .../survey-responses?format=csv-anonymous
+//   GET .../survey-responses?format=xlsx-named
+//   GET .../survey-responses?format=xlsx-anonymous
+//   GET .../survey-responses?format=json       (Dashboard in-app view)
 //
-//   GET /api/admin/pilots/{id}/survey-responses?format=csv-anonymous
-//     Replaces the name with a sequential anonymous id (P-001, P-002...).
-//     Strips email entirely.
+// Nominal exports include full_name and email (from pilot_consents or
+// fallback pilot_participants). Anonymous exports replace name/email
+// with a sequential id (P-001, P-002...).
 //
-// Both formats include all 10 questions of the UGM experience survey
-// flattened into individual columns. The likert grids (q5/q6) become
-// one column per sub-item so the CSV is friendly for Excel pivot tables.
-//
-// Superadmin only — survey responses contain identifying audit data
-// when format=csv-named.
+// Scope: we look at `survey_responses` for every user that belongs to
+// this pilot via `pilot_participants` — this is robust whether the
+// survey is pilot-scoped, global, or the UGM form. Previously the
+// endpoint filtered by survey title, which broke for global surveys.
 
-const COMPETENCY_USABILIDAD = ["navegacion", "performance", "claridad", "feedback"] as const;
-const COMPETENCY_FORMACION = ["aplicacion", "habilidades", "incorporacion", "verosimilitud", "atencion"] as const;
+const USAB_KEYS = ["navegacion", "performance", "claridad", "feedback"] as const;
+const FORM_KEYS = ["aplicacion", "habilidades", "incorporacion", "verosimilitud", "atencion"] as const;
+
+const VALID_FORMATS = new Set([
+  "csv-named",
+  "csv-anonymous",
+  "xlsx-named",
+  "xlsx-anonymous",
+  "json",
+]);
 
 type ConsentRow = {
+  user_id: string | null;
+  full_name: string;
+  email: string;
+};
+
+type ParticipantRow = {
   user_id: string | null;
   full_name: string;
   email: string;
@@ -56,20 +72,20 @@ export async function GET(
   const url = new URL(request.url);
   const format = url.searchParams.get("format") || "csv-named";
 
-  if (!["csv-named", "csv-anonymous"].includes(format)) {
+  if (!VALID_FORMATS.has(format)) {
     return NextResponse.json(
-      { error: "format inválido — usa csv-named o csv-anonymous" },
+      { error: `format inválido — usa uno de: ${Array.from(VALID_FORMATS).join(", ")}` },
       { status: 400 },
     );
   }
-  const anonymized = format === "csv-anonymous";
+  const anonymized = format.endsWith("-anonymous");
 
   const admin = createAdminClient();
 
-  // 1. Look up the pilot to get its establishment_id and name
+  // 1. Pilot metadata (institution + name go into the export rows).
   const { data: pilot } = await admin
     .from("pilots")
-    .select("id, name, institution, establishment_id")
+    .select("id, name, institution")
     .eq("id", pilotId)
     .single();
 
@@ -77,62 +93,80 @@ export async function GET(
     return NextResponse.json({ error: "Piloto no encontrado" }, { status: 404 });
   }
 
-  // 2. Find the experience survey for this pilot's establishment.
-  // The survey is auto-created on pilot creation with title prefix
-  // "Experiencia {pilot.name} —". We match by establishment_id + title
-  // to allow multiple pilots per establishment without collision.
-  const { data: surveys } = await admin
-    .from("surveys")
-    .select("id, title")
-    .eq("scope_type", "establishment")
-    .eq("scope_id", pilot.establishment_id)
-    .ilike("title", `%${pilot.name}%`)
-    .order("created_at", { ascending: false })
-    .limit(1);
+  // 2. All participants of this pilot (including those without user_id
+  // so we can show emails even if they never responded).
+  const { data: participants } = await admin
+    .from("pilot_participants")
+    .select("user_id, full_name, email")
+    .eq("pilot_id", pilotId);
 
-  const survey = surveys?.[0];
-  if (!survey) {
+  const participantList = (participants || []) as ParticipantRow[];
+  const userIds = participantList.map((p) => p.user_id).filter((v): v is string => !!v);
+
+  if (userIds.length === 0) {
     return NextResponse.json(
-      { error: "No hay encuesta de experiencia para este piloto" },
+      { error: "No hay participantes con sesión todavía" },
       { status: 404 },
     );
   }
 
-  // 3. Fetch all responses for this survey
+  // 3. All responses for any survey, filtered by participant user_id.
+  // Covers UGM global survey, pilot-scoped surveys, etc.
   const { data: responses } = await admin
     .from("survey_responses")
     .select("id, user_id, created_at, answers")
-    .eq("survey_id", survey.id)
+    .in("user_id", userIds)
     .order("created_at", { ascending: true });
 
   const respList: ResponseRow[] = (responses || []) as ResponseRow[];
 
-  if (respList.length === 0) {
+  if (respList.length === 0 && format !== "json") {
     return NextResponse.json(
       { error: "No hay respuestas todavía para este piloto" },
       { status: 404 },
     );
   }
 
-  // 4. Get pilot_consents for name/email lookup (only for named export)
-  const consentsMap = new Map<string, ConsentRow>();
-  if (!anonymized) {
-    const userIds = respList.map((r) => r.user_id).filter(Boolean);
-    if (userIds.length > 0) {
-      const { data: consents } = await admin
-        .from("pilot_consents")
-        .select("user_id, full_name, email")
-        .eq("pilot_id", pilotId)
-        .in("user_id", userIds);
+  // 4. Name/email lookup — prefer pilot_consents (signed at enrollment)
+  // then fallback to pilot_participants.
+  const nameMap = new Map<string, { full_name: string; email: string }>();
+  if (!anonymized && format !== "json") {
+    const { data: consents } = await admin
+      .from("pilot_consents")
+      .select("user_id, full_name, email")
+      .eq("pilot_id", pilotId)
+      .in("user_id", userIds);
 
-      for (const c of (consents || []) as ConsentRow[]) {
-        if (c.user_id) consentsMap.set(c.user_id, c);
-      }
+    for (const c of (consents || []) as ConsentRow[]) {
+      if (c.user_id) nameMap.set(c.user_id, { full_name: c.full_name, email: c.email });
+    }
+  }
+  // Also populate from participants so everyone has a fallback.
+  for (const p of participantList) {
+    if (p.user_id && !nameMap.has(p.user_id)) {
+      nameMap.set(p.user_id, { full_name: p.full_name, email: p.email });
     }
   }
 
-  // 5. Build CSV
-  const headers: string[] = ["fecha"];
+  // ── JSON branch (used by the Dashboard to render cards/tabla) ─────
+  if (format === "json") {
+    const rows = respList.map((resp) => {
+      const id = resp.user_id;
+      const who = nameMap.get(id) || { full_name: "(sin nombre)", email: "" };
+      return {
+        response_id: resp.id,
+        user_id: id,
+        full_name: who.full_name,
+        email: who.email,
+        created_at: resp.created_at,
+        answers: resp.answers || {},
+      };
+    });
+    return NextResponse.json({ pilot, total: rows.length, rows });
+  }
+
+  // ── Tabular export (CSV or XLSX) ──────────────────────────────────
+  const headers: string[] = ["institucion", "fecha"];
   if (anonymized) {
     headers.push("id_anonimo");
   } else {
@@ -143,65 +177,116 @@ export async function GET(
     "q2_genero",
     "q3_edad",
     "q4_rol",
-    ...COMPETENCY_USABILIDAD.map((k) => `q5_usabilidad_${k}`),
-    ...COMPETENCY_FORMACION.map((k) => `q6_formacion_${k}`),
+    ...USAB_KEYS.map((k) => `q5_usabilidad_${k}`),
+    ...FORM_KEYS.map((k) => `q6_formacion_${k}`),
     "q7_mas_gusto",
     "q8_mejoras",
     "q9_integracion",
     "q10_comentarios",
   );
 
-  const rows: string[][] = [headers];
-
-  respList.forEach((resp, idx) => {
+  const dataRows: (string | number | null)[][] = respList.map((resp, idx) => {
     const a = (resp.answers || {}) as Record<string, unknown>;
     const usabilidad = (a.q5_usabilidad || {}) as Record<string, unknown>;
     const formacion = (a.q6_formacion || {}) as Record<string, unknown>;
 
-    const row: string[] = [
-      formatDate(resp.created_at),
-    ];
+    const row: (string | number | null)[] = [pilot.institution, formatDate(resp.created_at)];
 
     if (anonymized) {
       row.push(`P-${String(idx + 1).padStart(3, "0")}`);
     } else {
-      const consent = consentsMap.get(resp.user_id);
-      row.push(consent?.full_name || "(sin consentimiento)");
-      row.push(consent?.email || "");
+      const who = nameMap.get(resp.user_id);
+      row.push(who?.full_name || "(sin consentimiento)");
+      row.push(who?.email || "");
     }
 
     row.push(
       str(a.q1_carrera),
       str(a.q2_genero),
-      str(a.q3_edad),
+      numOrStr(a.q3_edad),
       str(a.q4_rol),
-      ...COMPETENCY_USABILIDAD.map((k) => str(usabilidad[k])),
-      ...COMPETENCY_FORMACION.map((k) => str(formacion[k])),
+      ...USAB_KEYS.map((k) => numOrStr(usabilidad[k])),
+      ...FORM_KEYS.map((k) => numOrStr(formacion[k])),
       str(a.q7_mas_gusto),
       str(a.q8_mejoras),
       str(a.q9_integracion),
       str(a.q10_comentarios),
     );
-
-    rows.push(row);
+    return row;
   });
-
-  // CSV serialize with UTF-8 BOM for Excel compatibility
-  const csvBody = rows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
-  const csv = "\uFEFF" + csvBody;
 
   const dateStr = new Date().toISOString().slice(0, 10);
   const slug = slugify(`${pilot.institution}-${pilot.name}`);
-  const filename = `encuesta-${slug}-${dateStr}-${anonymized ? "anonima" : "nominal"}.csv`;
+  const baseName = `encuesta-${slug}-${dateStr}-${anonymized ? "anonima" : "nominal"}`;
+
+  if (format.startsWith("xlsx")) {
+    const buffer = await buildXlsx(headers, dataRows, pilot.name);
+    const body = new Uint8Array(buffer);
+    return new NextResponse(body, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="${baseName}.xlsx"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  // CSV
+  const csvRows = [headers, ...dataRows.map((r) => r.map((v) => (v == null ? "" : String(v))))];
+  const csvBody = csvRows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
+  const csv = "\uFEFF" + csvBody;
 
   return new NextResponse(csv, {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Disposition": `attachment; filename="${baseName}.csv"`,
       "Cache-Control": "no-store",
     },
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// XLSX builder
+// ─────────────────────────────────────────────────────────────────────
+
+async function buildXlsx(
+  headers: string[],
+  rows: (string | number | null)[][],
+  sheetName: string,
+): Promise<ArrayBuffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "GlorIA";
+  wb.created = new Date();
+  const safeSheetName = sheetName.replace(/[\\/*?:[\]]/g, "").slice(0, 28) || "Respuestas";
+  const ws = wb.addWorksheet(safeSheetName);
+  ws.addRow(headers);
+  for (const r of rows) ws.addRow(r);
+
+  // Style header + autofit columns
+  ws.getRow(1).font = { bold: true };
+  ws.getRow(1).fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFE5E7EB" },
+  };
+  ws.columns.forEach((col, idx) => {
+    const header = headers[idx] || "";
+    let max = header.length;
+    for (const row of rows) {
+      const v = row[idx];
+      if (v != null) {
+        const len = String(v).length;
+        if (len > max) max = len;
+      }
+    }
+    col.width = Math.min(Math.max(max + 2, 10), 60);
+  });
+  ws.views = [{ state: "frozen", ySplit: 1 }];
+
+  const buf = await wb.xlsx.writeBuffer();
+  return buf as ArrayBuffer;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -214,9 +299,14 @@ function str(v: unknown): string {
   return String(v);
 }
 
+function numOrStr(v: unknown): string | number {
+  if (v == null) return "";
+  if (typeof v === "number") return v;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : String(v);
+}
+
 function csvEscape(v: string): string {
-  // RFC 4180 — wrap in quotes if contains comma, quote, CR, or LF.
-  // Inner quotes are doubled.
   if (/[",\r\n]/.test(v)) {
     return `"${v.replace(/"/g, '""')}"`;
   }
