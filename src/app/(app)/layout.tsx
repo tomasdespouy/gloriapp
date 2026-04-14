@@ -136,7 +136,7 @@ export default async function AppLayout({
           </main>
         </ContentWrapper>
         <GloriaAssistant userName={fullName} userRole={role} />
-        <WelcomeVideoModal userId={profile?.id} />
+        <WelcomeVideoModal userId={profile?.id} userRole={role} />
         <SurveyModal />
         <PlatformActivityTracker />
         <Toaster position="top-right" richColors closeButton />

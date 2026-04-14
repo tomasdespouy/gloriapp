@@ -9,10 +9,19 @@ function scopedKey(userId: string | undefined | null): string {
   return userId ? `gloria_welcome_seen:${userId}` : LEGACY_KEY;
 }
 
-export default function WelcomeVideoModal({ userId }: { userId?: string | null }) {
+export default function WelcomeVideoModal({
+  userId,
+  userRole,
+}: {
+  userId?: string | null;
+  userRole?: string | null;
+}) {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
+    // Onboarding video is for students only. Instructors, admins and
+    // superadmins already know the platform and don't need the intro.
+    if (userRole !== "student") return;
     try {
       const key = scopedKey(userId);
       const seen = localStorage.getItem(key);
@@ -24,7 +33,7 @@ export default function WelcomeVideoModal({ userId }: { userId?: string | null }
     } catch {
       // localStorage unavailable — skip modal
     }
-  }, [userId]);
+  }, [userId, userRole]);
 
   const handleClose = () => {
     try {
