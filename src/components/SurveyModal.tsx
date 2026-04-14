@@ -41,13 +41,26 @@ const FORMACION_ITEMS = [
 
 type LikertScores = Record<string, number>;
 
-export default function SurveyModal() {
+export default function SurveyModal({
+  welcomeVideoSeen = true,
+}: {
+  /** If false, the survey is suppressed until the welcome video has
+      been dismissed. Prevents the survey and the welcome video from
+      popping at the same time on a user's first pilot session. */
+  welcomeVideoSeen?: boolean;
+}) {
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [step, setStep] = useState<0 | 1>(0);
   const [sent, setSent] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Tracks whether the welcome video has been dismissed in this
+  // browser session. Starts as the server truth, flips to true when
+  // the user closes the welcome modal (via a custom event dispatched
+  // by WelcomeVideoModal), so we don't need a full page reload.
+  const [videoSeen, setVideoSeen] = useState(welcomeVideoSeen);
 
   // Step 0 — likert grids (USABILIDAD + FORMACIÓN)
   const [usabilidad, setUsabilidad] = useState<LikertScores>({});
@@ -59,7 +72,21 @@ export default function SurveyModal() {
   const [integracion, setIntegracion] = useState("");
   const [comentarios, setComentarios] = useState("");
 
+  // Always listen for the welcome-video-closed event so the gate can
+  // lift mid-session without a reload.
   useEffect(() => {
+    const onVideoClosed = () => setVideoSeen(true);
+    window.addEventListener("gloria:welcome-video-closed", onVideoClosed);
+    return () =>
+      window.removeEventListener("gloria:welcome-video-closed", onVideoClosed);
+  }, []);
+
+  useEffect(() => {
+    // Priority: welcome video first. Once it has been seen (server
+    // flag or user just closed it), we start polling for active
+    // surveys.
+    if (!videoSeen) return;
+
     const fetchActive = () => {
       fetch("/api/surveys/active")
         .then((r) => r.json())
@@ -84,7 +111,7 @@ export default function SurveyModal() {
     window.addEventListener("gloria:reflection-submitted", handler);
     return () =>
       window.removeEventListener("gloria:reflection-submitted", handler);
-  }, []);
+  }, [videoSeen]);
 
   if (!survey || dismissed) return null;
 

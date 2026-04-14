@@ -62,6 +62,11 @@ export default function WelcomeVideoModal({
     fetch("/api/profile/mark-welcome-seen", { method: "POST" }).catch(() => {
       // noop — localStorage fallback already set
     });
+    // Let other modals (e.g. SurveyModal, which is gated on "video seen
+    // first") unlock themselves without a full page reload.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("gloria:welcome-video-closed"));
+    }
     setShow(false);
   };
 
