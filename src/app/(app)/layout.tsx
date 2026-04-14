@@ -37,6 +37,20 @@ export default async function AppLayout({
 
   const admin = createAdminClient();
 
+  // Server-side source of truth for the welcome video. localStorage is
+  // still used as a fallback (API down, race conditions), but this flag
+  // wins: if the profile says they've seen it, we never show it again
+  // — even across browsers, incognito, or shared machines.
+  let welcomeVideoSeen = false;
+  if (profile?.id) {
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("welcome_video_seen_at")
+      .eq("id", profile.id)
+      .single();
+    welcomeVideoSeen = !!prof?.welcome_video_seen_at;
+  }
+
   // ─── Pilot access window enforcement + logo capture ───────────────────
   // If the user is a pilot participant and the pilot has scheduled_at /
   // ended_at set, block access outside that window. Superadmins bypass.
@@ -136,7 +150,7 @@ export default async function AppLayout({
           </main>
         </ContentWrapper>
         <GloriaAssistant userName={fullName} userRole={role} />
-        <WelcomeVideoModal userId={profile?.id} userRole={role} />
+        <WelcomeVideoModal userId={profile?.id} userRole={role} alreadySeen={welcomeVideoSeen} />
         <SurveyModal />
         <PlatformActivityTracker />
         <Toaster position="top-right" richColors closeButton />

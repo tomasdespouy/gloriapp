@@ -12,9 +12,12 @@ function scopedKey(userId: string | undefined | null): string {
 export default function WelcomeVideoModal({
   userId,
   userRole,
+  alreadySeen = false,
 }: {
   userId?: string | null;
   userRole?: string | null;
+  /** Server-side source of truth from profiles.welcome_video_seen_at */
+  alreadySeen?: boolean;
 }) {
   const [show, setShow] = useState(false);
 
@@ -23,6 +26,13 @@ export default function WelcomeVideoModal({
     // patient side at some point). Admins and superadmins already
     // know the platform and don't need the intro.
     if (userRole !== "student" && userRole !== "instructor") return;
+
+    // Server wins: if the DB says the user saw it, never show it again.
+    if (alreadySeen) return;
+
+    // localStorage is a fallback. If the user is offline/on a shared
+    // browser that had a prior LEGACY_KEY, still respect it; the
+    // server timestamp will catch up on their next dismissal.
     try {
       const key = scopedKey(userId);
       const seen = localStorage.getItem(key);
@@ -34,14 +44,24 @@ export default function WelcomeVideoModal({
     } catch {
       // localStorage unavailable — skip modal
     }
-  }, [userId, userRole]);
+  }, [userId, userRole, alreadySeen]);
 
   const handleClose = () => {
+    // Persist in both layers. Server first (source of truth); then
+    // localStorage so subsequent page renders in the same session
+    // don't flash the modal before the server prop updates on
+    // navigation.
     try {
       localStorage.setItem(scopedKey(userId), "true");
     } catch {
       // noop
     }
+    // Fire-and-forget; if this fails, localStorage still keeps the
+    // modal closed for this browser session. Next page load fetches
+    // the profile again anyway.
+    fetch("/api/profile/mark-welcome-seen", { method: "POST" }).catch(() => {
+      // noop — localStorage fallback already set
+    });
     setShow(false);
   };
 
