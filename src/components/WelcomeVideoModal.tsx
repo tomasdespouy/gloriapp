@@ -19,9 +19,10 @@ export default function WelcomeVideoModal({
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    // Onboarding video is for students only. Instructors, admins and
-    // superadmins already know the platform and don't need the intro.
-    if (userRole !== "student") return;
+    // Onboarding video is for students and instructors (both see the
+    // patient side at some point). Admins and superadmins already
+    // know the platform and don't need the intro.
+    if (userRole !== "student" && userRole !== "instructor") return;
     try {
       const key = scopedKey(userId);
       const seen = localStorage.getItem(key);
