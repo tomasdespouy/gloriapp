@@ -53,6 +53,9 @@ type Participant = {
   first_login_at: string | null;
   sessions_count: number;
   last_active_at: string | null;
+  // Set to the created_at of the participant's most recent survey_responses
+  // row, or null if they haven't answered the closure survey yet.
+  survey_completed_at: string | null;
 };
 
 type CsvRow = {
@@ -1833,6 +1836,7 @@ function Step4Dashboard({
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Estado</th>
                 <th className="text-right px-3 py-2 text-gray-500 font-medium">Sesiones</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Última actividad</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">Encuesta</th>
                 {pilot.test_mode && (
                   <th className="text-right px-3 py-2 text-gray-500 font-medium">Acciones</th>
                 )}
@@ -1857,6 +1861,21 @@ function Step4Dashboard({
                   <td className="px-3 py-2.5 text-gray-400">
                     {p.last_active_at ? formatRelativeTime(p.last_active_at) : "—"}
                   </td>
+                  <td className="px-3 py-2.5">
+                    {p.survey_completed_at ? (
+                      <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700"
+                        title={new Date(p.survey_completed_at).toLocaleString("es-CL")}
+                      >
+                        <Check size={10} />
+                        {new Date(p.survey_completed_at).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
+                        Pendiente
+                      </span>
+                    )}
+                  </td>
                   {pilot.test_mode && (
                     <td className="px-3 py-2.5 text-right">
                       <button
@@ -1873,7 +1892,7 @@ function Step4Dashboard({
               ))}
               {filteredParticipants.length === 0 && (
                 <tr>
-                  <td colSpan={pilot.test_mode ? 7 : 6} className="px-3 py-8 text-center text-gray-400">
+                  <td colSpan={pilot.test_mode ? 8 : 7} className="px-3 py-8 text-center text-gray-400">
                     No hay participantes con este filtro
                   </td>
                 </tr>

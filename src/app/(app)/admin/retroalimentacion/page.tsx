@@ -93,8 +93,11 @@ export default async function RetroalimentacionPage() {
   }
   const { data: sections } = await sectionsQ;
 
-  // Build NPS summary
-  const allScores = (responses || []).map((r) => r.nps_score as number);
+  // Build NPS summary. Ignore null nps_score (newer JSONB surveys without
+  // a 0-10 rating) so they don't pollute the NPS calculation.
+  const allScores = (responses || [])
+    .map((r) => r.nps_score as number | null)
+    .filter((s): s is number => typeof s === "number");
   const promoters = allScores.filter((s) => s >= 9).length;
   const detractors = allScores.filter((s) => s <= 6).length;
   const nps =
@@ -118,7 +121,7 @@ export default async function RetroalimentacionPage() {
       courses={courses || []}
       sections={sections || []}
       nps={nps}
-      totalResponses={allScores.length}
+      totalResponses={(responses || []).length}
       isSuperadmin={isSuperadmin}
     />
   );

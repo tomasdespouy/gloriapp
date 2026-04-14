@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { MessageSquare, Plus, TrendingUp, Users, Send } from "lucide-react";
 
 type Survey = { id: string; title: string; scope_type: string; scope_id: string | null; starts_at: string; ends_at: string; is_active: boolean; created_at: string };
-type Response = { id: string; survey_id: string; nps_score: number; positives: string | null; improvements: string | null; comments: string | null; created_at: string; userName: string; establishmentId: string | null; courseId: string | null; sectionId: string | null };
+type SurveyAnswers = Record<string, unknown> | null;
+type Response = { id: string; survey_id: string; nps_score: number | null; positives: string | null; improvements: string | null; comments: string | null; answers: SurveyAnswers; created_at: string; userName: string; establishmentId: string | null; courseId: string | null; sectionId: string | null };
 type Est = { id: string; name: string; country: string | null };
 type Course = { id: string; name: string; establishment_id: string };
 type Section = { id: string; name: string; course_id: string };
@@ -22,6 +23,137 @@ type Props = {
 };
 
 const NPS_EMOJIS = ["😡", "😠", "😤", "😕", "😐", "🙂", "😊", "😃", "😄", "🤩", "🌟"];
+
+// Friendly labels for the UGM-style JSONB survey (q1..q13). The keys
+// match `src/components/SurveyModal.tsx` and `pilot_consents` enrichment.
+const OPEN_ANSWER_LABELS: Record<string, string> = {
+  q7_mas_gusto: "10. Qué más le gustó",
+  q8_mejoras: "11. Qué mejoraría",
+  q9_integracion: "12. Cómo integrar mejor",
+  q10_comentarios: "13. Comentarios adicionales",
+};
+const LIKERT_LABELS: Record<string, string> = {
+  navegacion: "Navegación intuitiva",
+  performance: "Rendimiento",
+  claridad: "Claridad del propósito",
+  feedback: "Mensajes del sistema",
+  aplicacion: "Aplicar conocimientos",
+  habilidades: "Desarrollo de habilidades",
+  incorporacion: "Incorporación en el curso",
+  verosimilitud: "Verosimilitud del personaje",
+  atencion: "Atención sostenida",
+};
+const DEMO_LABELS: Record<string, string> = {
+  q1_carrera: "Carrera",
+  q2_genero: "Género",
+  q3_edad: "Edad",
+  q4_rol: "Rol",
+};
+
+function ResponseCard({ response: r }: { response: Response }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasLegacy = r.nps_score !== null || r.positives || r.improvements || r.comments;
+  const hasAnswers = r.answers && Object.keys(r.answers).length > 0;
+  const hasOpen = hasAnswers && Object.keys(OPEN_ANSWER_LABELS).some(k => r.answers && r.answers[k]);
+  const canExpand = hasAnswers;
+
+  return (
+    <div className="border border-gray-100 rounded-xl p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          {typeof r.nps_score === "number"
+            ? <span className="text-xl">{NPS_EMOJIS[r.nps_score]}</span>
+            : <span className="text-xl" aria-hidden>📝</span>}
+          <span className="text-sm font-medium text-gray-900">{r.userName}</span>
+        </div>
+        <span className="text-xs text-gray-400">
+          {new Date(r.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
+        </span>
+      </div>
+
+      {/* Legacy NPS fields */}
+      {r.positives && <p className="text-xs text-green-700 bg-green-50 rounded px-2 py-1 mb-1"><strong>Positivo:</strong> {r.positives}</p>}
+      {r.improvements && <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1 mb-1"><strong>Mejorar:</strong> {r.improvements}</p>}
+      {r.comments && <p className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1 mb-1"><strong>Comentario:</strong> {r.comments}</p>}
+
+      {/* JSONB open answers — always show the open-text ones */}
+      {hasOpen && (
+        <div className="space-y-1 mt-1">
+          {Object.entries(OPEN_ANSWER_LABELS).map(([key, label]) => {
+            const val = r.answers?.[key];
+            if (!val || typeof val !== "string" || !val.trim()) return null;
+            const color = key === "q7_mas_gusto"
+              ? "text-green-700 bg-green-50"
+              : key === "q8_mejoras"
+              ? "text-amber-700 bg-amber-50"
+              : key === "q9_integracion"
+              ? "text-sidebar bg-sidebar/5"
+              : "text-gray-600 bg-gray-50";
+            return (
+              <p key={key} className={`text-xs rounded px-2 py-1 whitespace-pre-wrap ${color}`}>
+                <strong>{label}:</strong> {val}
+              </p>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Expandable details: demographics + likerts */}
+      {canExpand && (
+        <button
+          onClick={() => setExpanded(x => !x)}
+          className="mt-2 text-[11px] text-sidebar hover:underline cursor-pointer"
+        >
+          {expanded ? "Ocultar detalle" : "Ver detalle completo"}
+        </button>
+      )}
+      {expanded && hasAnswers && (
+        <div className="mt-2 space-y-2 border-t border-gray-100 pt-2">
+          {/* Demographics */}
+          {Object.entries(DEMO_LABELS).some(([k]) => r.answers?.[k]) && (
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(DEMO_LABELS).map(([key, label]) => {
+                const val = r.answers?.[key];
+                if (val == null || val === "") return null;
+                return (
+                  <span key={key} className="text-[10px] bg-gray-100 text-gray-600 rounded px-2 py-0.5">
+                    <strong>{label}:</strong> {String(val)}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          {/* Likert grids (q5_usabilidad, q6_formacion) — compact table */}
+          {["q5_usabilidad", "q6_formacion"].map(section => {
+            const grid = r.answers?.[section];
+            if (!grid || typeof grid !== "object") return null;
+            const entries = Object.entries(grid as Record<string, unknown>);
+            if (entries.length === 0) return null;
+            const header = section === "q5_usabilidad" ? "Usabilidad" : "Formación";
+            return (
+              <div key={section}>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase mb-1">{header}</p>
+                <div className="grid grid-cols-2 gap-1">
+                  {entries.map(([itemKey, score]) => (
+                    <div key={itemKey} className="flex items-center justify-between text-[11px] bg-gray-50 rounded px-2 py-0.5">
+                      <span className="text-gray-600 truncate mr-2">{LIKERT_LABELS[itemKey] || itemKey}</span>
+                      <span className="font-bold text-sidebar">{String(score)}/5</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!hasLegacy && !hasAnswers && (
+        <p className="text-[11px] text-gray-400 italic">Sin respuestas registradas.</p>
+      )}
+    </div>
+  );
+}
 
 export default function RetroClient({ surveys, responses, establishments, courses, sections, nps, totalResponses, isSuperadmin }: Props) {
   const router = useRouter();
@@ -41,7 +173,10 @@ export default function RetroClient({ surveys, responses, establishments, course
     return true;
   });
 
-  const filteredScores = filtered.map(r => r.nps_score);
+  // Filter NPS scores ignoring nulls (JSONB surveys don't use nps_score).
+  const filteredScores = filtered
+    .map(r => r.nps_score)
+    .filter((s): s is number => typeof s === "number");
   const fPromoters = filteredScores.filter(s => s >= 9).length;
   const fDetractors = filteredScores.filter(s => s <= 6).length;
   const fNps = filteredScores.length > 0 ? Math.round(((fPromoters - fDetractors) / filteredScores.length) * 100) : 0;
@@ -138,18 +273,7 @@ export default function RetroClient({ surveys, responses, establishments, course
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Respuestas recientes</h3>
               <div className="space-y-3 max-h-[400px] overflow-y-auto">
                 {filtered.slice(0, 20).map(r => (
-                  <div key={r.id} className="border border-gray-100 rounded-xl p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">{NPS_EMOJIS[r.nps_score]}</span>
-                        <span className="text-sm font-medium text-gray-900">{r.userName}</span>
-                      </div>
-                      <span className="text-xs text-gray-400">{new Date(r.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}</span>
-                    </div>
-                    {r.positives && <p className="text-xs text-green-700 bg-green-50 rounded px-2 py-1 mb-1"><strong>Positivo:</strong> {r.positives}</p>}
-                    {r.improvements && <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1 mb-1"><strong>Mejorar:</strong> {r.improvements}</p>}
-                    {r.comments && <p className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1"><strong>Comentario:</strong> {r.comments}</p>}
-                  </div>
+                  <ResponseCard key={r.id} response={r} />
                 ))}
                 {filtered.length === 0 && <p className="text-xs text-gray-400 text-center py-6">Sin respuestas</p>}
               </div>
