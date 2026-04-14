@@ -3,14 +3,19 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 
-const STORAGE_KEY = "gloria_welcome_seen";
+const LEGACY_KEY = "gloria_welcome_seen";
 
-export default function WelcomeVideoModal() {
+function scopedKey(userId: string | undefined | null): string {
+  return userId ? `gloria_welcome_seen:${userId}` : LEGACY_KEY;
+}
+
+export default function WelcomeVideoModal({ userId }: { userId?: string | null }) {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
     try {
-      const seen = localStorage.getItem(STORAGE_KEY);
+      const key = scopedKey(userId);
+      const seen = localStorage.getItem(key);
       if (!seen) {
         // Small delay so the dashboard renders first
         const timer = setTimeout(() => setShow(true), 800);
@@ -19,10 +24,14 @@ export default function WelcomeVideoModal() {
     } catch {
       // localStorage unavailable — skip modal
     }
-  }, []);
+  }, [userId]);
 
   const handleClose = () => {
-    localStorage.setItem(STORAGE_KEY, "true");
+    try {
+      localStorage.setItem(scopedKey(userId), "true");
+    } catch {
+      // noop
+    }
     setShow(false);
   };
 

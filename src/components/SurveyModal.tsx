@@ -20,19 +20,23 @@ type Survey = { id: string; title: string };
 // All 10 fields land in survey_responses.answers as flat JSONB.
 // ─────────────────────────────────────────────────────────────────────
 
+// Questions are labeled 1..13 correlatively for the student. The `key`
+// values below (navegacion, performance, ...) remain as the payload
+// identifiers stored in survey_responses.answers — never renumber them
+// in payload keys or reports break.
 const USABILIDAD_ITEMS = [
-  { key: "navegacion", label: "Navegar por la plataforma me resultó intuitivo y cómodo." },
-  { key: "performance", label: "El tiempo de carga, respuesta y funcionamiento general fue adecuado durante mi experiencia." },
-  { key: "claridad",   label: "La plataforma explica claramente su propósito y lo que se espera del usuario." },
-  { key: "feedback",   label: "La retroalimentación o mensajes del sistema fueron comprensibles y útiles." },
+  { key: "navegacion", label: "1. Navegar por la plataforma me resultó intuitivo y cómodo." },
+  { key: "performance", label: "2. El tiempo de carga, respuesta y funcionamiento general fue adecuado durante mi experiencia." },
+  { key: "claridad",   label: "3. La plataforma explica claramente su propósito y lo que se espera del usuario." },
+  { key: "feedback",   label: "4. La retroalimentación o mensajes del sistema fueron comprensibles y útiles." },
 ];
 
 const FORMACION_ITEMS = [
-  { key: "aplicacion",     label: "La plataforma me permitió aplicar conocimientos propios de mi formación." },
-  { key: "habilidades",    label: "La simulación podría contribuir al desarrollo de habilidades profesionales relevantes." },
-  { key: "incorporacion",  label: "Considero que esta herramienta debería incorporarse regularmente en los cursos de mi carrera." },
-  { key: "verosimilitud",  label: "El comportamiento del personaje o escenario simulado fue verosímil y coherente." },
-  { key: "atencion",       label: "La simulación logró mantener mi atención y compromiso durante toda la actividad." },
+  { key: "aplicacion",     label: "5. La plataforma me permitió aplicar conocimientos propios de mi formación." },
+  { key: "habilidades",    label: "6. La simulación podría contribuir al desarrollo de habilidades profesionales relevantes." },
+  { key: "incorporacion",  label: "7. Considero que esta herramienta debería incorporarse regularmente en los cursos de mi carrera." },
+  { key: "verosimilitud",  label: "8. El comportamiento del personaje o escenario simulado fue verosímil y coherente." },
+  { key: "atencion",       label: "9. La simulación logró mantener mi atención y compromiso durante toda la actividad." },
 ];
 
 type LikertScores = Record<string, number>;
@@ -311,7 +315,7 @@ function StepLikerts(props: {
   return (
     <div className="space-y-8">
       <LikertGrid
-        title="5. [USABILIDAD]"
+        title="[USABILIDAD]"
         subtitle="Responde considerando que 1 es 'muy en desacuerdo' y 5 es 'muy de acuerdo'."
         items={USABILIDAD_ITEMS}
         scores={props.usabilidad}
@@ -320,7 +324,7 @@ function StepLikerts(props: {
         }
       />
       <LikertGrid
-        title="6. [FORMACIÓN]"
+        title="[FORMACIÓN]"
         subtitle="Responde considerando que 1 es 'muy en desacuerdo' y 5 es 'muy de acuerdo'."
         items={FORMACION_ITEMS}
         scores={props.formacion}
@@ -389,7 +393,7 @@ function StepOpen(props: {
   return (
     <div className="space-y-5">
       <Field
-        label="7. ¿Qué fue lo que más te gustó de la experiencia con la plataforma de simulación?"
+        label="10. ¿Qué fue lo que más te gustó de la experiencia con la plataforma de simulación?"
         required
       >
         <textarea
@@ -402,7 +406,7 @@ function StepOpen(props: {
       </Field>
 
       <Field
-        label="8. ¿Qué mejorarías para que la experiencia sea más útil o realista?"
+        label="11. ¿Qué mejorarías para que la experiencia sea más útil o realista?"
         required
       >
         <textarea
@@ -415,7 +419,7 @@ function StepOpen(props: {
       </Field>
 
       <Field
-        label="9. ¿Cómo crees que esta herramienta podría integrarse mejor en tu proceso formativo?"
+        label="12. ¿Cómo crees que esta herramienta podría integrarse mejor en tu proceso formativo?"
         required
       >
         <textarea
@@ -427,7 +431,7 @@ function StepOpen(props: {
         />
       </Field>
 
-      <Field label="10. [OPCIONAL] Algún comentario adicional que te gustaría compartir">
+      <Field label="13. [OPCIONAL] Algún comentario adicional que te gustaría compartir">
         <textarea
           value={props.comentarios}
           onChange={(e) => props.setComentarios(e.target.value)}

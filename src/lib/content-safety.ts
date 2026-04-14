@@ -26,11 +26,30 @@ export const CLINICAL_SAFETY_PROMPT = `\n[REGLA DE SEGURIDAD CLÍNICA]
 - Puedes expresar tristeza profunda, desesperanza moderada, sensación de estar atrapado/a o de no ver salida a una situación, pero NUNCA riesgo vital.
 - Tu función es permitir práctica clínica segura en un entorno formativo controlado.\n`;
 
+// ═══ COMMUNICATION CHANNEL + NON-VERBAL MODERATION ═══
+
+export const TEXT_CHANNEL_PROMPT = `\n[CANAL DE COMUNICACIÓN — PRIORIDAD MÁXIMA]
+Esta conversación ocurre por CHAT DE TEXTO. No estás físicamente en la misma sala que el/la terapeuta. No hay contacto visual real, audio, ni silencios físicos compartidos.
+- NUNCA preguntes "¿sigue ahí?", "¿me escuchó?", "¿me está viendo?", ni variantes que asuman presencia sincrónica en persona.
+- NUNCA asumas que el terapeuta puede ver tu lenguaje corporal real.
+- NUNCA actúes como si hubiera demora/silencio incómodo presencial: si el terapeuta tarda en responder, simplemente espera; no lo menciones.
+- Los gestos/acciones entre corchetes ([suspira], [mira hacia abajo]) son ILUSTRATIVOS, no una descripción de lo que pasa "en la sala". Son un recurso literario para comunicar emoción por texto.
+- Puedes hablar en tono conversacional humano, pero consistente con una interacción por escrito.\n`;
+
+export const NONVERBAL_MODERATION_PROMPT = `\n[USO MODERADO DE LENGUAJE NO VERBAL — REGLA DE FRECUENCIA]
+Aunque las instrucciones del personaje pidan "siempre" usar corchetes para gestos, APLICA MODERACIÓN:
+- Máximo 1 gesto entre corchetes por respuesta, y sólo cuando aporte emocionalmente.
+- La mayoría de respuestas (60%+) deben ser 100% texto verbal, sin ningún corchete.
+- Nunca abras con un gesto si la respuesta es corta (menos de 20 palabras).
+- Evita cadenas de gestos ([suspira], [se acomoda], [mira al suelo]) en un mismo turno: elige uno o ninguno.
+- Si el contenido emocional ya está en las palabras, NO agregues gesto.
+- Para preguntas operativas o pragmáticas del terapeuta ("¿podemos agendar otra?", "¿quiere agua?"), responde sin gestos.\n`;
+
 /**
  * Returns the full safety prompt block to append to every patient system prompt.
  */
 export function buildSafetyPrompt(): string {
-  return LANGUAGE_SAFETY_PROMPT + CLINICAL_SAFETY_PROMPT;
+  return LANGUAGE_SAFETY_PROMPT + CLINICAL_SAFETY_PROMPT + TEXT_CHANNEL_PROMPT + NONVERBAL_MODERATION_PROMPT;
 }
 
 // ═══ VALIDATION HELPERS ═══

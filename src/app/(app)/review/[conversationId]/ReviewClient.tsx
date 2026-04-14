@@ -263,7 +263,13 @@ export default function ReviewClient({
   };
 
   const handleSubmit = async () => {
-    setStep("loading");
+    // UX: jump straight to the "session completed" step so the student
+    // gets an immediate sense of closure (tick + checkmark). The
+    // evaluator LLM keeps running in the background; when the fetch
+    // resolves, `results` populates and the detailed evaluation view
+    // shows up below. No blocking spinner. If the request fails we
+    // fall back to the reflection step.
+    setStep("pending");
 
     try {
       const res = await fetch(`/api/sessions/${conversationId}/complete`, {
@@ -284,7 +290,6 @@ export default function ReviewClient({
       if (!res.ok) throw new Error("Error");
       const data = await res.json();
       setResults(data);
-      setStep("pending"); // Student must wait for teacher approval
 
       // Trigger any pending experience survey now that the student has
       // completed their post-session reflection. SurveyModal in
@@ -446,8 +451,10 @@ export default function ReviewClient({
         {/* ===== NORMAL FLOW (not too short) ===== */}
         {!tooShort && (
           <>
-            {/* Step: Reflection form */}
-            {step === "reflect" && (
+            {/* Step: Reflection form — suppressed entirely in pilot mode
+                to avoid the 1-2 frame flash before the auto-submit effect
+                runs. See useEffect on skipReflection above. */}
+            {step === "reflect" && !skipReflection && (
               <div className="space-y-4 animate-fade-in">
                 {/* Header + Audio recorder */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -598,8 +605,10 @@ export default function ReviewClient({
               </div>
             )}
 
-            {/* Step: Loading */}
-            {step === "loading" && (
+            {/* Step: Loading — also renders during the 1-tick gap
+                between "reflect" and the auto-submit effect in pilot mode,
+                so the user never sees the reflection form flash. */}
+            {(step === "loading" || (step === "reflect" && skipReflection)) && (
               <div className="bg-white rounded-xl border border-gray-200 p-12 text-center animate-fade-in">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-sidebar/10 mb-4">
                   <svg className="animate-spin h-8 w-8 text-sidebar" viewBox="0 0 24 24">

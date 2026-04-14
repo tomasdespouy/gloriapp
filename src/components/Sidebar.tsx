@@ -218,17 +218,21 @@ export default function Sidebar({
         {sidebarContent}
       </aside>
 
-      {/* Desktop collapse/expand toggle */}
+      {/* Desktop collapse/expand toggle.
+          Sits on the sidebar's outer edge, half inside / half outside. The
+          asymmetric rounded-r matches the button's "flag" look against the
+          dark sidebar background. border-l stabilizes the visual seam when
+          the button sits flush next to the sidebar. */}
       <button
         onClick={toggleSidebar}
         style={{
           left: collapsed ? 0 : 260,
           transition: ready ? "left 200ms ease-out" : "none",
         }}
-        className="hidden md:flex fixed top-1/2 -translate-y-1/2 z-[51] w-5 h-10 rounded-r-md items-center justify-center cursor-pointer bg-sidebar text-white/60 hover:text-white hover:bg-sidebar-hover shadow-md"
+        className="hidden md:flex fixed top-1/2 -translate-y-1/2 z-[51] w-6 h-12 rounded-r-md items-center justify-center cursor-pointer bg-sidebar/95 text-white/70 hover:text-white hover:bg-sidebar-hover shadow-md border-l border-white/10"
         aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
       >
-        {collapsed ? <ArrowRight size={12} /> : <ArrowLeft size={12} />}
+        {collapsed ? <ArrowRight size={14} /> : <ArrowLeft size={14} />}
       </button>
 
       {/* Mobile overlay + drawer */}
