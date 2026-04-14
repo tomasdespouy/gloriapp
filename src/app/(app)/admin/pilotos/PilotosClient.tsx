@@ -33,6 +33,8 @@ type Pilot = {
   created_at: string;
   updated_at: string;
   participant_count: number;
+  /** Derived from first_login_at of participants — not persisted */
+  derived_status?: string | null;
   participants?: Participant[];
   establishment_id?: string | null;
   // Self-enrollment + digital consent
@@ -88,16 +90,26 @@ const STATUS_LABELS: Record<string, string> = {
   validado: "Validado",
   enviado: "Enviado",
   en_curso: "En curso",
+  en_desarrollo: "En desarrollo",
   finalizado: "Finalizado",
   cancelado: "Cancelado",
 };
 
+// Derived label for pilots that are between "validado" and "finalizado"
+// and already have at least one participant who logged in. It overrides
+// the raw status in the general-list badge only; the DB still holds
+// the real status (no migration).
+const STATUS_COLORS_EXTENDED: Record<string, string> = {
+  ...STATUS_COLORS,
+  en_desarrollo: "bg-emerald-100 text-emerald-700",
+};
+
 const STEPS = [
-  { label: "Ingresar usuarios", icon: Upload },
-  { label: "Validar", icon: CheckCircle2 },
-  { label: "Previsualizar", icon: Mail },
+  { label: "Ingresar Institución", icon: Building2 },
+  { label: "Consentimiento", icon: FileText },
+  { label: "Envío de instrucciones", icon: Mail },
   { label: "Dashboard", icon: BarChart3 },
-  { label: "Informe", icon: FileText },
+  { label: "Informe", icon: Rocket },
 ];
 
 const COMPETENCY_LABELS: Record<string, string> = {
@@ -144,6 +156,7 @@ export default function PilotosClient({
     scheduled_at: "",
     ended_at: "",
     establishment_id: "",
+    logo_url: "",
   });
   const [csvError, setCsvError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -184,7 +197,7 @@ export default function PilotosClient({
     setShowWizard(false);
     setCreating(false);
     setCsvRows([]);
-    setFormData({ name: "", institution: "", country: "", contact_name: "", contact_email: "", scheduled_at: "", ended_at: "", establishment_id: "" });
+    setFormData({ name: "", institution: "", country: "", contact_name: "", contact_email: "", scheduled_at: "", ended_at: "", establishment_id: "", logo_url: "" });
     setCsvError("");
     setValidationResult(null);
     setSendResult(null);
@@ -208,6 +221,7 @@ export default function PilotosClient({
         scheduled_at: data.scheduled_at ? new Date(data.scheduled_at).toISOString().slice(0, 16) : "",
         ended_at: data.ended_at ? new Date(data.ended_at).toISOString().slice(0, 16) : "",
         establishment_id: data.establishment_id || "",
+        logo_url: data.logo_url || "",
       });
 
       // Determine step from status or target
@@ -320,7 +334,9 @@ export default function PilotosClient({
     // enrollment link, where students self-register with their own
     // email. Pre-loading a CSV is only needed for closed pilots where
     // the admin already knows every participant.
-    if (!formData.name.trim() || !formData.institution.trim() || !formData.establishment_id) return;
+    if (!formData.name.trim() || !formData.establishment_id) return;
+    // Validate contact email format if provided
+    if (formData.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email.trim())) return;
     setCreating(true);
 
     // Auto-add contact as instructor if not already in list
@@ -529,9 +545,17 @@ export default function PilotosClient({
                         <span className="text-xs text-gray-500 truncate">{pilot.institution}</span>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${STATUS_COLORS[pilot.status] || "bg-gray-100 text-gray-600"}`}>
-                      {STATUS_LABELS[pilot.status] || pilot.status}
-                    </span>
+                    {(() => {
+                      // Show "En desarrollo" badge when the pilot has
+                      // been validated/sent AND at least one participant
+                      // has actually logged in — computed upstream.
+                      const effective = pilot.derived_status || pilot.status;
+                      return (
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${STATUS_COLORS_EXTENDED[effective] || "bg-gray-100 text-gray-600"}`}>
+                          {STATUS_LABELS[effective] || effective}
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   <div className="flex items-center gap-4 text-xs text-gray-500 mt-3">
@@ -601,26 +625,11 @@ export default function PilotosClient({
       </header>
 
       {/* Consent + enrollment panel — TOP of the page once the pilot exists.
-          This is the canonical onboarding mechanism (link único + consent
-          firma digital). Lives ABOVE the legacy step indicators so it's
-          impossible to miss. The legacy CSV→validate→preview wizard stays
-          below as a fallback. */}
-      {selectedPilot && step > 0 && (
-        <div className="px-4 sm:px-8 mb-6">
-          <PilotConsentPanel
-            pilot={(dashboardData || selectedPilot)!}
-            onPilotUpdated={handlePilotPatched}
-          />
-        </div>
-      )}
+          The consent panel lives inside step 1 now (see below), so the
+          global floating panel is removed from here. */}
 
-      {/* Step indicators (legacy CSV-based wizard) */}
+      {/* Step indicators */}
       <div className="px-4 sm:px-8 mb-6">
-        {selectedPilot && step > 0 && (
-          <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-2 font-medium">
-            Flujo CSV legacy (opcional — usa el panel de inscripción de arriba)
-          </p>
-        )}
         <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-2 overflow-x-auto">
           {STEPS.map((s, i) => {
             const isActive = i === step;
@@ -667,14 +676,23 @@ export default function PilotosClient({
           establishments={establishments}
         />}
 
-        {step === 1 && <Step2Validate
-          csvRows={csvRows}
-          setCsvRows={setCsvRows}
-          validating={validating}
-          validationResult={validationResult}
-          onValidate={handleValidate}
-          onNext={() => setStep(2)}
-        />}
+        {step === 1 && selectedPilot && (
+          <div className="space-y-4 max-w-4xl">
+            <PilotConsentPanel
+              pilot={(dashboardData || selectedPilot)!}
+              onPilotUpdated={handlePilotPatched}
+            />
+            <div className="flex justify-end">
+              <button
+                onClick={() => setStep(2)}
+                className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
+              >
+                Continuar al envío
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {step === 2 && <Step3Preview
           pilot={selectedPilot}
@@ -721,7 +739,7 @@ function Step1Upload({
   formData, setFormData, csvRows, setCsvRows, csvError, creating, fileInputRef,
   onFileDrop, onFileSelect, onCreatePilot, isEditing, onNext, establishments,
 }: {
-  formData: { name: string; institution: string; country: string; contact_name: string; contact_email: string; scheduled_at: string; ended_at: string; establishment_id: string };
+  formData: { name: string; institution: string; country: string; contact_name: string; contact_email: string; scheduled_at: string; ended_at: string; establishment_id: string; logo_url: string };
   setFormData: (fn: (prev: typeof formData) => typeof formData) => void;
   csvRows: CsvRow[];
   setCsvRows: (rows: CsvRow[]) => void;
@@ -740,7 +758,10 @@ function Step1Upload({
   const [editForm, setEditForm] = useState<CsvRow>({ email: "", full_name: "", role: "student" });
   const [createError, setCreateError] = useState("");
   // CSV pre-loading is optional — see handleCreatePilot for context.
-  const canCreate = formData.name.trim() && formData.institution.trim() && formData.establishment_id;
+  // Institution is auto-resolved server-side from establishment_id, so the
+  // admin only has to pick the establishment.
+  const emailValid = !formData.contact_email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email.trim());
+  const canCreate = !!(formData.name.trim() && formData.establishment_id && emailValid);
 
   const handleAddManual = () => {
     if (!manualForm.first_name.trim() || !manualForm.last_name.trim() || !manualForm.email.trim()) return;
@@ -827,28 +848,6 @@ function Step1Upload({
             </p>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Institución <span className="text-gray-400 font-normal">(se rellena al elegir establecimiento)</span>
-            </label>
-            <input
-              type="text"
-              value={formData.institution}
-              onChange={(e) => setFormData((f) => ({ ...f, institution: e.target.value }))}
-              placeholder="Universidad Gabriela Mistral"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">País</label>
-            <input
-              type="text"
-              value={formData.country}
-              onChange={(e) => setFormData((f) => ({ ...f, country: e.target.value }))}
-              placeholder="Chile"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
-            />
-          </div>
-          <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Nombre contacto</label>
             <input
               type="text"
@@ -858,15 +857,37 @@ function Step1Upload({
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
             />
           </div>
-          <div className="sm:col-span-2">
+          <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Email contacto</label>
             <input
               type="email"
               value={formData.contact_email}
               onChange={(e) => setFormData((f) => ({ ...f, contact_email: e.target.value }))}
               placeholder="contacto@universidad.edu"
+              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+                formData.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email)
+                  ? "border-red-300 focus:ring-red-300"
+                  : "border-gray-200 focus:ring-sidebar/30"
+              }`}
+            />
+            {formData.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email) && (
+              <p className="text-[10px] text-red-500 mt-1">Email no válido</p>
+            )}
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Logo de la institución <span className="text-gray-400 font-normal">(URL pública, opcional)</span>
+            </label>
+            <input
+              type="url"
+              value={formData.logo_url || ""}
+              onChange={(e) => setFormData((f) => ({ ...f, logo_url: e.target.value }))}
+              placeholder="https://.../logo.png"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
             />
+            <p className="text-[10px] text-gray-400 mt-1">
+              Aparece en el sidebar y en los correos del piloto.
+            </p>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -894,6 +915,17 @@ function Step1Upload({
           </div>
         </div>
       </div>
+
+      {/* Advanced mode: legacy CSV + manual entry. Hidden by default —
+          the canonical flow is the public enrollment link. Admins who
+          need to pre-load a closed roster can still use it. */}
+      <details className="group">
+        <summary className="flex items-center gap-2 cursor-pointer text-[11px] text-gray-400 hover:text-gray-600 select-none py-1">
+          <ChevronDown size={12} className="transition-transform group-open:rotate-180" />
+          Modo avanzado — pre-cargar participantes (CSV o manual)
+        </summary>
+
+        <div className="mt-3 space-y-4">
 
       {/* CSV Upload */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -1084,6 +1116,9 @@ function Step1Upload({
           </button>
         </div>
       </div>
+
+        </div>
+      </details>
 
       {/* Action */}
       <div className="flex justify-end">
@@ -1620,6 +1655,7 @@ function Step4Dashboard({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [deactivating, setDeactivating] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [openParticipantId, setOpenParticipantId] = useState<string | null>(null);
   if (!pilot) return null;
 
   const participants: Participant[] = (pilot as Pilot & { participants?: Participant[] }).participants || [];
@@ -1815,6 +1851,7 @@ function Step4Dashboard({
                 <th className="text-right px-3 py-2 text-gray-500 font-medium">Sesiones</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Encuesta</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Última actividad</th>
+                <th className="text-center px-3 py-2 text-gray-500 font-medium w-12">Ver</th>
                 {pilot.test_mode && (
                   <th className="text-right px-3 py-2 text-gray-500 font-medium">Acciones</th>
                 )}
@@ -1855,6 +1892,16 @@ function Step4Dashboard({
                   <td className="px-3 py-2.5 text-gray-400">
                     {p.last_active_at ? formatRelativeTime(p.last_active_at) : "—"}
                   </td>
+                  <td className="px-3 py-2.5 text-center">
+                    <button
+                      onClick={() => setOpenParticipantId(p.id)}
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-md text-gray-400 hover:text-sidebar hover:bg-sidebar/10 cursor-pointer transition-colors"
+                      title="Ver conversaciones y pacientes"
+                      aria-label={`Ver detalle de ${p.full_name}`}
+                    >
+                      <Eye size={14} />
+                    </button>
+                  </td>
                   {pilot.test_mode && (
                     <td className="px-3 py-2.5 text-right">
                       <button
@@ -1871,7 +1918,7 @@ function Step4Dashboard({
               ))}
               {filteredParticipants.length === 0 && (
                 <tr>
-                  <td colSpan={pilot.test_mode ? 9 : 8} className="px-3 py-8 text-center text-gray-400">
+                  <td colSpan={pilot.test_mode ? 10 : 9} className="px-3 py-8 text-center text-gray-400">
                     No hay participantes con este filtro
                   </td>
                 </tr>
@@ -1883,6 +1930,18 @@ function Step4Dashboard({
 
       {/* Open answers from the automatic closure survey — cards / table toggle + export */}
       <OpenAnswersSection pilotId={pilot.id} />
+
+      {/* Participant detail drawer — lazy loaded, only when open */}
+      {openParticipantId && (
+        <ParticipantDetailDrawer
+          pilotId={pilot.id}
+          participantId={openParticipantId}
+          onClose={() => setOpenParticipantId(null)}
+          fallbackName={
+            participants.find((p) => p.id === openParticipantId)?.full_name || ""
+          }
+        />
+      )}
     </div>
   );
 }
@@ -2420,6 +2479,265 @@ function OpenAnswersSection({ pilotId }: { pilotId: string }) {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
+// Participant detail drawer (conversations + patients)
+// ════════════════════════════════════════════
+
+type ConvoRow = {
+  id: string;
+  patient_name: string;
+  status: string;
+  session_number: number | null;
+  started_at: string | null;
+  ended_at: string | null;
+  created_at: string;
+  active_seconds: number;
+  message_count: number;
+  overall_score: number | null;
+  ai_commentary: string | null;
+};
+
+type DrawerData = {
+  participant: {
+    id: string;
+    full_name: string;
+    email: string;
+    role: string;
+  };
+  conversations: ConvoRow[];
+};
+
+function ParticipantDetailDrawer({
+  pilotId,
+  participantId,
+  onClose,
+  fallbackName,
+}: {
+  pilotId: string;
+  participantId: string;
+  onClose: () => void;
+  fallbackName: string;
+}) {
+  const [data, setData] = useState<DrawerData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [openConvoId, setOpenConvoId] = useState<string | null>(null);
+  const [transcript, setTranscript] = useState<Array<{ role: string; content: string; created_at: string }> | null>(null);
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetch(`/api/admin/pilots/${pilotId}/participants/${participantId}/conversations`)
+      .then(async (r) => {
+        if (!r.ok) {
+          const d = await r.json().catch(() => null);
+          throw new Error(d?.error || `Error ${r.status}`);
+        }
+        return r.json();
+      })
+      .then((d: DrawerData) => { if (!cancelled) setData(d); })
+      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "Error al cargar"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [pilotId, participantId]);
+
+  // Close on Escape.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // Lazy-fetch transcript when a conversation is opened inline.
+  useEffect(() => {
+    if (!openConvoId) {
+      setTranscript(null);
+      return;
+    }
+    let cancelled = false;
+    setTranscriptLoading(true);
+    fetch(`/api/admin/pilots/${pilotId}/participants/${participantId}/conversations/${openConvoId}/transcript`)
+      .then(async (r) => {
+        if (!r.ok) {
+          const d = await r.json().catch(() => null);
+          throw new Error(d?.error || `Error ${r.status}`);
+        }
+        return r.json();
+      })
+      .then((d: { messages: Array<{ role: string; content: string; created_at: string }> }) => {
+        if (!cancelled) setTranscript(d.messages || []);
+      })
+      .catch(() => { if (!cancelled) setTranscript([]); })
+      .finally(() => { if (!cancelled) setTranscriptLoading(false); });
+    return () => { cancelled = true; };
+  }, [openConvoId, pilotId, participantId]);
+
+  const displayName = data?.participant.full_name || fallbackName || "Participante";
+  const totalSessions = data?.conversations.length || 0;
+
+  return (
+    <div className="fixed inset-0 z-[90]">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/30 animate-fade-in"
+        onClick={onClose}
+      />
+
+      {/* Drawer */}
+      <aside
+        className="absolute right-0 top-0 bottom-0 w-full sm:w-[440px] bg-white shadow-2xl flex flex-col"
+      >
+        <header className="px-5 py-4 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Participante</p>
+              <h3 className="text-sm font-semibold text-gray-900 truncate">{displayName}</h3>
+              {data?.participant.email && (
+                <p className="text-xs text-gray-500 truncate">{data.participant.email}</p>
+              )}
+              <p className="text-[11px] text-gray-400 mt-1">
+                {loading ? "Cargando…" : `${totalSessions} sesion${totalSessions === 1 ? "" : "es"}`}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="flex-shrink-0 w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700 cursor-pointer"
+              aria-label="Cerrar"
+            >
+              <XCircle size={18} />
+            </button>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto">
+          {error && (
+            <div className="p-4">
+              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>
+            </div>
+          )}
+
+          {!error && !loading && !openConvoId && (
+            <div className="p-4 space-y-2">
+              {totalSessions === 0 && (
+                <p className="text-xs text-gray-400 italic text-center py-8">
+                  Este participante aún no ha tenido sesiones con pacientes.
+                </p>
+              )}
+              {data?.conversations.map((c) => {
+                const when = new Date(c.created_at).toLocaleString("es-CL", {
+                  day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+                });
+                const statusBadge =
+                  c.status === "completed" ? "bg-green-100 text-green-700"
+                  : c.status === "active" ? "bg-blue-100 text-blue-700"
+                  : "bg-gray-100 text-gray-600";
+                const minutes = Math.round((c.active_seconds || 0) / 60);
+                return (
+                  <div key={c.id} className="border border-gray-100 rounded-lg p-3">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{c.patient_name}</p>
+                        <p className="text-[11px] text-gray-500">{when}</p>
+                      </div>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${statusBadge}`}>
+                        {c.status === "completed" ? "Completada" : c.status === "active" ? "En curso" : c.status === "abandoned" ? "Abandonada" : c.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[11px] text-gray-500 mt-1">
+                      <span>{c.message_count} msgs</span>
+                      <span>·</span>
+                      <span>{minutes} min</span>
+                      {typeof c.overall_score === "number" && c.overall_score > 0 && (
+                        <>
+                          <span>·</span>
+                          <span className="text-sidebar font-medium">{c.overall_score.toFixed(1)}/4</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <button
+                        onClick={() => setOpenConvoId(c.id)}
+                        className="text-[11px] text-sidebar hover:underline cursor-pointer"
+                      >
+                        Ver conversación →
+                      </button>
+                      <a
+                        href={`/docente/sesion/${c.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-gray-400 hover:text-gray-700 hover:underline cursor-pointer"
+                      >
+                        Ficha completa ↗
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Inline transcript view */}
+          {openConvoId && (
+            <div className="p-4 space-y-3">
+              <button
+                onClick={() => setOpenConvoId(null)}
+                className="text-[11px] text-sidebar hover:underline cursor-pointer"
+              >
+                ← Volver al listado
+              </button>
+
+              {(() => {
+                const convo = data?.conversations.find((c) => c.id === openConvoId);
+                if (!convo) return null;
+                return (
+                  <div className="border-b border-gray-100 pb-2 mb-2">
+                    <p className="text-sm font-medium text-gray-900">{convo.patient_name}</p>
+                    <p className="text-[11px] text-gray-500">
+                      {new Date(convo.created_at).toLocaleString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      {" · "}
+                      {convo.message_count} msgs
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {transcriptLoading && (
+                <p className="text-xs text-gray-400 italic text-center py-6">Cargando transcripción…</p>
+              )}
+
+              {!transcriptLoading && transcript && transcript.length === 0 && (
+                <p className="text-xs text-gray-400 italic text-center py-6">Sin mensajes registrados.</p>
+              )}
+
+              {!transcriptLoading && transcript && transcript.length > 0 && (
+                <div className="space-y-2">
+                  {transcript.map((m, i) => (
+                    <div
+                      key={i}
+                      className={`rounded-lg px-3 py-2 text-xs ${
+                        m.role === "user"
+                          ? "bg-sidebar/10 text-gray-900"
+                          : "bg-gray-50 text-gray-700"
+                      }`}
+                    >
+                      <p className="text-[9px] uppercase tracking-wide font-semibold text-gray-400 mb-0.5">
+                        {m.role === "user" ? "Terapeuta" : "Paciente"}
+                      </p>
+                      <p className="whitespace-pre-wrap">{m.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </aside>
     </div>
   );
 }

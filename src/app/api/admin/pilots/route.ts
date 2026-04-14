@@ -99,14 +99,33 @@ export async function POST(request: Request) {
     establishment_id,
     consent_text,
     test_mode,
+    logo_url,
   } = body;
 
-  if (!name || !institution) {
-    return NextResponse.json({ error: "Nombre e institución son requeridos" }, { status: 400 });
+  if (!name) {
+    return NextResponse.json({ error: "Nombre es requerido" }, { status: 400 });
   }
 
   if (!establishment_id) {
     return NextResponse.json({ error: "Establecimiento es requerido" }, { status: 400 });
+  }
+
+  // Auto-resolve institution + country from the chosen establishment if
+  // the client didn't send them (the UI hides those fields now, the
+  // establishment is the single source of truth).
+  let finalInstitution = (institution || "").trim();
+  let finalCountry = (country || "").trim() || null;
+  if (!finalInstitution) {
+    const { data: est } = await auth.supabase
+      .from("establishments")
+      .select("name, country")
+      .eq("id", establishment_id)
+      .single();
+    if (!est) {
+      return NextResponse.json({ error: "Establecimiento no encontrado" }, { status: 400 });
+    }
+    finalInstitution = est.name;
+    if (!finalCountry) finalCountry = est.country || null;
   }
 
   // Create the pilot
@@ -114,8 +133,8 @@ export async function POST(request: Request) {
     .from("pilots")
     .insert({
       name,
-      institution,
-      country: country || null,
+      institution: finalInstitution,
+      country: finalCountry,
       contact_name: contact_name || null,
       contact_email: contact_email || null,
       csv_data: csv_data || [],
@@ -124,10 +143,11 @@ export async function POST(request: Request) {
       establishment_id,
       created_by: auth.user.id,
       status: "borrador",
-      enrollment_slug: generateEnrollmentSlug(name, institution),
+      enrollment_slug: generateEnrollmentSlug(name, finalInstitution),
       consent_text: consent_text || DEFAULT_CONSENT_TEXT,
       consent_version: "v1",
       test_mode: test_mode === true,
+      logo_url: logo_url?.trim() || null,
     })
     .select()
     .single();
