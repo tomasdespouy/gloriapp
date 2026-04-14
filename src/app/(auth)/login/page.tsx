@@ -13,25 +13,32 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
-  const validate = () => {
+  const validate = (cleanEmail: string, cleanPassword: string) => {
     const errs: typeof errors = {};
-    if (!email) errs.email = "El email es obligatorio.";
-    if (!password) errs.password = "La contraseña es obligatoria.";
+    if (!cleanEmail) errs.email = "El email es obligatorio.";
+    else if (/\s/.test(cleanEmail)) errs.email = "El email no puede contener espacios.";
+    if (!cleanPassword) errs.password = "La contraseña es obligatoria.";
+    else if (/\s/.test(cleanPassword)) errs.password = "La contraseña no puede contener espacios.";
     return errs;
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const errs = validate();
+    // Trim outer whitespace on email (common copy/paste mistake); passwords
+    // stay as typed but are rejected if they contain any whitespace.
+    const cleanEmail = email.trim();
+    const cleanPassword = password;
+    const errs = validate(cleanEmail, cleanPassword);
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
     }
+    if (cleanEmail !== email) setEmail(cleanEmail);
     setErrors({});
     setLoading(true);
 
     const supabase = createClient();
-    const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+    const { error, data } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
 
     if (error) {
       setErrors({ general: "Credenciales incorrectas. Intenta de nuevo." });
@@ -79,7 +86,8 @@ export default function LoginPage() {
           <input
             type="email"
             value={email}
-            onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({ ...p, email: undefined })); }}
+            onChange={(e) => { setEmail(e.target.value.replace(/\s/g, "")); setErrors((p) => ({ ...p, email: undefined })); }}
+            onBlur={(e) => setEmail(e.target.value.trim())}
             className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.email ? "border-red-400" : "border-gray-300"}`}
             placeholder="tu@email.com"
           />
@@ -95,7 +103,8 @@ export default function LoginPage() {
             <input
               type={showPassword ? "text" : "password"}
               value={password}
-              onChange={(e) => { setPassword(e.target.value); setErrors((p) => ({ ...p, password: undefined })); }}
+              onChange={(e) => { setPassword(e.target.value.replace(/\s/g, "")); setErrors((p) => ({ ...p, password: undefined })); }}
+              onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}
               className={`w-full px-4 py-2.5 pr-10 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.password ? "border-red-400" : "border-gray-300"}`}
               placeholder="••••••••"
             />

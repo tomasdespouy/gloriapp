@@ -30,6 +30,7 @@ DROP POLICY IF EXISTS "Admin can view all patients" ON public.ai_patients;
 DROP POLICY IF EXISTS "Admin view patients by country or assignment" ON public.ai_patients;
 DROP POLICY IF EXISTS "Instructor view patients by country or assignment" ON public.ai_patients;
 
+DROP POLICY IF EXISTS "Admin view scoped patients" ON public.ai_patients;
 CREATE POLICY "Admin view scoped patients"
   ON public.ai_patients FOR SELECT TO authenticated
   USING (
@@ -51,6 +52,7 @@ CREATE POLICY "Admin view scoped patients"
 
 DROP POLICY IF EXISTS "Admins manage surveys" ON public.surveys;
 
+DROP POLICY IF EXISTS "Superadmin manage all surveys" ON public.surveys;
 CREATE POLICY "Superadmin manage all surveys"
   ON public.surveys FOR ALL TO authenticated
   USING (public.is_superadmin())
@@ -60,6 +62,7 @@ CREATE POLICY "Superadmin manage all surveys"
 -- kinds of ids depending on scope_type. We compare against admin_establishments
 -- via an EXISTS with an explicit ::text cast, which is safe regardless of
 -- whether scope_id contains a UUID-shaped string or something else.
+DROP POLICY IF EXISTS "Admin view scoped surveys" ON public.surveys;
 CREATE POLICY "Admin view scoped surveys"
   ON public.surveys FOR SELECT TO authenticated
   USING (
@@ -89,10 +92,12 @@ CREATE POLICY "Admin view scoped surveys"
 
 DROP POLICY IF EXISTS "Admins view all responses" ON public.survey_responses;
 
+DROP POLICY IF EXISTS "Superadmin view all responses" ON public.survey_responses;
 CREATE POLICY "Superadmin view all responses"
   ON public.survey_responses FOR SELECT TO authenticated
   USING (public.is_superadmin());
 
+DROP POLICY IF EXISTS "Admin view scoped responses" ON public.survey_responses;
 CREATE POLICY "Admin view scoped responses"
   ON public.survey_responses FOR SELECT TO authenticated
   USING (

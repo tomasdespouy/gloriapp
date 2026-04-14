@@ -33,6 +33,7 @@ DROP POLICY IF EXISTS "Instructors can view all patients"           ON public.ai
 -- ============================================================
 
 -- Profiles: instructors see users in their establishment only
+DROP POLICY IF EXISTS "Instructors view establishment profiles" ON public.profiles;
 CREATE POLICY "Instructors view establishment profiles"
   ON public.profiles FOR SELECT TO authenticated
   USING (
@@ -46,6 +47,7 @@ CREATE POLICY "Instructors view establishment profiles"
   );
 
 -- Conversations: instructors see conversations from students in their establishment
+DROP POLICY IF EXISTS "Instructors view establishment conversations" ON public.conversations;
 CREATE POLICY "Instructors view establishment conversations"
   ON public.conversations FOR SELECT TO authenticated
   USING (
@@ -61,6 +63,7 @@ CREATE POLICY "Instructors view establishment conversations"
   );
 
 -- Messages: instructors see messages from conversations in their establishment
+DROP POLICY IF EXISTS "Instructors view establishment messages" ON public.messages;
 CREATE POLICY "Instructors view establishment messages"
   ON public.messages FOR SELECT TO authenticated
   USING (
@@ -77,6 +80,7 @@ CREATE POLICY "Instructors view establishment messages"
   );
 
 -- Student progress: instructors see progress of students in their establishment
+DROP POLICY IF EXISTS "Instructors view establishment student progress" ON public.student_progress;
 CREATE POLICY "Instructors view establishment student progress"
   ON public.student_progress FOR SELECT TO authenticated
   USING (
@@ -92,6 +96,7 @@ CREATE POLICY "Instructors view establishment student progress"
   );
 
 -- Session competencies: instructors see competencies of students in their establishment
+DROP POLICY IF EXISTS "Instructors view establishment session competencies" ON public.session_competencies;
 CREATE POLICY "Instructors view establishment session competencies"
   ON public.session_competencies FOR SELECT TO authenticated
   USING (
@@ -107,6 +112,7 @@ CREATE POLICY "Instructors view establishment session competencies"
   );
 
 -- Student achievements: instructors see achievements of students in their establishment
+DROP POLICY IF EXISTS "Instructors view establishment student achievements" ON public.student_achievements;
 CREATE POLICY "Instructors view establishment student achievements"
   ON public.student_achievements FOR SELECT TO authenticated
   USING (
@@ -122,6 +128,7 @@ CREATE POLICY "Instructors view establishment student achievements"
   );
 
 -- Message annotations: instructors see annotations from conversations in their establishment
+DROP POLICY IF EXISTS "Instructors view establishment message annotations" ON public.message_annotations;
 CREATE POLICY "Instructors view establishment message annotations"
   ON public.message_annotations FOR SELECT TO authenticated
   USING (
@@ -140,6 +147,7 @@ CREATE POLICY "Instructors view establishment message annotations"
 
 -- AI patients: instructors see patients matching their establishment's country OR explicitly assigned
 -- (This replaces the blanket "view all patients" policy)
+DROP POLICY IF EXISTS "Instructors view patients by country or assignment" ON public.ai_patients;
 CREATE POLICY "Instructors view patients by country or assignment"
   ON public.ai_patients FOR SELECT TO authenticated
   USING (

@@ -85,8 +85,14 @@ export default async function AppLayout({
     establishmentLogoUrl = est?.logo_url || null;
     const disabledKeys = new Set((disabledModules || []).map((m: { module_key: string }) => m.module_key));
     activeModules = ALL_MODULE_KEYS.filter((k) => !disabledKeys.has(k));
+  }
 
-    // Pilot-level overrides: hide modules for this specific pilot
+  // Pilot-level overrides: must run even when the participant has no
+  // establishment attached. If activeModules is still null (no establishment),
+  // seed it with ALL_MODULE_KEYS so the filter can subtract from a full set.
+  const hasPilotHides = pilotUiConfig.hide_live_recording || pilotUiConfig.hide_microlearning;
+  if (hasPilotHides) {
+    if (activeModules === null) activeModules = [...ALL_MODULE_KEYS];
     if (pilotUiConfig.hide_live_recording) {
       activeModules = activeModules.filter((m) => m !== "grabacion");
     }

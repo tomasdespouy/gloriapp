@@ -19,6 +19,21 @@ export async function GET() {
     return NextResponse.json([]);
   }
 
+  // Gate: the survey asks about the student's experience using the
+  // platform, so it only makes sense once they've actually finished at
+  // least one session via the "Finalizar" button AND the AI evaluator
+  // has run. We detect that through session_competencies (inserted only
+  // by /api/sessions/[id]/complete). Without this gate the SurveyModal
+  // pops on first login, before the student has used anything.
+  const { count: evaluatedSessions } = await supabase
+    .from("session_competencies")
+    .select("conversation_id", { count: "exact", head: true })
+    .eq("student_id", user.id);
+
+  if (!evaluatedSessions || evaluatedSessions < 1) {
+    return NextResponse.json([]);
+  }
+
   // Get establishment country
   let country: string | null = null;
   if (profile?.establishment_id) {

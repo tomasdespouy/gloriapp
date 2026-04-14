@@ -64,6 +64,7 @@ CREATE INDEX IF NOT EXISTS idx_pilot_consents_signed_at ON public.pilot_consents
 -- RLS — superadmin only (consents contain identifying audit data)
 ALTER TABLE public.pilot_consents ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Superadmin full access on pilot_consents" ON public.pilot_consents;
 CREATE POLICY "Superadmin full access on pilot_consents"
   ON public.pilot_consents FOR ALL TO authenticated
   USING (public.is_superadmin())

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendInvitesSchema, parseBody, uuidSchema } from "@/lib/validation/schemas";
+import { getGloriaLogoUrl } from "@/lib/email-assets";
 
 // Allow up to 60 seconds for sending many invites in one batch.
 // Internally we parallelize in chunks of 10 to stay well under the limit.
@@ -221,7 +222,7 @@ function generateInviteEmail(opts: {
         minute: "2-digit",
       })
     : null;
-  const logoUrl = "https://ndwmnxlwbfqfwwtekjun.supabase.co/storage/v1/object/public/branding/gloria-logo-email.png";
+  const logoUrl = getGloriaLogoUrl();
 
   return `
     <div style="font-family: Calibri, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1A1A1A;">

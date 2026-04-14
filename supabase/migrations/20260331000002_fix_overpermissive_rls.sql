@@ -16,16 +16,19 @@
 DROP POLICY IF EXISTS "Service role full access on summaries" ON session_summaries;
 
 -- Add scoped INSERT policy: students can insert summaries for their own conversations
+DROP POLICY IF EXISTS "Students insert own summaries" ON session_summaries;
 CREATE POLICY "Students insert own summaries"
   ON session_summaries FOR INSERT TO authenticated
   WITH CHECK (auth.uid() = student_id);
 
 -- Add scoped UPDATE policy: students can update their own summaries
+DROP POLICY IF EXISTS "Students update own summaries" ON session_summaries;
 CREATE POLICY "Students update own summaries"
   ON session_summaries FOR UPDATE TO authenticated
   USING (auth.uid() = student_id);
 
 -- Instructors and above can view all summaries (for review)
+DROP POLICY IF EXISTS "Instructors view all summaries" ON session_summaries;
 CREATE POLICY "Instructors view all summaries"
   ON session_summaries FOR SELECT TO authenticated
   USING (public.is_instructor_or_above());
@@ -34,6 +37,7 @@ CREATE POLICY "Instructors view all summaries"
 DROP POLICY IF EXISTS "System insert clinical state" ON public.clinical_state_log;
 
 -- Scoped INSERT: only for conversations owned by the authenticated user
+DROP POLICY IF EXISTS "Students insert own clinical state" ON public.clinical_state_log;
 CREATE POLICY "Students insert own clinical state"
   ON public.clinical_state_log FOR INSERT TO authenticated
   WITH CHECK (
