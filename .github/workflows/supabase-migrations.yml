@@ -1,0 +1,43 @@
+name: Supabase - Push migrations
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'supabase/migrations/**'
+  workflow_dispatch:
+
+concurrency:
+  group: supabase-migrations-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  push:
+    name: Apply migrations to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ndwmnxlwbfqfwwtekjun
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      - name: Show pending migrations
+        run: supabase migration list
+
+      - name: Push migrations
+        run: supabase db push --include-all
+
+      - name: Verify final state
+        run: supabase migration list
