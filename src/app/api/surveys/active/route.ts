@@ -21,16 +21,18 @@ export async function GET() {
 
   // Gate: the survey asks about the student's experience using the
   // platform, so it only makes sense once they've actually finished at
-  // least one session via the "Finalizar" button AND the AI evaluator
-  // has run. We detect that through session_competencies (inserted only
-  // by /api/sessions/[id]/complete). Without this gate the SurveyModal
-  // pops on first login, before the student has used anything.
-  const { count: evaluatedSessions } = await supabase
-    .from("session_competencies")
-    .select("conversation_id", { count: "exact", head: true })
-    .eq("student_id", user.id);
+  // least one session via the "Finalizar" button. We key on
+  // conversations.status='completed' (set at the START of the complete
+  // endpoint, before the LLM evaluator runs) so the gate opens
+  // instantly — the survey can pop even if the async evaluator is
+  // still crunching in the background.
+  const { count: completedSessions } = await supabase
+    .from("conversations")
+    .select("id", { count: "exact", head: true })
+    .eq("student_id", user.id)
+    .eq("status", "completed");
 
-  if (!evaluatedSessions || evaluatedSessions < 1) {
+  if (!completedSessions || completedSessions < 1) {
     return NextResponse.json([]);
   }
 

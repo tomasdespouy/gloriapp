@@ -264,32 +264,47 @@ export default function ReviewClient({
 
   const handleSubmit = async () => {
     // UX: jump straight to the "session completed" step so the student
-    // gets an immediate sense of closure (tick + checkmark). The
-    // evaluator LLM keeps running in the background; when the fetch
-    // resolves, `results` populates and the detailed evaluation view
-    // shows up below. No blocking spinner. If the request fails we
-    // fall back to the reflection step.
+    // gets an immediate sense of closure (tick + checkmark).
+    //
+    // Pilot mode (skipReflection=true) hits `?fast=true` — the server
+    // marks the conversation as completed synchronously but pushes the
+    // LLM evaluator + XP + notifications to `after()` so the HTTP
+    // response arrives in <1s. The closure survey pops right away
+    // instead of waiting ~30s for the evaluator.
+    //
+    // Non-pilot mode waits for the evaluator and gets the scores back
+    // in the response payload (preserves the existing experience).
     setStep("pending");
 
+    const fastParam = skipReflection ? "?fast=true" : "";
+
     try {
-      const res = await fetch(`/api/sessions/${conversationId}/complete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          discomfort_moment: discomfortMoment,
-          would_redo: wouldRedo,
-          clinical_note: clinicalNote,
-          alliance_framing: allianceFraming,
-          rupture_moment: ruptureMoment,
-          nonverbal_cues: nonverbalCues,
-          intervention_types: interventionTypes,
-          clinical_hypothesis: clinicalHypothesis,
-        }),
-      });
+      const res = await fetch(
+        `/api/sessions/${conversationId}/complete${fastParam}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            discomfort_moment: discomfortMoment,
+            would_redo: wouldRedo,
+            clinical_note: clinicalNote,
+            alliance_framing: allianceFraming,
+            rupture_moment: ruptureMoment,
+            nonverbal_cues: nonverbalCues,
+            intervention_types: interventionTypes,
+            clinical_hypothesis: clinicalHypothesis,
+          }),
+        },
+      );
 
       if (!res.ok) throw new Error("Error");
       const data = await res.json();
-      setResults(data);
+      // Fast mode returns `{ pending_eval: true }` — results will be
+      // available once the background task finishes. The dashboard/
+      // review page will pick them up on the next render.
+      if (!data?.pending_eval) {
+        setResults(data);
+      }
 
       // Trigger any pending experience survey now that the student has
       // completed their post-session reflection. SurveyModal in
