@@ -83,9 +83,6 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // Random in [min, max] ms each time one is hit. 0 disables.
   const sentenceGapMinRef = useRef<number>(0);
   const sentenceGapMaxRef = useRef<number>(0);
-  // Banner shown once per session to explain that each patient has
-  // its own rhythm. Hides on first assistant token.
-  const [showPacingBanner, setShowPacingBanner] = useState(initialMessages.length === 0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -1014,10 +1011,6 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             // First token received → switch from "thinking" to "writing"
             if (phase === "thinking" || tokenBufferRef.current.length === 0) {
               setPhase("writing");
-              // Hide the "each patient has its own rhythm" banner once
-              // the patient actually starts to speak; we don't want to
-              // keep explaining after they've shown up.
-              setShowPacingBanner(false);
               // In voice mode, show "Hablando..." immediately from first token
               if (voiceModeRef.current && patient.voice_id) {
                 setVoiceSpeaking(true);
@@ -1581,6 +1574,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   <li className="flex gap-2"><span className="text-sidebar font-bold">2.</span> {"El paciente reacciona a tus intervenciones como lo haría en la vida real."}</li>
                   <li className="flex gap-2"><span className="text-sidebar font-bold">3.</span> {"Intenta mantener al menos 5 minutos para recibir evaluación."}</li>
                   <li className="flex gap-2"><span className="text-sidebar font-bold">4.</span> {"Puedes pausar y retomar la sesión en cualquier momento."}</li>
+                  <li className="flex gap-2"><span className="text-sidebar font-bold">5.</span> {"Cada paciente tiene su propio ritmo: unos responden más rápido, otros más pausados."}</li>
                 </ul>
               </div>
 
@@ -1600,19 +1594,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           </div>
         )}
 
-        {/* One-shot pacing hint: each patient has its own tempo. Hides
-            as soon as the patient starts answering (see "token" handler). */}
-        {showPacingBanner && messages.length === 0 && (
-          <div className="mx-auto max-w-2xl mb-4 rounded-xl border border-sidebar/20 bg-sidebar/5 px-4 py-3">
-            <p className="text-xs text-sidebar font-semibold mb-0.5">
-              Cada paciente tiene su propio ritmo
-            </p>
-            <p className="text-[11px] text-gray-600 leading-snug">
-              El tiempo de respuesta y la forma de escribir reflejan su personalidad —
-              unos serán más rápidos, otros más pausados.
-            </p>
-          </div>
-        )}
+        {/* The "cada paciente tiene su propio ritmo" tip now lives
+            inside the pre-session reminders card above, so the chat
+            itself stays focused on the conversation. */}
 
         {messages.map((msg, i) => {
           // Skip rendering empty assistant message when typing bubble is shown
