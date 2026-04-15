@@ -42,13 +42,15 @@ export default async function AppLayout({
   // wins: if the profile says they've seen it, we never show it again
   // — even across browsers, incognito, or shared machines.
   let welcomeVideoSeen = false;
+  let a11yPrefs: { fontSize?: string; contrast?: string } = {};
   if (profile?.id) {
     const { data: prof } = await admin
       .from("profiles")
-      .select("welcome_video_seen_at")
+      .select("welcome_video_seen_at, a11y_prefs")
       .eq("id", profile.id)
       .single();
     welcomeVideoSeen = !!prof?.welcome_video_seen_at;
+    a11yPrefs = (prof?.a11y_prefs as { fontSize?: string; contrast?: string }) || {};
   }
 
   // ─── Pilot access window enforcement + logo capture ───────────────────
@@ -144,6 +146,7 @@ export default async function AppLayout({
             isImpersonating={profile?.isImpersonating || false}
             impersonationLabel={profile?.impersonationLabel}
             establishments={isTrulySuperadmin ? allEstablishments : undefined}
+            a11yPrefs={a11yPrefs as { fontSize?: "m" | "l" | "xl"; contrast?: "default" | "high" }}
           />
           <main id="main-content" className="flex-1 bg-bg-main min-h-0 overflow-auto dashboard-pattern">
             {children}

@@ -5,6 +5,7 @@ import { Bell, User, LogOut, ChevronDown, LifeBuoy, BarChart3, Info, Eye, X } fr
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { setImpersonation, clearImpersonation } from "@/lib/actions/impersonate";
+import AccessibilityButton, { type A11yPrefs } from "@/components/AccessibilityButton";
 
 type Notification = {
   id: string;
@@ -25,9 +26,10 @@ interface Props {
   isImpersonating: boolean;
   impersonationLabel?: string;
   establishments?: { id: string; name: string }[];
+  a11yPrefs?: A11yPrefs | null;
 }
 
-export default function TopHeader({ userName, userEmail, userRole, realRole, avatarUrl, isImpersonating, impersonationLabel, establishments }: Props) {
+export default function TopHeader({ userName, userEmail, userRole, realRole, avatarUrl, isImpersonating, impersonationLabel, establishments, a11yPrefs }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
@@ -184,6 +186,9 @@ export default function TopHeader({ userName, userEmail, userRole, realRole, ava
           )}
         </div>
       )}
+
+      {/* Accessibility */}
+      <AccessibilityButton initialPrefs={a11yPrefs || {}} />
 
       {/* Notifications */}
       <div ref={notifRef} className="relative">

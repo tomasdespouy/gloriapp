@@ -10,6 +10,7 @@ import {
   AlertCircle, Check, ChevronDown, RotateCcw,
 } from "lucide-react";
 import PilotConsentPanel from "./PilotConsentPanel";
+import LogoUrlField from "@/components/LogoUrlField";
 
 // ────────────────────────────────────────────
 // Types
@@ -757,6 +758,9 @@ function Step1Upload({
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<CsvRow>({ email: "", full_name: "", role: "student" });
   const [createError, setCreateError] = useState("");
+  // Snapshot of the logo_url when this step mounted — used as the
+  // "Restaurar" target by LogoUrlField. Stays stable across re-renders.
+  const initialLogoRef = useRef<string>(formData.logo_url || "");
   // CSV pre-loading is optional — see handleCreatePilot for context.
   // Institution is auto-resolved server-side from establishment_id, so the
   // admin only has to pick the establishment.
@@ -875,19 +879,12 @@ function Step1Upload({
             )}
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Logo de la institución <span className="text-gray-400 font-normal">(URL pública, opcional)</span>
-            </label>
-            <input
-              type="url"
+            <LogoUrlField
               value={formData.logo_url || ""}
-              onChange={(e) => setFormData((f) => ({ ...f, logo_url: e.target.value }))}
-              placeholder="https://.../logo.png"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+              initialValue={initialLogoRef.current}
+              onChange={(v) => setFormData((f) => ({ ...f, logo_url: v }))}
+              helper="Aparece en el sidebar durante el piloto y debajo del header en los correos."
             />
-            <p className="text-[10px] text-gray-400 mt-1">
-              Aparece en el sidebar y en los correos del piloto.
-            </p>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">

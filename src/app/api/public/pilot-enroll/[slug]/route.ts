@@ -119,6 +119,12 @@ export async function POST(
   }
 
   // ── 5. Create the auth user with a random temp password ─────────────
+  // Pilot self-enrollment ALWAYS produces a student-level functional
+  // account inside the platform, regardless of what the person picked
+  // in the "Rol" dropdown (estudiante/docente/coordinador/a). The
+  // declared role is a descriptive tag we keep in pilot_consents and
+  // pilot_participants for segmentation/analytics of the pilot; it
+  // must never change permissions, sidebar, or RLS scope.
   const tempPassword = generateTempPassword();
 
   const { data: newAuthUser, error: createErr } =
@@ -128,9 +134,10 @@ export async function POST(
       email_confirm: true,
       user_metadata: {
         full_name: data.full_name,
-        role: data.role === "estudiante" ? "student" : "instructor",
+        role: "student",
         pilot_id: pilot.id,
         establishment_id: pilot.establishment_id || null,
+        pilot_declared_role: data.role, // tag, not a permission
       },
     });
 
@@ -156,7 +163,7 @@ export async function POST(
     .update({
       full_name: data.full_name,
       establishment_id: pilot.establishment_id || null,
-      role: data.role === "estudiante" ? "student" : "instructor",
+      role: "student", // hardcoded — see note above
     })
     .eq("id", userId);
 
@@ -170,13 +177,20 @@ export async function POST(
     .eq("email", data.email)
     .maybeSingle();
 
+  // The `role` stored in pilot_participants is a descriptive label
+  // for the pilot (student/instructor mapping of what they declared);
+  // it does NOT control access to the platform. The real permission
+  // lives in profiles.role, which is always "student" for self-enrolled
+  // pilot users (see section 5 above).
+  const participantRoleTag = data.role === "estudiante" ? "student" : "instructor";
+
   let participantId: string;
   if (existingParticipant) {
     await admin
       .from("pilot_participants")
       .update({
         full_name: data.full_name,
-        role: data.role === "estudiante" ? "student" : "instructor",
+        role: participantRoleTag,
         user_id: userId,
         status: "activo",
         invite_sent_at: new Date().toISOString(),
@@ -190,7 +204,7 @@ export async function POST(
         pilot_id: pilot.id,
         email: data.email,
         full_name: data.full_name,
-        role: data.role === "estudiante" ? "student" : "instructor",
+        role: participantRoleTag,
         user_id: userId,
         status: "activo",
         invite_sent_at: new Date().toISOString(),
@@ -212,6 +226,13 @@ export async function POST(
   const ip = getClientIp(request);
   const userAgent = request.headers.get("user-agent") || null;
 
+  // The university field is no longer asked in the public form (it's
+  // always the pilot's institution, and asking it twice was noise).
+  // We keep it in pilot_consents for legal/audit reasons, deriving it
+  // from pilot.institution if the client didn't send one.
+  const universityForConsent =
+    (data.university?.trim() || "") || pilot.institution || "—";
+
   const { error: consentErr } = await admin.from("pilot_consents").insert({
     pilot_id: pilot.id,
     pilot_participant_id: participantId,
@@ -220,7 +241,7 @@ export async function POST(
     age: data.age,
     gender: data.gender,
     role: data.role,
-    university: data.university,
+    university: universityForConsent,
     signed_name: data.signed_name,
     signed_ip: ip,
     signed_user_agent: userAgent,
@@ -344,15 +365,28 @@ function buildCredentialsEmail(opts: {
   const logoUrl = `${opts.appUrl}/branding/gloria-logo.png`;
   const loginUrl = `${opts.appUrl}/login`;
 
-  // Header logo block: GlorIA × Pilot logo (if provided)
-  const headerLogos = opts.pilotLogoUrl
+  // Institutional logo strip: lives BELOW the GlorIA header so the
+  // main identity stays clean and consistent with other emails. If no
+  // logo_url is set, the strip is simply omitted.
+  const institutionStrip = opts.pilotLogoUrl
     ? `
-      <div style="display: flex; align-items: center; gap: 16px;">
-        <img src="${logoUrl}" alt="GlorIA" width="100" height="34" style="height: 34px; width: auto; display: block;" />
-        <span style="color: rgba(255,255,255,0.5); font-size: 18px; font-weight: 300;">×</span>
-        <img src="${escapeHtml(opts.pilotLogoUrl)}" alt="${escapeHtml(opts.institution)}" width="100" height="34" style="height: 34px; width: auto; display: block; max-width: 140px; object-fit: contain;" />
-      </div>`
-    : `<img src="${logoUrl}" alt="GlorIA" width="120" height="40" style="height: 40px; width: auto; display: block;" />`;
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#FFFFFF;border-left:1px solid #E5E5E5;border-right:1px solid #E5E5E5;">
+        <tr>
+          <td style="padding: 14px 32px; border-bottom: 1px solid #F0F0F0;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="vertical-align: middle; padding-right: 12px;">
+                  <img src="${escapeHtml(opts.pilotLogoUrl)}" alt="${escapeHtml(opts.institution)}" style="max-height: 40px; max-width: 140px; object-fit: contain; display: block;" />
+                </td>
+                <td style="vertical-align: middle; font-family: Calibri, Arial, sans-serif; font-size: 12px; color: #6B6B6B;">
+                  Piloto institucional de <strong style="color:#1A1A1A;">${escapeHtml(opts.institution)}</strong>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>`
+    : "";
 
   return `
     <div style="font-family: Calibri, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1A1A1A;">
@@ -364,9 +398,11 @@ function buildCredentialsEmail(opts: {
               Plataforma de Entrenamiento Cl&iacute;nico con IA
             </p>
           </div>
-          ${headerLogos}
+          <img src="${logoUrl}" alt="GlorIA" width="120" height="40" style="height: 40px; width: auto; display: block;" />
         </div>
       </div>
+
+      ${institutionStrip}
 
       <div style="background: #FAFAFA; padding: 32px; border: 1px solid #E5E5E5; border-top: none; border-radius: 0 0 12px 12px;">
         <p style="font-size: 15px; color: #333;">Hola <strong>${escapeHtml(opts.fullName)}</strong>,</p>

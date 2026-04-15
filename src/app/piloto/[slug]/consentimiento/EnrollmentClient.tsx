@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ConsentRenderer } from "@/lib/consent-render";
 
 type Pilot = {
   id: string;
@@ -70,8 +71,7 @@ export default function EnrollmentClient({ pilot }: { pilot: Pilot }) {
     else if (isNaN(ageNum) || ageNum < 15 || ageNum > 99)
       e.age = "Edad debe estar entre 15 y 99.";
     if (!gender) e.gender = "Selecciona una opción.";
-    if (!role) e.role = "Selecciona tu rol en el piloto.";
-    if (!university.trim()) e.university = "Ingresa tu universidad o institución.";
+    if (!role) e.role = "Selecciona tu rol.";
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -367,7 +367,7 @@ function Step1Data(props: {
         </Field>
       </div>
 
-      <Field label="Rol en el piloto" error={e.role}>
+      <Field label="Rol" error={e.role}>
         <select
           value={props.role}
           onChange={(ev) => props.setRole(ev.target.value)}
@@ -378,17 +378,14 @@ function Step1Data(props: {
           <option value="docente">Docente</option>
           <option value="coordinador">Coordinador/a</option>
         </select>
+        <p className="text-[10px] text-gray-400 mt-1">
+          Sólo para identificación en el piloto — el acceso funcional a la
+          plataforma es el mismo para todos los participantes.
+        </p>
       </Field>
 
-      <Field label="Universidad o institución" error={e.university}>
-        <input
-          type="text"
-          value={props.university}
-          onChange={(ev) => props.setUniversity(ev.target.value)}
-          className={inputCls(!!e.university)}
-          placeholder="Universidad…"
-        />
-      </Field>
+      {/* Universidad removida del form: se auto-rellena server-side desde
+          `pilots.institution`. Ver /api/public/pilot-enroll/[slug]. */}
 
       <button
         type="submit"
@@ -433,9 +430,10 @@ function Step2Consent(props: {
         antes de aceptar.
       </p>
 
-      <div className="bg-[#FAFAFA] border border-[#E5E5E5] rounded-xl p-5 max-h-96 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
-        {props.consentText}
-      </div>
+      <ConsentRenderer
+        text={props.consentText}
+        className="bg-[#FAFAFA] border border-[#E5E5E5] rounded-xl p-5 max-h-96 overflow-y-auto text-sm leading-relaxed text-gray-800"
+      />
 
       <label className="flex items-start gap-3 cursor-pointer">
         <input

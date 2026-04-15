@@ -105,7 +105,10 @@ export const pilotEnrollSchema = z.object({
     .max(99, "Edad máxima: 99"),
   gender: z.enum(["femenino", "masculino", "prefiere_no_decir"]),
   role: z.enum(["estudiante", "docente", "coordinador"]),
-  university: nonEmptyString(200),
+  // The public form no longer asks for university — we derive it from
+  // pilot.institution server-side. Kept optional so older clients that
+  // still send it continue to validate.
+  university: z.string().max(200).optional(),
   signed_name: nonEmptyString(150),
   accepted: z
     .boolean()

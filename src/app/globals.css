@@ -642,6 +642,26 @@ p a:hover, span a:hover, li a:hover {
   background: #f0f4ff !important;
 }
 
+/* Accessibility font-size classes — applied to <html> via
+   AccessibilityButton. Scoped to the high-leverage surfaces (chat
+   bubbles, inputs, textareas) rather than the whole page so we
+   don't reflow admin tables and dashboards. */
+html.a11y-font-l .chat-bubble,
+html.a11y-font-l textarea,
+html.a11y-font-l input[type="text"],
+html.a11y-font-l input[type="email"],
+html.a11y-font-l input[type="password"] {
+  font-size: 1rem !important;
+  line-height: 1.55 !important;
+}
+html.a11y-font-xl .chat-bubble,
+html.a11y-font-xl textarea,
+html.a11y-font-xl input[type="text"],
+html.a11y-font-xl input[type="email"],
+html.a11y-font-xl input[type="password"] {
+  font-size: 1.125rem !important;
+  line-height: 1.6 !important;
+}
 
 /* Respect prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {

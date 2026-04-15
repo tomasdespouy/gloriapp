@@ -1618,7 +1618,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
                 <div className="flex flex-col max-w-[92%] sm:max-w-[85%] md:max-w-[70%]">
                   <div
-                    className={`px-4 py-3 rounded-2xl text-sm leading-relaxed break-words ${
+                    className={`chat-bubble px-4 py-3 rounded-2xl text-sm leading-relaxed break-words ${
                       msg.role === "user"
                         ? "bg-sidebar text-white rounded-br-md"
                         : "bg-white border border-gray-200 text-gray-800 rounded-bl-md"

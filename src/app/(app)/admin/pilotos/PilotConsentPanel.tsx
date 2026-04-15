@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Link2, Copy, Check, FlaskConical, Save, FileText, ExternalLink, Image as ImageIcon,
 } from "lucide-react";
+import { ConsentRenderer } from "@/lib/consent-render";
 
 type PilotForPanel = {
   id: string;
@@ -33,10 +34,12 @@ export default function PilotConsentPanel({
 }) {
   const [consentText, setConsentText] = useState(pilot.consent_text || "");
   const [testMode, setTestMode] = useState(!!pilot.test_mode);
-  const [logoUrl, setLogoUrl] = useState(pilot.logo_url || "");
+  // Logo is displayed read-only here — the editable field lives in the
+  // wizard's "Ingresar Institución" step. The state stays so the panel
+  // can re-render when the pilot prop updates from outside.
+  const logoUrl = pilot.logo_url || "";
   const [savingConsent, setSavingConsent] = useState(false);
   const [savingTestMode, setSavingTestMode] = useState(false);
-  const [savingLogo, setSavingLogo] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedToast, setSavedToast] = useState<string | null>(null);
@@ -46,7 +49,6 @@ export default function PilotConsentPanel({
     : null;
 
   const consentDirty = consentText !== (pilot.consent_text || "");
-  const logoDirty = logoUrl.trim() !== (pilot.logo_url || "");
 
   async function handleCopyLink() {
     if (!enrollmentUrl) return;
@@ -84,23 +86,6 @@ export default function PilotConsentPanel({
       setTimeout(() => setSavedToast(null), 2500);
     }
     setSavingConsent(false);
-  }
-
-  async function handleSaveLogo() {
-    setSavingLogo(true);
-    const url = logoUrl.trim();
-    // Light client-side check: must be http(s) or empty
-    if (url && !/^https?:\/\//i.test(url)) {
-      setError("La URL del logo debe empezar con http:// o https://");
-      setSavingLogo(false);
-      return;
-    }
-    const ok = await patchPilot({ logo_url: url || null });
-    if (ok) {
-      setSavedToast("Logo actualizado");
-      setTimeout(() => setSavedToast(null), 2500);
-    }
-    setSavingLogo(false);
   }
 
   async function handleToggleTestMode() {
@@ -199,51 +184,36 @@ export default function PilotConsentPanel({
         </p>
       </div>
 
-      {/* ── Pilot logo URL ──────────────────────────────────────────── */}
+      {/* ── Pilot logo (read-only preview) ──────────────────────────
+          Edited in the wizard step "Ingresar Institución" — single
+          source of truth. Here we only show it so the admin knows
+          what participants will see. */}
       <div className="border-t border-gray-100 pt-5">
         <div className="flex items-center gap-2 mb-2">
           <ImageIcon size={16} className="text-[#4A55A2]" />
           <label className="text-sm font-semibold text-gray-900">
-            Logo del piloto (URL pública)
+            Logo de la institución
           </label>
         </div>
-        <p className="text-xs text-gray-500 mb-3 max-w-xl">
-          Pega la URL de la imagen del logo de la institución (PNG o SVG con
-          fondo transparente recomendado). Reemplaza el logo institucional
-          en el sidebar de los participantes y aparece en el header del
-          correo de credenciales y en la página de inscripción.
-        </p>
-        <div className="flex items-start gap-3">
-          <div className="flex-1">
-            <input
-              type="url"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder="https://universidad.cl/logos/marca.png"
-              className="w-full font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#4A55A2] focus:border-[#4A55A2]"
-            />
-            <button
-              onClick={handleSaveLogo}
-              disabled={!logoDirty || savingLogo}
-              className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-[#4A55A2] hover:bg-[#5C6BB5] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-colors"
-            >
-              <Save size={14} />
-              {savingLogo ? "Guardando…" : "Guardar logo"}
-            </button>
-          </div>
-          {logoUrl && (
-            <div className="flex-shrink-0 w-24 h-16 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center p-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 w-32 h-16 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center p-2">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={logoUrl}
-                alt="Vista previa del logo"
+                alt="Logo de la institución"
                 className="max-w-full max-h-full object-contain"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.opacity = "0.2";
                 }}
               />
-            </div>
-          )}
+            ) : (
+              <span className="text-[10px] text-gray-300">sin logo</span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500">
+            Se edita en el paso <strong>Ingresar Institución</strong> del wizard.
+          </p>
         </div>
       </div>
 
@@ -302,16 +272,36 @@ export default function PilotConsentPanel({
           consentimientos previamente firmados quedan inmutables con su
           texto original.
         </p>
-        <textarea
-          value={consentText}
-          onChange={(e) => setConsentText(e.target.value)}
-          rows={14}
-          className="w-full font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#4A55A2] focus:border-[#4A55A2] resize-y"
-          placeholder="Texto del consentimiento informado…"
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              Editor (texto plano + **negritas**)
+            </p>
+            <textarea
+              value={consentText}
+              onChange={(e) => setConsentText(e.target.value)}
+              rows={16}
+              className="w-full font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#4A55A2] focus:border-[#4A55A2] resize-y"
+              placeholder="Texto del consentimiento informado…"
+            />
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              Vista previa (así lo verán los participantes)
+            </p>
+            <ConsentRenderer
+              text={consentText}
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs overflow-y-auto leading-relaxed min-h-[280px] max-h-[420px]"
+            />
+          </div>
+        </div>
         <div className="flex items-center justify-between mt-3">
           <p className="text-xs text-gray-400">
-            {consentText.length.toLocaleString()} caracteres
+            {consentText.length.toLocaleString()} caracteres · formatos:{" "}
+            <span className="font-mono">**negrita**</span>,{" "}
+            <span className="font-mono"># título</span>,{" "}
+            <span className="font-mono">## subtítulo</span>,{" "}
+            <span className="font-mono">- lista</span>
           </p>
           <button
             onClick={handleSaveConsent}
