@@ -365,44 +365,58 @@ function buildCredentialsEmail(opts: {
   const logoUrl = `${opts.appUrl}/branding/gloria-logo.png`;
   const loginUrl = `${opts.appUrl}/login`;
 
-  // Institutional logo strip: lives BELOW the GlorIA header so the
-  // main identity stays clean and consistent with other emails. If no
-  // logo_url is set, the strip is simply omitted.
-  const institutionStrip = opts.pilotLogoUrl
+  // Institutional signature row: sits INSIDE the violet header, below
+  // a thin divider. The logo lives inside a white circle so that
+  // institutional logos with dark/colored backgrounds sit clean on
+  // top of the violet. Falls back gracefully (no row) when there is
+  // no pilot logo configured.
+  const institutionRow = opts.pilotLogoUrl
     ? `
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#FFFFFF;border-left:1px solid #E5E5E5;border-right:1px solid #E5E5E5;">
         <tr>
-          <td style="padding: 14px 32px; border-bottom: 1px solid #F0F0F0;">
+          <td style="padding: 14px 32px 18px; border-top: 1px solid rgba(255,255,255,0.18);">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td style="vertical-align: middle; padding-right: 12px;">
-                  <img src="${escapeHtml(opts.pilotLogoUrl)}" alt="${escapeHtml(opts.institution)}" style="max-height: 40px; max-width: 140px; object-fit: contain; display: block;" />
+                <td style="vertical-align: middle; padding-right: 10px;">
+                  <div style="width: 34px; height: 34px; border-radius: 17px; background: #FFFFFF; text-align: center; line-height: 0;">
+                    <img src="${escapeHtml(opts.pilotLogoUrl)}" alt="${escapeHtml(opts.institution)}" style="max-width: 26px; max-height: 26px; object-fit: contain; vertical-align: middle; margin-top: 4px;" />
+                  </div>
                 </td>
-                <td style="vertical-align: middle; font-family: Calibri, Arial, sans-serif; font-size: 12px; color: #6B6B6B;">
-                  Piloto institucional de <strong style="color:#1A1A1A;">${escapeHtml(opts.institution)}</strong>
+                <td style="vertical-align: middle; font-family: Calibri, Arial, sans-serif; font-size: 12px; color: rgba(255,255,255,0.9);">
+                  Piloto institucional · <strong style="color:#FFFFFF;">${escapeHtml(opts.institution)}</strong>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>`
+    : `
+        <tr>
+          <td style="padding: 10px 32px 14px; border-top: 1px solid rgba(255,255,255,0.18); font-family: Calibri, Arial, sans-serif; font-size: 12px; color: rgba(255,255,255,0.9);">
+            Piloto institucional · <strong style="color:#FFFFFF;">${escapeHtml(opts.institution)}</strong>
+          </td>
+        </tr>`;
+
+  return `
+    <div style="font-family: Calibri, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1A1A1A;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background: #4A55A2; border-radius: 12px 12px 0 0;">
+        <tr>
+          <td style="padding: 24px 32px 18px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td style="vertical-align: top;">
+                  <h1 style="color: white; margin: 0; font-size: 22px; font-family: Calibri, Arial, sans-serif;">Te damos la bienvenida a GlorIA</h1>
+                  <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px; font-family: Calibri, Arial, sans-serif;">
+                    Plataforma de Entrenamiento Cl&iacute;nico con IA
+                  </p>
+                </td>
+                <td align="right" style="vertical-align: top; width: 130px;">
+                  <img src="${logoUrl}" alt="GlorIA" width="120" height="40" style="height: 40px; width: auto; display: block;" />
                 </td>
               </tr>
             </table>
           </td>
         </tr>
-      </table>`
-    : "";
-
-  return `
-    <div style="font-family: Calibri, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1A1A1A;">
-      <div style="background: #4A55A2; padding: 24px 32px; border-radius: 12px 12px 0 0;">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <div>
-            <h1 style="color: white; margin: 0; font-size: 22px;">Te damos la bienvenida a GlorIA</h1>
-            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">
-              Plataforma de Entrenamiento Cl&iacute;nico con IA
-            </p>
-          </div>
-          <img src="${logoUrl}" alt="GlorIA" width="120" height="40" style="height: 40px; width: auto; display: block;" />
-        </div>
-      </div>
-
-      ${institutionStrip}
+        ${institutionRow}
+      </table>
 
       <div style="background: #FAFAFA; padding: 32px; border: 1px solid #E5E5E5; border-top: none; border-radius: 0 0 12px 12px;">
         <p style="font-size: 15px; color: #333;">Hola <strong>${escapeHtml(opts.fullName)}</strong>,</p>
