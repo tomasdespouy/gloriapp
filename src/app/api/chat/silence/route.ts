@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat } from "@/lib/ai";
 import { NextResponse } from "next/server";
+import { getPacingProfile } from "@/lib/conversation-pacing";
 
 // Allow up to 25 seconds for the silence-prompt LLM call. The default
 // Vercel function timeout would otherwise kill the request before the
@@ -74,11 +75,19 @@ export async function POST(request: Request) {
   // Get patient (admin bypasses RLS)
   const { data: patient } = await createAdminClient()
     .from("ai_patients")
-    .select("name, system_prompt")
+    .select("name, system_prompt, pacing_profile")
     .eq("id", patientId)
     .single();
 
   if (!patient) return NextResponse.json({ error: "Paciente no encontrado" }, { status: 404 });
+
+  // The closing stage depends on the patient's pacing profile:
+  // depressive_slow and inhibited_timid have 3 nudges; the rest have 4.
+  // Whatever the number, the last stage always disconnects — we never
+  // want to block the student past 5 minutes of silence.
+  const pacing = getPacingProfile(patient.pacing_profile);
+  const totalStages = pacing.silenceThresholdsMs.length;
+  const isClosingStage = stage >= totalStages;
 
   // Get last few messages for context
   const { data: recentMsgs } = await supabase
@@ -96,7 +105,12 @@ export async function POST(request: Request) {
     .map((m) => m.content)
     .join(" | ");
 
-  const stagePrompt = STAGE_PROMPTS[stage] || STAGE_PROMPTS[1];
+  // Map the (possibly shorter) profile stage to a prompt template.
+  // Rule: the last stage always uses the closing template (4); the
+  // preceding stages keep their natural order. So for a 3-stage
+  // profile we use templates 1, 2, 4 (skip the intermediate insist).
+  const promptStageKey = isClosingStage ? 4 : stage;
+  const stagePrompt = STAGE_PROMPTS[promptStageKey] || STAGE_PROMPTS[1];
   const antiRepeat = prevSilenceMsgs
     ? `\n\n[ANTI-REPETICI\u00d3N] Ya dijiste esto antes: "${prevSilenceMsgs}". NO repitas estas frases. Usa palabras y estructura COMPLETAMENTE diferentes.`
     : "";
@@ -116,9 +130,9 @@ export async function POST(request: Request) {
   }
 
   if (!response || !response.trim()) {
-    const pool = STAGE_FALLBACKS[stage] || STAGE_FALLBACKS[1];
+    const pool = STAGE_FALLBACKS[promptStageKey] || STAGE_FALLBACKS[1];
     response = pool[Math.floor(Math.random() * pool.length)];
-    console.warn(`[silence] using fallback message for stage ${stage}`);
+    console.warn(`[silence] using fallback message for stage ${stage} (template ${promptStageKey})`);
   }
 
   // Save the message
@@ -128,13 +142,14 @@ export async function POST(request: Request) {
     content: response,
   });
 
-  // Stage 4: close the session
-  if (stage === 4) {
+  // Closing stage: end the session (regardless of whether the profile
+  // uses 3 or 4 nudges, we always close when we hit the last one).
+  if (isClosingStage) {
     await supabase
       .from("conversations")
       .update({ status: "completed", ended_at: new Date().toISOString() })
       .eq("id", conversationId);
   }
 
-  return NextResponse.json({ message: response, stage, sessionClosed: stage === 4 });
+  return NextResponse.json({ message: response, stage, sessionClosed: isClosingStage });
 }

@@ -13,6 +13,8 @@ import { logger } from "@/lib/logger";
 import { patientCache as pCache, stateCache } from "@/lib/cache";
 import { chatLimiter, checkRateLimit } from "@/lib/rate-limit";
 import { buildSafetyPrompt } from "@/lib/content-safety";
+import { getPacingProfile, thinkingDelayFor } from "@/lib/conversation-pacing";
+import { polishAndLog } from "@/lib/text-polish";
 
 const chatRequestSchema = z.object({
   patientId: z.string().uuid(),
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
     async () => {
       const { data } = await createAdminClient()
         .from("ai_patients")
-        .select("id, name, system_prompt, country_origin, country_residence, neighborhood")
+        .select("id, name, system_prompt, country_origin, country_residence, neighborhood, pacing_profile")
         .eq("id", patientId)
         .single();
       if (!data) throw new Error("Patient not found");
@@ -368,12 +370,36 @@ ${isShortGreeting
   const chunks: string[] = [];
   const encoder = new TextEncoder();
 
+  // Per-patient pacing (typing speed + thinking delay + nudge cadence).
+  // Profile may be null on legacy rows → falls back to conversational_medium.
+  const pacingProfile = getPacingProfile(patient.pacing_profile);
+
   const responseStream = new ReadableStream({
     async start(controller) {
       try {
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ type: "conversation_id", value: conversationId })}\n\n`)
         );
+
+        // Emit pacing metadata so the client can tune its typewriter
+        // effect to this specific patient.
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: "pacing", value: {
+            charDelayMs: pacingProfile.charDelayMs,
+            sentenceGapMinMs: pacingProfile.sentenceGapMinMs,
+            sentenceGapMaxMs: pacingProfile.sentenceGapMaxMs,
+            silenceThresholdsMs: pacingProfile.silenceThresholdsMs,
+          } })}\n\n`)
+        );
+
+        // Artificial thinking delay before the first token. Skipped if
+        // the rest of the route already took longer than the ceiling
+        // (e.g. cold cache, slow memory load) so waits don't stack.
+        const elapsedSoFar = Date.now() - streamStart;
+        const wait = thinkingDelayFor(pacingProfile, elapsedSoFar);
+        if (wait > 0) {
+          await new Promise((r) => setTimeout(r, wait));
+        }
 
         const reader = chatStream(sanitizedHistory, systemPrompt).getReader();
         while (true) {
@@ -385,7 +411,20 @@ ${isShortGreeting
           );
         }
 
-        const patientResponse = chunks.join("");
+        const rawResponse = chunks.join("");
+        // Polish: fix token-gluing glitches and log anomalies. If the
+        // polish changed the text, emit a "correction" event so the
+        // client can replace whatever it rendered from the chunks.
+        const patientResponse = polishAndLog(rawResponse, {
+          conversationId,
+          patientId,
+          turn: turnNumber,
+        });
+        if (patientResponse !== rawResponse) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: "correction", value: patientResponse })}\n\n`)
+          );
+        }
 
         await supabase.from("messages").insert({
           conversation_id: conversationId,

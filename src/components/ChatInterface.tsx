@@ -34,7 +34,15 @@ interface ChatInterfaceProps {
 
 type Phase = "idle" | "thinking" | "writing";
 
-const CHAR_DELAY_MS = 35;
+// Default visual typing speed (ms per 2-char tick). Individual patients
+// may ship their own pacing profile via the "pacing" SSE event — see
+// src/lib/conversation-pacing.ts for the profiles. This value is only
+// used as a safe fallback before the server tells us otherwise.
+const DEFAULT_CHAR_DELAY_MS = 28;
+
+// Default silence thresholds; may be overridden per-patient via the
+// "pacing" event. Length of the array == number of nudge stages.
+const DEFAULT_SILENCE_THRESHOLDS_MS = [60_000, 120_000, 210_000, 300_000];
 
 export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "" }: ChatInterfaceProps) {
   console.log("[ChatInterface] Mount:", { patient: patient.name, patientId: patient.id, conversationId: initialConvId, initialMessagesCount: initialMessages.length, voiceId: patient.voice_id });
@@ -67,6 +75,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const voiceModeRef = useRef(false);
   const messagesRef = useRef<Message[]>(initialMessages);
   const isStreamingRef = useRef(false);
+  // Per-patient pacing knobs, mutable so the server can override them
+  // via the SSE "pacing" event without forcing a re-render.
+  const charDelayRef = useRef<number>(DEFAULT_CHAR_DELAY_MS);
+  const silenceThresholdsRef = useRef<number[]>(DEFAULT_SILENCE_THRESHOLDS_MS);
+  // Banner shown once per session to explain that each patient has
+  // its own rhythm. Hides on first assistant token.
+  const [showPacingBanner, setShowPacingBanner] = useState(initialMessages.length === 0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -159,7 +174,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               setSilenceTrigger((c) => c + 1);
             }
           }
-        }, CHAR_DELAY_MS);
+        }, charDelayRef.current);
       } else {
         // No text to type — reactivate mic immediately
         if (voiceModeRef.current && voiceRecognitionRef.current) {
@@ -374,12 +389,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     setDisplaySeconds(seconds);
   }, [activeSecondsExtRef]);
 
-  // Multi-stage silence detection (timestamp-based, resistant to browser throttling)
-  // Stage 1 (60s):  saludo extrañado
-  // Stage 2 (90s):  pregunta si está ahí
-  // Stage 3 (180s): aviso de retiro
-  // Stage 4 (300s): cierre de sesión
-  const SILENCE_THRESHOLDS_TEXT = [60_000, 90_000, 180_000, 300_000];
+  // Multi-stage silence detection (timestamp-based, resistant to browser throttling).
+  // Thresholds now come from the patient's pacing profile (silenceThresholdsRef);
+  // voice mode keeps its own fixed thresholds since TTS latency dominates there.
   const SILENCE_THRESHOLDS_VOICE = [60_000, 120_000, 180_000];
   const silenceStartRef = useRef<number | null>(null);
   const silenceStageRef = useRef(0);
@@ -458,7 +470,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     silenceIntervalRef.current = setInterval(() => {
       if (!silenceStartRef.current) return;
       const elapsed = Date.now() - silenceStartRef.current;
-      const thresholds = voiceModeRef.current ? SILENCE_THRESHOLDS_VOICE : SILENCE_THRESHOLDS_TEXT;
+      const thresholds = voiceModeRef.current ? SILENCE_THRESHOLDS_VOICE : silenceThresholdsRef.current;
       const nextStage = silenceStageRef.current + 1;
 
       if (nextStage <= thresholds.length && elapsed >= thresholds[nextStage - 1]) {
@@ -548,7 +560,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         });
       }
 
-      drainTimerRef.current = setTimeout(drainBuffer, CHAR_DELAY_MS);
+      drainTimerRef.current = setTimeout(drainBuffer, charDelayRef.current);
     } else if (streamDoneRef.current) {
       setPhase("idle");
       setIsStreaming(false);
@@ -570,7 +582,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         }
       }
     } else {
-      drainTimerRef.current = setTimeout(drainBuffer, CHAR_DELAY_MS);
+      drainTimerRef.current = setTimeout(drainBuffer, charDelayRef.current);
     }
   }, []);
 
@@ -916,7 +928,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     setMessages((prev) => [...prev, { role: "assistant", content: "", created_at: new Date().toISOString() }]);
 
     // Start draining buffer
-    drainTimerRef.current = setTimeout(drainBuffer, CHAR_DELAY_MS);
+    drainTimerRef.current = setTimeout(drainBuffer, charDelayRef.current);
 
     try {
       console.log("[Chat] Sending message:", { patientId: patient.id, conversationId, messageLength: trimmed.length });
@@ -956,10 +968,27 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           if (data.type === "conversation_id") {
             console.log("[Chat] Got conversation_id:", data.value);
             setConversationId(data.value);
+          } else if (data.type === "pacing") {
+            // Server tells us the per-patient pacing profile so we can
+            // tune the typewriter effect and silence thresholds.
+            const p = data.value as {
+              charDelayMs?: number;
+              silenceThresholdsMs?: number[];
+            };
+            if (typeof p.charDelayMs === "number" && p.charDelayMs >= 10 && p.charDelayMs <= 200) {
+              charDelayRef.current = p.charDelayMs;
+            }
+            if (Array.isArray(p.silenceThresholdsMs) && p.silenceThresholdsMs.length >= 2) {
+              silenceThresholdsRef.current = p.silenceThresholdsMs;
+            }
           } else if (data.type === "token") {
             // First token received → switch from "thinking" to "writing"
             if (phase === "thinking" || tokenBufferRef.current.length === 0) {
               setPhase("writing");
+              // Hide the "each patient has its own rhythm" banner once
+              // the patient actually starts to speak; we don't want to
+              // keep explaining after they've shown up.
+              setShowPacingBanner(false);
               // In voice mode, show "Hablando..." immediately from first token
               if (voiceModeRef.current && patient.voice_id) {
                 setVoiceSpeaking(true);
@@ -970,6 +999,24 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             if (voiceModeRef.current && patient.voice_id) {
               ttsSentenceBufferRef.current += data.value;
               flushSentenceBuffer();
+            }
+          } else if (data.type === "correction") {
+            // Post-stream polish from the server (e.g. "ahoraSí" →
+            // "ahora sí"). We replace the content of the last
+            // assistant message. Any tokens still in the typewriter
+            // buffer are dropped — the polished text is the source
+            // of truth now.
+            const polished = String(data.value || "");
+            if (polished) {
+              tokenBufferRef.current = "";
+              setMessages((prev) => {
+                if (prev.length === 0) return prev;
+                const last = prev[prev.length - 1];
+                if (last.role !== "assistant") return prev;
+                const updated = [...prev];
+                updated[updated.length - 1] = { ...last, content: polished };
+                return updated;
+              });
             }
           } else if (data.type === "error") {
             console.error("[Chat] Stream error from API:", data.value);
@@ -1521,6 +1568,20 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 {"Iniciar sesión"}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* One-shot pacing hint: each patient has its own tempo. Hides
+            as soon as the patient starts answering (see "token" handler). */}
+        {showPacingBanner && messages.length === 0 && (
+          <div className="mx-auto max-w-2xl mb-4 rounded-xl border border-sidebar/20 bg-sidebar/5 px-4 py-3">
+            <p className="text-xs text-sidebar font-semibold mb-0.5">
+              Cada paciente tiene su propio ritmo
+            </p>
+            <p className="text-[11px] text-gray-600 leading-snug">
+              El tiempo de respuesta y la forma de escribir reflejan su personalidad —
+              unos serán más rápidos, otros más pausados.
+            </p>
           </div>
         )}
 
