@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pilotEnrollSchema, parseBody } from "@/lib/validation/schemas";
+import { getGloriaLogoUrl } from "@/lib/email-assets";
 
 // Public endpoint — no auth check (the public consent page hits this).
 // Whitelisted in src/lib/supabase/middleware.ts via /api/public/ prefix.
@@ -362,7 +363,9 @@ function buildCredentialsEmail(opts: {
   // Public URL of the GlorIA logo. The image is served from the live app
   // (always reachable from email clients), not from a Supabase storage
   // bucket which previously was unreachable / 404'd.
-  const logoUrl = `${opts.appUrl}/branding/gloria-logo.png`;
+  // Same logo used in the app's sidebar, served from the app domain
+  // so email clients don't hit a blocked Supabase bucket URL.
+  const logoUrl = getGloriaLogoUrl();
   const loginUrl = `${opts.appUrl}/login`;
 
   // Institutional signature row: sits INSIDE the violet header, below
