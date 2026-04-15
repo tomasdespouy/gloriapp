@@ -13,6 +13,21 @@ export default async function DocenteSesionPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Defense-in-depth: the /docente layout already enforces role, but we
+  // also scope the specific conversation to the instructor's establishment.
+  // Admin and superadmin bypass this check (their RLS already scopes them
+  // via admin_establishments).
+  const { data: callerProfile } = await supabase
+    .from("profiles")
+    .select("role, establishment_id")
+    .eq("id", user.id)
+    .single();
+
+  const callerRole = callerProfile?.role as string | undefined;
+  if (callerRole !== "instructor" && callerRole !== "admin" && callerRole !== "superadmin") {
+    redirect("/dashboard");
+  }
+
   // Get conversation with patient info
   const { data: conversation } = await supabase
     .from("conversations")
@@ -27,12 +42,24 @@ export default async function DocenteSesionPage({ params }: Props) {
     redirect("/docente/dashboard");
   }
 
-  // Get student profile
+  // Get student profile (include establishment_id for scope check)
   const { data: student } = await supabase
     .from("profiles")
-    .select("id, full_name, email")
+    .select("id, full_name, email, establishment_id")
     .eq("id", conversation.student_id)
     .single();
+
+  // Instructor scope: student must belong to the same establishment.
+  // Instructors without an establishment cannot see any session.
+  if (callerRole === "instructor") {
+    if (
+      !callerProfile?.establishment_id ||
+      !student?.establishment_id ||
+      callerProfile.establishment_id !== student.establishment_id
+    ) {
+      redirect("/docente/dashboard");
+    }
+  }
 
   // Get messages
   const { data: messages } = await supabase
@@ -70,7 +97,7 @@ export default async function DocenteSesionPage({ params }: Props) {
   return (
     <TeacherReviewClient
       conversationId={conversationId}
-      student={student || { id: "", full_name: "Alumno", email: "" }}
+      student={student ? { id: student.id, full_name: student.full_name, email: student.email } : { id: "", full_name: "Alumno", email: "" }}
       patient={patient}
       sessionNumber={conversation.session_number}
       createdAt={conversation.created_at}

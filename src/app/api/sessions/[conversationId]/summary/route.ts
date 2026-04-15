@@ -14,11 +14,12 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  // Verify ownership
+  // Verify ownership (explicit student_id filter in addition to RLS).
   const { data: conversation } = await supabase
     .from("conversations")
     .select("id, student_id, ai_patient_id, session_number, status")
     .eq("id", conversationId)
+    .eq("student_id", user.id)
     .single();
 
   if (!conversation) return NextResponse.json({ error: "No encontrada" }, { status: 404 });

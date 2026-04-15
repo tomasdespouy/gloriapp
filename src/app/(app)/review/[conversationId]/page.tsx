@@ -16,11 +16,14 @@ export default async function ReviewPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Get conversation (user client) + patient info (admin, bypasses RLS)
+  // Get conversation (user client) + patient info (admin, bypasses RLS).
+  // Defense-in-depth: explicit ownership check on top of RLS — a student
+  // must only reach their own review page.
   const { data: conversation } = await supabase
     .from("conversations")
     .select("id, session_number, ai_patient_id, active_seconds, started_at, ended_at, student_notes_v2")
     .eq("id", conversationId)
+    .eq("student_id", user.id)
     .single();
 
   if (!conversation) redirect("/dashboard");
@@ -45,12 +48,14 @@ export default async function ReviewPage({
   const userMsgCount = count || 0;
   const tooShort = activeSeconds < 5 * 60 && userMsgCount < 6;
 
-  // If too short, mark conversation as completed immediately (no evaluation)
+  // If too short, mark conversation as completed immediately (no evaluation).
+  // Ownership filter is defensive — the SELECT above already confirms it.
   if (tooShort) {
     await supabase
       .from("conversations")
       .update({ status: "completed" })
-      .eq("id", conversationId);
+      .eq("id", conversationId)
+      .eq("student_id", user.id);
   }
 
   // Check if already evaluated

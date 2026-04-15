@@ -89,20 +89,22 @@ export async function POST(
     intervention_types, clinical_hypothesis,
   } = body;
 
-  // Verify conversation ownership and get details
+  // Verify conversation ownership and get details (defense-in-depth on RLS).
   const { data: conversation } = await supabase
     .from("conversations")
     .select("id, student_id, ai_patient_id, status")
     .eq("id", conversationId)
+    .eq("student_id", user.id)
     .single();
 
   if (!conversation) return NextResponse.json({ error: "Conversación no encontrada" }, { status: 404 });
 
-  // Mark conversation as completed
+  // Mark conversation as completed (student_id filter mirrors the SELECT above).
   await supabase
     .from("conversations")
     .update({ status: "completed", ended_at: new Date().toISOString() })
-    .eq("id", conversationId);
+    .eq("id", conversationId)
+    .eq("student_id", user.id);
 
   // Save reflection (if provided — v2 fields or legacy)
   const hasReflection = alliance_framing || rupture_moment || nonverbal_cues ||

@@ -67,8 +67,16 @@ jobs:
 
       - name: Check for exposed secrets
         run: |
-          echo "Checking for exposed secrets..."
+          echo "Checking for exposed secrets in source..."
           ! grep -r "sk-proj-\|sbp_\|eyJhbG" src/ --include="*.ts" --include="*.tsx" || echo "WARNING: Possible secrets in source code!"
+          echo "Checking for tracked env files (excluding .example templates)..."
+          TRACKED_ENV=$(git ls-files -- ':(glob)**/.env' ':(glob)**/.env.local' ':(glob)**/.env.production' ':(glob)**/.env.development' ':(exclude)**/.env.example' ':(exclude)**/.env.local.example')
+          if [ -n "$TRACKED_ENV" ]; then
+            echo "ERROR: The following .env files are tracked in git and must be removed:"
+            echo "$TRACKED_ENV"
+            exit 1
+          fi
+          echo "OK: no .env files tracked."
 
       - name: Setup Python (for Semgrep)
         uses: actions/setup-python@v5
