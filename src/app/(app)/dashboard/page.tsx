@@ -5,6 +5,7 @@ import { getUserProfile } from "@/lib/supabase/user-profile";
 import Link from "next/link";
 import { LEVELS, getLevelInfo } from "@/lib/gamification";
 import SessionCarousel from "@/components/SessionCarousel";
+import { isPilotActive } from "@/lib/pilot-helpers";
 
 export default async function Dashboard() {
   const userProfile = await getUserProfile();
@@ -32,10 +33,15 @@ export default async function Dashboard() {
     if (pp?.pilot_id) {
       const { data: pilotRow } = await admin
         .from("pilots")
-        .select("ui_config")
+        .select("ui_config, status, scheduled_at, ended_at")
         .eq("id", pp.pilot_id)
         .single();
-      skipTutor = !!(pilotRow?.ui_config as Record<string, boolean> | null)?.skip_tutor_redirect;
+      // Defensive: only honor flags when the pilot is still live. Layout
+      // already redirects dead pilots, but if that ever regresses the
+      // page must not accidentally apply stale pilot UX.
+      if (isPilotActive(pilotRow)) {
+        skipTutor = !!(pilotRow?.ui_config as Record<string, boolean> | null)?.skip_tutor_redirect;
+      }
     }
     if (!skipTutor) redirect("/aprendizaje/tutor");
   }

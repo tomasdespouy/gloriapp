@@ -58,9 +58,25 @@ export async function GET() {
 
   const respondedIds = new Set((responses || []).map(r => r.survey_id));
 
+  // Pre-fetch the set of pilot_ids the user belongs to — used to gate
+  // pilot-scoped surveys. Users who don't belong to any pilot get an
+  // empty set, which means pilot-scoped surveys are silently skipped.
+  const { data: pilotRows } = await supabase
+    .from("pilot_participants")
+    .select("pilot_id")
+    .eq("user_id", user.id);
+  const userPilotIds = new Set(
+    (pilotRows || []).map((r: { pilot_id: string }) => r.pilot_id),
+  );
+
   // Filter surveys by scope and not yet responded
   const applicable = (surveys || []).filter(s => {
     if (respondedIds.has(s.id)) return false;
+    // Pilot-scoped survey: only visible to pilot participants of that
+    // same pilot, regardless of their establishment/country/course.
+    if (s.pilot_id) {
+      return userPilotIds.has(s.pilot_id);
+    }
     if (s.scope_type === "global") return true;
     if (s.scope_type === "country" && s.scope_id === country) return true;
     if (s.scope_type === "establishment" && s.scope_id === profile?.establishment_id) return true;

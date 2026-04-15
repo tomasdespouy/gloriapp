@@ -186,6 +186,10 @@ export async function POST(request: Request) {
     title: `Experiencia ${pilot.name} — ${pilot.institution}`,
     scope_type: "establishment",
     scope_id: establishment_id,
+    // Pilot-scoped: visible only to members of this pilot. Without this
+    // column, any user of the establishment would see the survey — even
+    // those not in the pilot.
+    pilot_id: pilot.id,
     starts_at: scheduled_at || new Date().toISOString(),
     ends_at: surveyEndsAt.toISOString(),
     is_active: true,

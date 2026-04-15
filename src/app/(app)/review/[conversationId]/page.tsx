@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import ReviewClient from "./ReviewClient";
+import { isPilotActive } from "@/lib/pilot-helpers";
 
 export default async function ReviewPage({
   params,
@@ -93,10 +94,15 @@ export default async function ReviewPage({
     if (pp?.pilot_id) {
       const { data: pilotRow } = await admin
         .from("pilots")
-        .select("ui_config")
+        .select("ui_config, status, scheduled_at, ended_at")
         .eq("id", pp.pilot_id)
         .single();
-      skipReflection = !!(pilotRow?.ui_config as Record<string, boolean> | null)?.skip_self_reflection;
+      // Defensive: only apply skip_self_reflection when the pilot is
+      // still live. Users of a closed pilot fall back to the regular
+      // reflection flow.
+      if (isPilotActive(pilotRow)) {
+        skipReflection = !!(pilotRow?.ui_config as Record<string, boolean> | null)?.skip_self_reflection;
+      }
     }
   }
 

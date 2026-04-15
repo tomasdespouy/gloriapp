@@ -35,48 +35,57 @@ export type PacingProfile = {
   silenceThresholdsMs: number[];
 };
 
+// Typing speed reference:
+//   The client drains 2 chars per tick, so effective char-rate is
+//   (2 / charDelayMs) chars per second.
+//   e.g. charDelayMs=75 → ~27 chars/s → ~5.4 words/s.
+//
+// Previous calibration (Apr 14) had everyone between 44-111 chars/s,
+// which feels instantaneous to the human eye. These values deliberately
+// slow the typing to the 15-40 chars/s range so the student actually
+// *sees* the patient thinking-as-they-write. Thinking delay (pre-stream
+// pause) is UNTOUCHED — that's a separate axis.
 export const PACING_PROFILES: Record<PacingProfileKey, PacingProfile> = {
   anxious_fast: {
-    charDelayMs: 18,
-    sentenceGapMinMs: 50,
-    sentenceGapMaxMs: 150,
+    charDelayMs: 50, // ~40 cps / ~8 wps
+    sentenceGapMinMs: 120,
+    sentenceGapMaxMs: 260,
     thinkingMinMs: 500,
     thinkingMaxMs: 1500,
     thinkingCeilingMs: 800,
     silenceThresholdsMs: [45_000, 90_000, 150_000, 300_000],
   },
   conversational_medium: {
-    charDelayMs: 28,
-    sentenceGapMinMs: 150,
-    sentenceGapMaxMs: 300,
+    charDelayMs: 75, // ~27 cps / ~5.3 wps
+    sentenceGapMinMs: 220,
+    sentenceGapMaxMs: 420,
     thinkingMinMs: 900,
     thinkingMaxMs: 2500,
     thinkingCeilingMs: 800,
     silenceThresholdsMs: [60_000, 120_000, 210_000, 300_000],
   },
   reflective_paused: {
-    charDelayMs: 40,
-    sentenceGapMinMs: 300,
-    sentenceGapMaxMs: 600,
+    charDelayMs: 110, // ~18 cps / ~3.6 wps
+    sentenceGapMinMs: 400,
+    sentenceGapMaxMs: 800,
     thinkingMinMs: 2000,
     thinkingMaxMs: 4500,
     thinkingCeilingMs: 1200,
     silenceThresholdsMs: [75_000, 150_000, 240_000, 300_000],
   },
   depressive_slow: {
-    charDelayMs: 45,
-    sentenceGapMinMs: 400,
-    sentenceGapMaxMs: 800,
+    charDelayMs: 140, // ~14 cps / ~2.9 wps
+    sentenceGapMinMs: 500,
+    sentenceGapMaxMs: 1000,
     thinkingMinMs: 1500,
     thinkingMaxMs: 4000,
     thinkingCeilingMs: 1000,
-    // Fewer nudges (3), still closes at 5 min globally
     silenceThresholdsMs: [90_000, 180_000, 300_000],
   },
   inhibited_timid: {
-    charDelayMs: 38,
-    sentenceGapMinMs: 200,
-    sentenceGapMaxMs: 500,
+    charDelayMs: 95, // ~21 cps / ~4.2 wps
+    sentenceGapMinMs: 300,
+    sentenceGapMaxMs: 650,
     thinkingMinMs: 1200,
     thinkingMaxMs: 3000,
     thinkingCeilingMs: 1000,

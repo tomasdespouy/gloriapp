@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import TutorClient from "./TutorClient";
 import { COMPETENCY_LABELS_V2 } from "@/lib/gamification";
 import { getUserProfile } from "@/lib/supabase/user-profile";
+import { isPilotActive } from "@/lib/pilot-helpers";
 
 export default async function TutorPage() {
   const supabase = await createClient();
@@ -23,10 +24,13 @@ export default async function TutorPage() {
   if (pp?.pilot_id) {
     const { data: pilotRow } = await admin
       .from("pilots")
-      .select("ui_config")
+      .select("ui_config, status, scheduled_at, ended_at")
       .eq("id", pp.pilot_id)
       .single();
-    const skipTutor = !!(pilotRow?.ui_config as Record<string, boolean> | null)?.skip_tutor_redirect;
+    // Defensive: only skip the tutor when the pilot is still live.
+    const skipTutor =
+      isPilotActive(pilotRow) &&
+      !!(pilotRow?.ui_config as Record<string, boolean> | null)?.skip_tutor_redirect;
     if (skipTutor) redirect("/dashboard");
   }
 

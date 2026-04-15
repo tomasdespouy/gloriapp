@@ -382,7 +382,9 @@ ${isShortGreeting
         );
 
         // Emit pacing metadata so the client can tune its typewriter
-        // effect to this specific patient.
+        // effect to this specific patient. sentenceGapMin/Max let the
+        // client pause after ".?!" punctuation for a more natural
+        // cadence without slowing the per-character speed further.
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ type: "pacing", value: {
             charDelayMs: pacingProfile.charDelayMs,

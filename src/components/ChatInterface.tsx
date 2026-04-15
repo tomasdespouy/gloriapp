@@ -79,6 +79,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // via the SSE "pacing" event without forcing a re-render.
   const charDelayRef = useRef<number>(DEFAULT_CHAR_DELAY_MS);
   const silenceThresholdsRef = useRef<number[]>(DEFAULT_SILENCE_THRESHOLDS_MS);
+  // Extra pause after ".?!" + space so sentences breathe naturally.
+  // Random in [min, max] ms each time one is hit. 0 disables.
+  const sentenceGapMinRef = useRef<number>(0);
+  const sentenceGapMaxRef = useRef<number>(0);
   // Banner shown once per session to explain that each patient has
   // its own rhythm. Hides on first assistant token.
   const [showPacingBanner, setShowPacingBanner] = useState(initialMessages.length === 0);
@@ -560,7 +564,24 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         });
       }
 
-      drainTimerRef.current = setTimeout(drainBuffer, charDelayRef.current);
+      // Natural cadence: pause a bit when we just finished a sentence.
+      // We detect the pattern ".?!" followed by a space (or anything
+      // non-letter). The gap is random within the profile's range so
+      // it doesn't feel mechanical. Skipped in voice mode since TTS
+      // handles its own prosody.
+      let delay = charDelayRef.current;
+      if (
+        !voiceModeRef.current &&
+        sentenceGapMaxRef.current > 0 &&
+        /[.!?][\s"')\]]*$/.test(chunk)
+      ) {
+        const min = sentenceGapMinRef.current;
+        const max = sentenceGapMaxRef.current;
+        const extra = min + Math.random() * Math.max(1, max - min);
+        delay += Math.round(extra);
+      }
+
+      drainTimerRef.current = setTimeout(drainBuffer, delay);
     } else if (streamDoneRef.current) {
       setPhase("idle");
       setIsStreaming(false);
@@ -973,10 +994,18 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             // tune the typewriter effect and silence thresholds.
             const p = data.value as {
               charDelayMs?: number;
+              sentenceGapMinMs?: number;
+              sentenceGapMaxMs?: number;
               silenceThresholdsMs?: number[];
             };
-            if (typeof p.charDelayMs === "number" && p.charDelayMs >= 10 && p.charDelayMs <= 200) {
+            if (typeof p.charDelayMs === "number" && p.charDelayMs >= 10 && p.charDelayMs <= 400) {
               charDelayRef.current = p.charDelayMs;
+            }
+            if (typeof p.sentenceGapMinMs === "number" && p.sentenceGapMinMs >= 0) {
+              sentenceGapMinRef.current = p.sentenceGapMinMs;
+            }
+            if (typeof p.sentenceGapMaxMs === "number" && p.sentenceGapMaxMs >= 0) {
+              sentenceGapMaxRef.current = p.sentenceGapMaxMs;
             }
             if (Array.isArray(p.silenceThresholdsMs) && p.silenceThresholdsMs.length >= 2) {
               silenceThresholdsRef.current = p.silenceThresholdsMs;
