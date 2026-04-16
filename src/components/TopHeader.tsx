@@ -153,7 +153,10 @@ export default function TopHeader({ userName, userEmail, userRole, realRole, ava
           </button>
         </div>
       )}
-    <header className="h-12 bg-[#2D3561] flex items-center justify-end pl-3 sm:pl-5 pr-3 sm:pr-5 gap-2">
+    {/* Mobile: extra left padding leaves room for the fixed hamburger
+        button (Sidebar.tsx, 40px wide + 12px offset). Desktop (sm+)
+        returns to the tighter padding since the sidebar is visible. */}
+    <header className="h-12 bg-[#2D3561] flex items-center justify-end pl-14 sm:pl-5 pr-3 sm:pr-5 gap-2 relative z-10">
       {/* Impersonation controls (superadmin only) */}
       {isSuperadmin && !isImpersonating && (
         <div className="hidden lg:flex items-center gap-1.5 mr-auto">
@@ -205,7 +208,7 @@ export default function TopHeader({ userName, userEmail, userRole, realRole, ava
         </button>
 
         {notifOpen && (
-          <div className="absolute right-0 top-full mt-2 w-[calc(100vw-24px)] sm:w-80 max-w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+          <div className="absolute right-0 top-full mt-2 w-[min(calc(100vw-1.5rem),20rem)] sm:w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
               <p className="text-xs font-semibold text-gray-700">Notificaciones</p>
               {unreadCount > 0 && (

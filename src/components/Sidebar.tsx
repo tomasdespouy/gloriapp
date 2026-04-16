@@ -253,12 +253,19 @@ export default function Sidebar({
           />
           <aside
             className="absolute left-0 top-0 h-full w-[280px] bg-sidebar flex flex-col text-white transition-transform duration-200 ease-out"
-            style={{ transform: drawerIn ? "translateX(0)" : "translateX(-100%)" }}
+            style={{
+              transform: drawerIn ? "translateX(0)" : "translateX(-100%)",
+              // Respect iOS notch / Android top inset so the close button
+              // and logo don't hide under the status bar.
+              paddingTop: "env(safe-area-inset-top)",
+              paddingBottom: "env(safe-area-inset-bottom)",
+            }}
           >
             {/* Close button */}
             <button
               onClick={closeSidebar}
               className="absolute top-5 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer z-10"
+              style={{ top: "calc(env(safe-area-inset-top) + 1.25rem)" }}
               aria-label="Cerrar menú"
             >
               <ArrowLeft size={18} />
@@ -268,10 +275,12 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* Mobile hamburger button — fixed top-left */}
+      {/* Mobile hamburger button — fixed top-left, vertically centered on the
+          TopHeader (h-12 = 48px). Respects iOS notch via safe-area. */}
       <button
         onClick={openSidebar}
-        className="md:hidden fixed top-3 left-3 z-40 w-10 h-10 rounded-lg bg-sidebar text-white flex items-center justify-center shadow-lg cursor-pointer hover:bg-white/10"
+        style={{ top: "calc(env(safe-area-inset-top) + 0.375rem)" }}
+        className="md:hidden fixed left-3 z-40 w-9 h-9 rounded-lg bg-sidebar text-white flex items-center justify-center shadow-lg cursor-pointer hover:bg-white/10"
         aria-label="Abrir menú"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
