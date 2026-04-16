@@ -199,8 +199,8 @@ export default function SurveyModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-pop">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-3 sm:p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden animate-pop">
         {/* Header */}
         <div className="bg-gradient-to-r from-sidebar to-[#354080] px-6 py-4 text-white flex-shrink-0">
           <div className="flex items-start justify-between gap-4">
@@ -653,8 +653,8 @@ function SurveyModalV2({
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-pop">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-3 sm:p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden animate-pop">
         <div className="bg-gradient-to-r from-sidebar to-[#354080] px-6 py-4 text-white flex-shrink-0">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
