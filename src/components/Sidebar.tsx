@@ -165,32 +165,40 @@ export default function Sidebar({
       )}
 
       {/* Navigation — only this area scrolls */}
-      <nav className="flex flex-col px-4 flex-1 min-h-0 overflow-y-auto">
-        {navSections.map((section, si) => (
-          <div key={si}>
-            {section.title && (
-              <p className={`text-[9px] uppercase tracking-wider text-white/30 font-semibold px-4 mb-1.5 ${si === 0 ? "mt-1" : "mt-4"}`}>
-                {section.title}
-              </p>
-            )}
-            {section.items.map((item) => {
-              const isActive = currentPath === item.href || currentPath.startsWith(item.href + "/");
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  onClick={closeSidebar}
-                  className={`sidebar-link flex items-center gap-3 px-4 py-2.5 rounded-lg text-[13px] font-medium w-full text-left ${
-                    isActive ? "active text-white" : "text-white/70"
-                  }`}
-                >
-                  <item.icon size={16} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
+      <nav className="flex flex-col px-4 flex-1 min-h-0 overflow-y-auto gap-0.5">
+        {navSections.map((section, si) => {
+          // Admin/superadmin keeps dense grouping. Student/instructor get
+          // a slightly larger, more breathable layout.
+          const iconSize = isAdmin ? 16 : 18;
+          const linkCls = isAdmin
+            ? "text-[13px] px-4 py-2.5 gap-3"
+            : "text-sm px-4 py-3 gap-3.5";
+          return (
+            <div key={si} className={!isAdmin ? "mb-1" : ""}>
+              {section.title && (
+                <p className={`text-[9px] uppercase tracking-wider text-white/30 font-semibold px-4 mb-1.5 ${si === 0 ? "mt-1" : "mt-4"}`}>
+                  {section.title}
+                </p>
+              )}
+              {section.items.map((item) => {
+                const isActive = currentPath === item.href || currentPath.startsWith(item.href + "/");
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    onClick={closeSidebar}
+                    className={`sidebar-link flex items-center ${linkCls} rounded-lg font-medium w-full text-left ${
+                      isActive ? "active text-white" : "text-white/70"
+                    }`}
+                  >
+                    <item.icon size={iconSize} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          );
+        })}
       </nav>
 
       {/* Footer — institution logo, always pinned to bottom */}
