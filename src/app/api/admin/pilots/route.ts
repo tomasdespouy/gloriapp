@@ -190,6 +190,9 @@ export async function POST(request: Request) {
     // column, any user of the establishment would see the survey — even
     // those not in the pilot.
     pilot_id: pilot.id,
+    // New pilots created from here on use the v2_pilot questionnaire.
+    // Legacy pilots keep form_version NULL (v1) and are unaffected.
+    form_version: "v2_pilot",
     starts_at: scheduled_at || new Date().toISOString(),
     ends_at: surveyEndsAt.toISOString(),
     is_active: true,

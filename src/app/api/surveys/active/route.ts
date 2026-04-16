@@ -60,6 +60,24 @@ export async function GET() {
 
   const respondedIds = new Set((responses || []).map(r => r.survey_id));
 
+  // For pilot-scoped surveys we also suppress any *other* survey that
+  // belongs to the same pilot once the user has answered one of them.
+  // This is how we avoid re-prompting veteran pilot users when we ship
+  // a newer questionnaire version (form_version='v2_pilot') alongside
+  // the legacy one: they already answered v1, so they won't see v2.
+  let pilotIdsAlreadyAnswered = new Set<string>();
+  if (respondedIds.size > 0) {
+    const { data: respondedSurveys } = await supabase
+      .from("surveys")
+      .select("id, pilot_id")
+      .in("id", Array.from(respondedIds));
+    pilotIdsAlreadyAnswered = new Set(
+      (respondedSurveys || [])
+        .map((s: { pilot_id: string | null }) => s.pilot_id)
+        .filter((p): p is string => !!p),
+    );
+  }
+
   // Pre-fetch the set of pilot_ids the user belongs to — used to gate
   // pilot-scoped surveys. Users who don't belong to any pilot get an
   // empty set, which means pilot-scoped surveys are silently skipped.
@@ -77,6 +95,11 @@ export async function GET() {
     // Pilot-scoped survey: only visible to pilot participants of that
     // same pilot, regardless of their establishment/country/course.
     if (s.pilot_id) {
+      // Veteran guard: if the user already answered ANY survey of this
+      // same pilot, don't re-prompt them with another (e.g. newer v2
+      // form version). Prevents double-surveying when we ship a newer
+      // questionnaire mid-pilot.
+      if (pilotIdsAlreadyAnswered.has(s.pilot_id)) return false;
       return userPilotIds.has(s.pilot_id);
     }
     if (s.scope_type === "global") return true;

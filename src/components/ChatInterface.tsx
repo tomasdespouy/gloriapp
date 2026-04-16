@@ -319,6 +319,16 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const sessionStartRef = useRef(initialMessages.length > 0 ? Date.now() : 0);
   const activeSecondsRef = useRef(initialActiveSeconds);
 
+  // Tracks when the user last sent a message so we can show WhatsApp-style
+  // "enviado" → "leído" ticks and enforce a silent "thinking" pause before
+  // the first character appears, independent of how fast the server streams.
+  const lastSentAtRef = useRef<number>(0);
+  const [userTickStage, setUserTickStage] = useState<0 | 1 | 2>(0); // 0=none,1=enviado,2=leído
+  // Minimum silent "thinking" window (ms). The server may respond faster
+  // than this; we delay the typewriter so the student has a moment to
+  // breathe before words start appearing. Kept small to avoid feeling laggy.
+  const MIN_THINKING_MS = 1400;
+
   // Token buffer for slow typing effect
   const tokenBufferRef = useRef<string>("");
   const drainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -360,11 +370,25 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     };
   }, [conversationId]);
 
-  // Typing detection — no longer resets silence timers (timers run from last sent message)
-  const handleTypingActivity = useCallback(() => {
-    // Intentionally empty — silence timers should NOT reset on typing,
-    // only when the user actually sends a message.
-  }, []);
+  // Typing detection — while the user has at least one character in
+  // the compose box, pause the "¿estás ahí?" silence timers. Focus
+  // alone (empty input) still counts as silence. When the input goes
+  // back to empty (user backspaced everything) we restart the timers.
+  // Legacy no-op signature is kept so existing call sites compile.
+  const handleTypingActivity = useCallback(() => {}, []);
+
+  const isTypingPausedRef = useRef(false);
+  const applyTypingPause = (hasText: boolean) => {
+    if (hasText && !isTypingPausedRef.current) {
+      isTypingPausedRef.current = true;
+      clearSilenceTimers();
+    } else if (!hasText && isTypingPausedRef.current) {
+      isTypingPausedRef.current = false;
+      if (conversationId && sessionStarted && !isStreamingRef.current) {
+        startSilenceTimers();
+      }
+    }
+  };
 
   // Patient media
   const avatarSlug = patient.name
@@ -541,6 +565,20 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
   // Drain buffer character by character
   const drainBuffer = useCallback(() => {
+    // Enforce the minimum silent "thinking" window for text mode before
+    // the first character is rendered. Voice mode is excluded because TTS
+    // handles its own pacing (walkie-talkie).
+    if (
+      !voiceModeRef.current &&
+      tokenBufferRef.current.length > 0 &&
+      lastSentAtRef.current > 0
+    ) {
+      const wait = lastSentAtRef.current + MIN_THINKING_MS - Date.now();
+      if (wait > 0) {
+        drainTimerRef.current = setTimeout(drainBuffer, wait);
+        return;
+      }
+    }
     if (tokenBufferRef.current.length > 0) {
       const chunk = tokenBufferRef.current.slice(0, 2);
       tokenBufferRef.current = tokenBufferRef.current.slice(chunk.length);
@@ -921,9 +959,23 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     const now = new Date().toISOString();
 
     setInput("");
+    // Reset textarea height immediately after clearing; otherwise the
+    // auto-resized height persists until the next keystroke.
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
     setMessages((prev) => [...prev, { role: "user", content: trimmed, created_at: now }]);
     setIsStreaming(true);
     setPhase("thinking");
+    // Typing no longer suppresses silence — we just cleared the input.
+    isTypingPausedRef.current = false;
+    // "Enviado" → "leído" ticks for the just-sent user message. Gets
+    // cleared when the next assistant content starts rendering.
+    lastSentAtRef.current = Date.now();
+    setUserTickStage(1);
+    setTimeout(() => {
+      setUserTickStage((prev) => (prev === 1 ? 2 : prev));
+    }, 500);
     streamDoneRef.current = false;
     // Reset interrupt flags on new message — trigger new silence countdown
     // In voice mode, silence timers start AFTER TTS finishes (walkie-talkie)
@@ -1142,8 +1194,17 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   };
 
   const lastMsg = messages[messages.length - 1];
-  const showThinkingBubble = phase === "thinking" && lastMsg?.role === "assistant" && !lastMsg.content;
-  // "Escribiendo" subtext removed — not needed
+  // Thinking bubble intentionally disabled — during the silent "thinking"
+  // window the user sees only the read-ticks on their own last message,
+  // then words start appearing with the normal typewriter cadence. This
+  // removes the noisy dots animation without touching streaming logic.
+  const showThinkingBubble = false;
+  void lastMsg;
+  // Index of the most recent user message (used to render ticks only on that one).
+  let lastUserMsgIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") { lastUserMsgIdx = i; break; }
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -1652,6 +1713,17 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                         {formatTime(msg.created_at)}
                       </span>
                     )}
+                    {/* WhatsApp-style tick: enviado / leído. Only on the latest
+                        user message while the patient is still thinking. */}
+                    {msg.role === "user" && i === lastUserMsgIdx && userTickStage > 0 && phase !== "idle" && (
+                      <span
+                        className="text-[10px] text-gray-400"
+                        aria-label={userTickStage === 1 ? "enviado" : "leído"}
+                        title={userTickStage === 1 ? "Enviado" : "Leído"}
+                      >
+                        {userTickStage === 1 ? "✓ enviado" : "✓✓ leído"}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1732,11 +1804,15 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               ref={textareaRef}
               value={input}
               onChange={(e) => {
-                setInput(e.target.value);
+                const next = e.target.value;
+                setInput(next);
                 handleTypingActivity();
+                applyTypingPause(next.length > 0);
                 const el = e.target;
                 el.style.height = "auto";
-                el.style.height = Math.min(el.scrollHeight, voiceMode ? 300 : 160) + "px";
+                if (next.length > 0) {
+                  el.style.height = Math.min(el.scrollHeight, voiceMode ? 300 : 160) + "px";
+                }
               }}
               onKeyDown={handleKeyDown}
               placeholder={sessionStarted ? "Escribe tu mensaje..." : "Presiona \"Iniciar sesión\" para comenzar"}
@@ -1800,8 +1876,12 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   {notesSaving && (
                     <span className="text-[10px] text-gray-400">Guardando...</span>
                   )}
-                  <button onClick={() => setNotesOpen(false)} className="p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer">
-                    <X size={14} className="text-gray-400" />
+                  <button
+                    onClick={() => setNotesOpen(false)}
+                    className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100 transition-colors cursor-pointer"
+                    title="Ocultar panel de notas (no borra el contenido)"
+                  >
+                    Ocultar
                   </button>
                 </div>
               </div>
