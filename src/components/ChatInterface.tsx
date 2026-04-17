@@ -58,6 +58,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [displaySeconds, setDisplaySeconds] = useState(initialActiveSeconds);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(initialMessages.length > 0);
+  const [showTips, setShowTips] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [tourStep, setTourStep] = useState(0);
   const [voiceMode, setVoiceMode] = useState(false);
@@ -1631,7 +1632,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   comfortably above the fold without scrolling. */}
               <div className="flex items-center justify-center gap-3 sm:gap-8 mb-3 sm:mb-6">
                 <div className="flex flex-col items-center gap-1 sm:gap-2 min-w-0">
-                  <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md flex-shrink-0">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md flex-shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={imageSrc} alt={patient.name} className="w-full h-full object-cover" />
                   </div>
@@ -1642,7 +1643,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 <div className="w-5 sm:w-10 h-px bg-gray-300 -mt-6 sm:-mt-8 flex-shrink-0" />
 
                 <div className="flex flex-col items-center gap-1 sm:gap-2 min-w-0">
-                  <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center flex-shrink-0">
                     {userAvatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
@@ -1660,11 +1661,20 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 <p className="text-xs font-semibold text-gray-700">Antes de comenzar, recuerda:</p>
                 <ul className="text-[11px] text-gray-500 space-y-1.5">
                   <li className="flex gap-2"><span className="text-sidebar font-bold">1.</span> {"Esta es una simulación con fines formativos, no una sesión real."}</li>
-                  <li className="flex gap-2"><span className="text-sidebar font-bold">2.</span> {"El paciente reacciona a tus intervenciones como lo haría en la vida real."}</li>
-                  <li className="flex gap-2"><span className="text-sidebar font-bold">3.</span> {"Intenta mantener al menos 5 minutos para recibir evaluación."}</li>
-                  <li className="flex gap-2"><span className="text-sidebar font-bold">4.</span> {"Puedes pausar y retomar la sesión en cualquier momento."}</li>
-                  <li className="flex gap-2"><span className="text-sidebar font-bold">5.</span> {"Cada paciente tiene su propio ritmo: unos responden más rápido, otros más pausados."}</li>
+                  <li className={`${showTips ? "flex" : "hidden sm:flex"} gap-2`}><span className="text-sidebar font-bold">2.</span> {"El paciente reacciona a tus intervenciones como lo haría en la vida real."}</li>
+                  <li className={`${showTips ? "flex" : "hidden sm:flex"} gap-2`}><span className="text-sidebar font-bold">3.</span> {"Intenta mantener al menos 5 minutos para recibir evaluación."}</li>
+                  <li className={`${showTips ? "flex" : "hidden sm:flex"} gap-2`}><span className="text-sidebar font-bold">4.</span> {"Puedes pausar y retomar la sesión en cualquier momento."}</li>
+                  <li className={`${showTips ? "flex" : "hidden sm:flex"} gap-2`}><span className="text-sidebar font-bold">5.</span> {"Cada paciente tiene su propio ritmo: unos responden más rápido, otros más pausados."}</li>
                 </ul>
+                <button
+                  type="button"
+                  onClick={() => setShowTips((v) => !v)}
+                  className="sm:hidden text-[11px] text-sidebar font-medium inline-flex items-center gap-1 cursor-pointer"
+                  aria-expanded={showTips}
+                >
+                  {showTips ? "Ocultar tips" : "Ver tips antes de empezar"}
+                  <span className={`inline-block transition-transform duration-200 ${showTips ? "rotate-180" : ""}`}>▾</span>
+                </button>
               </div>
 
               <button
