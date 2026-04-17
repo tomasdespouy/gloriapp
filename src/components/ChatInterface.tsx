@@ -1253,7 +1253,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             Mobile: uniform h-9 buttons aligned to the right with a tight
             gap so the row looks balanced and organized. Desktop keeps
             its existing labels and spacing via sm: overrides. */}
-        <div className={`flex items-center gap-1.5 sm:gap-3 flex-shrink-0 w-full sm:w-auto justify-end sm:ml-auto ${!sessionStarted ? "invisible" : ""}`}>
+        <div className={`flex items-center gap-1.5 sm:gap-3 flex-shrink-0 w-full sm:w-auto justify-end sm:ml-auto ${!sessionStarted ? "hidden sm:flex sm:invisible" : ""}`}>
           {/* Notes toggle */}
           <button
             onClick={() => setNotesOpen(!notesOpen)}
@@ -1861,9 +1861,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 }
               }}
               onKeyDown={handleKeyDown}
-              placeholder={sessionStarted ? "Escribe tu mensaje..." : "Presiona \"Iniciar sesión\" para comenzar"}
+              placeholder={sessionStarted ? "Escribe tu mensaje..." : "Toca \"Iniciar sesión\" para comenzar."}
               rows={1}
-              className={`w-full resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar disabled:bg-gray-100 disabled:text-gray-400 ${voiceMode ? "overflow-y-auto" : "overflow-hidden"}`}
+              className={`w-full resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm placeholder:text-xs sm:placeholder:text-sm focus:outline-none focus:ring-2 focus:ring-sidebar disabled:bg-gray-100 disabled:text-gray-400 ${voiceMode ? "overflow-y-auto" : "overflow-hidden"}`}
               disabled={!sessionStarted}
             />
           </div>
@@ -1902,7 +1902,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             data-send-btn
             onClick={() => sendMessage()}
             disabled={isStreaming || !input.trim()}
-            className="bg-sidebar hover:bg-[#354080] text-white p-3 rounded-xl transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            className="bg-sidebar hover:bg-[#354080] text-white p-3 min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-xl transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             <Send size={18} />
           </button>
