@@ -1249,19 +1249,22 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           </div>
         </div>
 
-        {/* Row 2 on mobile / right side on desktop: voice toggle + timer + end session. Hidden until session starts. */}
-        <div className={`flex items-center gap-2 sm:gap-3 flex-shrink-0 w-full sm:w-auto justify-between sm:justify-end sm:ml-auto ${!sessionStarted ? "invisible" : ""}`}>
+        {/* Row 2 on mobile / right side on desktop: voice toggle + timer + end session. Hidden until session starts.
+            Mobile: uniform h-9 buttons aligned to the right with a tight
+            gap so the row looks balanced and organized. Desktop keeps
+            its existing labels and spacing via sm: overrides. */}
+        <div className={`flex items-center gap-1.5 sm:gap-3 flex-shrink-0 w-full sm:w-auto justify-end sm:ml-auto ${!sessionStarted ? "invisible" : ""}`}>
           {/* Notes toggle */}
           <button
             onClick={() => setNotesOpen(!notesOpen)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors cursor-pointer ${
+            className={`flex items-center gap-1.5 h-9 sm:h-auto px-2.5 sm:px-2.5 py-0 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors cursor-pointer ${
               notesOpen
                 ? "bg-amber-500 text-white"
                 : "bg-gray-100 text-gray-500 hover:bg-gray-200"
             }`}
             title="Bloc de notas"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
               <line x1="16" y1="13" x2="8" y2="13"/>
@@ -1273,14 +1276,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           {patient.voice_id && (
             <button
               onClick={() => voiceMode ? stopVoiceMode() : requestVoiceMode()}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 h-9 sm:h-auto px-2.5 sm:px-2.5 py-0 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors cursor-pointer ${
                 voiceMode
                   ? "bg-green-500 text-white animate-pulse"
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }`}
               title={voiceMode ? "Desactivar modo voz" : "Activar conversación por voz"}
             >
-              {voiceMode ? <Phone size={13} /> : <Mic size={13} />}
+              {voiceMode ? <Phone size={14} /> : <Mic size={14} />}
               <span className="hidden sm:inline">{voiceMode ? "Voz activa" : "Modo voz"}</span>
             </button>
           )}
@@ -1294,21 +1297,21 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
           <button
             onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 h-9 sm:h-auto px-2.5 sm:px-3 py-0 sm:py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer"
             title="Esto te permite volver en otro momento sin afectar la relación con el paciente"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="3" width="4" height="18" rx="1" /><rect x="15" y="3" width="4" height="18" rx="1" /></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="3" width="4" height="18" rx="1" /><rect x="15" y="3" width="4" height="18" rx="1" /></svg>
             <span className="hidden sm:inline">Pausar</span>
           </button>
 
           <button
             onClick={() => setShowEndConfirm(true)}
             disabled={isStreaming}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 h-9 sm:h-auto px-2.5 sm:px-3 py-0 sm:py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            title="Finalizar sesión"
           >
-            <LogOut size={13} />
+            <LogOut size={14} />
             <span className="hidden sm:inline">Finalizar sesi&oacute;n</span>
-            <span className="sm:hidden">Salir</span>
           </button>
         </div>
       </header>
@@ -1622,13 +1625,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-3 chat-pattern">
         {!sessionStarted && messages.length === 0 && (
-          <div className="flex flex-col items-center justify-start sm:justify-center mt-2 sm:mt-16 animate-fade-in px-2 sm:px-4">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-8 max-w-md w-full">
-              {/* Two avatars — tighter layout on mobile so the card fits
-                  above the fold without cropping or stretching. */}
-              <div className="flex items-center justify-center gap-4 sm:gap-8 mb-4 sm:mb-6">
-                <div className="flex flex-col items-center gap-1.5 sm:gap-2 min-w-0">
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md flex-shrink-0">
+          <div className="flex flex-col items-center justify-start sm:justify-center mt-0 sm:mt-16 animate-fade-in px-2 sm:px-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 sm:p-8 max-w-md w-full">
+              {/* Two avatars — compact on mobile so the whole card sits
+                  comfortably above the fold without scrolling. */}
+              <div className="flex items-center justify-center gap-3 sm:gap-8 mb-3 sm:mb-6">
+                <div className="flex flex-col items-center gap-1 sm:gap-2 min-w-0">
+                  <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md flex-shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={imageSrc} alt={patient.name} className="w-full h-full object-cover" />
                   </div>
@@ -1636,18 +1639,18 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   <p className="text-[10px] sm:text-[11px] text-gray-500 text-center truncate max-w-[9rem]">{patient.age} {"años"}{patient.occupation ? `, ${patient.occupation}` : ""}</p>
                 </div>
 
-                <div className="w-6 sm:w-10 h-px bg-gray-300 -mt-8 flex-shrink-0" />
+                <div className="w-5 sm:w-10 h-px bg-gray-300 -mt-6 sm:-mt-8 flex-shrink-0" />
 
-                <div className="flex flex-col items-center gap-1.5 sm:gap-2 min-w-0">
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center flex-shrink-0">
+                <div className="flex flex-col items-center gap-1 sm:gap-2 min-w-0">
+                  <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center flex-shrink-0">
                     {userAvatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-xl sm:text-2xl font-bold text-sidebar">{userInitials}</span>
+                      <span className="text-lg sm:text-2xl font-bold text-sidebar">{userInitials}</span>
                     )}
                   </div>
-                  <p className="text-xs sm:text-sm font-medium text-gray-700 text-center">{"Tú"}</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-700 text-center truncate max-w-[9rem]">{userName?.trim() || "Tú"}</p>
                   <p className="text-[10px] sm:text-[11px] text-gray-500 text-center">Terapeuta</p>
                 </div>
               </div>
@@ -1805,8 +1808,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="bg-white border-t border-gray-200 px-3 sm:px-6 py-3 sm:py-4">
+      {/* Input — extra bottom padding on mobile absorbs the few pixels of
+          lag between visualViewport.height updates and the actual keyboard
+          position on iOS/Android, and respects the home indicator inset. */}
+      <div
+        className="bg-white border-t border-gray-200 px-3 sm:px-6 py-3 sm:py-4"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px) + 0.25rem)" }}
+      >
         {isRecording && (
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
