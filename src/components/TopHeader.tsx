@@ -305,7 +305,7 @@ export default function TopHeader({ userName, userEmail, userRole, realRole, ava
         </button>
 
         {profileOpen && (
-          <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+          <div className="absolute right-0 top-full mt-2 w-[min(calc(100vw-1.5rem),14rem)] sm:w-56 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
             {/* User info */}
             <div className="px-4 py-3 border-b border-gray-100">
               <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
