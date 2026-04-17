@@ -1808,13 +1808,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input — extra bottom padding on mobile absorbs the few pixels of
-          lag between visualViewport.height updates and the actual keyboard
-          position on iOS/Android, and respects the home indicator inset. */}
-      <div
-        className="bg-white border-t border-gray-200 px-3 sm:px-6 py-3 sm:py-4"
-        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px) + 0.25rem)" }}
-      >
+      {/* Input — symmetric py-3 sm:py-4 intentionally. Do NOT re-introduce
+          env(safe-area-inset-bottom) padding here: on iOS Safari that value
+          stays ~34px even with the keyboard open, which produced a visible
+          gap between the textarea and the keyboard top on real devices.
+          The chat column already contracts with the keyboard via --app-vh
+          (see SidebarContext + (app)/layout.tsx), so no extra absorb is
+          needed. */}
+      <div className="bg-white border-t border-gray-200 px-3 sm:px-6 py-3 sm:py-4">
         {isRecording && (
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
