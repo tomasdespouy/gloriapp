@@ -58,6 +58,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [displaySeconds, setDisplaySeconds] = useState(initialActiveSeconds);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(initialMessages.length > 0);
+  const [showTips, setShowTips] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [tourStep, setTourStep] = useState(0);
   const [voiceMode, setVoiceMode] = useState(false);
@@ -1226,36 +1227,45 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-2 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-3 flex-shrink-0">
-        {/* Patient video avatar — clickable */}
-        <button
-          onClick={() => setShowVideoModal(true)}
-          className="flex-shrink-0 rounded-full overflow-hidden bg-sidebar w-11 h-11 sm:w-14 sm:h-14 cursor-pointer"
-        >
-          <PatientVideo videoSrc={videoSrc} imageSrc={imageSrc} initials={initials} size={56} />
-        </button>
+      {/* Header
+          Mobile: stacks into 2 rows — (row 1) patient avatar + name,
+          (row 2) session action buttons. Prevents the name from being
+          truncated behind the buttons on narrow phones. Desktop (sm+)
+          keeps the original single horizontal row. */}
+      <header className="bg-white border-b border-gray-200 px-2 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-shrink-0">
+        {/* Row 1 on mobile / left side on desktop: avatar + name */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <button
+            onClick={() => setShowVideoModal(true)}
+            className="flex-shrink-0 rounded-full overflow-hidden bg-sidebar w-11 h-11 sm:w-14 sm:h-14 cursor-pointer"
+          >
+            <PatientVideo videoSrc={videoSrc} imageSrc={imageSrc} initials={initials} size={56} />
+          </button>
 
-        <div className="flex-1 min-w-0">
-          <h2 className="font-bold text-gray-900 truncate text-sm sm:text-base">{patient.name}</h2>
-          <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-            {patient.age} años, {patient.occupation}
-          </p>
+          <div className="flex-1 min-w-0">
+            <h2 className="font-bold text-gray-900 truncate text-sm sm:text-base">{patient.name}</h2>
+            <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+              {patient.age} años, {patient.occupation}
+            </p>
+          </div>
         </div>
 
-        {/* Voice mode toggle + Session timer + End session button — hidden until session starts */}
-        <div className={`flex items-center gap-2 sm:gap-3 flex-shrink-0 ${!sessionStarted ? "invisible" : ""}`}>
+        {/* Row 2 on mobile / right side on desktop: voice toggle + timer + end session. Hidden until session starts.
+            Mobile: uniform h-9 buttons aligned to the right with a tight
+            gap so the row looks balanced and organized. Desktop keeps
+            its existing labels and spacing via sm: overrides. */}
+        <div className={`flex items-center gap-1.5 sm:gap-3 flex-shrink-0 w-full sm:w-auto justify-end sm:ml-auto ${!sessionStarted ? "hidden sm:flex sm:invisible" : ""}`}>
           {/* Notes toggle */}
           <button
             onClick={() => setNotesOpen(!notesOpen)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors cursor-pointer ${
+            className={`flex items-center gap-1.5 h-9 sm:h-auto px-2.5 sm:px-2.5 py-0 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors cursor-pointer ${
               notesOpen
                 ? "bg-amber-500 text-white"
                 : "bg-gray-100 text-gray-500 hover:bg-gray-200"
             }`}
             title="Bloc de notas"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
               <line x1="16" y1="13" x2="8" y2="13"/>
@@ -1267,14 +1277,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           {patient.voice_id && (
             <button
               onClick={() => voiceMode ? stopVoiceMode() : requestVoiceMode()}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 h-9 sm:h-auto px-2.5 sm:px-2.5 py-0 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors cursor-pointer ${
                 voiceMode
                   ? "bg-green-500 text-white animate-pulse"
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }`}
               title={voiceMode ? "Desactivar modo voz" : "Activar conversación por voz"}
             >
-              {voiceMode ? <Phone size={13} /> : <Mic size={13} />}
+              {voiceMode ? <Phone size={14} /> : <Mic size={14} />}
               <span className="hidden sm:inline">{voiceMode ? "Voz activa" : "Modo voz"}</span>
             </button>
           )}
@@ -1288,21 +1298,21 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
           <button
             onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 h-9 sm:h-auto px-2.5 sm:px-3 py-0 sm:py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer"
             title="Esto te permite volver en otro momento sin afectar la relación con el paciente"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="3" width="4" height="18" rx="1" /><rect x="15" y="3" width="4" height="18" rx="1" /></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="3" width="4" height="18" rx="1" /><rect x="15" y="3" width="4" height="18" rx="1" /></svg>
             <span className="hidden sm:inline">Pausar</span>
           </button>
 
           <button
             onClick={() => setShowEndConfirm(true)}
             disabled={isStreaming}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 h-9 sm:h-auto px-2.5 sm:px-3 py-0 sm:py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            title="Finalizar sesión"
           >
-            <LogOut size={13} />
+            <LogOut size={14} />
             <span className="hidden sm:inline">Finalizar sesi&oacute;n</span>
-            <span className="sm:hidden">Salir</span>
           </button>
         </div>
       </header>
@@ -1616,45 +1626,55 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-3 chat-pattern">
         {!sessionStarted && messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center mt-10 sm:mt-16 animate-fade-in px-4">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 max-w-md w-full">
-              {/* Two avatars */}
-              <div className="flex items-center justify-center gap-8 mb-6">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md">
+          <div className="flex flex-col items-center justify-start sm:justify-center mt-0 sm:mt-16 animate-fade-in px-2 sm:px-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 sm:p-8 max-w-md w-full">
+              {/* Two avatars — compact on mobile so the whole card sits
+                  comfortably above the fold without scrolling. */}
+              <div className="flex items-center justify-center gap-3 sm:gap-8 mb-3 sm:mb-6">
+                <div className="flex flex-col items-center gap-1 sm:gap-2 min-w-0">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md flex-shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={imageSrc} alt={patient.name} className="w-full h-full object-cover" />
                   </div>
-                  <p className="text-sm font-medium text-gray-700">{patient.name}</p>
-                  <p className="text-[11px] text-gray-500">{patient.age} {"años"}, {patient.occupation}</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-700 text-center truncate max-w-[9rem]">{patient.name}</p>
+                  <p className="text-[10px] sm:text-[11px] text-gray-500 text-center truncate max-w-[9rem]">{patient.age} {"años"}{patient.occupation ? `, ${patient.occupation}` : ""}</p>
                 </div>
 
-                <div className="w-10 h-px bg-gray-300 -mt-8" />
+                <div className="w-5 sm:w-10 h-px bg-gray-300 -mt-6 sm:-mt-8 flex-shrink-0" />
 
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-1 sm:gap-2 min-w-0">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center flex-shrink-0">
                     {userAvatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-2xl font-bold text-sidebar">{userInitials}</span>
+                      <span className="text-lg sm:text-2xl font-bold text-sidebar">{userInitials}</span>
                     )}
                   </div>
-                  <p className="text-sm font-medium text-gray-700">{"Tú"}</p>
-                  <p className="text-[11px] text-gray-500">Terapeuta</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-700 text-center truncate max-w-[9rem]">{userName?.trim() || "Tú"}</p>
+                  <p className="text-[10px] sm:text-[11px] text-gray-500 text-center">Terapeuta</p>
                 </div>
               </div>
 
               {/* Rules reminder */}
-              <div className="bg-gray-50 rounded-xl p-4 mb-5 space-y-2">
+              <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-4 sm:mb-5 space-y-1.5 sm:space-y-2">
                 <p className="text-xs font-semibold text-gray-700">Antes de comenzar, recuerda:</p>
                 <ul className="text-[11px] text-gray-500 space-y-1.5">
                   <li className="flex gap-2"><span className="text-sidebar font-bold">1.</span> {"Esta es una simulación con fines formativos, no una sesión real."}</li>
-                  <li className="flex gap-2"><span className="text-sidebar font-bold">2.</span> {"El paciente reacciona a tus intervenciones como lo haría en la vida real."}</li>
-                  <li className="flex gap-2"><span className="text-sidebar font-bold">3.</span> {"Intenta mantener al menos 5 minutos para recibir evaluación."}</li>
-                  <li className="flex gap-2"><span className="text-sidebar font-bold">4.</span> {"Puedes pausar y retomar la sesión en cualquier momento."}</li>
-                  <li className="flex gap-2"><span className="text-sidebar font-bold">5.</span> {"Cada paciente tiene su propio ritmo: unos responden más rápido, otros más pausados."}</li>
+                  <li className={`${showTips ? "flex" : "hidden sm:flex"} gap-2`}><span className="text-sidebar font-bold">2.</span> {"El paciente reacciona a tus intervenciones como lo haría en la vida real."}</li>
+                  <li className={`${showTips ? "flex" : "hidden sm:flex"} gap-2`}><span className="text-sidebar font-bold">3.</span> {"Intenta mantener al menos 5 minutos para recibir evaluación."}</li>
+                  <li className={`${showTips ? "flex" : "hidden sm:flex"} gap-2`}><span className="text-sidebar font-bold">4.</span> {"Puedes pausar y retomar la sesión en cualquier momento."}</li>
+                  <li className={`${showTips ? "flex" : "hidden sm:flex"} gap-2`}><span className="text-sidebar font-bold">5.</span> {"Cada paciente tiene su propio ritmo: unos responden más rápido, otros más pausados."}</li>
                 </ul>
+                <button
+                  type="button"
+                  onClick={() => setShowTips((v) => !v)}
+                  className="sm:hidden text-[11px] text-sidebar font-medium inline-flex items-center gap-1 cursor-pointer"
+                  aria-expanded={showTips}
+                >
+                  {showTips ? "Ocultar tips" : "Ver tips antes de empezar"}
+                  <span className={`inline-block transition-transform duration-200 ${showTips ? "rotate-180" : ""}`}>▾</span>
+                </button>
               </div>
 
               <button
@@ -1665,7 +1685,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                     setTourStep(0);
                   }
                 }}
-                className="w-full bg-sidebar text-white py-3 rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors cursor-pointer"
+                className="w-full bg-sidebar text-white py-2.5 sm:py-3 rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors cursor-pointer"
               >
                 {"Iniciar sesión"}
               </button>
@@ -1798,7 +1818,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
+      {/* Input — symmetric py-3 sm:py-4 intentionally. Do NOT re-introduce
+          env(safe-area-inset-bottom) padding here: on iOS Safari that value
+          stays ~34px even with the keyboard open, which produced a visible
+          gap between the textarea and the keyboard top on real devices.
+          The chat column already contracts with the keyboard via --app-vh
+          (see SidebarContext + (app)/layout.tsx), so no extra absorb is
+          needed. */}
       <div className="bg-white border-t border-gray-200 px-3 sm:px-6 py-3 sm:py-4">
         {isRecording && (
           <div className="flex items-center gap-2 mb-2">
@@ -1845,9 +1871,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 }
               }}
               onKeyDown={handleKeyDown}
-              placeholder={sessionStarted ? "Escribe tu mensaje..." : "Presiona \"Iniciar sesión\" para comenzar"}
+              placeholder={sessionStarted ? "Escribe tu mensaje..." : "Toca \"Iniciar sesión\" para comenzar."}
               rows={1}
-              className={`w-full resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar disabled:bg-gray-100 disabled:text-gray-400 ${voiceMode ? "overflow-y-auto" : "overflow-hidden"}`}
+              className={`w-full resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm placeholder:text-xs sm:placeholder:text-sm focus:outline-none focus:ring-2 focus:ring-sidebar disabled:bg-gray-100 disabled:text-gray-400 ${voiceMode ? "overflow-y-auto" : "overflow-hidden"}`}
               disabled={!sessionStarted}
             />
           </div>
@@ -1886,7 +1912,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             data-send-btn
             onClick={() => sendMessage()}
             disabled={isStreaming || !input.trim()}
-            className="bg-sidebar hover:bg-[#354080] text-white p-3 rounded-xl transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            className="bg-sidebar hover:bg-[#354080] text-white p-3 min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-xl transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             <Send size={18} />
           </button>
