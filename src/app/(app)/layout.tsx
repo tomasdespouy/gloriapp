@@ -133,7 +133,10 @@ export default async function AppLayout({
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen overflow-hidden">
+      {/* Use dynamic viewport height so mobile browsers don't collapse the
+          app when the URL bar / keyboard slides in and out. Falls back
+          gracefully on older browsers via Tailwind's @supports emission. */}
+      <div className="flex h-dvh overflow-hidden">
         <Suspense><NavigationProgress /></Suspense>
         <Sidebar role={role} establishmentLogoUrl={sidebarLogoUrl} activeModules={activeModules} />
         <ContentWrapper>

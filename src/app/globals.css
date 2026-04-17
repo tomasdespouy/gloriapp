@@ -672,3 +672,18 @@ html.a11y-font-xl input[type="password"] {
     scroll-behavior: auto !important;
   }
 }
+
+/* ─── Mobile responsive guards ────────────────────────────────────
+   Defensive rules that prevent accidental horizontal overflow and
+   bouncy overscroll on mobile. Desktop behavior is unaffected. */
+html, body {
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+}
+
+/* Opt-in safe-area helpers. Apply on the specific element that needs
+   notch / home-indicator padding; do not apply globally. */
+.safe-pt { padding-top: env(safe-area-inset-top); }
+.safe-pb { padding-bottom: env(safe-area-inset-bottom); }
+.safe-pl { padding-left: env(safe-area-inset-left); }
+.safe-pr { padding-right: env(safe-area-inset-right); }

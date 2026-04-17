@@ -8,6 +8,10 @@ export const viewport: Viewport = {
   initialScale: 1.0,
   viewportFit: "cover",
   maximumScale: 1,
+  // Android Chrome: when the soft keyboard opens, shrink the layout
+  // viewport (resizes-content) instead of overlaying, so our dvh-based
+  // heights recompute and the chat input stays visible.
+  interactiveWidget: "resizes-content",
 };
 
 export const metadata: Metadata = {

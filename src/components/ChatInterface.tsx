@@ -1308,9 +1308,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
       {/* End session confirmation modal */}
       {showEndConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setShowEndConfirm(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4" onClick={() => setShowEndConfirm(false)}>
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4 animate-pop"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 animate-pop max-h-[calc(100dvh-1.5rem)] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3">
@@ -1377,9 +1377,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
       {/* Voice mode consent modal */}
       {showVoiceConsent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setShowVoiceConsent(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4" onClick={() => setShowVoiceConsent(false)}>
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4 animate-pop"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 animate-pop max-h-[calc(100dvh-1.5rem)] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3">
@@ -1414,8 +1414,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
       {/* Patient disconnected modal */}
       {showDisconnect && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-8 space-y-5 animate-pop text-center">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 space-y-5 animate-pop text-center max-h-[calc(100dvh-1.5rem)] overflow-y-auto">
             {/* Patient photo */}
             <div className="w-20 h-20 rounded-full overflow-hidden mx-auto border-2 border-gray-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1444,8 +1444,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
       {/* Mini tour for first-time users */}
       {showTour && (
-        <div className="fixed inset-0 z-[90] bg-black/40 flex items-start justify-center pt-16" onClick={() => { setShowTour(false); localStorage.setItem("gloria_chat_tour_done", "1"); }}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm mx-4 p-5 animate-pop" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[90] bg-black/40 flex items-start justify-center pt-16 p-3 sm:p-4" onClick={() => { setShowTour(false); localStorage.setItem("gloria_chat_tour_done", "1"); }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 animate-pop max-h-[calc(100dvh-5rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             {/* ─── Step 0 — Barra superior: timer, pausar, finalizar ─── */}
             {tourStep === 0 && (
               <div className="space-y-3">
@@ -1812,6 +1812,18 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 el.style.height = "auto";
                 if (next.length > 0) {
                   el.style.height = Math.min(el.scrollHeight, voiceMode ? 300 : 160) + "px";
+                }
+              }}
+              onFocus={(e) => {
+                // Mobile-only safeguard: when the virtual keyboard opens
+                // on devices without hover, scroll the input into view so
+                // it isn't hidden behind the keyboard. `block:"nearest"`
+                // is a no-op on desktop (already visible).
+                if (window.matchMedia("(hover: none)").matches) {
+                  const el = e.currentTarget;
+                  setTimeout(() => {
+                    el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+                  }, 300);
                 }
               }}
               onKeyDown={handleKeyDown}
