@@ -1226,25 +1226,31 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-2 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-3 flex-shrink-0">
-        {/* Patient video avatar — clickable */}
-        <button
-          onClick={() => setShowVideoModal(true)}
-          className="flex-shrink-0 rounded-full overflow-hidden bg-sidebar w-11 h-11 sm:w-14 sm:h-14 cursor-pointer"
-        >
-          <PatientVideo videoSrc={videoSrc} imageSrc={imageSrc} initials={initials} size={56} />
-        </button>
+      {/* Header
+          Mobile: stacks into 2 rows — (row 1) patient avatar + name,
+          (row 2) session action buttons. Prevents the name from being
+          truncated behind the buttons on narrow phones. Desktop (sm+)
+          keeps the original single horizontal row. */}
+      <header className="bg-white border-b border-gray-200 px-2 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-shrink-0">
+        {/* Row 1 on mobile / left side on desktop: avatar + name */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <button
+            onClick={() => setShowVideoModal(true)}
+            className="flex-shrink-0 rounded-full overflow-hidden bg-sidebar w-11 h-11 sm:w-14 sm:h-14 cursor-pointer"
+          >
+            <PatientVideo videoSrc={videoSrc} imageSrc={imageSrc} initials={initials} size={56} />
+          </button>
 
-        <div className="flex-1 min-w-0">
-          <h2 className="font-bold text-gray-900 truncate text-sm sm:text-base">{patient.name}</h2>
-          <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-            {patient.age} años, {patient.occupation}
-          </p>
+          <div className="flex-1 min-w-0">
+            <h2 className="font-bold text-gray-900 truncate text-sm sm:text-base">{patient.name}</h2>
+            <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+              {patient.age} años, {patient.occupation}
+            </p>
+          </div>
         </div>
 
-        {/* Voice mode toggle + Session timer + End session button — hidden until session starts */}
-        <div className={`flex items-center gap-2 sm:gap-3 flex-shrink-0 ${!sessionStarted ? "invisible" : ""}`}>
+        {/* Row 2 on mobile / right side on desktop: voice toggle + timer + end session. Hidden until session starts. */}
+        <div className={`flex items-center gap-2 sm:gap-3 flex-shrink-0 w-full sm:w-auto justify-between sm:justify-end sm:ml-auto ${!sessionStarted ? "invisible" : ""}`}>
           {/* Notes toggle */}
           <button
             onClick={() => setNotesOpen(!notesOpen)}
@@ -1616,37 +1622,38 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-3 chat-pattern">
         {!sessionStarted && messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center mt-10 sm:mt-16 animate-fade-in px-4">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 max-w-md w-full">
-              {/* Two avatars */}
-              <div className="flex items-center justify-center gap-8 mb-6">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md">
+          <div className="flex flex-col items-center justify-start sm:justify-center mt-2 sm:mt-16 animate-fade-in px-2 sm:px-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-8 max-w-md w-full">
+              {/* Two avatars — tighter layout on mobile so the card fits
+                  above the fold without cropping or stretching. */}
+              <div className="flex items-center justify-center gap-4 sm:gap-8 mb-4 sm:mb-6">
+                <div className="flex flex-col items-center gap-1.5 sm:gap-2 min-w-0">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md flex-shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={imageSrc} alt={patient.name} className="w-full h-full object-cover" />
                   </div>
-                  <p className="text-sm font-medium text-gray-700">{patient.name}</p>
-                  <p className="text-[11px] text-gray-500">{patient.age} {"años"}, {patient.occupation}</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-700 text-center truncate max-w-[9rem]">{patient.name}</p>
+                  <p className="text-[10px] sm:text-[11px] text-gray-500 text-center truncate max-w-[9rem]">{patient.age} {"años"}{patient.occupation ? `, ${patient.occupation}` : ""}</p>
                 </div>
 
-                <div className="w-10 h-px bg-gray-300 -mt-8" />
+                <div className="w-6 sm:w-10 h-px bg-gray-300 -mt-8 flex-shrink-0" />
 
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-1.5 sm:gap-2 min-w-0">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center flex-shrink-0">
                     {userAvatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-2xl font-bold text-sidebar">{userInitials}</span>
+                      <span className="text-xl sm:text-2xl font-bold text-sidebar">{userInitials}</span>
                     )}
                   </div>
-                  <p className="text-sm font-medium text-gray-700">{"Tú"}</p>
-                  <p className="text-[11px] text-gray-500">Terapeuta</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-700 text-center">{"Tú"}</p>
+                  <p className="text-[10px] sm:text-[11px] text-gray-500 text-center">Terapeuta</p>
                 </div>
               </div>
 
               {/* Rules reminder */}
-              <div className="bg-gray-50 rounded-xl p-4 mb-5 space-y-2">
+              <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-4 sm:mb-5 space-y-1.5 sm:space-y-2">
                 <p className="text-xs font-semibold text-gray-700">Antes de comenzar, recuerda:</p>
                 <ul className="text-[11px] text-gray-500 space-y-1.5">
                   <li className="flex gap-2"><span className="text-sidebar font-bold">1.</span> {"Esta es una simulación con fines formativos, no una sesión real."}</li>
@@ -1665,7 +1672,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                     setTourStep(0);
                   }
                 }}
-                className="w-full bg-sidebar text-white py-3 rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors cursor-pointer"
+                className="w-full bg-sidebar text-white py-2.5 sm:py-3 rounded-xl text-sm font-medium hover:bg-[#354080] transition-colors cursor-pointer"
               >
                 {"Iniciar sesión"}
               </button>
