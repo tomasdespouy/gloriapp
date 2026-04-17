@@ -1625,13 +1625,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-3 chat-pattern">
         {!sessionStarted && messages.length === 0 && (
-          <div className="flex flex-col items-center justify-start sm:justify-center mt-0 sm:mt-16 animate-fade-in px-2 sm:px-4">
+          <div className="flex flex-col items-center justify-center animate-fade-in px-2 sm:px-4 py-0 sm:mt-16 min-h-full">
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 sm:p-8 max-w-md w-full">
               {/* Two avatars — compact on mobile so the whole card sits
-                  comfortably above the fold without scrolling. */}
-              <div className="flex items-center justify-center gap-3 sm:gap-8 mb-3 sm:mb-6">
+                  comfortably inside the viewport without scrolling. */}
+              <div className="flex items-center justify-center gap-3 sm:gap-8 mb-2 sm:mb-6">
                 <div className="flex flex-col items-center gap-1 sm:gap-2 min-w-0">
-                  <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md flex-shrink-0">
+                  <div className="w-14 h-14 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-gray-200 shadow-md flex-shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={imageSrc} alt={patient.name} className="w-full h-full object-cover" />
                   </div>
@@ -1639,15 +1639,15 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   <p className="text-[10px] sm:text-[11px] text-gray-500 text-center truncate max-w-[9rem]">{patient.age} {"años"}{patient.occupation ? `, ${patient.occupation}` : ""}</p>
                 </div>
 
-                <div className="w-5 sm:w-10 h-px bg-gray-300 -mt-6 sm:-mt-8 flex-shrink-0" />
+                <div className="w-4 sm:w-10 h-px bg-gray-300 -mt-5 sm:-mt-8 flex-shrink-0" />
 
                 <div className="flex flex-col items-center gap-1 sm:gap-2 min-w-0">
-                  <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-14 h-14 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-sidebar/30 shadow-md bg-sidebar/10 flex items-center justify-center flex-shrink-0">
                     {userAvatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-lg sm:text-2xl font-bold text-sidebar">{userInitials}</span>
+                      <span className="text-base sm:text-2xl font-bold text-sidebar">{userInitials}</span>
                     )}
                   </div>
                   <p className="text-xs sm:text-sm font-medium text-gray-700 text-center truncate max-w-[9rem]">{userName?.trim() || "Tú"}</p>
@@ -1656,9 +1656,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               </div>
 
               {/* Rules reminder */}
-              <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-4 sm:mb-5 space-y-1.5 sm:space-y-2">
+              <div className="bg-gray-50 rounded-xl p-2.5 sm:p-4 mb-3 sm:mb-5 space-y-1 sm:space-y-2">
                 <p className="text-xs font-semibold text-gray-700">Antes de comenzar, recuerda:</p>
-                <ul className="text-[11px] text-gray-500 space-y-1.5">
+                <ul className="text-[11px] text-gray-500 space-y-1 sm:space-y-1.5 leading-snug">
                   <li className="flex gap-2"><span className="text-sidebar font-bold">1.</span> {"Esta es una simulación con fines formativos, no una sesión real."}</li>
                   <li className="flex gap-2"><span className="text-sidebar font-bold">2.</span> {"El paciente reacciona a tus intervenciones como lo haría en la vida real."}</li>
                   <li className="flex gap-2"><span className="text-sidebar font-bold">3.</span> {"Intenta mantener al menos 5 minutos para recibir evaluación."}</li>
@@ -1860,7 +1860,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 }
               }}
               onKeyDown={handleKeyDown}
-              placeholder={sessionStarted ? "Escribe tu mensaje..." : "Presiona \"Iniciar sesión\" para comenzar"}
+              placeholder={sessionStarted ? "Escribe tu mensaje..." : "Toca \"Iniciar sesión\" para comenzar."}
               rows={1}
               className={`w-full resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar disabled:bg-gray-100 disabled:text-gray-400 ${voiceMode ? "overflow-y-auto" : "overflow-hidden"}`}
               disabled={!sessionStarted}

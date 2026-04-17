@@ -31,14 +31,22 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   // so the app layout (which uses `h-[var(--app-vh,100dvh)]`) contracts
   // when the soft keyboard opens. Desktop is unaffected because the
   // variable is never set and the layout falls back to `100dvh`.
-  // Lives here (not in ChatInterface) so ALL authenticated pages share
-  // the behavior, and fixes the previous bug where only the chat wrapper
-  // shrank while its parent kept the pre-keyboard size.
+  //
+  // Also applies a `.app-locked` class to <body> while the user is
+  // inside the (app) layout. Without this, iOS Safari auto-scrolls the
+  // document body when the chat input gains focus, which leaves the
+  // keyboard partially covering the input even when --app-vh is set.
+  // The class pins the body to the viewport (position: fixed); marketing
+  // / landing pages never receive it because SidebarProvider only mounts
+  // under (app)/layout.tsx.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const vv = window.visualViewport;
-    if (!vv) return;
     if (!window.matchMedia("(hover: none)").matches) return;
+    document.body.classList.add("app-locked");
+    const vv = window.visualViewport;
+    if (!vv) {
+      return () => { document.body.classList.remove("app-locked"); };
+    }
     const root = document.documentElement;
     const update = () => { root.style.setProperty("--app-vh", `${vv.height}px`); };
     update();
@@ -48,6 +56,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       vv.removeEventListener("resize", update);
       vv.removeEventListener("scroll", update);
       root.style.removeProperty("--app-vh");
+      document.body.classList.remove("app-locked");
     };
   }, []);
 
