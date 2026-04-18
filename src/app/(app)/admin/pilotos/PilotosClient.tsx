@@ -56,9 +56,16 @@ type Participant = {
   first_login_at: string | null;
   sessions_count: number;
   last_active_at: string | null;
-  // Set to the created_at of the participant's most recent survey_responses
-  // row, or null if they haven't answered the closure survey yet.
+  // Set to the created_at of the participant's most recent COMPLETED
+  // survey_responses row, or null if they haven't answered the closure
+  // survey yet.
   survey_completed_at: string | null;
+  // Set to the created_at of the participant's most recent DECLINED
+  // survey_responses row (status='not_taken' — the "No realizar" button
+  // was pressed), or null. Rendered as an explicit "No realizada" badge
+  // so the superadmin can tell the difference between "never showed up"
+  // and "declined to respond".
+  survey_declined_at: string | null;
 };
 
 type CsvRow = {
@@ -1875,10 +1882,18 @@ function Step4Dashboard({
                     {p.survey_completed_at ? (
                       <span
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700"
-                        title={new Date(p.survey_completed_at).toLocaleString("es-CL")}
+                        title={`Respondida — ${new Date(p.survey_completed_at).toLocaleString("es-CL")}`}
                       >
                         <Check size={10} />
                         {new Date(p.survey_completed_at).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                      </span>
+                    ) : p.survey_declined_at ? (
+                      <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700"
+                        title={`No realizada — ${new Date(p.survey_declined_at).toLocaleString("es-CL")}`}
+                      >
+                        <XCircle size={10} />
+                        No realizada
                       </span>
                     ) : (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
@@ -2307,6 +2322,10 @@ const OPEN_QUESTIONS = [
 function OpenAnswersSection({ pilotId }: { pilotId: string }) {
   const [view, setView] = useState<"cards" | "table">("cards");
   const [rows, setRows] = useState<OpenAnswerRow[]>([]);
+  // Count of participants who pressed "No realizar" — rendered as a
+  // dedicated summary line next to the received-responses count so
+  // declines are visible rather than hidden behind "pending".
+  const [declinedTotal, setDeclinedTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -2324,6 +2343,7 @@ function OpenAnswersSection({ pilotId }: { pilotId: string }) {
       .then((data) => {
         if (cancelled) return;
         setRows((data.rows || []) as OpenAnswerRow[]);
+        setDeclinedTotal((data.declinedTotal as number) || 0);
       })
       .catch((e) => {
         if (cancelled) return;
@@ -2355,6 +2375,11 @@ function OpenAnswersSection({ pilotId }: { pilotId: string }) {
               : rows.length > 0
                 ? `${rows.length} respuesta${rows.length === 1 ? "" : "s"} recibida${rows.length === 1 ? "" : "s"}.`
                 : "Aún no hay respuestas."}
+            {!loading && declinedTotal > 0 && (
+              <span className="ml-2 text-amber-700">
+                · {declinedTotal} no realizada{declinedTotal === 1 ? "" : "s"}
+              </span>
+            )}
           </p>
         </div>
 
