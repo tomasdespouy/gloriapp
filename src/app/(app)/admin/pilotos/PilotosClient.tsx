@@ -1776,10 +1776,20 @@ type ReportData = {
   top_areas: { text: string; count: number }[];
 };
 
+type GeneratedReport = {
+  id: string;
+  variant: "named" | "anonymous";
+  file_path: string;
+  file_size_bytes: number | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  public_url: string;
+};
+
 function Step5Report({ pilot }: { pilot: Pilot | null }) {
-  const [downloading, setDownloading] = useState(false);
-  const [sendingReport, setSendingReport] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [generating, setGenerating] = useState<null | "named" | "anonymous">(null);
+  const [reports, setReports] = useState<GeneratedReport[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
 
@@ -1804,6 +1814,21 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
     };
   }, [pilot]);
 
+  // Fetch historical generated reports list
+  const refreshReports = useCallback(async () => {
+    if (!pilot) return;
+    setLoadingReports(true);
+    try {
+      const res = await fetch(`/api/admin/pilots/${pilot.id}/reports`);
+      if (res.ok) setReports(await res.json());
+    } finally {
+      setLoadingReports(false);
+    }
+  }, [pilot]);
+  useEffect(() => {
+    refreshReports();
+  }, [refreshReports]);
+
   if (!pilot) return null;
 
   const participants: Participant[] = (pilot as Pilot & { participants?: Participant[] }).participants || [];
@@ -1822,28 +1847,36 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
     ? Math.round((students.filter((p) => (p.sessions_count || 0) > 0).length / students.length) * 100)
     : 0;
 
-  const handleDownloadPDF = async () => {
-    setDownloading(true);
+  const handleGenerate = async (variant: "named" | "anonymous") => {
+    setGenerating(variant);
     try {
-      const { generatePilotReportPDF } = await import("@/lib/generate-pilot-report");
-      await generatePilotReportPDF(pilot.id);
+      const res = await fetch(`/api/admin/pilots/${pilot.id}/report/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ variant }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        alert("Error al generar el informe: " + (err?.error || res.status));
+        return;
+      }
+      const newReport: GeneratedReport = await res.json();
+      setReports((prev) => [newReport, ...prev]);
+      window.open(newReport.public_url, "_blank");
     } catch (err) {
-      console.error("PDF generation error:", err);
-      alert("Error al generar el PDF: " + (err instanceof Error ? err.message : "desconocido"));
+      alert("Error: " + (err instanceof Error ? err.message : "desconocido"));
     } finally {
-      setDownloading(false);
+      setGenerating(null);
     }
   };
 
-  const handleSendReport = async () => {
-    if (!pilot.contact_email) {
-      alert("No hay email de contacto configurado para este piloto.");
-      return;
-    }
-    setSendingReport(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setSendingReport(false);
-    setSent(true);
+  const handleDeleteReport = async (reportId: string) => {
+    if (!confirm("¿Eliminar este informe? No se puede recuperar el archivo.")) return;
+    const res = await fetch(
+      `/api/admin/pilots/${pilot.id}/reports?reportId=${reportId}`,
+      { method: "DELETE" },
+    );
+    if (res.ok) setReports((prev) => prev.filter((r) => r.id !== reportId));
   };
 
   return (
@@ -1859,20 +1892,20 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={handleDownloadPDF}
-              disabled={downloading}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-              Descargar PDF
-            </button>
-            <button
-              onClick={handleSendReport}
-              disabled={sendingReport || sent}
+              onClick={() => handleGenerate("named")}
+              disabled={!!generating}
               className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              {sendingReport ? <Loader2 size={14} className="animate-spin" /> : sent ? <Check size={14} /> : <Send size={14} />}
-              {sent ? "Informe enviado" : "Enviar informe"}
+              {generating === "named" ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+              Generar informe (con nombres)
+            </button>
+            <button
+              onClick={() => handleGenerate("anonymous")}
+              disabled={!!generating}
+              className="flex items-center gap-2 px-4 py-2 border border-sidebar text-sidebar rounded-lg text-xs font-medium hover:bg-sidebar/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {generating === "anonymous" ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+              Generar anonimizado
             </button>
           </div>
         </div>
@@ -1896,6 +1929,67 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
             <p className="text-[10px] text-gray-500 mt-1">Sesiones totales</p>
           </div>
         </div>
+      </div>
+
+      {/* Informes generados — historial de DOCX persistidos */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Informes generados</h3>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              Cada vez que presionás &ldquo;Generar informe&rdquo; se guarda un archivo .docx acá. Podés
+              volver a descargarlo o eliminarlo.
+            </p>
+          </div>
+          {loadingReports && <Loader2 size={14} className="animate-spin text-gray-400" />}
+        </div>
+
+        {reports.length === 0 && !loadingReports ? (
+          <p className="text-xs text-gray-400 text-center py-4">
+            Aún no hay informes generados para este piloto.
+          </p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {reports.map((r) => {
+              const kb = r.file_size_bytes ? Math.round(r.file_size_bytes / 1024) : 0;
+              return (
+                <li key={r.id} className="flex items-center gap-3 py-2.5">
+                  <FileText size={16} className="text-sidebar flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-900 truncate">
+                      Informe {r.variant === "anonymous" ? "anonimizado" : "con nombres"}
+                    </p>
+                    <p className="text-[10px] text-gray-400">
+                      {new Date(r.created_at).toLocaleString("es-CL", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                      {kb > 0 && ` · ${kb} KB`}
+                    </p>
+                  </div>
+                  <a
+                    href={r.public_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-sidebar hover:bg-sidebar/5 rounded-md cursor-pointer"
+                  >
+                    <Download size={12} /> Descargar
+                  </a>
+                  <button
+                    onClick={() => handleDeleteReport(r.id)}
+                    className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-md cursor-pointer"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       {/* Competency averages */}
