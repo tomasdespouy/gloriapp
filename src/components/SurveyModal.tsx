@@ -539,14 +539,15 @@ function Field({
 // ─────────────────────────────────────────────────────────────────────
 // V2 pilot questionnaire (2026-04)
 //
-// Numbered 7..16 correlatively, matching the spec shared by the product
-// owner. Questions 1..6 (demographics + consent) are already captured at
-// pilot enrollment, same as v1.
+// User-facing numbering runs 1..10 correlatively (5 Likert sections +
+// 5 open questions). Demographics + consent are captured at pilot
+// enrollment, same as v1, so they are not re-asked here.
 //
-// Payload shape (stable — DO NOT rename these keys, analytics depend on them):
-//   q7_usabilidad, q8_realismo, q9_pertinencia, q10_diseno,
-//   q11_satisfaccion, q12_mas_gusto, q13_menos_gusto, q14_cambio,
-//   q15_incomodidad, q16_comentarios
+// Payload shape (stable — DO NOT rename these keys, analytics depend on
+// them): q7_usabilidad, q8_realismo, q9_pertinencia, q10_diseno,
+// q11_satisfaccion, q12_mas_gusto, q13_menos_gusto, q14_cambio,
+// q15_incomodidad, q16_comentarios. The q7..q16 key offset is
+// historical — kept as-is so reports/exports don't need a rename.
 // ─────────────────────────────────────────────────────────────────────
 
 const V2_USABILIDAD_ITEMS = [
@@ -624,11 +625,11 @@ function SurveyModalV2({
 
   function validateStep0(): string | null {
     const groups: [string, LikertScores, { key: string; label: string }[]][] = [
-      ["7. Usabilidad y navegación", q7, V2_USABILIDAD_ITEMS],
-      ["8. Realismo Clínico", q8, V2_REALISMO_ITEMS],
-      ["9. Pertinencia cultural y contextual", q9, V2_PERTINENCIA_ITEMS],
-      ["10. Diseño, interfaz y funcionamiento técnico", q10, V2_DISENO_ITEMS],
-      ["11. Satisfacción global e intención de uso futuro", q11, V2_SATISFACCION_ITEMS],
+      ["1. Usabilidad y navegación", q7, V2_USABILIDAD_ITEMS],
+      ["2. Realismo Clínico", q8, V2_REALISMO_ITEMS],
+      ["3. Pertinencia cultural y contextual", q9, V2_PERTINENCIA_ITEMS],
+      ["4. Diseño, interfaz y funcionamiento técnico", q10, V2_DISENO_ITEMS],
+      ["5. Satisfacción global e intención de uso futuro", q11, V2_SATISFACCION_ITEMS],
     ];
     for (const [group, scores, items] of groups) {
       for (const item of items) {
@@ -639,10 +640,10 @@ function SurveyModalV2({
   }
 
   function validateStep1(): string | null {
-    if (!q12.trim()) return "Cuéntanos qué te gustó más (pregunta 12).";
-    if (!q13.trim()) return "Cuéntanos qué te gustó menos (pregunta 13).";
-    if (!q14.trim()) return "Cuéntanos qué cambiarías (pregunta 14).";
-    if (!q15.trim()) return "Cuéntanos si hubo algo que te generó incomodidad (pregunta 15).";
+    if (!q12.trim()) return "Cuéntanos qué te gustó más (pregunta 6).";
+    if (!q13.trim()) return "Cuéntanos qué te gustó menos (pregunta 7).";
+    if (!q14.trim()) return "Cuéntanos qué cambiarías (pregunta 8).";
+    if (!q15.trim()) return "Cuéntanos si hubo algo que te generó incomodidad (pregunta 9).";
     return null;
   }
 
@@ -759,35 +760,35 @@ function SurveyModalV2({
               {step === 0 ? (
                 <div className="space-y-8">
                   <LikertGrid
-                    title="7. [Usabilidad y navegación]"
+                    title="1. [Usabilidad y navegación]"
                     subtitle="1 = Totalmente en desacuerdo, 5 = Totalmente de acuerdo."
                     items={V2_USABILIDAD_ITEMS}
                     scores={q7}
                     onChange={(k, v) => setQ7({ ...q7, [k]: v })}
                   />
                   <LikertGrid
-                    title="8. [Realismo Clínico]"
+                    title="2. [Realismo Clínico]"
                     subtitle="1 = Totalmente en desacuerdo, 5 = Totalmente de acuerdo."
                     items={V2_REALISMO_ITEMS}
                     scores={q8}
                     onChange={(k, v) => setQ8({ ...q8, [k]: v })}
                   />
                   <LikertGrid
-                    title="9. [Pertinencia cultural y contextual]"
+                    title="3. [Pertinencia cultural y contextual]"
                     subtitle="1 = Totalmente en desacuerdo, 5 = Totalmente de acuerdo."
                     items={V2_PERTINENCIA_ITEMS}
                     scores={q9}
                     onChange={(k, v) => setQ9({ ...q9, [k]: v })}
                   />
                   <LikertGrid
-                    title="10. [Diseño, interfaz y funcionamiento técnico]"
+                    title="4. [Diseño, interfaz y funcionamiento técnico]"
                     subtitle="1 = Totalmente en desacuerdo, 5 = Totalmente de acuerdo."
                     items={V2_DISENO_ITEMS}
                     scores={q10}
                     onChange={(k, v) => setQ10({ ...q10, [k]: v })}
                   />
                   <LikertGrid
-                    title="11. [Satisfacción global e intención de uso futuro]"
+                    title="5. [Satisfacción global e intención de uso futuro]"
                     subtitle="1 = Totalmente en desacuerdo, 5 = Totalmente de acuerdo."
                     items={V2_SATISFACCION_ITEMS}
                     scores={q11}
@@ -796,19 +797,19 @@ function SurveyModalV2({
                 </div>
               ) : (
                 <div className="space-y-5">
-                  <Field label="12. ¿Qué es lo que MÁS te gustó de usar la plataforma Glor-IA?" required>
+                  <Field label="6. ¿Qué es lo que MÁS te gustó de usar la plataforma Glor-IA?" required>
                     <textarea value={q12} onChange={(e) => setQ12(e.target.value)} rows={3} className={`${inputCls} resize-none`} />
                   </Field>
-                  <Field label="13. ¿Qué es lo que MENOS te gustó o qué problemas/dificultades encontraste al usarla?" required>
+                  <Field label="7. ¿Qué es lo que MENOS te gustó o qué problemas/dificultades encontraste al usarla?" required>
                     <textarea value={q13} onChange={(e) => setQ13(e.target.value)} rows={3} className={`${inputCls} resize-none`} />
                   </Field>
-                  <Field label="14. Si pudieras cambiar o agregar UNA cosa a Glor-IA, ¿qué sería?" required>
+                  <Field label="8. Si pudieras cambiar o agregar UNA cosa a Glor-IA, ¿qué sería?" required>
                     <textarea value={q14} onChange={(e) => setQ14(e.target.value)} rows={3} className={`${inputCls} resize-none`} />
                   </Field>
-                  <Field label="15. Durante la interacción con el paciente simulado, ¿hubo algo que te generó incomodidad emocional o piensas que dificultó tu aprendizaje?" required>
+                  <Field label="9. Durante la interacción con el paciente simulado, ¿hubo algo que te generó incomodidad emocional o piensas que dificultó tu aprendizaje?" required>
                     <textarea value={q15} onChange={(e) => setQ15(e.target.value)} rows={3} className={`${inputCls} resize-none`} />
                   </Field>
-                  <Field label="16. [Opcional] Si quieres puedes dejar alguna consulta o comentario en este espacio">
+                  <Field label="10. [Opcional] Si quieres puedes dejar alguna consulta o comentario en este espacio">
                     <textarea value={q16} onChange={(e) => setQ16(e.target.value)} rows={2} className={`${inputCls} resize-none`} />
                   </Field>
                 </div>
