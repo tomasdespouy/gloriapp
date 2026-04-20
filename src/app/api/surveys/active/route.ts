@@ -92,6 +92,15 @@ export async function GET() {
   // Filter surveys by scope and not yet responded
   const applicable = (surveys || []).filter(s => {
     if (respondedIds.has(s.id)) return false;
+    // Retire the legacy UGM v1 questionnaire from the active flow
+    // entirely. Only form_version='v2_pilot' is eligible to appear in
+    // the modal. Legacy rows (form_version IS NULL) remain in the DB
+    // for historical responses and admin review (listings, exports),
+    // but they never reach students again. This is belt+suspenders on
+    // top of the 20260418120000_disable_legacy_surveys migration — if
+    // anyone flips a legacy row back to is_active=true from the
+    // dashboard, the endpoint still refuses to show it.
+    if (s.form_version !== "v2_pilot") return false;
     // Pilot-scoped survey: only visible to pilot participants of that
     // same pilot, regardless of their establishment/country/course.
     if (s.pilot_id) {
@@ -110,6 +119,25 @@ export async function GET() {
     return false;
   });
 
+  // Priority ordering — SurveyModal picks data[0], so the first item must
+  // be the most relevant survey for this user. Without this, legacy
+  // establishment-scoped surveys (is_active=true, pilot_id=null) created
+  // in prior months can outrank a brand-new v2_pilot survey for the
+  // user's actual pilot, and the student sees the old questionnaire.
+  applicable.sort((a, b) => {
+    // 1) Survey of a pilot the user currently belongs to wins over any
+    //    non-pilot or other-pilot survey.
+    const aIsMyPilot = !!(a.pilot_id && userPilotIds.has(a.pilot_id));
+    const bIsMyPilot = !!(b.pilot_id && userPilotIds.has(b.pilot_id));
+    if (aIsMyPilot !== bIsMyPilot) return aIsMyPilot ? -1 : 1;
+    // 2) Newer questionnaire version (v2_pilot) wins over legacy (NULL).
+    const aIsV2 = a.form_version === "v2_pilot";
+    const bIsV2 = b.form_version === "v2_pilot";
+    if (aIsV2 !== bIsV2) return aIsV2 ? -1 : 1;
+    // 3) Fallback: most recently created first (deterministic).
+    return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+  });
+
   return NextResponse.json(applicable);
 }
 
@@ -119,10 +147,28 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const body = await request.json();
-  const { survey_id, nps_score, positives, improvements, comments, answers } = body;
+  const { survey_id, nps_score, positives, improvements, comments, answers, decline } = body;
 
   if (!survey_id) {
     return NextResponse.json({ error: "survey_id es requerido" }, { status: 400 });
+  }
+
+  // Decline path: student pressed "No realizar". We persist an explicit
+  // row with status='not_taken' so superadmin can distinguish this from
+  // "still pending" — no answers, no NPS, just the intent.
+  if (decline === true) {
+    const { error } = await supabase.from("survey_responses").insert({
+      survey_id,
+      user_id: user.id,
+      nps_score: null,
+      positives: null,
+      improvements: null,
+      comments: null,
+      answers: null,
+      status: "not_taken",
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true, status: "not_taken" });
   }
 
   // Accept both legacy NPS payload and new flexible JSONB answers payload.
@@ -171,6 +217,7 @@ export async function POST(request: Request) {
     improvements: improvements || null,
     comments: comments || null,
     answers: enrichedAnswers ?? answers ?? null,
+    status: "completed",
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

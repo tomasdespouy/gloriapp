@@ -19,6 +19,10 @@ type Props = {
   sections: Section[];
   nps: number;
   totalResponses: number;
+  /** Count of survey_responses rows with status='not_taken' (students
+      who pressed "No realizar"). Surfaced as a dedicated overview card
+      so declines don't get lumped in with pending/completed. */
+  declinedCount: number;
   isSuperadmin: boolean;
 };
 
@@ -155,7 +159,7 @@ function ResponseCard({ response: r }: { response: Response }) {
   );
 }
 
-export default function RetroClient({ surveys, responses, establishments, courses, sections, nps, totalResponses, isSuperadmin }: Props) {
+export default function RetroClient({ surveys, responses, establishments, courses, sections, nps, totalResponses, declinedCount, isSuperadmin }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<"overview" | "surveys" | "create">("overview");
   const [yearFilter, setYearFilter] = useState("");
@@ -226,7 +230,7 @@ export default function RetroClient({ surveys, responses, establishments, course
             </div>
 
             {/* NPS cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
                 <p className={`text-4xl font-bold ${fNps >= 50 ? "text-green-600" : fNps >= 0 ? "text-amber-600" : "text-red-600"}`}>{fNps}</p>
                 <p className="text-xs text-gray-400 mt-1">NPS Score</p>
@@ -238,6 +242,13 @@ export default function RetroClient({ surveys, responses, establishments, course
               <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
                 <p className="text-4xl font-bold text-sidebar">{filteredScores.length}</p>
                 <p className="text-xs text-gray-400 mt-1">Respuestas</p>
+              </div>
+              <div
+                className="bg-white rounded-2xl border border-gray-200 p-5 text-center"
+                title="Estudiantes que presionaron 'No realizar' en la encuesta (distinto de 'pendiente')"
+              >
+                <p className="text-4xl font-bold text-amber-600">{declinedCount}</p>
+                <p className="text-xs text-gray-400 mt-1">No realizada</p>
               </div>
               <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
                 <div className="flex justify-center gap-1 mb-1">

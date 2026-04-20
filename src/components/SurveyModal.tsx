@@ -54,7 +54,30 @@ export default function SurveyModal({
   const [sent, setSent] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [sending, setSending] = useState(false);
+  const [declining, setDeclining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Persist an explicit "No realizar" decline. POSTs {decline: true} so
+  // the server writes a survey_responses row with status='not_taken';
+  // superadmin can count declines separately from silent non-respondents.
+  // Hides the modal regardless of network outcome — a failed decline
+  // still honors the user's UI intent to dismiss.
+  async function declineSurvey(surveyId: string) {
+    if (declining) return;
+    setDeclining(true);
+    try {
+      await fetch("/api/surveys/active", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ survey_id: surveyId, decline: true }),
+      });
+    } catch {
+      // Silent: network failure shouldn't block the user from closing.
+    } finally {
+      setDeclining(false);
+      setDismissed(true);
+    }
+  }
 
   // Tracks whether the welcome video has been dismissed in this
   // browser session. Starts as the server truth, flips to true when
@@ -195,7 +218,14 @@ export default function SurveyModal({
   // was seeded with form_version='v2_pilot'. Legacy surveys (NULL) keep
   // rendering the original v1 form below, unchanged.
   if (survey.form_version === "v2_pilot") {
-    return <SurveyModalV2 survey={survey} onDismiss={() => setDismissed(true)} />;
+    return (
+      <SurveyModalV2
+        survey={survey}
+        onDismiss={() => setDismissed(true)}
+        onDecline={() => declineSurvey(survey.id)}
+        declining={declining}
+      />
+    );
   }
 
   return (
@@ -298,10 +328,11 @@ export default function SurveyModal({
               )}
               <div className="flex items-center justify-between gap-3">
                 <button
-                  onClick={() => setDismissed(true)}
-                  className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer"
+                  onClick={() => declineSurvey(survey.id)}
+                  disabled={declining}
+                  className="text-xs text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  Ahora no
+                  {declining ? "Registrando…" : "No realizar"}
                 </button>
                 <div className="flex items-center gap-2">
                   {step > 0 && (
@@ -561,9 +592,19 @@ const V2_SATISFACCION_ITEMS = [
 function SurveyModalV2({
   survey,
   onDismiss,
+  onDecline,
+  declining,
 }: {
   survey: Survey;
+  /** Close without recording anything — used by the X header button
+      so the student can hide the modal temporarily and see it again
+      on next navigation. */
   onDismiss: () => void;
+  /** Persist an explicit "No realizar" decline in survey_responses
+      with status='not_taken'. Irreversible from UI. */
+  onDecline: () => void;
+  /** True while the decline POST is in flight. */
+  declining: boolean;
 }) {
   const [step, setStep] = useState<0 | 1>(0);
   const [sent, setSent] = useState(false);
@@ -781,8 +822,12 @@ function SurveyModalV2({
                 </div>
               )}
               <div className="flex items-center justify-between gap-3">
-                <button onClick={onDismiss} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">
-                  Ahora no
+                <button
+                  onClick={onDecline}
+                  disabled={declining}
+                  className="text-xs text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {declining ? "Registrando…" : "No realizar"}
                 </button>
                 <div className="flex items-center gap-2">
                   {step > 0 && (

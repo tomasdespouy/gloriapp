@@ -44,15 +44,31 @@ export default async function RetroalimentacionPage() {
     }
   }
 
+  // Main list: actual answered surveys only. Declines (status='not_taken',
+  // "No realizada") are counted separately via declinedCountQ below so
+  // they don't pollute NPS, charts or the recent-responses list.
   let responsesQ = admin
     .from("survey_responses")
     .select(
       "*, profiles!survey_responses_user_id_fkey(full_name, establishment_id, course_id, section_id)"
     )
+    .eq("status", "completed")
     .order("created_at", { ascending: false });
   if (!isSuperadmin) {
     const ids = scopedUserIds && scopedUserIds.length > 0 ? scopedUserIds : [SAFE_EMPTY_ID];
     responsesQ = responsesQ.in("user_id", ids);
+  }
+
+  // Parallel count of "No realizada" rows scoped the same way. Rendered
+  // in RetroClient's overview so admins can see declines as a distinct
+  // bucket from pending/completed.
+  let declinedCountQ = admin
+    .from("survey_responses")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "not_taken");
+  if (!isSuperadmin) {
+    const ids = scopedUserIds && scopedUserIds.length > 0 ? scopedUserIds : [SAFE_EMPTY_ID];
+    declinedCountQ = declinedCountQ.in("user_id", ids);
   }
 
   let establishmentsQ = admin
@@ -79,7 +95,8 @@ export default async function RetroalimentacionPage() {
     { data: responses },
     { data: establishments },
     { data: courses },
-  ] = await Promise.all([surveysQ, responsesQ, establishmentsQ, coursesQ]);
+    { count: declinedCount },
+  ] = await Promise.all([surveysQ, responsesQ, establishmentsQ, coursesQ, declinedCountQ]);
 
   // Sections: filter by the resolved courses (depends on courses query result)
   const allowedCourseIds = (courses || []).map((c) => c.id);
@@ -122,6 +139,7 @@ export default async function RetroalimentacionPage() {
       sections={sections || []}
       nps={nps}
       totalResponses={(responses || []).length}
+      declinedCount={declinedCount || 0}
       isSuperadmin={isSuperadmin}
     />
   );
