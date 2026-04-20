@@ -1,0 +1,45 @@
+-- ============================================================
+-- Migration: let pilot participants read their own membership row
+-- Date: 2026-04-20
+--
+-- Problem:
+--   /api/surveys/active runs as the authenticated user and queries
+--   pilot_participants to determine which pilot-scoped surveys apply:
+--
+--     const { data: pilotRows } = await supabase
+--       .from("pilot_participants")
+--       .select("pilot_id")
+--       .eq("user_id", user.id);
+--
+--   The only RLS policy on pilot_participants is "Superadmin full
+--   access" (see 20260318010000_pilots.sql:47). A regular student
+--   therefore reads zero rows and userPilotIds is empty — which makes
+--   EVERY pilot-scoped survey filter out as "not in user's pilots",
+--   and the modal never appears. The bug only became visible once
+--   legacy establishment-scoped surveys were retired
+--   (20260418120000_disable_legacy_surveys.sql), because those masked
+--   the missing pilot-path: students saw those via their profile's
+--   establishment_id (which has its own RLS) without ever going through
+--   pilot_participants.
+--
+-- Fix:
+--   Additive SELECT policy: a user can read their own pilot_participants
+--   row (user_id = auth.uid()). Does NOT allow INSERT/UPDATE/DELETE —
+--   only the existing superadmin policy can mutate. Rows where user_id
+--   IS NULL (pre-enrollment invitations not yet bound to an account)
+--   remain superadmin-only.
+--
+-- Compatibility:
+--   • Superadmin policy unchanged — still has full access.
+--   • Instructors and other roles: unchanged unless their auth.uid()
+--     matches a user_id, in which case they see their own row — which
+--     is the intended semantic.
+--   • No data modified; only a permission grant.
+--
+-- Rollback:
+--   DROP POLICY "Participants view own row" ON public.pilot_participants;
+-- ============================================================
+
+CREATE POLICY "Participants view own row"
+  ON public.pilot_participants FOR SELECT TO authenticated
+  USING (user_id = auth.uid());
