@@ -92,6 +92,15 @@ export async function GET() {
   // Filter surveys by scope and not yet responded
   const applicable = (surveys || []).filter(s => {
     if (respondedIds.has(s.id)) return false;
+    // Retire the legacy UGM v1 questionnaire from the active flow
+    // entirely. Only form_version='v2_pilot' is eligible to appear in
+    // the modal. Legacy rows (form_version IS NULL) remain in the DB
+    // for historical responses and admin review (listings, exports),
+    // but they never reach students again. This is belt+suspenders on
+    // top of the 20260418120000_disable_legacy_surveys migration — if
+    // anyone flips a legacy row back to is_active=true from the
+    // dashboard, the endpoint still refuses to show it.
+    if (s.form_version !== "v2_pilot") return false;
     // Pilot-scoped survey: only visible to pilot participants of that
     // same pilot, regardless of their establishment/country/course.
     if (s.pilot_id) {

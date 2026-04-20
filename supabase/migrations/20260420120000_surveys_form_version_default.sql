@@ -1,0 +1,37 @@
+-- ============================================================
+-- Migration: default new surveys to form_version='v2_pilot'
+-- Date: 2026-04-20
+--
+-- Problem:
+--   The surveys.form_version column was added as NULLABLE without a
+--   default (see 20260416120000_surveys_form_version.sql). Any INSERT
+--   that omits the column — from the dashboard SQL editor, an ad-hoc
+--   script, or a future endpoint that forgets to pass it — lands a row
+--   with form_version=NULL, which the application interprets as the
+--   retired legacy UGM v1 questionnaire. Mixing live legacy rows with
+--   active v2_pilot rows is exactly the failure mode that caused the
+--   UBO pilot to receive the wrong form. Both /api/admin/pilots and
+--   /api/admin/surveys already pass 'v2_pilot' explicitly, but a
+--   schema-level guardrail prevents a future regression if someone
+--   bypasses those endpoints.
+--
+-- Fix:
+--   Set the column DEFAULT to 'v2_pilot'. Applies only to NEW inserts
+--   that omit the column; historical rows (with NULL) are untouched,
+--   preserving their "legacy" classification and their responses.
+--
+-- Compatibility:
+--   • No existing row is modified — DEFAULT only fires on missing
+--     values for new inserts.
+--   • Existing NULL rows stay NULL (intentional — they are legacy).
+--   • form_version remains NULLABLE so legacy rows can keep their NULL.
+--   • /api/surveys/active already filters form_version !== 'v2_pilot'
+--     out of the active flow, so even if someone deliberately inserts
+--     a NULL row again, students never see it.
+--
+-- Rollback:
+--   ALTER TABLE public.surveys ALTER COLUMN form_version DROP DEFAULT;
+-- ============================================================
+
+ALTER TABLE public.surveys
+  ALTER COLUMN form_version SET DEFAULT 'v2_pilot';
