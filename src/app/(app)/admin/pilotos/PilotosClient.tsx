@@ -74,21 +74,23 @@ type CsvRow = {
   role: string;
 };
 
-type ValidationError = {
-  row: number;
-  field: string;
-  message: string;
-};
-
 // ────────────────────────────────────────────
 // Constants
 // ────────────────────────────────────────────
 
+// The raw DB status values are kept for backwards compat. User-facing
+// labels reflect the 2026-04-20 simplification:
+//   · enviado is now shown as "Activo" — the canonical enrolment flow is
+//     the public link, not CSV-driven email invites, so a pilot in this
+//     state is simply "turned on" rather than "just emailed".
+//   · en_curso is retired: no code sets it. Legacy rows would still map
+//     through STATUS_LABELS via the raw key if any turn up.
+//   · validado is kept only for legacy pilots created before the CSV
+//     validation step was removed from the wizard.
 const STATUS_COLORS: Record<string, string> = {
   borrador: "bg-gray-100 text-gray-700",
   validado: "bg-blue-100 text-blue-700",
-  enviado: "bg-purple-100 text-purple-700",
-  en_curso: "bg-green-100 text-green-700",
+  enviado: "bg-green-100 text-green-700",
   finalizado: "bg-amber-100 text-amber-700",
   cancelado: "bg-red-100 text-red-600",
 };
@@ -96,8 +98,7 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   borrador: "Borrador",
   validado: "Validado",
-  enviado: "Enviado",
-  en_curso: "En curso",
+  enviado: "Activo",
   en_desarrollo: "En desarrollo",
   finalizado: "Finalizado",
   cancelado: "Cancelado",
@@ -184,23 +185,7 @@ export default function PilotosClient({
   const [csvError, setCsvError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Step 2 state
-  const [validating, setValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<{
-    valid_count: number;
-    error_count: number;
-    errors: ValidationError[];
-  } | null>(null);
-
-  // Step 3 state
-  const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<{
-    total: number;
-    success: number;
-    failed: number;
-  } | null>(null);
-
-  // Step 4 state
+  // Dashboard state
   const [dashboardData, setDashboardData] = useState<Pilot | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -222,8 +207,6 @@ export default function PilotosClient({
     setCsvRows([]);
     setFormData({ name: "", institution: "", country: "", contact_name: "", contact_email: "", scheduled_at: "", ended_at: "", establishment_id: "", logo_url: "" });
     setCsvError("");
-    setValidationResult(null);
-    setSendResult(null);
     setDashboardData(null);
   };
 
@@ -254,7 +237,7 @@ export default function PilotosClient({
         setStep(STEP_CONSENTIMIENTO);
       } else if (data.status === "validado") {
         setStep(STEP_CORREO);
-      } else if (data.status === "enviado" || data.status === "en_curso") {
+      } else if (data.status === "enviado") {
         setStep(STEP_DASHBOARD);
       } else if (data.status === "finalizado") {
         setStep(STEP_INFORME);
@@ -400,55 +383,26 @@ export default function PilotosClient({
     setCreating(false);
   };
 
-  // ────────────────────────────────
-  // Step 2: Validate
-  // ────────────────────────────────
-
-  const handleValidate = async () => {
+  // Activate a pilot: transitions status to 'enviado' (UI label: "Activo")
+  // without sending any email. The old "Enviar invitaciones" button set
+  // the same status as a side-effect of emailing the CSV roster, but the
+  // canonical onboarding flow is the public enrolment link, so there is
+  // no roster to mail. Admin still needs a way to flip a pilot from
+  // borrador/validado into active, hence this explicit action.
+  const handleActivate = async () => {
     if (!selectedPilot) return;
-    setValidating(true);
-    setValidationResult(null);
-
-    const res = await fetch(`/api/admin/pilots/${selectedPilot.id}/validate`, {
-      method: "POST",
+    const res = await fetch(`/api/admin/pilots/${selectedPilot.id}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows: csvRows }),
+      body: JSON.stringify({ status: "enviado" }),
     });
-
     if (res.ok) {
-      const data = await res.json();
-      setValidationResult(data);
-    }
-    setValidating(false);
-  };
-
-  // ────────────────────────────────
-  // Step 3: Send invites
-  // ────────────────────────────────
-
-  const handleSendInvites = async (customBody?: string) => {
-    if (!selectedPilot) return;
-    setSending(true);
-    setSendResult(null);
-
-    const res = await fetch(`/api/admin/pilots/${selectedPilot.id}/send-invites`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ customBody: customBody || undefined }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      setSendResult(data);
-      // Refresh pilot data and land on the Dashboard tab so the admin can
-      // watch participants connect.
       await openPilot(selectedPilot, STEP_DASHBOARD);
     }
-    setSending(false);
   };
 
   // ────────────────────────────────
-  // Step 4: Dashboard refresh
+  // Dashboard refresh
   // ────────────────────────────────
 
   const refreshDashboard = useCallback(async () => {
@@ -710,13 +664,7 @@ export default function PilotosClient({
           </div>
         )}
 
-        {step === STEP_CORREO && <Step3Preview
-          pilot={selectedPilot}
-          sending={sending}
-          sendResult={sendResult}
-          onSend={handleSendInvites}
-          onNext={() => setStep(STEP_DASHBOARD)}
-        />}
+        {step === STEP_CORREO && <Step3Preview pilot={selectedPilot} />}
 
         {step === STEP_INSTITUCION && <Step1Upload
           formData={formData}
@@ -744,6 +692,7 @@ export default function PilotosClient({
             refreshing={refreshing}
             onRefresh={refreshDashboard}
             onResetParticipant={handleResetParticipant}
+            onActivate={handleActivate}
             onFinalize={async () => {
               if (!selectedPilot) return;
               const res = await fetch(`/api/admin/pilots/${selectedPilot.id}`, {
@@ -1202,214 +1151,6 @@ function Step1Upload({
 }
 
 // ════════════════════════════════════════════
-// Step 2: Validate
-// ════════════════════════════════════════════
-
-function Step2Validate({
-  csvRows, setCsvRows, validating, validationResult, onValidate, onNext,
-}: {
-  csvRows: CsvRow[];
-  setCsvRows: (rows: CsvRow[]) => void;
-  validating: boolean;
-  validationResult: { valid_count: number; error_count: number; errors: ValidationError[] } | null;
-  onValidate: () => void;
-  onNext: () => void;
-}) {
-  const [editIdx, setEditIdx] = useState<number | null>(null);
-  const [editRow, setEditRow] = useState<CsvRow>({ email: "", full_name: "", role: "student" });
-
-  const startEdit = (i: number) => { setEditIdx(i); setEditRow({ ...csvRows[i] }); };
-  const saveEdit = () => {
-    if (editIdx === null) return;
-    const updated = [...csvRows];
-    updated[editIdx] = { ...editRow, email: editRow.email.trim().toLowerCase() };
-    setCsvRows(updated);
-    setEditIdx(null);
-  };
-  const removeRow = (i: number) => setCsvRows(csvRows.filter((_, idx) => idx !== i));
-
-  return (
-    <div className="space-y-6 max-w-4xl">
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-900">Validación de datos</h3>
-          <button
-            onClick={onValidate}
-            disabled={validating}
-            className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {validating ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-            {validating ? "Validando..." : "Validar datos"}
-          </button>
-        </div>
-
-        {/* Pre-validation summary */}
-        {!validationResult && (
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-700 mb-3">
-                Se validarán <strong>{csvRows.length} participantes</strong> — verificando formato de email, duplicados y existencia en la base de datos.
-              </p>
-              <div className="border border-gray-200 rounded-lg overflow-hidden max-h-[300px] overflow-y-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="text-left px-3 py-2 text-gray-500 font-medium w-10">#</th>
-                      <th className="text-left px-3 py-2 text-gray-500 font-medium">Email</th>
-                      <th className="text-left px-3 py-2 text-gray-500 font-medium">Nombre</th>
-                      <th className="text-left px-3 py-2 text-gray-500 font-medium">Rol</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {csvRows.map((row, i) => (
-                      <tr key={i} className="border-t border-gray-100">
-                        <td className="px-3 py-2 text-gray-400">{i + 1}</td>
-                        <td className="px-3 py-2 text-gray-700">{row.email}</td>
-                        <td className="px-3 py-2 text-gray-700">{row.full_name}</td>
-                        <td className="px-3 py-2">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                            row.role === "instructor" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                          }`}>
-                            {row.role === "instructor" ? "Docente" : "Estudiante"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Validation results */}
-        {validationResult && (
-          <div className="space-y-4">
-            {/* Summary */}
-            <div className="flex items-center gap-6 p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                  <Check size={14} className="text-green-600" />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-green-600">{validationResult.valid_count}</p>
-                  <p className="text-[10px] text-gray-500">válidos</p>
-                </div>
-              </div>
-              {validationResult.error_count > 0 && (
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                    <XCircle size={14} className="text-red-500" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-red-500">{validationResult.error_count}</p>
-                    <p className="text-[10px] text-gray-500">errores</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Row-by-row results */}
-            <div className="border border-gray-200 rounded-lg overflow-hidden max-h-[400px] overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium w-10">#</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium">Email</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium">Nombre</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium">Rol</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium">Estado</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium w-16"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {csvRows.map((row, i) => {
-                    const rowErrors = validationResult.errors.filter((e) => e.row === i + 1);
-                    const hasError = rowErrors.length > 0;
-                    const isEditing = editIdx === i;
-                    return (
-                      <tr key={i} className={`border-t border-gray-100 ${hasError ? "bg-red-50" : ""}`}>
-                        <td className="px-3 py-2 text-gray-400">{i + 1}</td>
-                        {isEditing ? (
-                          <>
-                            <td className="px-2 py-1">
-                              <input value={editRow.email} onChange={(e) => setEditRow(r => ({ ...r, email: e.target.value }))}
-                                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-sidebar/30" />
-                            </td>
-                            <td className="px-2 py-1">
-                              <input value={editRow.full_name} onChange={(e) => setEditRow(r => ({ ...r, full_name: e.target.value }))}
-                                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-sidebar/30" />
-                            </td>
-                            <td className="px-2 py-1">
-                              <select value={editRow.role} onChange={(e) => setEditRow(r => ({ ...r, role: e.target.value }))}
-                                className="border border-gray-300 rounded px-2 py-1 text-xs bg-white hover:border-gray-400 cursor-pointer">
-                                <option value="student">Estudiante</option>
-                                <option value="instructor">Docente</option>
-                              </select>
-                            </td>
-                            <td className="px-3 py-2"></td>
-                            <td className="px-3 py-2 flex gap-1">
-                              <button onClick={saveEdit} className="text-green-500 hover:text-green-700 cursor-pointer"><Check size={14} /></button>
-                              <button onClick={() => setEditIdx(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer"><XCircle size={14} /></button>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="px-3 py-2 text-gray-700">{row.email}</td>
-                            <td className="px-3 py-2 text-gray-700">{row.full_name}</td>
-                            <td className="px-3 py-2 text-gray-500">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                row.role === "instructor" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                              }`}>
-                                {row.role === "instructor" ? "Docente" : "Estudiante"}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2">
-                              {hasError ? (
-                                <span className="text-red-500 text-[10px]">{rowErrors[0].message}</span>
-                              ) : (
-                                <CheckCircle2 size={14} className="text-green-500" />
-                              )}
-                            </td>
-                            <td className="px-3 py-2 flex gap-1">
-                              {hasError && (
-                                <button onClick={() => startEdit(i)} className="text-amber-500 hover:text-amber-700 cursor-pointer" title="Editar">
-                                  <Eye size={14} />
-                                </button>
-                              )}
-                              <button onClick={() => removeRow(i)} className="text-gray-300 hover:text-red-500 cursor-pointer" title="Eliminar">
-                                <XCircle size={14} />
-                              </button>
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Next button */}
-      {validationResult && validationResult.error_count === 0 && (
-        <div className="flex justify-end">
-          <button
-            onClick={onNext}
-            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
-          >
-            Confirmar datos
-            <ArrowRight size={16} />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════
 // Step 3: Preview Email & Send
 // ════════════════════════════════════════════
 
@@ -1418,13 +1159,9 @@ const DEFAULT_EMAIL_BODY = `La evidencia muestra que la práctica con simulació
 Practicarás entrevistas clínicas con pacientes virtuales impulsados por inteligencia artificial, recibiendo retroalimentación inmediata sobre tus competencias terapéuticas. Sin riesgos, sin presiones, las veces que necesites.`;
 
 function Step3Preview({
-  pilot, sending, sendResult, onSend, onNext,
+  pilot,
 }: {
   pilot: Pilot | null;
-  sending: boolean;
-  sendResult: { total: number; success: number; failed: number } | null;
-  onSend: (customBody?: string) => void;
-  onNext: () => void;
 }) {
   const appUrl = "https://app.glor-ia.com";
 
@@ -1433,11 +1170,10 @@ function Step3Preview({
 
   return (
     <div className="space-y-6 max-w-4xl">
-      {/* Pacientes del piloto was removed 2026-04-20 — visibility is
-          derived from the establishment the pilot is tied to, which
-          already owns the set of assigned AI patients. */}
-
-      {/* Email body editor */}
+      {/* Email body editor — reference template only. The "Enviar
+          invitaciones" button was removed 2026-04-20 since enrolment
+          happens through the public link in the Link tab; there is no
+          roster to mail from here. */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-gray-900">Cuerpo del mensaje</h3>
@@ -1568,57 +1304,6 @@ function Step3Preview({
         )}
       </div>
 
-      {/* Send results */}
-      {sendResult && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Resultado del envío</h3>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                <Check size={14} className="text-green-600" />
-              </div>
-              <div>
-                <p className="text-lg font-bold text-green-600">{sendResult.success}</p>
-                <p className="text-[10px] text-gray-500">enviados</p>
-              </div>
-            </div>
-            {sendResult.failed > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                  <XCircle size={14} className="text-red-500" />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-red-500">{sendResult.failed}</p>
-                  <p className="text-[10px] text-gray-500">fallidos</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-3 justify-end">
-        {!sendResult && (
-          <button
-            onClick={() => onSend(emailBody !== DEFAULT_EMAIL_BODY ? emailBody : undefined)}
-            disabled={sending}
-            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-            {sending ? "Enviando invitaciones..." : "Enviar invitaciones"}
-          </button>
-        )}
-        {sendResult && sendResult.success > 0 && (
-          <button
-            onClick={onNext}
-            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
-          >
-            Ver dashboard
-            <ArrowRight size={16} />
-          </button>
-        )}
-      </div>
     </div>
   );
 }
@@ -1729,17 +1414,19 @@ function StepLinkPanel({ pilot }: { pilot: Pilot }) {
 // ════════════════════════════════════════════
 
 function Step4Dashboard({
-  pilot, refreshing, onRefresh, onFinalize, onResetParticipant,
+  pilot, refreshing, onRefresh, onFinalize, onActivate, onResetParticipant,
 }: {
   pilot: Pilot | null;
   refreshing: boolean;
   onRefresh: () => void;
   onFinalize: () => Promise<void>;
+  onActivate: () => Promise<void>;
   onResetParticipant: (participantId: string, participantEmail: string) => Promise<void>;
 }) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [deactivating, setDeactivating] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [activating, setActivating] = useState(false);
   const [openParticipantId, setOpenParticipantId] = useState<string | null>(null);
   if (!pilot) return null;
 
@@ -1788,7 +1475,22 @@ function Step4Dashboard({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {pilot.status !== "cancelado" && pilot.status !== "finalizado" && (
+          {(pilot.status === "borrador" || pilot.status === "validado") && (
+            <button
+              onClick={async () => {
+                if (!confirm("¿Activar este piloto? Los participantes podrán ingresar a la plataforma con el link público de inscripción.")) return;
+                setActivating(true);
+                await onActivate();
+                setActivating(false);
+              }}
+              disabled={activating}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg text-xs font-medium hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {activating ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}
+              Activar piloto
+            </button>
+          )}
+          {pilot.status !== "cancelado" && pilot.status !== "finalizado" && pilot.status !== "borrador" && pilot.status !== "validado" && (
             <button
               onClick={async () => {
                 if (!confirm("¿Finalizar este piloto? Los participantes perderán acceso y se generará el informe de cierre.")) return;
