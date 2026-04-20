@@ -8,9 +8,9 @@ import {
   Calendar, Globe, Building2, Trash2, Eye, RefreshCw,
   Download, Send, Clock, UserCheck, MessageSquare,
   AlertCircle, Check, ChevronDown, RotateCcw,
+  Link2, Copy, ExternalLink, Image as ImageIcon,
 } from "lucide-react";
 import PilotConsentPanel from "./PilotConsentPanel";
-import LogoUrlField from "@/components/LogoUrlField";
 
 // ────────────────────────────────────────────
 // Types
@@ -112,12 +112,27 @@ const STATUS_COLORS_EXTENDED: Record<string, string> = {
   en_desarrollo: "bg-emerald-100 text-emerald-700",
 };
 
+// Tab order — student-facing ordering validated with the product owner on
+// 2026-04-20. Internal step indices and the openPilot status→step mapping
+// all key off this array. When adding a new step, also update:
+//   · openPilot status→step mapping (lines 236-248 region)
+//   · handleCreatePilot + handleSendInvites setStep targets
+//   · the render switch (step === N ...)
+//   · the "Nuevo piloto" click handlers that set step to INSTITUCION_STEP
+const STEP_CONSENTIMIENTO = 0;
+const STEP_CORREO         = 1;
+const STEP_INSTITUCION    = 2;
+const STEP_LINK           = 3;
+const STEP_DASHBOARD      = 4;
+const STEP_INFORME        = 5;
+
 const STEPS = [
+  { label: "Consentimiento",     icon: FileText },
+  { label: "Correo",             icon: Mail },
   { label: "Ingresar Institución", icon: Building2 },
-  { label: "Consentimiento", icon: FileText },
-  { label: "Envío de instrucciones", icon: Mail },
-  { label: "Dashboard", icon: BarChart3 },
-  { label: "Informe", icon: Rocket },
+  { label: "Link",               icon: Link2 },
+  { label: "Dashboard",          icon: BarChart3 },
+  { label: "Informe",            icon: Rocket },
 ];
 
 const COMPETENCY_LABELS: Record<string, string> = {
@@ -137,7 +152,7 @@ const COMPETENCY_LABELS: Record<string, string> = {
 // Main Component
 // ────────────────────────────────────────────
 
-type Establishment = { id: string; name: string; country: string | null };
+type Establishment = { id: string; name: string; country: string | null; logo_url: string | null };
 
 export default function PilotosClient({
   pilots: initialPilots,
@@ -232,19 +247,19 @@ export default function PilotosClient({
         logo_url: data.logo_url || "",
       });
 
-      // Determine step from status or target
+      // Determine step from status or target (uses STEP_* constants)
       if (targetStep !== undefined) {
         setStep(targetStep);
       } else if (data.status === "borrador") {
-        setStep(0);
+        setStep(STEP_CONSENTIMIENTO);
       } else if (data.status === "validado") {
-        setStep(2);
+        setStep(STEP_CORREO);
       } else if (data.status === "enviado" || data.status === "en_curso") {
-        setStep(3);
+        setStep(STEP_DASHBOARD);
       } else if (data.status === "finalizado") {
-        setStep(4);
+        setStep(STEP_INFORME);
       } else {
-        setStep(0);
+        setStep(STEP_CONSENTIMIENTO);
       }
       setShowWizard(false);
       setCreating(false);
@@ -375,7 +390,9 @@ export default function PilotosClient({
     if (res.ok) {
       const pilot = await res.json();
       setPilots((prev) => [{ ...pilot, participant_count: csvRows.length }, ...prev]);
-      await openPilot(pilot, 1);
+      // After creation, jump to Consentimiento — it's the first tab of the
+      // editing flow per the 2026-04 ordering.
+      await openPilot(pilot, STEP_CONSENTIMIENTO);
     } else {
       const errData = await res.json().catch(() => null);
       setCsvError(errData?.error || `Error al crear el piloto (${res.status}). Intenta de nuevo.`);
@@ -423,8 +440,9 @@ export default function PilotosClient({
     if (res.ok) {
       const data = await res.json();
       setSendResult(data);
-      // Refresh pilot data
-      await openPilot(selectedPilot, 3);
+      // Refresh pilot data and land on the Dashboard tab so the admin can
+      // watch participants connect.
+      await openPilot(selectedPilot, STEP_DASHBOARD);
     }
     setSending(false);
   };
@@ -517,7 +535,7 @@ export default function PilotosClient({
             </p>
           </div>
           <button
-            onClick={() => { resetWizard(); setShowWizard(true); }}
+            onClick={() => { resetWizard(); setShowWizard(true); setStep(STEP_INSTITUCION); }}
             className="flex items-center gap-2 px-4 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
           >
             <Plus size={16} />
@@ -531,7 +549,7 @@ export default function PilotosClient({
               <Rocket size={48} className="text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 text-sm">No hay pilotos creados aún</p>
               <button
-                onClick={() => { resetWizard(); setShowWizard(true); }}
+                onClick={() => { resetWizard(); setShowWizard(true); setStep(STEP_INSTITUCION); }}
                 className="mt-4 px-4 py-2 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
               >
                 Crear primer piloto
@@ -646,9 +664,15 @@ export default function PilotosClient({
               <button
                 key={i}
                 onClick={() => {
-                  if (selectedPilot && i <= step + 1) setStep(i);
+                  // For a saved pilot, tabs are freely navigable. The old
+                  // "i <= step + 1" forward-gate made sense when the order
+                  // was naturally sequential (Institución → Consent →
+                  // Envío → Dashboard → Informe); the 2026-04-20 reorder
+                  // put Consentimiento first, so sequential gating would
+                  // block going back to Institución without a reason.
+                  if (selectedPilot) setStep(i);
                 }}
-                disabled={(showWizard && !selectedPilot && i > 0) || creating}
+                disabled={(showWizard && !selectedPilot && i !== STEP_INSTITUCION) || creating}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex-shrink-0 cursor-pointer disabled:cursor-not-allowed ${
                   isActive
                     ? "bg-sidebar text-white"
@@ -666,9 +690,35 @@ export default function PilotosClient({
         </div>
       </div>
 
-      {/* Step content */}
+      {/* Step content — index mapping uses STEP_* constants. */}
       <div className="px-4 sm:px-8 pb-8">
-        {step === 0 && <Step1Upload
+        {step === STEP_CONSENTIMIENTO && selectedPilot && (
+          <div className="space-y-4 max-w-4xl">
+            <PilotConsentPanel
+              pilot={(dashboardData || selectedPilot)!}
+              onPilotUpdated={handlePilotPatched}
+            />
+            <div className="flex justify-end">
+              <button
+                onClick={() => setStep(STEP_CORREO)}
+                className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
+              >
+                Continuar al correo
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === STEP_CORREO && <Step3Preview
+          pilot={selectedPilot}
+          sending={sending}
+          sendResult={sendResult}
+          onSend={handleSendInvites}
+          onNext={() => setStep(STEP_DASHBOARD)}
+        />}
+
+        {step === STEP_INSTITUCION && <Step1Upload
           formData={formData}
           setFormData={setFormData}
           csvRows={csvRows}
@@ -680,37 +730,15 @@ export default function PilotosClient({
           onFileSelect={handleFileSelect}
           onCreatePilot={handleCreatePilot}
           isEditing={!!selectedPilot}
-          onNext={() => setStep(1)}
+          onNext={() => setStep(STEP_CONSENTIMIENTO)}
           establishments={establishments}
         />}
 
-        {step === 1 && selectedPilot && (
-          <div className="space-y-4 max-w-4xl">
-            <PilotConsentPanel
-              pilot={(dashboardData || selectedPilot)!}
-              onPilotUpdated={handlePilotPatched}
-            />
-            <div className="flex justify-end">
-              <button
-                onClick={() => setStep(2)}
-                className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
-              >
-                Continuar al envío
-                <ArrowRight size={16} />
-              </button>
-            </div>
-          </div>
+        {step === STEP_LINK && selectedPilot && (
+          <StepLinkPanel pilot={(dashboardData || selectedPilot)!} />
         )}
 
-        {step === 2 && <Step3Preview
-          pilot={selectedPilot}
-          sending={sending}
-          sendResult={sendResult}
-          onSend={handleSendInvites}
-          onNext={() => setStep(3)}
-        />}
-
-        {step === 3 && (
+        {step === STEP_DASHBOARD && (
           <Step4Dashboard
             pilot={dashboardData || selectedPilot}
             refreshing={refreshing}
@@ -725,13 +753,13 @@ export default function PilotosClient({
               });
               if (res.ok) {
                 await refreshDashboard();
-                setStep(4);
+                setStep(STEP_INFORME);
               }
             }}
           />
         )}
 
-        {step === 4 && <Step5Report
+        {step === STEP_INFORME && <Step5Report
           pilot={dashboardData || selectedPilot}
         />}
       </div>
@@ -765,14 +793,17 @@ function Step1Upload({
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<CsvRow>({ email: "", full_name: "", role: "student" });
   const [createError, setCreateError] = useState("");
-  // Snapshot of the logo_url when this step mounted — used as the
-  // "Restaurar" target by LogoUrlField. Stays stable across re-renders.
-  const initialLogoRef = useRef<string>(formData.logo_url || "");
   // CSV pre-loading is optional — see handleCreatePilot for context.
   // Institution is auto-resolved server-side from establishment_id, so the
   // admin only has to pick the establishment.
   const emailValid = !formData.contact_email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email.trim());
   const canCreate = !!(formData.name.trim() && formData.establishment_id && emailValid);
+  // Logo preview is derived from the selected establishment. The pilot-
+  // specific logo URL override was removed 2026-04-20 — institutions now
+  // own a single canonical logo managed from /admin/establecimientos, and
+  // the sidebar cascade in (app)/layout.tsx picks it up automatically.
+  const selectedEstablishment = establishments.find((e) => e.id === formData.establishment_id);
+  const establishmentLogoUrl = selectedEstablishment?.logo_url || "";
 
   const handleAddManual = () => {
     if (!manualForm.first_name.trim() || !manualForm.last_name.trim() || !manualForm.email.trim()) return;
@@ -886,12 +917,32 @@ function Step1Upload({
             )}
           </div>
           <div className="sm:col-span-2">
-            <LogoUrlField
-              value={formData.logo_url || ""}
-              initialValue={initialLogoRef.current}
-              onChange={(v) => setFormData((f) => ({ ...f, logo_url: v }))}
-              helper="Aparece en el sidebar durante el piloto y debajo del header en los correos."
-            />
+            <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1.5">
+              <ImageIcon size={12} />
+              Logo de la institución
+            </label>
+            <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <div className="flex-shrink-0 w-24 h-12 bg-white border border-gray-200 rounded flex items-center justify-center p-1.5">
+                {establishmentLogoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={establishmentLogoUrl}
+                    alt="Logo"
+                    className="max-w-full max-h-full object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.opacity = "0.2";
+                    }}
+                  />
+                ) : (
+                  <span className="text-[10px] text-gray-300">sin logo</span>
+                )}
+              </div>
+              <p className="text-[11px] text-gray-500 leading-snug">
+                {formData.establishment_id
+                  ? "El logo viene del establecimiento seleccionado. Se edita en Instituciones, no acá."
+                  : "Selecciona un establecimiento para ver su logo."}
+              </p>
+            </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -1377,85 +1428,14 @@ function Step3Preview({
 }) {
   const appUrl = "https://app.glor-ia.com";
 
-  const [assigningPatients, setAssigningPatients] = useState(false);
-  const [patientMsg, setPatientMsg] = useState("");
   const [emailBody, setEmailBody] = useState(DEFAULT_EMAIL_BODY);
   const [editingBody, setEditingBody] = useState(false);
 
-  const assignPatients = async (queryParams = "") => {
-    if (!pilot?.establishment_id) {
-      setPatientMsg("Este piloto no tiene un establecimiento asociado. Crea primero el establecimiento.");
-      return;
-    }
-    setAssigningPatients(true);
-    setPatientMsg("");
-    try {
-      const res = await fetch(`/api/admin/patients/all${queryParams}`);
-      if (!res.ok) { setPatientMsg("Error al obtener pacientes"); return; }
-      const patients = await res.json();
-      const ids = patients.map((p: { id: string }) => p.id);
-      if (ids.length === 0) { setPatientMsg("No se encontraron pacientes con ese filtro"); return; }
-      const addRes = await fetch(`/api/admin/establishments/${pilot.establishment_id}/patients`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ _action: "add", patient_ids: ids }),
-      });
-      if (addRes.ok) {
-        setPatientMsg(`${ids.length} paciente(s) asignados correctamente`);
-      } else {
-        setPatientMsg("Error al asignar pacientes");
-      }
-    } catch { setPatientMsg("Error de conexión"); }
-    finally { setAssigningPatients(false); }
-  };
-
   return (
     <div className="space-y-6 max-w-4xl">
-      {/* Patient assignment */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">Pacientes del piloto</h3>
-        <p className="text-xs text-gray-500 mb-3">
-          Asigna pacientes al establecimiento para que los participantes puedan verlos.
-        </p>
-        {patientMsg && (
-          <div className={`text-xs mb-3 px-3 py-2 rounded-lg ${patientMsg.includes("Error") || patientMsg.includes("no tiene") ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"}`}>
-            {patientMsg}
-          </div>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => assignPatients()}
-            disabled={assigningPatients}
-            className="px-3 py-1.5 rounded-lg bg-sidebar text-white text-xs font-medium hover:bg-[#354080] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {assigningPatients ? "Asignando..." : "Asignar todos"}
-          </button>
-          {["Chile", "Argentina", "Colombia", "México", "Perú", "República Dominicana"].map((country) => (
-            <button
-              key={country}
-              onClick={() => assignPatients(`?country=${encodeURIComponent(country)}`)}
-              disabled={assigningPatients}
-              className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:border-sidebar/30 hover:text-sidebar transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {country}
-            </button>
-          ))}
-          {(["beginner", "intermediate", "advanced"] as const).map((level) => (
-            <button
-              key={level}
-              onClick={() => assignPatients(`?difficulty=${level}`)}
-              disabled={assigningPatients}
-              className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
-                level === "beginner" ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50" :
-                level === "intermediate" ? "border-amber-200 text-amber-600 hover:bg-amber-50" :
-                "border-red-200 text-red-600 hover:bg-red-50"
-              }`}
-            >
-              {level === "beginner" ? "Principiante" : level === "intermediate" ? "Intermedio" : "Avanzado"}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Pacientes del piloto was removed 2026-04-20 — visibility is
+          derived from the establishment the pilot is tied to, which
+          already owns the set of assigned AI patients. */}
 
       {/* Email body editor */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -1637,6 +1617,107 @@ function Step3Preview({
             Ver dashboard
             <ArrowRight size={16} />
           </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
+// Step: Public enrolment link
+// ════════════════════════════════════════════
+//
+// Extracted from the former PilotConsentPanel on 2026-04-20. Each pilot
+// has a public `/piloto/<slug>/consentimiento` URL where participants
+// self-enrol, sign the consent and receive their credentials. The admin
+// copies that URL from here and shares it with the institution.
+//
+// Logo preview and the "Modo de prueba" toggle that used to live next to
+// this link have been removed — the logo is derived from the
+// establishment and test_mode is not being used in production.
+function StepLinkPanel({ pilot }: { pilot: Pilot }) {
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const enrollmentUrl = pilot.enrollment_slug
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/piloto/${pilot.enrollment_slug}/consentimiento`
+    : null;
+
+  async function handleCopy() {
+    if (!enrollmentUrl) return;
+    try {
+      await navigator.clipboard.writeText(enrollmentUrl);
+      setCopied(true);
+      setCopyError(null);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopyError("No se pudo copiar al portapapeles. Cópialo manualmente.");
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border-2 border-[#4A55A2]/20 p-6 space-y-4 shadow-lg shadow-[#4A55A2]/5 max-w-4xl">
+      <div className="flex items-start gap-3 pb-4 border-b border-gray-100">
+        <div className="w-10 h-10 rounded-xl bg-[#4A55A2] flex items-center justify-center flex-shrink-0">
+          <Link2 size={20} className="text-white" />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-lg font-bold text-gray-900">Link de inscripción</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Comparte este link con el coordinador de la institución. Cada
+            persona que entre podrá inscribirse, firmar el consentimiento y
+            recibir sus credenciales por correo automáticamente.
+          </p>
+        </div>
+      </div>
+
+      {copyError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">
+          {copyError}
+        </div>
+      )}
+
+      <div>
+        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+          Link único del piloto
+        </label>
+        {enrollmentUrl ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              readOnly
+              value={enrollmentUrl}
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+              className="flex-1 font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700"
+            />
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[#4A55A2] hover:bg-[#5C6BB5] text-white text-xs font-medium rounded-lg transition-colors cursor-pointer"
+            >
+              {copied ? (
+                <>
+                  <Check size={14} /> Copiado
+                </>
+              ) : (
+                <>
+                  <Copy size={14} /> Copiar
+                </>
+              )}
+            </button>
+            <a
+              href={enrollmentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-medium rounded-lg"
+              title="Abrir en nueva pestaña"
+            >
+              <ExternalLink size={14} />
+            </a>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 italic">
+            Este piloto no tiene link único todavía. Edita y guarda el piloto
+            para generar uno automáticamente.
+          </p>
         )}
       </div>
     </div>

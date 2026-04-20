@@ -25,7 +25,7 @@ export default async function PilotosPage() {
       .order("created_at", { ascending: false }),
     admin
       .from("establishments")
-      .select("id, name, country")
+      .select("id, name, country, logo_url")
       .eq("is_active", true)
       .order("name"),
   ]);
