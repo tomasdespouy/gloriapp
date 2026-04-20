@@ -1,14 +1,11 @@
 /**
- * DOCX generator for the pilot report.
+ * DOCX generator for the pilot report, aligned with the UNICARIBE
+ * reference deck (dic 2025): UGM + GlorIA logos on every page header,
+ * numbered sections 1–7, percentage tables (1–3 vs 4–5) per likert
+ * section, narrative conclusiones, participant annex at the end.
  *
- * Pure: takes a fully-materialised PilotReportData + variant flag and
- * returns a Buffer. All data fetching lives in pilot-report-data.ts.
- * The only side-effect is the final `Packer.toBuffer(doc)` call.
- *
- * Variant:
- *   'named'     — participant names are shown in testimonials + annex.
- *   'anonymous' — names are replaced with P-001, P-002, ... in the order
- *                 they appear in data.students.
+ * All reports are generated in anonymised mode — testimonials carry
+ * "Estudiante, [edad] años, [Universidad] ([país])" rather than names.
  */
 import {
   Document,
@@ -24,371 +21,476 @@ import {
   BorderStyle,
   ShadingType,
   PageBreak,
+  Header,
+  ImageRun,
+  LevelFormat,
 } from "docx";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import {
   type PilotReportData,
-  type CompetencyKey,
+  type LikertSectionStats,
+  type Testimonial,
   COMPETENCY_KEYS,
   formatDuration,
+  formatMonthYear,
   formatDateShort,
-  formatDateTime,
-  V2_ITEM_LABELS,
-  V2_SECTION_LABELS,
-  TESTIMONIAL_LABELS,
+  testimonialAttribution,
 } from "./pilot-report-data";
 
-const ACCENT = "4A55A2";
+const ACCENT = "4A55A2"; // GlorIA sidebar
 const MUTED = "6B7280";
-const BAR_GRAY = "E5E7EB";
+const TABLE_HEADER_BG = "E5E7EB";
+const CELL_BORDER = "D1D5DB";
+const GREEN = "16A34A";
+const ORANGE = "D97706";
+const RED = "DC2626";
 
-type Variant = "named" | "anonymous";
+// ─── Asset loading ────────────────────────────────────────────────────
 
-// ─── Small helpers ────────────────────────────────────────────────────
+async function loadLocalAsset(relPath: string): Promise<Buffer | null> {
+  try {
+    const filePath = path.join(process.cwd(), "public", "branding", relPath);
+    return await readFile(filePath);
+  } catch {
+    return null;
+  }
+}
 
-function para(text: string, opts: { bold?: boolean; color?: string; size?: number; align?: (typeof AlignmentType)[keyof typeof AlignmentType] } = {}) {
+async function loadRemoteAsset(url: string | null): Promise<Buffer | null> {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const arr = await res.arrayBuffer();
+    return Buffer.from(arr);
+  } catch {
+    return null;
+  }
+}
+
+// ─── Tiny paragraph helpers ───────────────────────────────────────────
+
+function p(text: string, opts: { bold?: boolean; color?: string; size?: number; italics?: boolean; align?: (typeof AlignmentType)[keyof typeof AlignmentType] } = {}) {
   return new Paragraph({
     alignment: opts.align,
+    spacing: { after: 100 },
     children: [
       new TextRun({
         text,
         bold: opts.bold,
         color: opts.color,
-        size: opts.size, // half-points
+        size: opts.size,
+        italics: opts.italics,
       }),
     ],
   });
 }
 
-function heading(text: string, level: (typeof HeadingLevel)[keyof typeof HeadingLevel]) {
+function h1(text: string) {
   return new Paragraph({
-    heading: level,
-    children: [new TextRun({ text, bold: true, color: ACCENT })],
+    heading: HeadingLevel.HEADING_1,
+    spacing: { before: 300, after: 160 },
+    children: [new TextRun({ text, bold: true, color: ACCENT, size: 28 })],
   });
 }
 
-function spacer(lines = 1) {
-  return Array.from({ length: lines }, () => new Paragraph({ children: [] }));
+function h2(text: string) {
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_2,
+    spacing: { before: 200, after: 100 },
+    children: [new TextRun({ text, bold: true, color: ACCENT, size: 24 })],
+  });
+}
+
+function bullet(text: string, level = 0) {
+  return new Paragraph({
+    bullet: { level },
+    spacing: { after: 60 },
+    children: [new TextRun({ text, size: 22 })],
+  });
 }
 
 function pageBreak() {
   return new Paragraph({ children: [new PageBreak()] });
 }
 
-function kpiCell(label: string, value: string, subtitle?: string) {
-  return new TableCell({
-    margins: { top: 200, bottom: 200, left: 200, right: 200 },
-    shading: { type: ShadingType.CLEAR, color: "auto", fill: "F8F9FB" },
+// ─── Header with logos ────────────────────────────────────────────────
+
+function buildPageHeader(
+  ugmBuf: Buffer | null,
+  gloriaBuf: Buffer | null,
+  instBuf: Buffer | null,
+): Header {
+  const leftChildren: (ImageRun | TextRun)[] = [];
+  if (ugmBuf) {
+    leftChildren.push(
+      new ImageRun({
+        data: ugmBuf,
+        transformation: { width: 120, height: 45 },
+        type: "png",
+      }),
+    );
+  }
+
+  const rightChildren: (ImageRun | TextRun)[] = [];
+  if (gloriaBuf) {
+    rightChildren.push(
+      new ImageRun({
+        data: gloriaBuf,
+        transformation: { width: 100, height: 40 },
+        type: "png",
+      }),
+    );
+  }
+  if (instBuf) {
+    rightChildren.unshift(new TextRun({ text: "   " }));
+    rightChildren.unshift(
+      new ImageRun({
+        data: instBuf,
+        transformation: { width: 70, height: 40 },
+        type: "png",
+      }),
+    );
+  }
+
+  const cell = (children: (ImageRun | TextRun)[], align: (typeof AlignmentType)[keyof typeof AlignmentType]) =>
+    new TableCell({
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      children: [
+        new Paragraph({
+          alignment: align,
+          children: children.length > 0 ? children : [new TextRun(" ")],
+        }),
+      ],
+      borders: {
+        top: { style: BorderStyle.NONE, size: 0, color: "auto" },
+        bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
+        left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+        right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+      },
+    });
+
+  return new Header({
     children: [
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: label.toUpperCase(), size: 16, color: MUTED, bold: true })],
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: {
+          top: { style: BorderStyle.NONE, size: 0, color: "auto" },
+          bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
+          left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+          right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+          insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
+          insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
+        },
+        rows: [
+          new TableRow({
+            children: [
+              cell(leftChildren, AlignmentType.LEFT),
+              cell(rightChildren, AlignmentType.RIGHT),
+            ],
+          }),
+        ],
       }),
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: value, size: 48, color: ACCENT, bold: true })],
-      }),
-      ...(subtitle
-        ? [
-            new Paragraph({
-              alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: subtitle, size: 16, color: MUTED })],
-            }),
-          ]
-        : []),
+      new Paragraph({ children: [] }), // breathing room before body
     ],
   });
 }
 
-function kpiGrid(cells: Array<{ label: string; value: string; subtitle?: string }>) {
-  const rows: TableRow[] = [];
-  for (let i = 0; i < cells.length; i += 2) {
-    const pair = cells.slice(i, i + 2);
-    const tableRow = new TableRow({
-      children: pair.map((c) => kpiCell(c.label, c.value, c.subtitle)),
-    });
-    rows.push(tableRow);
+// ─── Section: Cover ───────────────────────────────────────────────────
+
+function sectionCover(data: PilotReportData) {
+  return [
+    new Paragraph({ children: [new TextRun("")], spacing: { before: 2400 } }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 1200, after: 200 },
+      children: [
+        new TextRun({
+          text: `Informe experiencia piloto de GlorIA con ${data.pilot.institution}`,
+          bold: true,
+          size: 36,
+          color: "1A1A1A",
+        }),
+      ],
+    }),
+    new Paragraph({ children: [], spacing: { before: 4800 } }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [
+        new TextRun({
+          text: `— ${formatMonthYear(data.pilot.scheduled_at)} —`,
+          color: ACCENT,
+          italics: true,
+          size: 22,
+        }),
+      ],
+    }),
+    pageBreak(),
+  ];
+}
+
+// ─── Section 1: Introducción ──────────────────────────────────────────
+
+function section1Intro(data: PilotReportData) {
+  return [
+    h1("1. INTRODUCCIÓN"),
+    p(
+      "La Universidad Gabriela Mistral tiene como misión aportar al progreso del país a través de la formación de personas, profesionales y académicos que puedan enfrentar las necesidades del ámbito laboral, empresarial y académico actuales. La Institución está en línea con los nuevos espacios de aprendizaje que promueven un ambiente de estudio flexible y autónomo. Es así como durante 2024 — a través de su Escuela de Psicología y la Dirección de Innovación en Entornos de Aprendizaje (IDEA) — desarrolló GlorIA, una plataforma pionera de simulación clínica basada en inteligencia artificial generativa que proyecta el futuro de la formación en psicología.",
+      { size: 22 },
+    ),
+    p(
+      "GlorIA integra perfiles de pacientes virtuales, cada uno con características, historias y patrones de comportamiento distintos, permitiendo a los estudiantes practicar y fortalecer sus competencias diagnósticas en un entorno seguro, controlado y altamente realista.",
+      { size: 22 },
+    ),
+    p(
+      `Para validar el potencial de GlorIA en un contexto formativo real, se invitó a ${data.pilot.institution}${data.pilot.country ? ` (${data.pilot.country})` : ""} a participar de esta experiencia piloto, que tuvo como objetivos (1) evaluar GlorIA como herramienta complementaria al ejercicio práctico para potenciar las competencias clínicas de estudiantes de psicología y (2) recopilar retroalimentación para ajustar la plataforma y mejorar su propuesta pedagógica. La experiencia contó con ${data.kpis.total_invited} participantes invitados, de los cuales ${data.kpis.total_connected} ingresaron a la plataforma y realizaron un total de ${data.kpis.completed_sessions} sesiones completadas con pacientes simulados.`,
+      { size: 22 },
+    ),
+    p(
+      "El 100% de los participantes firmó consentimiento informado, autorizando el uso de datos agregados y anonimizados con fines de investigación y mejora continua de la plataforma.",
+      { size: 22 },
+    ),
+    pageBreak(),
+  ];
+}
+
+// ─── Section 2: Objetivos ─────────────────────────────────────────────
+
+function section2Objetivos() {
+  return [
+    h1("2. OBJETIVOS"),
+    p("El piloto se propuso los siguientes objetivos específicos:", { size: 22 }),
+    bullet("Evaluar la usabilidad y pertinencia pedagógica de la plataforma en un contexto formativo real."),
+    bullet("Medir el desarrollo de competencias clínicas de los estudiantes a través de práctica con pacientes simulados."),
+    bullet("Recopilar retroalimentación estructurada de estudiantes y docentes respecto a la experiencia."),
+    bullet("Identificar oportunidades de mejora técnica, cultural y pedagógica para las siguientes versiones."),
+    pageBreak(),
+  ];
+}
+
+// ─── Section 3: Resumen experiencia ───────────────────────────────────
+
+function section3Resumen(data: PilotReportData) {
+  const blocks: Paragraph[] = [
+    h1("3. RESUMEN EXPERIENCIA"),
+  ];
+
+  if (data.survey.n === 0) {
+    blocks.push(
+      p(
+        "Aún no hay respuestas de la encuesta de satisfacción para este piloto. Esta sección se completará cuando los participantes respondan.",
+        { italics: true, color: MUTED, size: 22 },
+      ),
+    );
+    blocks.push(pageBreak());
+    return blocks;
   }
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
+
+  if (data.survey.top_positives.length > 0) {
+    blocks.push(
+      p(
+        "Los ítems mejor evaluados por los participantes estuvieron vinculados a la usabilidad de la plataforma, el realismo clínico y la satisfacción global. Los usuarios declararon:",
+        { size: 22 },
+      ),
+    );
+    for (const tp of data.survey.top_positives) {
+      blocks.push(bullet(`${Math.round(tp.pct)}% estuvo de acuerdo: "${tp.label}"`));
+    }
+  }
+
+  if (data.survey.top_negatives.length > 0) {
+    blocks.push(
+      p(
+        "Los elementos con valoración comparativamente más baja están vinculados al funcionamiento técnico y la pertinencia cultural:",
+        { size: 22 },
+      ),
+    );
+    for (const tn of data.survey.top_negatives) {
+      blocks.push(bullet(`${Math.round(tn.pct)}% estuvo de acuerdo: "${tn.label}"`));
+    }
+  }
+
+  blocks.push(pageBreak());
+  return blocks;
+}
+
+// ─── Section 4: Resultados generales (percentage tables) ──────────────
+
+function pctCell(text: string, color: string, bold = false) {
+  return new TableCell({
+    margins: { top: 80, bottom: 80, left: 100, right: 100 },
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text, color, bold, size: 20 })],
+      }),
+    ],
     borders: {
-      top: { style: BorderStyle.NONE, size: 0, color: "auto" },
-      bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
-      left: { style: BorderStyle.NONE, size: 0, color: "auto" },
-      right: { style: BorderStyle.NONE, size: 0, color: "auto" },
-      insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
-      insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
+      top: { style: BorderStyle.SINGLE, size: 4, color: CELL_BORDER },
+      bottom: { style: BorderStyle.SINGLE, size: 4, color: CELL_BORDER },
+      left: { style: BorderStyle.SINGLE, size: 4, color: CELL_BORDER },
+      right: { style: BorderStyle.SINGLE, size: 4, color: CELL_BORDER },
     },
-    rows,
   });
 }
 
-// ASCII-ish progress bar rendered as a TextRun (keeps it editable as plain
-// text; if the admin wants a visual chart they can swap it for a real
-// image inside Word).
-function scoreBar(score: number, max: number, width = 20): string {
-  const filled = Math.round((score / max) * width);
-  return "█".repeat(Math.max(0, filled)) + "░".repeat(Math.max(0, width - filled));
+function textCell(text: string, opts: { bold?: boolean; bg?: string; size?: number } = {}) {
+  return new TableCell({
+    margins: { top: 80, bottom: 80, left: 120, right: 80 },
+    shading: opts.bg ? { type: ShadingType.CLEAR, color: "auto", fill: opts.bg } : undefined,
+    children: [
+      new Paragraph({
+        children: [new TextRun({ text, bold: opts.bold, size: opts.size ?? 20 })],
+      }),
+    ],
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 4, color: CELL_BORDER },
+      bottom: { style: BorderStyle.SINGLE, size: 4, color: CELL_BORDER },
+      left: { style: BorderStyle.SINGLE, size: 4, color: CELL_BORDER },
+      right: { style: BorderStyle.SINGLE, size: 4, color: CELL_BORDER },
+    },
+  });
 }
 
-// ─── Section: Portada ─────────────────────────────────────────────────
-
-function sectionCover(data: PilotReportData, variant: Variant) {
-  const range =
-    data.pilot.scheduled_at && data.pilot.ended_at
-      ? `${formatDateShort(data.pilot.scheduled_at)}  —  ${formatDateShort(data.pilot.ended_at)}`
-      : "Fechas no registradas";
-  return [
-    ...spacer(6),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: "INFORME DE EXPERIENCIA PILOTO", bold: true, color: ACCENT, size: 32 })],
-    }),
-    ...spacer(1),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: data.pilot.name, bold: true, size: 36 })],
-    }),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: data.pilot.institution, size: 24 })],
-    }),
-    ...(data.pilot.country
-      ? [
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            children: [new TextRun({ text: data.pilot.country, size: 22, color: MUTED })],
-          }),
-        ]
-      : []),
-    ...spacer(2),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: range, size: 22, color: MUTED })],
-    }),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
+function buildSurveyTable(section: LikertSectionStats) {
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: [
+      textCell("Pregunta", { bold: true, bg: TABLE_HEADER_BG }),
+      textCell("1 a 3", { bold: true, bg: TABLE_HEADER_BG }),
+      textCell("4 a 5", { bold: true, bg: TABLE_HEADER_BG }),
+    ],
+  });
+  const rows = section.items.map((it) => {
+    const highColor = it.high_pct >= 90 ? GREEN : it.high_pct > 0 ? ORANGE : MUTED;
+    const lowColor = it.low_pct > 20 ? RED : MUTED;
+    return new TableRow({
       children: [
-        new TextRun({
-          text: `${data.kpis.total_students} estudiantes participantes`,
-          size: 22,
-          color: MUTED,
-        }),
+        textCell(it.label, { size: 18 }),
+        pctCell(it.n > 0 ? `${Math.round(it.low_pct)}%` : "—", lowColor),
+        pctCell(it.n > 0 ? `${Math.round(it.high_pct)}%` : "—", highColor),
       ],
-    }),
-    ...spacer(6),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [
-        new TextRun({
-          text: `Generado el ${formatDateTime(data.generated_at)}`,
-          size: 18,
-          color: MUTED,
-          italics: true,
-        }),
-      ],
-    }),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [
-        new TextRun({
-          text: variant === "anonymous" ? "Versión anonimizada" : "Versión con nombres",
-          size: 18,
-          color: MUTED,
-          italics: true,
-        }),
-      ],
-    }),
-    pageBreak(),
-  ];
+    });
+  });
+  const avgLow = Math.round(section.low_pct);
+  const avgHigh = Math.round(section.high_pct);
+  const summaryRow = new TableRow({
+    children: [
+      textCell("Promedio sección", { bold: true, bg: TABLE_HEADER_BG }),
+      textCell(`${avgLow}%`, { bold: true, bg: TABLE_HEADER_BG }),
+      textCell(`${avgHigh}%`, { bold: true, bg: TABLE_HEADER_BG }),
+    ],
+  });
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    columnWidths: [6500, 1500, 1500],
+    rows: [headerRow, ...rows, summaryRow],
+  });
 }
 
-// ─── Section: Resumen ejecutivo ───────────────────────────────────────
-
-function sectionExecutiveSummary() {
-  return [
-    heading("Resumen ejecutivo", HeadingLevel.HEADING_1),
-    ...spacer(),
-    heading("¿Qué es GlorIA?", HeadingLevel.HEADING_2),
-    para(
-      "GlorIA es una plataforma de entrenamiento clínico con inteligencia artificial, diseñada para que estudiantes de psicología practiquen entrevistas con pacientes virtuales y reciban retroalimentación inmediata sobre sus competencias terapéuticas.",
+function section4Results(data: PilotReportData) {
+  const blocks: Paragraph[] = [h1("4. RESULTADOS GENERALES")];
+  blocks.push(
+    p(
+      "Esta información se recogió a partir de una encuesta para evaluar la experiencia del piloto desde el usuario, aplicada al final del proceso en completo anonimato. La encuesta se responde en escala Likert de 1 a 5, donde 1 es muy en desacuerdo y 5 muy de acuerdo.",
+      { size: 22 },
     ),
-    para(
-      "Inspirada en el caso Gloria (Shostrom, 1965), donde tres psicoterapeutas pioneros — Carl Rogers, Fritz Perls y Albert Ellis — compararon sus enfoques con una misma paciente, GlorIA extiende esa tradición al siglo XXI usando IA para ofrecer práctica clínica segura, sin riesgo para personas reales.",
+  );
+  blocks.push(
+    p(
+      `Se consideran valores "positivos" aquellas respuestas con valores 4 y 5, mientras que de 1 a 3 como "negativos". En verde se destaca el valor más elevado por sección, en naranja el más descendido comparativamente cuando está bajo el 90%.`,
+      { size: 22 },
     ),
-    ...spacer(),
-    heading("Marco teórico de evaluación", HeadingLevel.HEADING_2),
-    para(
-      "Las 10 competencias evaluadas provienen del Manual de Evaluación de Competencias Psicoterapéuticas de Valdés & Gómez (2023), Universidad Santo Tomás, organizadas en dos dominios: Estructura de la sesión y Actitudes terapéuticas.",
-    ),
-    ...spacer(),
-    heading("Objetivos del piloto", HeadingLevel.HEADING_2),
-    new Paragraph({
-      bullet: { level: 0 },
-      children: [new TextRun("Validar la usabilidad de la plataforma en un entorno formativo real.")],
-    }),
-    new Paragraph({
-      bullet: { level: 0 },
-      children: [new TextRun("Medir el desarrollo de competencias clínicas a través de práctica con IA.")],
-    }),
-    new Paragraph({
-      bullet: { level: 0 },
-      children: [new TextRun("Recoger retroalimentación estructurada sobre el producto.")],
-    }),
-    new Paragraph({
-      bullet: { level: 0 },
-      children: [new TextRun("Evaluar la pertinencia para integración curricular.")],
-    }),
-    pageBreak(),
-  ];
-}
+  );
+  blocks.push(
+    p(`n = ${data.survey.n} respuestas completas.`, { italics: true, color: MUTED, size: 20 }),
+  );
 
-// ─── Section: KPIs ────────────────────────────────────────────────────
-
-function sectionKPIs(data: PilotReportData) {
-  const k = data.kpis;
-  const cells: Array<{ label: string; value: string; subtitle?: string }> = [
-    { label: "Participantes", value: String(k.total_students), subtitle: "estudiantes invitados" },
-    {
-      label: "Tasa de conexión",
-      value: `${Math.round(k.connection_rate * 100)}%`,
-      subtitle: `${k.total_connected} de ${k.total_invited} ingresaron`,
-    },
-    {
-      label: "Sesiones completadas",
-      value: String(k.completed_sessions),
-      subtitle: `${k.total_sessions} totales`,
-    },
-    {
-      label: "Tiempo promedio por sesión",
-      value: formatDuration(k.avg_seconds_per_session),
-      subtitle: "duración activa",
-    },
-    {
-      label: "Sesiones evaluadas",
-      value: String(k.total_evaluated_sessions),
-      subtitle: "con retroalimentación IA",
-    },
-    {
-      label: "Puntaje general",
-      value: k.pilot_overall_avg > 0 ? `${k.pilot_overall_avg.toFixed(1)} / 4` : "—",
-      subtitle: "promedio de competencias",
-    },
-    {
-      label: "Encuestas respondidas",
-      value:
-        k.total_students > 0
-          ? `${k.survey_responses_count} / ${k.total_students}`
-          : String(k.survey_responses_count),
-      subtitle:
-        k.total_students > 0
-          ? `${Math.round((k.survey_responses_count / k.total_students) * 100)}% de respuesta`
-          : undefined,
-    },
-    {
-      label: "Estado del piloto",
-      value: k.pilot_overall_avg > 0 ? "Activo con evaluación" : "Sin evaluaciones aún",
-    },
-  ];
-  return [
-    heading("Indicadores clave", HeadingLevel.HEADING_1),
-    ...spacer(),
-    kpiGrid(cells),
-    pageBreak(),
-  ];
-}
-
-// ─── Section: Competencies with definitions ───────────────────────────
-
-function sectionCompetencies(data: PilotReportData) {
-  const blocks: Paragraph[] = [
-    heading("Competencias clínicas", HeadingLevel.HEADING_1),
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: "Promedios calculados sobre las sesiones evaluadas (escala 0–4). Cada competencia incluye su definición teórica según Valdés & Gómez (2023).",
-          italics: true,
-          color: MUTED,
-          size: 20,
-        }),
-      ],
-    }),
-    ...spacer(),
-  ];
-
-  const byDomain: Record<string, CompetencyKey[]> = { estructura: [], actitudes: [] };
-  for (const k of COMPETENCY_KEYS) {
-    byDomain[data.competency_info[k].domain].push(k);
+  if (data.survey.n === 0) {
+    blocks.push(
+      p(
+        "Sin respuestas disponibles — las tablas se completarán cuando los participantes respondan la encuesta.",
+        { italics: true, color: MUTED, size: 20 },
+      ),
+    );
+    blocks.push(pageBreak());
+    return { blocks, tables: [] as Table[] };
   }
-  const domainTitle: Record<string, string> = {
-    estructura: "Estructura de la sesión",
-    actitudes: "Actitudes terapéuticas",
-  };
 
-  let idx = 1;
-  for (const domain of ["estructura", "actitudes"] as const) {
-    blocks.push(heading(domainTitle[domain], HeadingLevel.HEADING_2));
+  // Build the tables separately — docx Section.children accepts Paragraph
+  // and Table items intermixed, but we need to interleave them carefully.
+  const items: (Paragraph | Table)[] = blocks.slice();
+  for (const s of data.survey.sections) {
+    items.push(h2(s.title));
+    items.push(buildSurveyTable(s));
+    items.push(new Paragraph({ children: [], spacing: { after: 200 } }));
+  }
+  items.push(pageBreak());
+  return { blocks: items as (Paragraph | Table)[], tables: [] };
+}
+
+// ─── Section 5: Análisis de competencias ──────────────────────────────
+
+function section5Competencias(data: PilotReportData) {
+  const blocks: (Paragraph | Table)[] = [h1("5. ANÁLISIS DE LAS INTERACCIONES")];
+  blocks.push(
+    p(
+      "Esta sección se basó en un análisis automático, realizado por la IA de GlorIA, de las interacciones entre estudiantes y los pacientes virtuales, siguiendo el marco de evaluación de competencias psicoterapéuticas de Valdés & Gómez (2023, Universidad Santo Tomás). Las competencias se agrupan en dos dominios: Estructura de la sesión y Actitudes terapéuticas. A continuación se presentan los resultados agregados.",
+      { size: 22 },
+    ),
+  );
+
+  const byDomain: Record<string, typeof COMPETENCY_KEYS[number][]> = { estructura: [], actitudes: [] };
+  for (const k of COMPETENCY_KEYS) byDomain[data.competency_info[k].domain].push(k);
+
+  const renderDomain = (domain: "estructura" | "actitudes") => {
+    const domainLabel =
+      domain === "estructura" ? "5.1 Estructura de la sesión" : "5.2 Actitudes terapéuticas";
+    blocks.push(h2(domainLabel));
+    let idx = 1;
     for (const key of byDomain[domain]) {
       const info = data.competency_info[key];
-      const avg = data.competency_averages[key].avg;
-      const n = data.competency_averages[key].count;
+      const { avg, count } = data.competency_averages[key];
+      const color = avg >= 3 ? GREEN : avg >= 2 ? ORANGE : avg > 0 ? RED : MUTED;
       blocks.push(
         new Paragraph({
-          spacing: { before: 200 },
+          spacing: { before: 200, after: 100 },
           children: [
-            new TextRun({ text: `${idx}. ${info.name}`, bold: true, size: 24 }),
+            new TextRun({ text: `${idx}. ${info.name}`, bold: true, size: 22 }),
             new TextRun({
-              text: `    ${avg > 0 ? avg.toFixed(1) + " / 4" : "sin datos"}`,
-              color: avg >= 3 ? "16A34A" : avg >= 2 ? "D97706" : avg > 0 ? "DC2626" : MUTED,
+              text: `    ${avg > 0 ? `puntaje: ${avg.toFixed(1)} / 4` : "sin datos"}`,
+              color,
               bold: true,
-              size: 24,
+              size: 22,
             }),
+            ...(count > 0
+              ? [new TextRun({ text: `   (${count} sesiones)`, color: MUTED, size: 18 })]
+              : []),
           ],
         }),
       );
-      if (avg > 0) {
-        blocks.push(
-          new Paragraph({
-            children: [
-              new TextRun({ text: scoreBar(avg, 4, 25), color: avg >= 3 ? "16A34A" : avg >= 2 ? "D97706" : "DC2626", font: "Consolas" }),
-              new TextRun({ text: `   (${n} sesiones)`, color: MUTED, size: 18 }),
-            ],
-          }),
-        );
-      }
-      blocks.push(
-        new Paragraph({
-          children: [new TextRun({ text: info.definition, size: 20 })],
-        }),
-      );
+      blocks.push(p(info.definition, { size: 20 }));
       idx++;
     }
-  }
+  };
 
-  // Top fortalezas / áreas
+  renderDomain("estructura");
+  renderDomain("actitudes");
+
   if (data.top_strengths.length > 0 || data.top_areas.length > 0) {
-    blocks.push(...spacer());
-    blocks.push(heading("Fortalezas y áreas más citadas por la evaluación IA", HeadingLevel.HEADING_2));
+    blocks.push(h2("5.3 Fortalezas y áreas de mejora más citadas"));
   }
   if (data.top_strengths.length > 0) {
-    blocks.push(para("Fortalezas recurrentes:", { bold: true }));
+    blocks.push(p("Fortalezas recurrentes identificadas por la IA:", { bold: true, size: 22 }));
     for (const s of data.top_strengths) {
-      blocks.push(
-        new Paragraph({
-          bullet: { level: 0 },
-          children: [new TextRun(`${s.text}  (${s.count} menciones)`)],
-        }),
-      );
+      blocks.push(bullet(`${s.text} — ${s.count} menciones`));
     }
   }
   if (data.top_areas.length > 0) {
-    blocks.push(para("Áreas de mejora recurrentes:", { bold: true }));
+    blocks.push(p("Áreas de mejora recurrentes:", { bold: true, size: 22 }));
     for (const a of data.top_areas) {
-      blocks.push(
-        new Paragraph({
-          bullet: { level: 0 },
-          children: [new TextRun(`${a.text}  (${a.count} menciones)`)],
-        }),
-      );
+      blocks.push(bullet(`${a.text} — ${a.count} menciones`));
     }
   }
 
@@ -397,7 +499,7 @@ function sectionCompetencies(data: PilotReportData) {
       spacing: { before: 300 },
       children: [
         new TextRun({
-          text: "Valdés, A., & Gómez, P. (2023). Manual de Evaluación de Competencias Psicoterapéuticas. Universidad Santo Tomás.",
+          text: "Referencia: Valdés, A., & Gómez, P. (2023). Manual de Evaluación de Competencias Psicoterapéuticas. Universidad Santo Tomás.",
           italics: true,
           color: MUTED,
           size: 18,
@@ -409,179 +511,168 @@ function sectionCompetencies(data: PilotReportData) {
   return blocks;
 }
 
-// ─── Section: Survey (likert) ─────────────────────────────────────────
+// ─── Section 6: Testimonios ───────────────────────────────────────────
 
-function sectionSurvey(data: PilotReportData) {
-  const blocks: Paragraph[] = [
-    heading("Encuesta de satisfacción", HeadingLevel.HEADING_1),
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: `n = ${data.survey.n} respuestas de ${data.kpis.total_students} estudiantes invitados (${data.kpis.total_students > 0 ? Math.round((data.survey.n / data.kpis.total_students) * 100) : 0}% de respuesta).`,
-          italics: true,
-          color: MUTED,
-          size: 20,
-        }),
-      ],
-    }),
-  ];
-  if (data.survey.n === 0) {
-    blocks.push(
-      para("Aún no hay respuestas registradas. Esta sección se completará cuando los estudiantes respondan la encuesta.", { color: MUTED }),
-    );
-    blocks.push(pageBreak());
-    return blocks;
-  }
-
-  const sectionKeys = ["q7_usabilidad", "q8_realismo", "q9_pertinencia", "q10_diseno", "q11_satisfaccion"] as const;
-  for (const k of sectionKeys) {
-    const section = data.survey.likert[k];
-    blocks.push(...spacer());
+function renderTestimonialBlock(title: string, items: Testimonial[], limit = 5): (Paragraph | Table)[] {
+  if (items.length === 0) return [];
+  const blocks: (Paragraph | Table)[] = [];
+  blocks.push(h2(title));
+  for (const t of items.slice(0, limit)) {
     blocks.push(
       new Paragraph({
-        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 150 },
+        indent: { left: 400 },
+        children: [new TextRun({ text: `"${t.text}"`, italics: true, size: 22 })],
+      }),
+    );
+    blocks.push(
+      new Paragraph({
+        indent: { left: 400 },
+        spacing: { after: 120 },
         children: [
-          new TextRun({ text: V2_SECTION_LABELS[k], bold: true, color: ACCENT }),
           new TextRun({
-            text: `     ${section.overall > 0 ? section.overall.toFixed(1) + " / 5" : "—"}`,
-            bold: true,
-            color: section.overall >= 4 ? "16A34A" : section.overall >= 3 ? "D97706" : section.overall > 0 ? "DC2626" : MUTED,
+            text: testimonialAttribution(t),
+            color: ACCENT,
+            size: 18,
           }),
         ],
       }),
     );
-    for (const [itemKey, label] of Object.entries(V2_ITEM_LABELS[k])) {
-      const val = section.items[itemKey] || 0;
-      blocks.push(
-        new Paragraph({
-          children: [
-            new TextRun({ text: `  ${label.padEnd(40, " ")}`, font: "Consolas", size: 20 }),
-            new TextRun({ text: `  ${scoreBar(val, 5, 15)}`, font: "Consolas", size: 20 }),
-            new TextRun({ text: `  ${val > 0 ? val.toFixed(1) : "—"}`, font: "Consolas", size: 20 }),
-          ],
-        }),
-      );
-    }
   }
-  blocks.push(pageBreak());
   return blocks;
 }
 
-// ─── Section: Testimonials ────────────────────────────────────────────
-
-function sectionTestimonials(data: PilotReportData, variant: Variant, anonMap: Map<string, string>) {
-  const blocks: Paragraph[] = [
-    heading("Testimonios", HeadingLevel.HEADING_1),
-    new Paragraph({
-      children: [
-        new TextRun({
-          text:
-            variant === "anonymous"
-              ? "Respuestas abiertas anonimizadas — los nombres han sido reemplazados por identificadores (P-001, P-002, ...)."
-              : "Respuestas abiertas con nombre completo del autor.",
-          italics: true,
-          color: MUTED,
-          size: 20,
-        }),
-      ],
-    }),
-  ];
-  if (data.survey.n === 0) {
-    blocks.push(para("Aún no hay testimonios. Esta sección se completará cuando los estudiantes respondan la encuesta.", { color: MUTED }));
+function section6Testimonios(data: PilotReportData) {
+  const blocks: (Paragraph | Table)[] = [h1("6. TESTIMONIOS")];
+  const t = data.testimonials;
+  if (
+    t.mas_gusto.length === 0 &&
+    t.menos_gusto.length === 0 &&
+    t.cambio.length === 0 &&
+    t.incomodidad.length === 0 &&
+    t.comentarios.length === 0
+  ) {
+    blocks.push(
+      p("Aún no se registran testimonios. Esta sección se completará cuando los participantes respondan la encuesta.", {
+        italics: true,
+        color: MUTED,
+        size: 22,
+      }),
+    );
     blocks.push(pageBreak());
     return blocks;
   }
-  const keys = ["q12_mas_gusto", "q13_menos_gusto", "q14_cambio", "q15_incomodidad", "q16_comentarios"] as const;
-  for (const k of keys) {
-    const items = data.testimonials[k];
-    if (items.length === 0) continue;
-    blocks.push(...spacer());
-    blocks.push(heading(TESTIMONIAL_LABELS[k], HeadingLevel.HEADING_2));
-    for (const t of items) {
-      const attribution =
-        variant === "anonymous" ? anonMap.get(t.user_id) || "Estudiante" : t.full_name;
-      blocks.push(
-        new Paragraph({
-          spacing: { before: 150 },
-          indent: { left: 400 },
-          children: [new TextRun({ text: `“${t.text}”`, italics: true, size: 22 })],
-        }),
-      );
-      blocks.push(
-        new Paragraph({
-          indent: { left: 400 },
-          children: [new TextRun({ text: `— ${attribution}`, color: MUTED, size: 18 })],
-        }),
-      );
-    }
-  }
+
+  blocks.push(
+    p(
+      "Los siguientes testimonios han sido extraídos de las respuestas abiertas de la encuesta de satisfacción. Se presentan sin identificación nominal; la atribución incluye edad, universidad y país cuando están disponibles.",
+      { size: 20, italics: true, color: MUTED },
+    ),
+  );
+
+  blocks.push(...renderTestimonialBlock("¿Qué es lo que más te gustó de usar GlorIA?", t.mas_gusto));
+  blocks.push(
+    ...renderTestimonialBlock(
+      "¿Qué es lo que menos te gustó o qué problemas encontraste al usarla?",
+      t.menos_gusto,
+    ),
+  );
+  blocks.push(...renderTestimonialBlock("Si pudieras cambiar o agregar UNA cosa, ¿qué sería?", t.cambio));
+  blocks.push(
+    ...renderTestimonialBlock(
+      "¿Hubo algo que te generó incomodidad emocional o dificultó tu aprendizaje?",
+      t.incomodidad,
+    ),
+  );
+  blocks.push(...renderTestimonialBlock("Comentarios adicionales", t.comentarios, 3));
+
   blocks.push(pageBreak());
   return blocks;
 }
 
-// ─── Section: Annex — participant list ────────────────────────────────
+// ─── Section 7: Conclusiones ──────────────────────────────────────────
 
-function sectionAnnex(data: PilotReportData, variant: Variant, anonMap: Map<string, string>) {
+function section7Conclusiones(data: PilotReportData) {
+  const k = data.kpis;
+  const connPct = Math.round(k.connection_rate * 100);
+  const respPct =
+    k.total_students > 0 ? Math.round((k.survey_responses_count / k.total_students) * 100) : 0;
+
+  const narrativa = [
+    `La experiencia piloto realizada con ${data.pilot.institution}${
+      data.pilot.country ? ` (${data.pilot.country})` : ""
+    } convocó a ${k.total_invited} participantes, de los cuales ${k.total_connected} ingresaron a la plataforma (${connPct}% de conexión). Durante el piloto se registraron ${k.completed_sessions} sesiones completadas con un tiempo promedio activo de ${formatDuration(k.avg_seconds_per_session)} por interacción, y se respondieron ${k.survey_responses_count} encuestas de satisfacción (${respPct}% de los estudiantes).`,
+    k.pilot_overall_avg > 0
+      ? `Los resultados de la evaluación automática de competencias muestran un puntaje general de ${k.pilot_overall_avg.toFixed(1)} / 4 agregado sobre ${k.total_evaluated_sessions} sesiones evaluadas.`
+      : "Las sesiones evaluadas se suman en la tabla de la sección 5, donde se presentan los puntajes por competencia.",
+    data.survey.top_positives.length > 0
+      ? `La experiencia mostró una aceptación generalmente positiva, con ítems particularmente bien evaluados en usabilidad y satisfacción global. Al mismo tiempo, los estudiantes identificaron oportunidades de mejora concretas, principalmente en el realismo clínico y la pertinencia cultural de los pacientes simulados.`
+      : "",
+    "Considerando estos aprendizajes, los insumos recolectados se integrarán al roadmap de GlorIA para las siguientes versiones, con énfasis en las áreas identificadas por los propios participantes.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  return [
+    h1("7. CONCLUSIONES Y SIGUIENTES PASOS"),
+    ...narrativa.split("\n\n").map((para) =>
+      new Paragraph({
+        spacing: { after: 160 },
+        children: [new TextRun({ text: para, size: 22 })],
+      }),
+    ),
+    pageBreak(),
+  ];
+}
+
+// ─── Annex: Participantes ─────────────────────────────────────────────
+
+function sectionAnnex(data: PilotReportData, anonMap: Map<string, string>) {
   const header = new TableRow({
     tableHeader: true,
-    children: ["#", "Nombre", "Rol", "Primera sesión", "Última actividad", "Sesiones", "Encuesta"].map(
+    children: ["#", "Identificador", "Rol", "Primera sesión", "Última actividad", "Sesiones", "Encuesta"].map(
       (h) =>
         new TableCell({
-          shading: { type: ShadingType.CLEAR, color: "auto", fill: "E5E7EB" },
+          shading: { type: ShadingType.CLEAR, color: "auto", fill: TABLE_HEADER_BG },
           children: [
-            new Paragraph({
-              children: [new TextRun({ text: h, bold: true, size: 18 })],
-            }),
+            new Paragraph({ children: [new TextRun({ text: h, bold: true, size: 18 })] }),
           ],
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 4, color: CELL_BORDER },
+            bottom: { style: BorderStyle.SINGLE, size: 4, color: CELL_BORDER },
+            left: { style: BorderStyle.SINGLE, size: 4, color: CELL_BORDER },
+            right: { style: BorderStyle.SINGLE, size: 4, color: CELL_BORDER },
+          },
         }),
     ),
   });
+
   const rows = data.students.map((s, i) => {
-    const name =
-      variant === "anonymous" && s.role === "student"
-        ? anonMap.get(s.id) || "—"
-        : s.full_name;
+    const identifier = s.role === "student" ? anonMap.get(s.id) || "—" : "Docente";
     return new TableRow({
       children: [
-        new TableCell({ children: [para(String(i + 1), { size: 18 })] }),
-        new TableCell({ children: [para(name, { size: 18 })] }),
-        new TableCell({ children: [para(s.role === "student" ? "Estudiante" : "Docente", { size: 18 })] }),
-        new TableCell({ children: [para(formatDateShort(s.first_login_at), { size: 18 })] }),
-        new TableCell({ children: [para(formatDateShort(s.last_active_at), { size: 18 })] }),
-        new TableCell({ children: [para(String(s.total_sessions), { size: 18 })] }),
-        new TableCell({ children: [para(s.responded_survey ? "Sí" : "—", { size: 18 })] }),
+        textCell(String(i + 1), { size: 18 }),
+        textCell(identifier, { size: 18 }),
+        textCell(s.role === "student" ? "Estudiante" : "Docente", { size: 18 }),
+        textCell(formatDateShort(s.first_login_at), { size: 18 }),
+        textCell(formatDateShort(s.last_active_at), { size: 18 }),
+        textCell(String(s.total_sessions), { size: 18 }),
+        textCell(s.responded_survey ? "Sí" : "—", { size: 18 }),
       ],
     });
   });
+
   return [
-    heading("Anexo: Participantes", HeadingLevel.HEADING_1),
-    new Paragraph({
-      children: [
-        new TextRun({
-          text:
-            variant === "anonymous"
-              ? "Lista anonimizada — los nombres de estudiantes han sido reemplazados por identificadores."
-              : "Lista completa de participantes con datos de actividad.",
-          italics: true,
-          color: MUTED,
-          size: 20,
-        }),
-      ],
-    }),
-    ...spacer(),
+    h1("ANEXO — Participantes"),
+    p(
+      "Lista anonimizada de participantes con indicadores de actividad. Los estudiantes se identifican con P-NNN; los docentes mantienen su rol pero sin identificación nominal.",
+      { size: 20, italics: true, color: MUTED },
+    ),
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
-      borders: {
-        top: { style: BorderStyle.SINGLE, size: 4, color: BAR_GRAY },
-        bottom: { style: BorderStyle.SINGLE, size: 4, color: BAR_GRAY },
-        left: { style: BorderStyle.SINGLE, size: 4, color: BAR_GRAY },
-        right: { style: BorderStyle.SINGLE, size: 4, color: BAR_GRAY },
-        insideHorizontal: { style: BorderStyle.SINGLE, size: 2, color: BAR_GRAY },
-        insideVertical: { style: BorderStyle.SINGLE, size: 2, color: BAR_GRAY },
-      },
       rows: [header, ...rows],
     }),
-    ...spacer(2),
+    new Paragraph({ children: [], spacing: { before: 400 } }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
       children: [
@@ -593,97 +684,74 @@ function sectionAnnex(data: PilotReportData, variant: Variant, anonMap: Map<stri
         }),
       ],
     }),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [
-        new TextRun({
-          text: "GlorIA 5.0 · reporte generado automáticamente",
-          italics: true,
-          color: MUTED,
-          size: 18,
-        }),
-      ],
-    }),
   ];
 }
 
 // ─── Public entrypoint ────────────────────────────────────────────────
 
-export async function generatePilotDocx(
-  data: PilotReportData,
-  variant: Variant,
-): Promise<Buffer> {
-  // Assign anonymised IDs deterministically in the order students appear.
+export async function generatePilotDocx(data: PilotReportData): Promise<Buffer> {
+  // Load logos in parallel. Local assets are always attempted; the
+  // institution logo is fetched over HTTP if the pilot/establishment
+  // has one. All three fail gracefully to null.
+  const [ugmBuf, gloriaBuf, instBuf] = await Promise.all([
+    loadLocalAsset("ugm-full-logo.png"),
+    loadLocalAsset("gloria-logo.png"),
+    loadRemoteAsset(data.pilot.logo_url),
+  ]);
+
+  // Anonymised IDs for students (stable within a single report).
   const anonMap = new Map<string, string>();
-  let counter = 1;
+  let c = 1;
   for (const s of data.students) {
     if (s.role === "student") {
-      anonMap.set(s.id, `P-${String(counter).padStart(3, "0")}`);
-      // Also key by user_id so testimonials (which carry user_id not
-      // participant_id) can resolve the same alias.
-      counter++;
+      anonMap.set(s.id, `P-${String(c).padStart(3, "0")}`);
+      c++;
     }
   }
-  // Reconcile: anonMap for testimonials is keyed by user_id, not participant id.
-  // Build a parallel map keyed by user_id for testimonials.
-  const anonByUserId = new Map<string, string>();
-  let c2 = 1;
-  for (const s of data.students) {
-    if (s.role === "student") {
-      // Find user_id from students list — we stored only participant id earlier,
-      // but data.students entries map directly to participants by construction.
-      // The user_id isn't on students; re-derive via survey testimonials' user_id
-      // ↔ full_name pairing is unreliable. Safest: keep map by full_name.
-      anonByUserId.set(s.full_name, `P-${String(c2).padStart(3, "0")}`);
-      c2++;
-    }
-  }
-  // For testimonials we actually have user_id in the raw record. Build a
-  // direct user_id→alias map from testimonials themselves, in order of first
-  // appearance, to guarantee stable labelling even when the annex order
-  // differs from testimonial order.
-  const seenUserIds = new Set<string>();
-  const testimonialAnonMap = new Map<string, string>();
-  let c3 = 1;
-  const allTestimonials = [
-    ...data.testimonials.q12_mas_gusto,
-    ...data.testimonials.q13_menos_gusto,
-    ...data.testimonials.q14_cambio,
-    ...data.testimonials.q15_incomodidad,
-    ...data.testimonials.q16_comentarios,
-  ];
-  for (const t of allTestimonials) {
-    if (!seenUserIds.has(t.user_id)) {
-      seenUserIds.add(t.user_id);
-      testimonialAnonMap.set(t.user_id, `P-${String(c3).padStart(3, "0")}`);
-      c3++;
-    }
-  }
+
+  const header = buildPageHeader(ugmBuf, gloriaBuf, instBuf);
+
+  const { blocks: section4Blocks } = section4Results(data);
 
   const doc = new Document({
     creator: "GlorIA",
     title: `Informe ${data.pilot.name}`,
-    description: `Informe del piloto ${data.pilot.name} — ${data.pilot.institution}`,
+    description: `Informe experiencia piloto de GlorIA con ${data.pilot.institution}`,
     styles: {
       default: {
         document: {
           run: { font: "Calibri", size: 22 },
+          paragraph: { spacing: { line: 300 } },
         },
       },
+    },
+    numbering: {
+      config: [
+        {
+          reference: "default-bullets",
+          levels: [
+            { level: 0, format: LevelFormat.BULLET, text: "•", alignment: AlignmentType.LEFT },
+          ],
+        },
+      ],
     },
     sections: [
       {
         properties: {
-          page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } },
+          // Roughly 2.5cm margins on all sides (1440 = 1 inch)
+          page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } },
         },
+        headers: { default: header },
         children: [
-          ...sectionCover(data, variant),
-          ...sectionExecutiveSummary(),
-          ...sectionKPIs(data),
-          ...sectionCompetencies(data),
-          ...sectionSurvey(data),
-          ...sectionTestimonials(data, variant, testimonialAnonMap),
-          ...sectionAnnex(data, variant, anonMap),
+          ...sectionCover(data),
+          ...section1Intro(data),
+          ...section2Objetivos(),
+          ...section3Resumen(data),
+          ...section4Blocks,
+          ...section5Competencias(data),
+          ...section6Testimonios(data),
+          ...section7Conclusiones(data),
+          ...sectionAnnex(data, anonMap),
         ],
       },
     ],

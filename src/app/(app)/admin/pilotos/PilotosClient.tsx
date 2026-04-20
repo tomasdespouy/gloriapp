@@ -1892,20 +1892,12 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => handleGenerate("named")}
+              onClick={() => handleGenerate("anonymous")}
               disabled={!!generating}
               className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              {generating === "named" ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-              Generar informe (con nombres)
-            </button>
-            <button
-              onClick={() => handleGenerate("anonymous")}
-              disabled={!!generating}
-              className="flex items-center gap-2 px-4 py-2 border border-sidebar text-sidebar rounded-lg text-xs font-medium hover:bg-sidebar/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {generating === "anonymous" ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-              Generar anonimizado
+              {generating ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+              Generar informe
             </button>
           </div>
         </div>

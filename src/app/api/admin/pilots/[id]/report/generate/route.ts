@@ -41,9 +41,12 @@ export async function POST(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  const body = await request.json().catch(() => ({}));
-  const variant: "named" | "anonymous" =
-    body.variant === "anonymous" ? "anonymous" : "named";
+  // Body is accepted for forward compat (variant selector) but the
+  // generator always produces anonymised output now — per product call
+  // 2026-04-20. Keep the stored variant label so the metadata row is
+  // still honest about what's inside the file.
+  await request.json().catch(() => ({}));
+  const variant: "anonymous" = "anonymous";
 
   const { id: pilotId } = await params;
   const admin = createAdminClient();
@@ -60,7 +63,7 @@ export async function POST(
   }
 
   // 2. Generate DOCX
-  const buffer = await generatePilotDocx(data, variant);
+  const buffer = await generatePilotDocx(data);
 
   // 3. Upload to Storage (bucket: 'reports')
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
