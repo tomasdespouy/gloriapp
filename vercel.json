@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/cleanup-sessions",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/pilots-autostatus",
+      "schedule": "0 * * * *"
     }
   ]
 }

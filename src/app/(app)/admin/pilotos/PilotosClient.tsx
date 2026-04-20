@@ -1515,15 +1515,29 @@ function Step4Dashboard({
               Desactivar piloto
             </button>
           )}
-          {pilot.status === "cancelado" && (
-            <span className="text-xs font-medium text-red-500 bg-red-50 px-3 py-1.5 rounded-lg">
-              Piloto desactivado
-            </span>
-          )}
-          {pilot.status === "finalizado" && (
-            <span className="text-xs font-medium text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">
-              Piloto finalizado
-            </span>
+          {(pilot.status === "cancelado" || pilot.status === "finalizado") && (
+            <>
+              <span className={`text-xs font-medium px-3 py-1.5 rounded-lg ${
+                pilot.status === "cancelado"
+                  ? "text-red-500 bg-red-50"
+                  : "text-amber-600 bg-amber-50"
+              }`}>
+                {pilot.status === "cancelado" ? "Piloto desactivado" : "Piloto finalizado"}
+              </span>
+              <button
+                onClick={async () => {
+                  if (!confirm("¿Reactivar este piloto? Verifica que las fechas de inicio y fin sigan vigentes — los estudiantes solo pueden ingresar dentro de esa ventana.")) return;
+                  setActivating(true);
+                  await onActivate();
+                  setActivating(false);
+                }}
+                disabled={activating}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg text-xs font-medium hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {activating ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                Reactivar piloto
+              </button>
+            </>
           )}
         </div>
       </div>
