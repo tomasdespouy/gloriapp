@@ -95,7 +95,7 @@ export async function POST(
 
         if (teacherProfile?.email) {
           await resend.emails.send({
-            from: "GlorIA <onboarding@resend.dev>",
+            from: "GlorIA <noreply@glor-ia.com>",
             to: teacherProfile.email,
             subject: `Retroalimentación confirmada — ${student?.full_name || "Estudiante"}`,
             html: `

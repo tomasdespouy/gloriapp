@@ -121,7 +121,7 @@ export async function POST(request: Request) {
       if (resendKey) {
         const resend = new Resend(resendKey);
         const { error: sendError } = await resend.emails.send({
-          from: "GlorIA <onboarding@resend.dev>",
+          from: "GlorIA <noreply@glor-ia.com>",
           to: email,
           subject: "Bienvenido/a a GlorIA — Tus credenciales de acceso",
           html: `

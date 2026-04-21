@@ -404,7 +404,7 @@ export async function POST(request: NextRequest) {
               const roleLabel = role === "instructor" ? "Docente" : role === "admin" ? "Admin" : role === "superadmin" ? "Supradmin" : "Estudiante";
               const resend = new Resend(resendKey);
               await resend.emails.send({
-                from: "GlorIA <onboarding@resend.dev>",
+                from: "GlorIA <noreply@glor-ia.com>",
                 to: process.env.SUPPORT_EMAIL || "tomasdespouy@gmail.com",
                 replyTo: profile?.email || user.email || undefined,
                 subject: `[GlorIA Soporte] Ticket de ${roleLabel.toLowerCase()} — ${name}`,

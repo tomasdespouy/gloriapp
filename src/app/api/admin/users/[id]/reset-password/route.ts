@@ -77,7 +77,7 @@ export async function POST(
     if (resendKey) {
       const resend = new Resend(resendKey);
       const { error: sendError } = await resend.emails.send({
-        from: "GlorIA <onboarding@resend.dev>",
+        from: "GlorIA <noreply@glor-ia.com>",
         to: target.email,
         subject: firstTime
           ? "Bienvenido/a a GlorIA — Tus credenciales de acceso"

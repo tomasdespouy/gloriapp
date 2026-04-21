@@ -379,7 +379,7 @@ export async function POST(
 
         if (emails.length > 0) {
           await resend.emails.send({
-            from: "GlorIA <onboarding@resend.dev>",
+            from: "GlorIA <noreply@glor-ia.com>",
             to: emails[0],
             ...(emails.length > 1 ? { bcc: emails.slice(1) } : {}),
             subject: `Sesión pendiente de revisión — ${student.full_name || "Estudiante"}`,
@@ -667,7 +667,7 @@ async function evaluateAndPersist(ctx: {
           .filter((p) => p.email).map((p) => p.email as string);
         if (emails.length > 0) {
           await resend.emails.send({
-            from: "GlorIA <onboarding@resend.dev>",
+            from: "GlorIA <noreply@glor-ia.com>",
             to: emails[0],
             ...(emails.length > 1 ? { bcc: emails.slice(1) } : {}),
             subject: `Sesión pendiente de revisión — ${student.full_name || "Estudiante"}`,

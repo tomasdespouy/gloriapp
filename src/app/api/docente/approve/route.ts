@@ -114,7 +114,7 @@ export async function POST(request: Request) {
       const resend = new Resend(process.env.RESEND_API_KEY);
 
       await resend.emails.send({
-        from: "GlorIA <onboarding@resend.dev>",
+        from: "GlorIA <noreply@glor-ia.com>",
         to: studentProfile.email,
         subject: `Retroalimentación disponible — Sesión con ${patientName}`,
         html: `

@@ -99,7 +99,7 @@ export async function POST(request: Request) {
 
             if (teacherProfile?.email) {
               await resend.emails.send({
-                from: "GlorIA <onboarding@resend.dev>",
+                from: "GlorIA <noreply@glor-ia.com>",
                 to: teacherProfile.email,
                 subject: `Acuerdos confirmados — ${student?.full_name || "Estudiante"}`,
                 html: `
