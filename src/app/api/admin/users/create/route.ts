@@ -114,12 +114,13 @@ export async function POST(request: Request) {
   };
   let emailSent = false;
 
+  let emailError: unknown = null;
   if (send_credentials) {
     try {
       const resendKey = process.env.RESEND_API_KEY;
       if (resendKey) {
         const resend = new Resend(resendKey);
-        await resend.emails.send({
+        const { error: sendError } = await resend.emails.send({
           from: "GlorIA <onboarding@resend.dev>",
           to: email,
           subject: "Bienvenido/a a GlorIA — Tus credenciales de acceso",
@@ -167,10 +168,18 @@ export async function POST(request: Request) {
           </div>
         `,
         });
-        emailSent = true;
+        if (sendError) {
+          // Resend didn't throw — it returned an error object. Log so the
+          // failure is visible in Vercel logs and leave emailSent=false.
+          console.error("[users/create] resend error", { email, sendError });
+          emailError = sendError;
+        } else {
+          emailSent = true;
+        }
       }
-    } catch {
-      // Email is optional — user was still created successfully
+    } catch (e) {
+      console.error("[users/create] resend threw", { email, error: e });
+      emailError = e;
     }
   }
 
@@ -188,7 +197,7 @@ export async function POST(request: Request) {
     action: "create_user",
     entityType: "user",
     entityId: newUser?.user?.id,
-    details: { email, role: role || "student", establishment_id: validatedEstablishmentId, send_credentials, emailSent },
+    details: { email, role: role || "student", establishment_id: validatedEstablishmentId, send_credentials, emailSent, emailErrored: Boolean(emailError) },
   });
 
   return NextResponse.json({
@@ -198,5 +207,6 @@ export async function POST(request: Request) {
     tempPassword,
     emailSent,
     credentialsSent: emailSent,
+    emailError: emailError ? String((emailError as { message?: string })?.message || emailError) : null,
   }, { status: 201 });
 }

@@ -71,11 +71,12 @@ export async function POST(
   const firstTime = target.credentials_sent_at == null;
   let emailSent = false;
 
+  let emailError: unknown = null;
   try {
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
       const resend = new Resend(resendKey);
-      await resend.emails.send({
+      const { error: sendError } = await resend.emails.send({
         from: "GlorIA <onboarding@resend.dev>",
         to: target.email,
         subject: firstTime
@@ -128,10 +129,16 @@ export async function POST(
           </div>
         `,
       });
-      emailSent = true;
+      if (sendError) {
+        console.error("[users/reset-password] resend error", { email: target.email, sendError });
+        emailError = sendError;
+      } else {
+        emailSent = true;
+      }
     }
-  } catch {
-    // Email failed but password was still changed
+  } catch (e) {
+    console.error("[users/reset-password] resend threw", { email: target.email, error: e });
+    emailError = e;
   }
 
   // Record the fact that credentials were delivered. Only set when email
@@ -148,8 +155,12 @@ export async function POST(
     action: "reset_password",
     entityType: "user",
     entityId: id,
-    details: { email: target.email, emailSent },
+    details: { email: target.email, emailSent, emailErrored: Boolean(emailError) },
   });
 
-  return NextResponse.json({ success: true, emailSent });
+  return NextResponse.json({
+    success: true,
+    emailSent,
+    emailError: emailError ? String((emailError as { message?: string })?.message || emailError) : null,
+  });
 }

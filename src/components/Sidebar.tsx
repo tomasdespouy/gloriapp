@@ -208,7 +208,7 @@ export default function Sidebar({
           <img
             src={establishmentLogoUrl || "/branding/ugm-logo.png"}
             alt="Institución"
-            className="h-10 w-auto"
+            className="h-20 w-auto max-w-[180px] object-contain"
           />
         </div>
       </div>
