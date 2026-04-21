@@ -28,6 +28,7 @@ type User = {
   sessionCount: number;
   lastActivity: string | null;
   created_at: string;
+  credentials_sent_at: string | null;
 };
 
 type Props = {
@@ -250,19 +251,22 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
   };
 
   const resetPassword = async (userId: string) => {
+    const target = users.find((x) => x.id === userId);
+    const firstTime = target?.credentials_sent_at == null;
     setActionLoading(userId);
     try {
       const res = await fetch(`/api/admin/users/${userId}/reset-password`, { method: "POST" });
       if (!res.ok) throw new Error("Error del servidor");
       const data = await res.json();
       if (data.emailSent) {
-        toast.success("Contraseña restablecida y correo enviado");
+        toast.success(firstTime ? "Credenciales enviadas" : "Contraseña restablecida y correo enviado");
       } else {
-        toast.success("Contraseña restablecida (correo no configurado)");
+        toast.success(firstTime ? "Usuario creado (correo no configurado)" : "Contraseña restablecida (correo no configurado)");
       }
       setPasswordResetConfirm(null);
+      router.refresh();
     } catch {
-      toast.error("Error al restablecer la contraseña");
+      toast.error(firstTime ? "Error al enviar credenciales" : "Error al restablecer la contraseña");
     } finally {
       setActionLoading(null);
     }
@@ -285,6 +289,24 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
   );
 
   const userToDelete = users.find((u) => u.id === deleteConfirm);
+
+  // Superadmin can issue credentials for anyone except other superadmins.
+  // Admin can issue credentials only for students/instructors within their scope
+  // (the listing is already scoped, so no extra check is needed here).
+  const canIssueCredentials = (u: User) => {
+    if (u.role === "superadmin") return false;
+    if (isSuperadmin) return true;
+    return u.role === "student" || u.role === "instructor";
+  };
+
+  const SinCredentialesBadge = () => (
+    <span
+      className="inline-flex items-center text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
+      title="Este usuario aún no ha recibido sus credenciales de acceso"
+    >
+      Sin credenciales
+    </span>
+  );
 
   return (
     <div className="min-h-screen">
@@ -360,7 +382,10 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
                   </div>
                   <RoleBadge role={u.role} />
                 </div>
-                <p className="text-xs text-gray-500 mb-2">{u.email}</p>
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <p className="text-xs text-gray-500">{u.email}</p>
+                  {u.credentials_sent_at === null && <SinCredentialesBadge />}
+                </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 mb-3">
                   {u.establishmentName && <span>{u.establishmentName}</span>}
                   {u.establishmentName && (u.courseName || u.sectionName) && <span className="text-gray-300">{"\u00B7"}</span>}
@@ -386,13 +411,15 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
                         {isActive ? "Activo" : "Inactivo"}
                       </span>
                     )}
+                    {canIssueCredentials(u) && (
+                      <button onClick={() => setPasswordResetConfirm(u.id)} disabled={isLoading}
+                        className="action-btn action-btn-sidebar text-gray-300"
+                        title={u.credentials_sent_at ? "Reenviar credenciales" : "Enviar credenciales"}>
+                        <KeyRound size={14} />
+                      </button>
+                    )}
                     {isSuperadmin && u.role !== "superadmin" && (
                       <>
-                        <button onClick={() => setPasswordResetConfirm(u.id)} disabled={isLoading}
-                          className="action-btn action-btn-sidebar text-gray-300"
-                          title="Restablecer contraseña">
-                          <KeyRound size={14} />
-                        </button>
                         <button onClick={() => setResetConfirm(u.id)} disabled={isLoading}
                           className="action-btn action-btn-amber text-gray-300"
                           title="Restaurar datos iniciales">
@@ -478,7 +505,10 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
                         <p className="text-sm font-medium text-gray-900">{u.full_name || "—"}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-xs text-gray-500">{u.email}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-gray-500">{u.email}</p>
+                          {u.credentials_sent_at === null && <SinCredentialesBadge />}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <RoleBadge role={u.role} />
@@ -512,27 +542,31 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
                           </span>
                         )}
                       </td>
-                      {/* Actions: reset + delete */}
+                      {/* Actions: credentials + (superadmin-only) reset + delete */}
                       <td className="px-4 py-3">
-                        {isSuperadmin && u.role !== "superadmin" && (
-                          <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-1">
+                          {canIssueCredentials(u) && (
                             <button onClick={() => setPasswordResetConfirm(u.id)} disabled={isLoading}
                               className="action-btn action-btn-sidebar text-gray-300"
-                              title="Restablecer contraseña">
+                              title={u.credentials_sent_at ? "Reenviar credenciales" : "Enviar credenciales"}>
                               <KeyRound size={14} />
                             </button>
-                            <button onClick={() => setResetConfirm(u.id)} disabled={isLoading}
-                              className="action-btn action-btn-amber text-gray-300"
-                              title="Restaurar datos iniciales">
-                              <RotateCcw size={14} />
-                            </button>
-                            <button onClick={() => setDeleteConfirm(u.id)} disabled={isLoading}
-                              className="action-btn action-btn-red text-gray-300"
-                              title="Eliminar cuenta">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        )}
+                          )}
+                          {isSuperadmin && u.role !== "superadmin" && (
+                            <>
+                              <button onClick={() => setResetConfirm(u.id)} disabled={isLoading}
+                                className="action-btn action-btn-amber text-gray-300"
+                                title="Restaurar datos iniciales">
+                                <RotateCcw size={14} />
+                              </button>
+                              <button onClick={() => setDeleteConfirm(u.id)} disabled={isLoading}
+                                className="action-btn action-btn-red text-gray-300"
+                                title="Eliminar cuenta">
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                       {/* Edit */}
                       <td className="px-4 py-3">
@@ -739,10 +773,11 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
         );
       })()}
 
-      {/* Password reset confirmation modal */}
+      {/* Password reset / send credentials confirmation modal */}
       {passwordResetConfirm && (() => {
         const u = users.find((x) => x.id === passwordResetConfirm);
         if (!u) return null;
+        const firstTime = u.credentials_sent_at == null;
         return (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setPasswordResetConfirm(null)}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4 animate-pop" onClick={(e) => e.stopPropagation()}>
@@ -751,24 +786,32 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
                   <KeyRound size={24} className="text-sidebar" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-gray-900">¿Restablecer contraseña?</h3>
+                  <h3 className="text-base font-bold text-gray-900">
+                    {firstTime ? "¿Enviar credenciales?" : "¿Restablecer contraseña?"}
+                  </h3>
                   <p className="text-xs text-gray-400">{u.full_name || u.email}</p>
                 </div>
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-sm text-blue-800 font-medium mb-2">Al restablecer la contraseña:</p>
+                <p className="text-sm text-blue-800 font-medium mb-2">
+                  {firstTime ? "Al enviar las credenciales:" : "Al restablecer la contraseña:"}
+                </p>
                 <ul className="space-y-1.5 text-sm text-blue-700">
-                  <li className="flex items-start gap-2"><span className="mt-0.5">•</span> Se generará una nueva contraseña temporal</li>
-                  <li className="flex items-start gap-2"><span className="mt-0.5">•</span> Se enviará un correo a <strong>{u.email}</strong> con las nuevas credenciales</li>
-                  <li className="flex items-start gap-2"><span className="mt-0.5">•</span> La contraseña anterior dejará de funcionar inmediatamente</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5">•</span> Se generará una contraseña temporal</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5">•</span> Se enviará un correo a <strong>{u.email}</strong> con las credenciales</li>
+                  {!firstTime && (
+                    <li className="flex items-start gap-2"><span className="mt-0.5">•</span> La contraseña anterior dejará de funcionar inmediatamente</li>
+                  )}
                 </ul>
               </div>
 
               <div className="flex items-center gap-3">
                 <button onClick={() => resetPassword(passwordResetConfirm)} disabled={actionLoading === passwordResetConfirm}
                   className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold cursor-pointer hover:opacity-90 transition-opacity">
-                  {actionLoading === passwordResetConfirm ? "Enviando..." : "Sí, restablecer contraseña"}
+                  {actionLoading === passwordResetConfirm
+                    ? "Enviando..."
+                    : firstTime ? "Sí, enviar credenciales" : "Sí, restablecer contraseña"}
                 </button>
                 <button onClick={() => setPasswordResetConfirm(null)}
                   className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">
@@ -1198,6 +1241,8 @@ function CreateUserForm({ establishments, isSuperadmin, onClose }: { establishme
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ created: number; failed: number; results?: { email: string; success: boolean; error?: string }[] } | null>(null);
+  // Default OFF: the admin explicitly decides when to send credentials from the list.
+  const [sendCredentials, setSendCredentials] = useState(false);
 
   // Single mode
   const [email, setEmail] = useState("");
@@ -1209,8 +1254,9 @@ function CreateUserForm({ establishments, isSuperadmin, onClose }: { establishme
   // Excel mode
   const [excelData, setExcelData] = useState<{ email: string; full_name: string }[]>([]);
 
+  // Superadmin no se expone aquí: se crea manualmente en la BD por seguridad.
   const roleOptions = isSuperadmin
-    ? [{ v: "student", l: "Alumno" }, { v: "instructor", l: "Docente" }, { v: "admin", l: "Admin" }, { v: "superadmin", l: "Superadmin" }]
+    ? [{ v: "student", l: "Alumno" }, { v: "instructor", l: "Docente" }, { v: "admin", l: "Admin" }]
     : [{ v: "student", l: "Alumno" }, { v: "instructor", l: "Docente" }];
 
   const parseBulkText = (text: string) => {
@@ -1248,10 +1294,17 @@ function CreateUserForm({ establishments, isSuperadmin, onClose }: { establishme
     try {
       if (mode === "single") {
         if (!email || !fullName) { setError("Email y nombre requeridos"); setLoading(false); return; }
+        const body: Record<string, unknown> = {
+          email,
+          full_name: fullName,
+          role,
+          send_credentials: sendCredentials,
+        };
+        if (estId) body.establishment_id = estId;
         const res = await fetch("/api/admin/users/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, full_name: fullName, role, establishment_id: estId || null }),
+          body: JSON.stringify(body),
         });
         if (!res.ok) { const d = await res.json(); setError(d.error || "Error"); setLoading(false); return; }
         toast.success("Usuario creado");
@@ -1260,10 +1313,12 @@ function CreateUserForm({ establishments, isSuperadmin, onClose }: { establishme
         const users = mode === "text" ? parseBulkText(bulkText) : excelData;
         if (users.length === 0) { setError("No se encontraron usuarios válidos"); setLoading(false); return; }
 
+        const bulkBody: Record<string, unknown> = { users, role };
+        if (estId) bulkBody.establishment_id = estId;
         const res = await fetch("/api/admin/users/bulk", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ users, role, establishment_id: estId || null }),
+          body: JSON.stringify(bulkBody),
         });
         const data = await res.json();
         if (!res.ok) { setError(data.error || "Error"); setLoading(false); return; }
@@ -1331,16 +1386,30 @@ function CreateUserForm({ establishments, isSuperadmin, onClose }: { establishme
 
           {/* Mode-specific content */}
           {mode === "single" && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1">Email</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="usuario@email.com" />
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-500 mb-1">Email</label>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="usuario@email.com" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-500 mb-1">Nombre completo</label>
+                  <input value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputClass} placeholder="Juan Pérez" />
+                </div>
               </div>
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1">Nombre completo</label>
-                <input value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputClass} placeholder="Juan Pérez" />
-              </div>
-            </div>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={sendCredentials}
+                  onChange={(e) => setSendCredentials(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-sidebar focus:ring-sidebar"
+                />
+                <span className="text-xs text-gray-600">
+                  Enviar credenciales por correo al crear
+                </span>
+                <HelpTip text="Si está desactivado, el usuario se crea sin notificación. Podrás enviarle las credenciales después desde la lista." />
+              </label>
+            </>
           )}
 
           {mode === "text" && (

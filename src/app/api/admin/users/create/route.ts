@@ -29,11 +29,12 @@ export async function POST(request: Request) {
   }
   const parsed = parseBody(createUserSchema, rawBody);
   if (!parsed.ok) return parsed.response;
-  const { email, full_name, role, establishment_id, course_id, section_id } = parsed.data;
+  const { email, full_name, role, establishment_id, course_id, section_id, send_credentials } = parsed.data;
 
-  // Admin can only create students and instructors
+  // Admin can only create students and instructors. Superadmin is intentionally
+  // excluded from this endpoint — it must be created directly in the database.
   const validRoles = callerRole === "superadmin"
-    ? ["student", "instructor", "admin", "superadmin"]
+    ? ["student", "instructor", "admin"]
     : ["student", "instructor"];
   if (role && !validRoles.includes(role)) {
     return NextResponse.json({ error: `No puedes crear usuarios con rol '${role}'` }, { status: 403 });
@@ -90,29 +91,39 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: createError.message }, { status: 500 });
   }
 
-  // Set course/section if provided
-  if (newUser?.user?.id && (course_id || section_id)) {
-    const updates: Record<string, unknown> = {};
+  // The `handle_new_user()` trigger always inserts profiles with role='student'
+  // as a safeguard against public self-signup. Apply the intended role +
+  // establishment explicitly here using the service-role client.
+  if (newUser?.user?.id) {
+    const updates: Record<string, unknown> = {
+      role: role || "student",
+    };
+    if (validatedEstablishmentId) updates.establishment_id = validatedEstablishmentId;
     if (course_id) updates.course_id = course_id;
     if (section_id) updates.section_id = section_id;
-    await admin.from("profiles").update(updates).eq("id", newUser.user.id);
+    const { error: profileError } = await admin.from("profiles").update(updates).eq("id", newUser.user.id);
+    if (profileError) {
+      console.error("[users/create] profile update failed", profileError);
+    }
   }
 
-  // Send welcome email with credentials
+  // Send welcome email with credentials (only if requested)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://gloria-app.vercel.app";
   const roleLabels: Record<string, string> = {
     student: "Estudiante", instructor: "Docente", admin: "Administrador", superadmin: "Superadministrador",
   };
+  let emailSent = false;
 
-  try {
-    const resendKey = process.env.RESEND_API_KEY;
-    if (resendKey) {
-      const resend = new Resend(resendKey);
-      await resend.emails.send({
-        from: "GlorIA <onboarding@resend.dev>",
-        to: email,
-        subject: "Bienvenido/a a GlorIA — Tus credenciales de acceso",
-        html: `
+  if (send_credentials) {
+    try {
+      const resendKey = process.env.RESEND_API_KEY;
+      if (resendKey) {
+        const resend = new Resend(resendKey);
+        await resend.emails.send({
+          from: "GlorIA <onboarding@resend.dev>",
+          to: email,
+          subject: "Bienvenido/a a GlorIA — Tus credenciales de acceso",
+          html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="background: #4A55A2; padding: 24px 32px; border-radius: 12px 12px 0 0;">
               <h1 style="color: white; margin: 0; font-size: 24px;">Bienvenido/a a GlorIA</h1>
@@ -155,10 +166,21 @@ export async function POST(request: Request) {
             </div>
           </div>
         `,
-      });
+        });
+        emailSent = true;
+      }
+    } catch {
+      // Email is optional — user was still created successfully
     }
-  } catch {
-    // Email is optional — user was still created successfully
+  }
+
+  // Only mark credentials_sent_at when the email was actually sent.
+  // This lets the admin retry from the UI if the initial send failed or was skipped.
+  if (emailSent && newUser?.user?.id) {
+    await admin
+      .from("profiles")
+      .update({ credentials_sent_at: new Date().toISOString() })
+      .eq("id", newUser.user.id);
   }
 
   await logAdminAction({
@@ -166,7 +188,7 @@ export async function POST(request: Request) {
     action: "create_user",
     entityType: "user",
     entityId: newUser?.user?.id,
-    details: { email, role: role || "student", establishment_id: validatedEstablishmentId },
+    details: { email, role: role || "student", establishment_id: validatedEstablishmentId, send_credentials, emailSent },
   });
 
   return NextResponse.json({
@@ -174,6 +196,7 @@ export async function POST(request: Request) {
     user: newUser,
     userId: newUser?.user?.id,
     tempPassword,
-    emailSent: !!process.env.RESEND_API_KEY,
+    emailSent,
+    credentialsSent: emailSent,
   }, { status: 201 });
 }

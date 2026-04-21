@@ -143,7 +143,6 @@ export default function UserDetailClient({
             <option value="student">Alumno</option>
             <option value="instructor">Instructor / Docente</option>
             <option value="admin">Administrador</option>
-            <option value="superadmin">Superadmin</option>
           </select>
         </div>
 

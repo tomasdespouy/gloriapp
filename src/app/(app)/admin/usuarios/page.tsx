@@ -43,7 +43,7 @@ export default async function UsuariosPage({
 
   let usersQuery = supabase
     .from("profiles")
-    .select("id, email, full_name, role, establishment_id, course_id, section_id, is_disabled, created_at")
+    .select("id, email, full_name, role, establishment_id, course_id, section_id, is_disabled, created_at, credentials_sent_at")
     .order("full_name")
     .range(from, to);
   if (scopeFilter) usersQuery = usersQuery.in("establishment_id", scopeFilter);
