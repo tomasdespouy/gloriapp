@@ -555,7 +555,7 @@ export default function PilotosClient({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-2 mt-4">
                     <button
                       onClick={(e) => { e.stopPropagation(); openPilot(pilot); }}
                       className="text-xs text-sidebar hover:underline flex items-center gap-1 cursor-pointer"
@@ -871,7 +871,7 @@ function Step1Upload({
               Logo de la institución
             </label>
             <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-              <div className="flex-shrink-0 w-24 h-12 bg-white border border-gray-200 rounded flex items-center justify-center p-1.5">
+              <div className="flex-shrink-0 w-24 h-12 bg-sidebar border border-sidebar-hover rounded flex items-center justify-center p-1.5">
                 {establishmentLogoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -883,7 +883,7 @@ function Step1Upload({
                     }}
                   />
                 ) : (
-                  <span className="text-[10px] text-gray-300">sin logo</span>
+                  <span className="text-[10px] text-white/50">sin logo</span>
                 )}
               </div>
               <p className="text-[11px] text-gray-500 leading-snug">

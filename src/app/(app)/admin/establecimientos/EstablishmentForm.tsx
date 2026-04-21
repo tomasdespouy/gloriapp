@@ -138,8 +138,8 @@ export default function EstablishmentForm({
             {logoUrl && (
               <div className="mt-2 flex items-center gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={logoUrl} alt="Preview" className="h-10 w-auto rounded bg-gray-50 p-1" />
-                <span className="text-[10px] text-gray-400">Vista previa</span>
+                <img src={logoUrl} alt="Preview" className="h-10 w-auto rounded bg-sidebar p-1" />
+                <span className="text-[10px] text-gray-400">Vista previa (fondo real del sidebar)</span>
               </div>
             )}
           </div>
