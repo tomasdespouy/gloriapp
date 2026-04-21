@@ -798,10 +798,22 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
                   {firstTime ? "Al enviar las credenciales:" : "Al restablecer la contraseña:"}
                 </p>
                 <ul className="space-y-1.5 text-sm text-blue-700">
-                  <li className="flex items-start gap-2"><span className="mt-0.5">•</span> Se generará una contraseña temporal</li>
-                  <li className="flex items-start gap-2"><span className="mt-0.5">•</span> Se enviará un correo a <strong>{u.email}</strong> con las credenciales</li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5 flex-shrink-0">•</span>
+                    <span className="min-w-0">Se generará una contraseña temporal</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5 flex-shrink-0">•</span>
+                    <span className="min-w-0">
+                      Se enviará un correo con las credenciales a:
+                      <span className="block mt-0.5 font-semibold text-blue-900 break-all">{u.email}</span>
+                    </span>
+                  </li>
                   {!firstTime && (
-                    <li className="flex items-start gap-2"><span className="mt-0.5">•</span> La contraseña anterior dejará de funcionar inmediatamente</li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 flex-shrink-0">•</span>
+                      <span className="min-w-0">La contraseña anterior dejará de funcionar inmediatamente</span>
+                    </li>
                   )}
                 </ul>
               </div>
