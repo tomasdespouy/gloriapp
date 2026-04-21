@@ -449,6 +449,34 @@ export default function PilotosClient({
     }
   };
 
+  // ────────────────────────────────
+  // Delete a participant entirely (clean test users from analysis/report)
+  // ────────────────────────────────
+
+  const handleDeleteParticipant = async (participantId: string, participantLabel: string) => {
+    if (!selectedPilot) return;
+    if (!confirm(
+      `¿Eliminar a ${participantLabel} del piloto?\n\n` +
+      `ACCIÓN IRREVERSIBLE. Se eliminará:\n` +
+      `  • La fila del participante en el piloto\n` +
+      `  • Su cuenta auth y perfil\n` +
+      `  • Todas sus conversaciones y sesiones evaluadas\n` +
+      `  • Su consentimiento en este piloto\n\n` +
+      `Usá esto solo para limpiar usuarios de prueba que no deben aparecer en el análisis.`
+    )) return;
+
+    const res = await fetch(
+      `/api/admin/pilots/${selectedPilot.id}/participants/${participantId}`,
+      { method: "DELETE" },
+    );
+    if (res.ok) {
+      await refreshDashboard();
+    } else {
+      const err = await res.json().catch(() => null);
+      alert(`Error al eliminar participante: ${err?.error || res.statusText}`);
+    }
+  };
+
   // Apply a partial pilot update locally (used by PilotConsentPanel after PATCH)
   const handlePilotPatched = (update: Partial<Pilot>) => {
     setSelectedPilot((prev) => (prev ? { ...prev, ...update } : prev));
@@ -692,6 +720,7 @@ export default function PilotosClient({
             refreshing={refreshing}
             onRefresh={refreshDashboard}
             onResetParticipant={handleResetParticipant}
+            onDeleteParticipant={handleDeleteParticipant}
             onActivate={handleActivate}
             onFinalize={async () => {
               if (!selectedPilot) return;
@@ -1414,7 +1443,7 @@ function StepLinkPanel({ pilot }: { pilot: Pilot }) {
 // ════════════════════════════════════════════
 
 function Step4Dashboard({
-  pilot, refreshing, onRefresh, onFinalize, onActivate, onResetParticipant,
+  pilot, refreshing, onRefresh, onFinalize, onActivate, onResetParticipant, onDeleteParticipant,
 }: {
   pilot: Pilot | null;
   refreshing: boolean;
@@ -1422,6 +1451,7 @@ function Step4Dashboard({
   onFinalize: () => Promise<void>;
   onActivate: () => Promise<void>;
   onResetParticipant: (participantId: string, participantEmail: string) => Promise<void>;
+  onDeleteParticipant: (participantId: string, participantLabel: string) => Promise<void>;
 }) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [deactivating, setDeactivating] = useState(false);
@@ -1653,9 +1683,7 @@ function Step4Dashboard({
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Encuesta</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Última actividad</th>
                 <th className="text-center px-3 py-2 text-gray-500 font-medium w-12">Ver</th>
-                {pilot.test_mode && (
-                  <th className="text-right px-3 py-2 text-gray-500 font-medium">Acciones</th>
-                )}
+                <th className="text-right px-3 py-2 text-gray-500 font-medium">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -1711,23 +1739,33 @@ function Step4Dashboard({
                       <Eye size={14} />
                     </button>
                   </td>
-                  {pilot.test_mode && (
-                    <td className="px-3 py-2.5 text-right">
+                  <td className="px-3 py-2.5 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      {pilot.test_mode && (
+                        <button
+                          onClick={() => onResetParticipant(p.id, p.email)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md cursor-pointer"
+                          title="Borrar consent + auth user y volver a pendiente. Solo disponible en modo de prueba."
+                        >
+                          <RotateCcw size={11} />
+                          Reset
+                        </button>
+                      )}
                       <button
-                        onClick={() => onResetParticipant(p.id, p.email)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md cursor-pointer"
-                        title="Borrar consent + auth user y volver a pendiente. Solo disponible en modo de prueba."
+                        onClick={() => onDeleteParticipant(p.id, p.full_name || p.email)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md cursor-pointer"
+                        title="Eliminar permanentemente al participante, sus sesiones y conversaciones (irreversible)"
                       >
-                        <RotateCcw size={11} />
-                        Reset
+                        <Trash2 size={11} />
+                        Eliminar
                       </button>
-                    </td>
-                  )}
+                    </div>
+                  </td>
                 </tr>
               ))}
               {filteredParticipants.length === 0 && (
                 <tr>
-                  <td colSpan={pilot.test_mode ? 10 : 9} className="px-3 py-8 text-center text-gray-400">
+                  <td colSpan={10} className="px-3 py-8 text-center text-gray-400">
                     No hay participantes con este filtro
                   </td>
                 </tr>
