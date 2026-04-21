@@ -85,7 +85,7 @@ export default function InstitutionList({
               <div className="flex items-center gap-4 p-5 border-b border-gray-100">
                 {inst.logo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={inst.logo_url} alt={inst.name} className="w-12 h-12 rounded-xl object-contain bg-gray-50 p-1" />
+                  <img src={inst.logo_url} alt={inst.name} className="w-12 h-12 rounded-xl object-contain bg-sidebar p-1" />
                 ) : (
                   <div className="w-12 h-12 rounded-xl bg-sidebar/10 flex items-center justify-center">
                     <Building2 size={22} className="text-sidebar" />
