@@ -14,10 +14,18 @@ export default async function UsuariosPage({
   // before interpolating into the filter expression.
   const searchQuery = (params.q || "").trim().slice(0, 100).replace(/[,()]/g, " ");
   const roleFilter = params.role || "";
-  const estFilter = params.est || "";
+  const rawEstFilter = params.est || "";
 
   const ctx = await getAdminContext();
   const supabase = await createClient();
+
+  // Reject URL-tampered est filters that fall outside the caller's scope.
+  // Superadmin can filter by any establishment; admin can only filter within
+  // their own assigned establishments.
+  const estFilter =
+    rawEstFilter && (ctx.isSuperadmin || ctx.establishmentIds.includes(rawEstFilter))
+      ? rawEstFilter
+      : "";
 
   // Build scoping filter helper
   const scopeFilter = ctx.isSuperadmin
