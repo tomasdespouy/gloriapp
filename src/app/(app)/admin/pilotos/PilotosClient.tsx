@@ -43,6 +43,7 @@ type Pilot = {
   consent_text?: string | null;
   consent_version?: string | null;
   test_mode?: boolean | null;
+  is_anonymous?: boolean | null;
 };
 
 type Participant = {
@@ -181,6 +182,7 @@ export default function PilotosClient({
     ended_at: "",
     establishment_id: "",
     logo_url: "",
+    is_anonymous: false,
   });
   const [csvError, setCsvError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -205,7 +207,7 @@ export default function PilotosClient({
     setShowWizard(false);
     setCreating(false);
     setCsvRows([]);
-    setFormData({ name: "", institution: "", country: "", contact_name: "", contact_email: "", scheduled_at: "", ended_at: "", establishment_id: "", logo_url: "" });
+    setFormData({ name: "", institution: "", country: "", contact_name: "", contact_email: "", scheduled_at: "", ended_at: "", establishment_id: "", logo_url: "", is_anonymous: false });
     setCsvError("");
     setDashboardData(null);
   };
@@ -228,6 +230,7 @@ export default function PilotosClient({
         ended_at: data.ended_at ? new Date(data.ended_at).toISOString().slice(0, 16) : "",
         establishment_id: data.establishment_id || "",
         logo_url: data.logo_url || "",
+        is_anonymous: data.is_anonymous === true,
       });
 
       // Determine step from status or target (uses STEP_* constants)
@@ -753,7 +756,7 @@ function Step1Upload({
   formData, setFormData, csvRows, setCsvRows, csvError, creating, fileInputRef,
   onFileDrop, onFileSelect, onCreatePilot, isEditing, onNext, establishments,
 }: {
-  formData: { name: string; institution: string; country: string; contact_name: string; contact_email: string; scheduled_at: string; ended_at: string; establishment_id: string; logo_url: string };
+  formData: { name: string; institution: string; country: string; contact_name: string; contact_email: string; scheduled_at: string; ended_at: string; establishment_id: string; logo_url: string; is_anonymous: boolean };
   setFormData: (fn: (prev: typeof formData) => typeof formData) => void;
   csvRows: CsvRow[];
   setCsvRows: (rows: CsvRow[]) => void;
@@ -947,6 +950,29 @@ function Step1Upload({
             />
           </div>
         </div>
+      </div>
+
+      {/* Configuración — Piloto anónimo */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="text-sm font-semibold text-gray-900 mb-4">Configuración</h3>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={formData.is_anonymous}
+            onChange={(e) => setFormData((f) => ({ ...f, is_anonymous: e.target.checked }))}
+            className="mt-1 h-4 w-4 rounded border-gray-300 text-[#4A55A2] focus:ring-[#4A55A2]"
+          />
+          <div>
+            <p className="text-sm font-medium text-gray-900">Piloto anónimo</p>
+            <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+              Los estudiantes no ingresan nombre ni correo. El sistema genera un
+              email sintético y una contraseña al aceptar el consentimiento y
+              las muestra una sola vez en pantalla para que las guarden. Úsalo
+              cuando la universidad requiere que la participación no pueda
+              vincularse a una identidad real.
+            </p>
+          </div>
+        </label>
       </div>
 
       {/* Advanced mode: legacy CSV + manual entry. Hidden by default —
@@ -1352,8 +1378,9 @@ function Step3Preview({
 function StepLinkPanel({ pilot }: { pilot: Pilot }) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const consentPath = pilot.is_anonymous ? "consent-anon" : "consentimiento";
   const enrollmentUrl = pilot.enrollment_slug
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}/piloto/${pilot.enrollment_slug}/consentimiento`
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/piloto/${pilot.enrollment_slug}/${consentPath}`
     : null;
 
   async function handleCopy() {
@@ -1375,11 +1402,18 @@ function StepLinkPanel({ pilot }: { pilot: Pilot }) {
           <Link2 size={20} className="text-white" />
         </div>
         <div className="flex-1">
-          <h2 className="text-lg font-bold text-gray-900">Link de inscripción</h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-lg font-bold text-gray-900">Link de inscripción</h2>
+            {pilot.is_anonymous && (
+              <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#4A55A2] bg-[#F0F0FF] border border-[#D1D5FF] rounded-full">
+                Anónimo
+              </span>
+            )}
+          </div>
           <p className="text-xs text-gray-500 mt-0.5">
-            Comparte este link con el coordinador de la institución. Cada
-            persona que entre podrá inscribirse, firmar el consentimiento y
-            recibir sus credenciales por correo automáticamente.
+            {pilot.is_anonymous
+              ? "Este piloto es anónimo. Cada persona que abra el link aceptará el consentimiento y recibirá sus credenciales directamente en pantalla (no hay email)."
+              : "Comparte este link con el coordinador de la institución. Cada persona que entre podrá inscribirse, firmar el consentimiento y recibir sus credenciales por correo automáticamente."}
           </p>
         </div>
       </div>
