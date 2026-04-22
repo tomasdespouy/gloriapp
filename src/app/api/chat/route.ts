@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { chatStream, type ChatMessage } from "@/lib/ai";
+import { chat, chatStream, type ChatMessage } from "@/lib/ai";
+import { detectAlerts, stripPromptLeaks, type AlertSpec } from "@/lib/chat-alerts";
 import { z } from "zod";
 import {
   classifyIntervention, calculateDeltas, applyDeltas,
@@ -262,6 +263,13 @@ Reglas de oro:
 
   const turnNumber = (lastState?.turn || 0) + 1;
 
+  // Detect observational alerts on the student's message. These are
+  // never blocking — if anything is flagged (profanity, violence,
+  // self-harm, disrespect) it goes to the `chat_alerts` table and
+  // surfaces in the pilot dashboard. The conversation continues
+  // normally either way.
+  const userAlerts = detectAlerts(message, "user", turnNumber);
+
   // Classify the therapist's intervention
   const interventionType = classifyIntervention(message);
 
@@ -414,25 +422,139 @@ ${isShortGreeting
         }
 
         const rawResponse = chunks.join("");
-        // Polish: fix token-gluing glitches and log anomalies. If the
-        // polish changed the text, emit a "correction" event so the
-        // client can replace whatever it rendered from the chunks.
-        const patientResponse = polishAndLog(rawResponse, {
+
+        // Strip any prompt-scaffolding that leaked into the response
+        // ("SILENCIO INTERNO:", bracketed system headers, etc.). This
+        // produces a cleaned version that students will see in their
+        // transcript. The raw version is still captured below as an
+        // alert sample so we can audit what actually came out of the
+        // model.
+        const leakStrip = stripPromptLeaks(rawResponse);
+
+        // Polish: fix token-gluing glitches and log anomalies.
+        let patientResponse = polishAndLog(leakStrip.cleaned, {
           conversationId,
           patientId,
           turn: turnNumber,
         });
+
+        // Retry guardrail: if the model returned a too-short response
+        // after the intentional short-reply window (turns 1-2), do ONE
+        // non-streaming retry. Keeps costs bounded and covers the
+        // observed "Mi" / "[Se enc" truncation failure modes.
+        let retryAttempted = false;
+        if (patientResponse.trim().length < 15 && turnNumber > 2) {
+          retryAttempted = true;
+          try {
+            const retry = await chat(sanitizedHistory, systemPrompt, { lite: true });
+            const retryStripped = stripPromptLeaks(retry).cleaned;
+            const retryPolished = polishAndLog(retryStripped, {
+              conversationId,
+              patientId,
+              turn: turnNumber,
+            });
+            if (retryPolished.trim().length >= 15) {
+              patientResponse = retryPolished;
+            }
+          } catch (retryErr) {
+            logger.warn("chat_short_retry_failed", {
+              conversationId,
+              turnNumber,
+              error: retryErr instanceof Error ? retryErr.message : String(retryErr),
+            });
+          }
+        }
+
+        // If polish / strip / retry changed the rendered text, tell
+        // the client to replace what was typed from the raw chunks.
         if (patientResponse !== rawResponse) {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: "correction", value: patientResponse })}\n\n`)
           );
         }
 
-        await supabase.from("messages").insert({
-          conversation_id: conversationId,
-          role: "assistant",
-          content: patientResponse,
-        });
+        const { data: savedMessage } = await supabase
+          .from("messages")
+          .insert({
+            conversation_id: conversationId,
+            role: "assistant",
+            content: patientResponse,
+          })
+          .select("id")
+          .single();
+
+        // ── Alerts ────────────────────────────────────────────────
+        // Build the list of observational alerts for this turn:
+        //   1. prompt_leak — detected on the RAW response (before
+        //      stripping) so we don't miss it once cleaned.
+        //   2. short_response — only if we DIDN'T successfully retry.
+        //   3. profanity / violence / self_harm — detected on the
+        //      final text (either the cleaned assistant response or
+        //      the user message captured earlier).
+        // Everything is persisted in chat_alerts and surfaced in the
+        // pilot dashboard. Never blocks the conversation.
+        const assistantAlertSpecs: AlertSpec[] = [];
+
+        if (leakStrip.changed) {
+          const leakOnly = detectAlerts(rawResponse, "assistant", turnNumber)
+            .filter((a) => a.kind === "prompt_leak");
+          assistantAlertSpecs.push(...leakOnly);
+        }
+
+        const finalAlerts = detectAlerts(patientResponse, "assistant", turnNumber)
+          .filter((a) => a.kind !== "prompt_leak")
+          // If the retry succeeded we don't want to also log a
+          // short_response alert — the user no longer sees a short message.
+          .filter((a) => !(a.kind === "short_response" && retryAttempted && patientResponse.trim().length >= 15));
+
+        assistantAlertSpecs.push(...finalAlerts);
+
+        const allAlertRows: Array<Record<string, unknown>> = [];
+        for (const spec of userAlerts) {
+          allAlertRows.push({
+            conversation_id: conversationId,
+            message_id: null,
+            student_id: user.id,
+            ai_patient_id: patientId,
+            source: "user",
+            kind: spec.kind,
+            severity: spec.severity,
+            matched_terms: spec.matchedTerms,
+            sample: spec.sample,
+            turn_number: turnNumber,
+          });
+        }
+        for (const spec of assistantAlertSpecs) {
+          allAlertRows.push({
+            conversation_id: conversationId,
+            message_id: savedMessage?.id ?? null,
+            student_id: user.id,
+            ai_patient_id: patientId,
+            source: "assistant",
+            kind: spec.kind,
+            severity: spec.severity,
+            matched_terms: spec.matchedTerms,
+            sample: spec.sample,
+            turn_number: turnNumber,
+          });
+        }
+        if (allAlertRows.length > 0) {
+          // Fire-and-forget: alerts are observational; if the insert
+          // fails we don't want to derail the chat response.
+          admin
+            .from("chat_alerts")
+            .insert(allAlertRows)
+            .then(({ error }) => {
+              if (error) {
+                logger.warn("chat_alerts_insert_failed", {
+                  conversationId,
+                  turnNumber,
+                  count: allAlertRows.length,
+                  error: error.message,
+                });
+              }
+            });
+        }
 
         // Save clinical state log (trazabilidad causal)
         await admin.from("clinical_state_log").insert({
