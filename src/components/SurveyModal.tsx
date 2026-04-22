@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 
-type Survey = { id: string; title: string };
+type Survey = { id: string; title: string; form_version?: string | null };
 
 // ─────────────────────────────────────────────────────────────────────
 // UGM "Evaluación de plataforma de simulación con el uso de IA"
@@ -54,7 +54,30 @@ export default function SurveyModal({
   const [sent, setSent] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [sending, setSending] = useState(false);
+  const [declining, setDeclining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Persist an explicit "No realizar" decline. POSTs {decline: true} so
+  // the server writes a survey_responses row with status='not_taken';
+  // superadmin can count declines separately from silent non-respondents.
+  // Hides the modal regardless of network outcome — a failed decline
+  // still honors the user's UI intent to dismiss.
+  async function declineSurvey(surveyId: string) {
+    if (declining) return;
+    setDeclining(true);
+    try {
+      await fetch("/api/surveys/active", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ survey_id: surveyId, decline: true }),
+      });
+    } catch {
+      // Silent: network failure shouldn't block the user from closing.
+    } finally {
+      setDeclining(false);
+      setDismissed(true);
+    }
+  }
 
   // Tracks whether the welcome video has been dismissed in this
   // browser session. Starts as the server truth, flips to true when
@@ -191,9 +214,23 @@ export default function SurveyModal({
     }
   }
 
+  // Render the new pilot v2 questionnaire when the backing survey row
+  // was seeded with form_version='v2_pilot'. Legacy surveys (NULL) keep
+  // rendering the original v1 form below, unchanged.
+  if (survey.form_version === "v2_pilot") {
+    return (
+      <SurveyModalV2
+        survey={survey}
+        onDismiss={() => setDismissed(true)}
+        onDecline={() => declineSurvey(survey.id)}
+        declining={declining}
+      />
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-pop">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-3 sm:p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden animate-pop">
         {/* Header */}
         <div className="bg-gradient-to-r from-sidebar to-[#354080] px-6 py-4 text-white flex-shrink-0">
           <div className="flex items-start justify-between gap-4">
@@ -291,10 +328,11 @@ export default function SurveyModal({
               )}
               <div className="flex items-center justify-between gap-3">
                 <button
-                  onClick={() => setDismissed(true)}
-                  className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer"
+                  onClick={() => declineSurvey(survey.id)}
+                  disabled={declining}
+                  className="text-xs text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  Ahora no
+                  {declining ? "Registrando…" : "No realizar"}
                 </button>
                 <div className="flex items-center gap-2">
                   {step > 0 && (
@@ -494,6 +532,325 @@ function Field({
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
       {children}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// V2 pilot questionnaire (2026-04)
+//
+// User-facing numbering runs 1..10 correlatively (5 Likert sections +
+// 5 open questions). Demographics + consent are captured at pilot
+// enrollment, same as v1, so they are not re-asked here.
+//
+// Payload shape (stable — DO NOT rename these keys, analytics depend on
+// them): q7_usabilidad, q8_realismo, q9_pertinencia, q10_diseno,
+// q11_satisfaccion, q12_mas_gusto, q13_menos_gusto, q14_cambio,
+// q15_incomodidad, q16_comentarios. The q7..q16 key offset is
+// historical — kept as-is so reports/exports don't need a rename.
+// ─────────────────────────────────────────────────────────────────────
+
+const V2_USABILIDAD_ITEMS = [
+  { key: "registro",       label: "El proceso de registro e inicio de sesión fue sencillo." },
+  { key: "navegacion",     label: "La plataforma es fácil de navegar (encontrar opciones, menús, etc.)." },
+  { key: "inicio_sesion",  label: "Iniciar una sesión de chat con un paciente simulado fue intuitivo." },
+  { key: "dialogo",        label: "Mantener la conversación y dialogar con el paciente simulado fue simple." },
+  { key: "general",        label: "En general, considero que Glor-IA es fácil de usar." },
+];
+
+const V2_REALISMO_ITEMS = [
+  { key: "respuestas",     label: "Las respuestas del paciente simulado se sintieron realistas." },
+  { key: "personalidad",   label: "La personalidad y el motivo de consulta del paciente fueron creíbles y coherentes." },
+  { key: "comprension",    label: "El paciente virtual entendió y respondió adecuadamente a mis preguntas e intervenciones." },
+  { key: "sesion_real",    label: "La interacción con el paciente simulado me generó una sensación similar a lo que espero de una sesión clínica real." },
+  { key: "emocional",      label: "Las reacciones emocionales del paciente simulado fueron consistentes con su historia y motivo de consulta." },
+];
+
+const V2_PERTINENCIA_ITEMS = [
+  { key: "lenguaje",       label: "El lenguaje utilizado por el paciente simulado es pertinente a mi contexto cultural." },
+  { key: "experiencias",   label: "Las experiencias presentadas por los pacientes son coherentes con mi realidad local." },
+  { key: "tematica",       label: "La temática del paciente virtual es pertinente a las problemáticas de salud mental de mi contexto." },
+  { key: "estereotipos",   label: "La interacción evita estereotipos ofensivos o poco realistas hacia personas o grupos específicos." },
+  { key: "sensibilidad",   label: "Considero que Glor-IA es sensible a las particularidades del contexto en el que podría ejercer." },
+];
+
+const V2_DISENO_ITEMS = [
+  { key: "visual",         label: "El diseño visual (colores, tipografía, organización) de la plataforma es agradable y coherente." },
+  { key: "informacion",    label: "La información en pantalla (chat, ficha, menús) está bien organizada y es fácil de leer." },
+  { key: "fluidez",        label: "Durante mi uso, la plataforma funcionó de manera fluida (sin caídas o lentitud excesiva)." },
+  { key: "interactivos",   label: "Los elementos interactivos (botones, enlaces, opciones) son claros y fáciles de identificar." },
+  { key: "adaptacion",     label: "La plataforma se adaptó correctamente al dispositivo que utilicé (computador, tablet o celular)." },
+];
+
+const V2_SATISFACCION_ITEMS = [
+  { key: "satisfaccion",   label: "Estoy satisfecho/a con mi experiencia general utilizando Glor-IA." },
+  { key: "volver_usar",    label: "Me gustaría volver a usar Glor-IA en otros cursos o actividades de práctica." },
+  { key: "recomendar",     label: "Recomendaría el uso de Glor-IA a otros estudiantes de psicología." },
+  { key: "incorporacion",  label: "Considero que sería valioso que Glor-IA se incorporase formalmente en la formación clínica." },
+  { key: "tiempo_valio",   label: "Siento que el tiempo dedicado a usar Glor-IA valió la pena para mi aprendizaje." },
+];
+
+function SurveyModalV2({
+  survey,
+  onDismiss,
+  onDecline,
+  declining,
+}: {
+  survey: Survey;
+  /** Close without recording anything — used by the X header button
+      so the student can hide the modal temporarily and see it again
+      on next navigation. */
+  onDismiss: () => void;
+  /** Persist an explicit "No realizar" decline in survey_responses
+      with status='not_taken'. Irreversible from UI. */
+  onDecline: () => void;
+  /** True while the decline POST is in flight. */
+  declining: boolean;
+}) {
+  const [step, setStep] = useState<0 | 1>(0);
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [q7, setQ7] = useState<LikertScores>({});
+  const [q8, setQ8] = useState<LikertScores>({});
+  const [q9, setQ9] = useState<LikertScores>({});
+  const [q10, setQ10] = useState<LikertScores>({});
+  const [q11, setQ11] = useState<LikertScores>({});
+  const [q12, setQ12] = useState("");
+  const [q13, setQ13] = useState("");
+  const [q14, setQ14] = useState("");
+  const [q15, setQ15] = useState("");
+  const [q16, setQ16] = useState("");
+
+  function validateStep0(): string | null {
+    const groups: [string, LikertScores, { key: string; label: string }[]][] = [
+      ["1. Usabilidad y navegación", q7, V2_USABILIDAD_ITEMS],
+      ["2. Realismo Clínico", q8, V2_REALISMO_ITEMS],
+      ["3. Pertinencia cultural y contextual", q9, V2_PERTINENCIA_ITEMS],
+      ["4. Diseño, interfaz y funcionamiento técnico", q10, V2_DISENO_ITEMS],
+      ["5. Satisfacción global e intención de uso futuro", q11, V2_SATISFACCION_ITEMS],
+    ];
+    for (const [group, scores, items] of groups) {
+      for (const item of items) {
+        if (!scores[item.key]) return `Falta responder en "${group}": ${item.label}`;
+      }
+    }
+    return null;
+  }
+
+  function validateStep1(): string | null {
+    if (!q12.trim()) return "Cuéntanos qué te gustó más (pregunta 6).";
+    if (!q13.trim()) return "Cuéntanos qué te gustó menos (pregunta 7).";
+    if (!q14.trim()) return "Cuéntanos qué cambiarías (pregunta 8).";
+    if (!q15.trim()) return "Cuéntanos si hubo algo que te generó incomodidad (pregunta 9).";
+    return null;
+  }
+
+  function goNext() {
+    const err = validateStep0();
+    if (err) { setError(err); return; }
+    setError(null);
+    setStep(1);
+  }
+  function goBack() { setError(null); setStep(0); }
+
+  async function handleSubmit() {
+    const err = validateStep1();
+    if (err) { setError(err); return; }
+    if (sending) return;
+    setSending(true);
+    setError(null);
+    const answers = {
+      form_version: "v2_pilot",
+      q7_usabilidad: q7,
+      q8_realismo: q8,
+      q9_pertinencia: q9,
+      q10_diseno: q10,
+      q11_satisfaccion: q11,
+      q12_mas_gusto: q12.trim(),
+      q13_menos_gusto: q13.trim(),
+      q14_cambio: q14.trim(),
+      q15_incomodidad: q15.trim(),
+      q16_comentarios: q16.trim() || null,
+    };
+    try {
+      const res = await fetch("/api/surveys/active", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ survey_id: survey.id, answers }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || "No pudimos enviar tu respuesta.");
+        setSending(false);
+        return;
+      }
+      setSent(true);
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-3 sm:p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden animate-pop">
+        <div className="bg-gradient-to-r from-sidebar to-[#354080] px-6 py-4 text-white flex-shrink-0">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base sm:text-lg font-bold leading-tight">
+                Evaluación de plataforma de simulación con el uso de IA
+              </h2>
+              <p className="text-xs text-white/80 mt-1 leading-snug">
+                Encuesta anónima. Tu opinión nos ayuda a mejorar la formación
+                clínica de los estudiantes.
+              </p>
+            </div>
+            <button
+              onClick={onDismiss}
+              className="flex-shrink-0 w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+              title="Cerrar"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {sent ? (
+          <div className="p-10 text-center animate-fade-in">
+            <div className="text-5xl animate-bounce-once">🎉</div>
+            <p className="text-base font-semibold text-gray-900 mt-4">
+              ¡Gracias por tu respuesta!
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              Tu retroalimentación nos ayuda a mejorar GlorIA y a entender mejor
+              cómo apoyar tu proceso formativo.
+            </p>
+            <button
+              onClick={onDismiss}
+              className="mt-5 text-sm text-sidebar hover:underline cursor-pointer"
+            >
+              Cerrar
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="px-6 pt-4 pb-2 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center gap-2 text-xs">
+                {(["Escalas Likert", "Preguntas abiertas"] as const).map((label, i) => (
+                  <div key={label} className="flex items-center gap-2">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                      i === step ? "bg-sidebar text-white"
+                        : i < step ? "bg-sidebar/15 text-sidebar"
+                        : "bg-gray-100 text-gray-400"}`}>
+                      {i + 1}
+                    </div>
+                    <span className={`hidden sm:inline ${i === step ? "text-gray-900 font-medium" : "text-gray-400"}`}>
+                      {label}
+                    </span>
+                    {i < 1 && <span className="text-gray-300">›</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              {step === 0 ? (
+                <div className="space-y-8">
+                  <LikertGrid
+                    title="1. [Usabilidad y navegación]"
+                    subtitle="1 = Totalmente en desacuerdo, 5 = Totalmente de acuerdo."
+                    items={V2_USABILIDAD_ITEMS}
+                    scores={q7}
+                    onChange={(k, v) => setQ7({ ...q7, [k]: v })}
+                  />
+                  <LikertGrid
+                    title="2. [Realismo Clínico]"
+                    subtitle="1 = Totalmente en desacuerdo, 5 = Totalmente de acuerdo."
+                    items={V2_REALISMO_ITEMS}
+                    scores={q8}
+                    onChange={(k, v) => setQ8({ ...q8, [k]: v })}
+                  />
+                  <LikertGrid
+                    title="3. [Pertinencia cultural y contextual]"
+                    subtitle="1 = Totalmente en desacuerdo, 5 = Totalmente de acuerdo."
+                    items={V2_PERTINENCIA_ITEMS}
+                    scores={q9}
+                    onChange={(k, v) => setQ9({ ...q9, [k]: v })}
+                  />
+                  <LikertGrid
+                    title="4. [Diseño, interfaz y funcionamiento técnico]"
+                    subtitle="1 = Totalmente en desacuerdo, 5 = Totalmente de acuerdo."
+                    items={V2_DISENO_ITEMS}
+                    scores={q10}
+                    onChange={(k, v) => setQ10({ ...q10, [k]: v })}
+                  />
+                  <LikertGrid
+                    title="5. [Satisfacción global e intención de uso futuro]"
+                    subtitle="1 = Totalmente en desacuerdo, 5 = Totalmente de acuerdo."
+                    items={V2_SATISFACCION_ITEMS}
+                    scores={q11}
+                    onChange={(k, v) => setQ11({ ...q11, [k]: v })}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <Field label="6. ¿Qué es lo que MÁS te gustó de usar la plataforma Glor-IA?" required>
+                    <textarea value={q12} onChange={(e) => setQ12(e.target.value)} rows={3} className={`${inputCls} resize-none`} />
+                  </Field>
+                  <Field label="7. ¿Qué es lo que MENOS te gustó o qué problemas/dificultades encontraste al usarla?" required>
+                    <textarea value={q13} onChange={(e) => setQ13(e.target.value)} rows={3} className={`${inputCls} resize-none`} />
+                  </Field>
+                  <Field label="8. Si pudieras cambiar o agregar UNA cosa a Glor-IA, ¿qué sería?" required>
+                    <textarea value={q14} onChange={(e) => setQ14(e.target.value)} rows={3} className={`${inputCls} resize-none`} />
+                  </Field>
+                  <Field label="9. Durante la interacción con el paciente simulado, ¿hubo algo que te generó incomodidad emocional o piensas que dificultó tu aprendizaje?" required>
+                    <textarea value={q15} onChange={(e) => setQ15(e.target.value)} rows={3} className={`${inputCls} resize-none`} />
+                  </Field>
+                  <Field label="10. [Opcional] Si quieres puedes dejar alguna consulta o comentario en este espacio">
+                    <textarea value={q16} onChange={(e) => setQ16(e.target.value)} rows={2} className={`${inputCls} resize-none`} />
+                  </Field>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-3 border-t border-gray-100 flex-shrink-0 bg-white">
+              {error && (
+                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
+                  {error}
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  onClick={onDecline}
+                  disabled={declining}
+                  className="text-xs text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {declining ? "Registrando…" : "No realizar"}
+                </button>
+                <div className="flex items-center gap-2">
+                  {step > 0 && (
+                    <button onClick={goBack} className="flex items-center gap-1 px-3 py-2 border border-gray-200 hover:bg-gray-50 rounded-lg text-xs font-medium text-gray-700 cursor-pointer">
+                      <ChevronLeft size={14} /> Atrás
+                    </button>
+                  )}
+                  {step < 1 ? (
+                    <button onClick={goNext} className="flex items-center gap-1 px-4 py-2 bg-sidebar hover:bg-[#354080] text-white rounded-lg text-xs font-semibold cursor-pointer">
+                      Siguiente <ChevronRight size={14} />
+                    </button>
+                  ) : (
+                    <button onClick={handleSubmit} disabled={sending} className="px-5 py-2 bg-sidebar hover:bg-[#354080] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold cursor-pointer">
+                      {sending ? "Enviando…" : "Enviar respuesta"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

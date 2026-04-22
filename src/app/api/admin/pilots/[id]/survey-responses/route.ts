@@ -112,11 +112,27 @@ export async function GET(
 
   // 3. All responses for any survey, filtered by participant user_id.
   // Covers UGM global survey, pilot-scoped surveys, etc.
+  //
+  // Filter to status='completed' so decline rows (status='not_taken',
+  // answers=null, created by the "No realizar" button) don't leak into
+  // the export as empty rows. Declines are counted separately via the
+  // `declinedTotal` field on the JSON response below.
   const { data: responses } = await admin
     .from("survey_responses")
     .select("id, user_id, created_at, answers")
     .in("user_id", userIds)
+    .eq("status", "completed")
     .order("created_at", { ascending: true });
+
+  // Count of "No realizada" rows for this pilot's participants. The
+  // superadmin sees this in the dashboard card next to the completed
+  // responses total — it's the bucket that used to be invisible
+  // (students who dismissed the modal left no trace).
+  const { count: declinedTotal } = await admin
+    .from("survey_responses")
+    .select("id", { count: "exact", head: true })
+    .in("user_id", userIds)
+    .eq("status", "not_taken");
 
   const respList: ResponseRow[] = (responses || []) as ResponseRow[];
 
@@ -162,7 +178,12 @@ export async function GET(
         answers: resp.answers || {},
       };
     });
-    return NextResponse.json({ pilot, total: rows.length, rows });
+    return NextResponse.json({
+      pilot,
+      total: rows.length,
+      declinedTotal: declinedTotal || 0,
+      rows,
+    });
   }
 
   // ── Tabular export (CSV or XLSX) ──────────────────────────────────

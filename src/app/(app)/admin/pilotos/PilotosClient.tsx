@@ -8,9 +8,9 @@ import {
   Calendar, Globe, Building2, Trash2, Eye, RefreshCw,
   Download, Send, Clock, UserCheck, MessageSquare,
   AlertCircle, Check, ChevronDown, RotateCcw,
+  Link2, Copy, ExternalLink, Image as ImageIcon,
 } from "lucide-react";
 import PilotConsentPanel from "./PilotConsentPanel";
-import LogoUrlField from "@/components/LogoUrlField";
 
 // ────────────────────────────────────────────
 // Types
@@ -56,9 +56,16 @@ type Participant = {
   first_login_at: string | null;
   sessions_count: number;
   last_active_at: string | null;
-  // Set to the created_at of the participant's most recent survey_responses
-  // row, or null if they haven't answered the closure survey yet.
+  // Set to the created_at of the participant's most recent COMPLETED
+  // survey_responses row, or null if they haven't answered the closure
+  // survey yet.
   survey_completed_at: string | null;
+  // Set to the created_at of the participant's most recent DECLINED
+  // survey_responses row (status='not_taken' — the "No realizar" button
+  // was pressed), or null. Rendered as an explicit "No realizada" badge
+  // so the superadmin can tell the difference between "never showed up"
+  // and "declined to respond".
+  survey_declined_at: string | null;
 };
 
 type CsvRow = {
@@ -67,21 +74,23 @@ type CsvRow = {
   role: string;
 };
 
-type ValidationError = {
-  row: number;
-  field: string;
-  message: string;
-};
-
 // ────────────────────────────────────────────
 // Constants
 // ────────────────────────────────────────────
 
+// The raw DB status values are kept for backwards compat. User-facing
+// labels reflect the 2026-04-20 simplification:
+//   · enviado is now shown as "Activo" — the canonical enrolment flow is
+//     the public link, not CSV-driven email invites, so a pilot in this
+//     state is simply "turned on" rather than "just emailed".
+//   · en_curso is retired: no code sets it. Legacy rows would still map
+//     through STATUS_LABELS via the raw key if any turn up.
+//   · validado is kept only for legacy pilots created before the CSV
+//     validation step was removed from the wizard.
 const STATUS_COLORS: Record<string, string> = {
   borrador: "bg-gray-100 text-gray-700",
   validado: "bg-blue-100 text-blue-700",
-  enviado: "bg-purple-100 text-purple-700",
-  en_curso: "bg-green-100 text-green-700",
+  enviado: "bg-green-100 text-green-700",
   finalizado: "bg-amber-100 text-amber-700",
   cancelado: "bg-red-100 text-red-600",
 };
@@ -89,8 +98,7 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   borrador: "Borrador",
   validado: "Validado",
-  enviado: "Enviado",
-  en_curso: "En curso",
+  enviado: "Activo",
   en_desarrollo: "En desarrollo",
   finalizado: "Finalizado",
   cancelado: "Cancelado",
@@ -105,12 +113,27 @@ const STATUS_COLORS_EXTENDED: Record<string, string> = {
   en_desarrollo: "bg-emerald-100 text-emerald-700",
 };
 
+// Tab order — student-facing ordering validated with the product owner on
+// 2026-04-20. Internal step indices and the openPilot status→step mapping
+// all key off this array. When adding a new step, also update:
+//   · openPilot status→step mapping (lines 236-248 region)
+//   · handleCreatePilot + handleSendInvites setStep targets
+//   · the render switch (step === N ...)
+//   · the "Nuevo piloto" click handlers that set step to INSTITUCION_STEP
+const STEP_CONSENTIMIENTO = 0;
+const STEP_CORREO         = 1;
+const STEP_INSTITUCION    = 2;
+const STEP_LINK           = 3;
+const STEP_DASHBOARD      = 4;
+const STEP_INFORME        = 5;
+
 const STEPS = [
+  { label: "Consentimiento",     icon: FileText },
+  { label: "Correo",             icon: Mail },
   { label: "Ingresar Institución", icon: Building2 },
-  { label: "Consentimiento", icon: FileText },
-  { label: "Envío de instrucciones", icon: Mail },
-  { label: "Dashboard", icon: BarChart3 },
-  { label: "Informe", icon: Rocket },
+  { label: "Link",               icon: Link2 },
+  { label: "Dashboard",          icon: BarChart3 },
+  { label: "Informe",            icon: Rocket },
 ];
 
 const COMPETENCY_LABELS: Record<string, string> = {
@@ -130,7 +153,7 @@ const COMPETENCY_LABELS: Record<string, string> = {
 // Main Component
 // ────────────────────────────────────────────
 
-type Establishment = { id: string; name: string; country: string | null };
+type Establishment = { id: string; name: string; country: string | null; logo_url: string | null };
 
 export default function PilotosClient({
   pilots: initialPilots,
@@ -162,23 +185,7 @@ export default function PilotosClient({
   const [csvError, setCsvError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Step 2 state
-  const [validating, setValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<{
-    valid_count: number;
-    error_count: number;
-    errors: ValidationError[];
-  } | null>(null);
-
-  // Step 3 state
-  const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<{
-    total: number;
-    success: number;
-    failed: number;
-  } | null>(null);
-
-  // Step 4 state
+  // Dashboard state
   const [dashboardData, setDashboardData] = useState<Pilot | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -200,8 +207,6 @@ export default function PilotosClient({
     setCsvRows([]);
     setFormData({ name: "", institution: "", country: "", contact_name: "", contact_email: "", scheduled_at: "", ended_at: "", establishment_id: "", logo_url: "" });
     setCsvError("");
-    setValidationResult(null);
-    setSendResult(null);
     setDashboardData(null);
   };
 
@@ -225,19 +230,19 @@ export default function PilotosClient({
         logo_url: data.logo_url || "",
       });
 
-      // Determine step from status or target
+      // Determine step from status or target (uses STEP_* constants)
       if (targetStep !== undefined) {
         setStep(targetStep);
       } else if (data.status === "borrador") {
-        setStep(0);
+        setStep(STEP_CONSENTIMIENTO);
       } else if (data.status === "validado") {
-        setStep(2);
-      } else if (data.status === "enviado" || data.status === "en_curso") {
-        setStep(3);
+        setStep(STEP_CORREO);
+      } else if (data.status === "enviado") {
+        setStep(STEP_DASHBOARD);
       } else if (data.status === "finalizado") {
-        setStep(4);
+        setStep(STEP_INFORME);
       } else {
-        setStep(0);
+        setStep(STEP_CONSENTIMIENTO);
       }
       setShowWizard(false);
       setCreating(false);
@@ -368,7 +373,9 @@ export default function PilotosClient({
     if (res.ok) {
       const pilot = await res.json();
       setPilots((prev) => [{ ...pilot, participant_count: csvRows.length }, ...prev]);
-      await openPilot(pilot, 1);
+      // After creation, jump to Consentimiento — it's the first tab of the
+      // editing flow per the 2026-04 ordering.
+      await openPilot(pilot, STEP_CONSENTIMIENTO);
     } else {
       const errData = await res.json().catch(() => null);
       setCsvError(errData?.error || `Error al crear el piloto (${res.status}). Intenta de nuevo.`);
@@ -376,54 +383,26 @@ export default function PilotosClient({
     setCreating(false);
   };
 
-  // ────────────────────────────────
-  // Step 2: Validate
-  // ────────────────────────────────
-
-  const handleValidate = async () => {
+  // Activate a pilot: transitions status to 'enviado' (UI label: "Activo")
+  // without sending any email. The old "Enviar invitaciones" button set
+  // the same status as a side-effect of emailing the CSV roster, but the
+  // canonical onboarding flow is the public enrolment link, so there is
+  // no roster to mail. Admin still needs a way to flip a pilot from
+  // borrador/validado into active, hence this explicit action.
+  const handleActivate = async () => {
     if (!selectedPilot) return;
-    setValidating(true);
-    setValidationResult(null);
-
-    const res = await fetch(`/api/admin/pilots/${selectedPilot.id}/validate`, {
-      method: "POST",
+    const res = await fetch(`/api/admin/pilots/${selectedPilot.id}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows: csvRows }),
+      body: JSON.stringify({ status: "enviado" }),
     });
-
     if (res.ok) {
-      const data = await res.json();
-      setValidationResult(data);
+      await openPilot(selectedPilot, STEP_DASHBOARD);
     }
-    setValidating(false);
   };
 
   // ────────────────────────────────
-  // Step 3: Send invites
-  // ────────────────────────────────
-
-  const handleSendInvites = async (customBody?: string) => {
-    if (!selectedPilot) return;
-    setSending(true);
-    setSendResult(null);
-
-    const res = await fetch(`/api/admin/pilots/${selectedPilot.id}/send-invites`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ customBody: customBody || undefined }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      setSendResult(data);
-      // Refresh pilot data
-      await openPilot(selectedPilot, 3);
-    }
-    setSending(false);
-  };
-
-  // ────────────────────────────────
-  // Step 4: Dashboard refresh
+  // Dashboard refresh
   // ────────────────────────────────
 
   const refreshDashboard = useCallback(async () => {
@@ -470,6 +449,34 @@ export default function PilotosClient({
     }
   };
 
+  // ────────────────────────────────
+  // Delete a participant entirely (clean test users from analysis/report)
+  // ────────────────────────────────
+
+  const handleDeleteParticipant = async (participantId: string, participantLabel: string) => {
+    if (!selectedPilot) return;
+    if (!confirm(
+      `¿Eliminar a ${participantLabel} del piloto?\n\n` +
+      `ACCIÓN IRREVERSIBLE. Se eliminará:\n` +
+      `  • La fila del participante en el piloto\n` +
+      `  • Su cuenta auth y perfil\n` +
+      `  • Todas sus conversaciones y sesiones evaluadas\n` +
+      `  • Su consentimiento en este piloto\n\n` +
+      `Usá esto solo para limpiar usuarios de prueba que no deben aparecer en el análisis.`
+    )) return;
+
+    const res = await fetch(
+      `/api/admin/pilots/${selectedPilot.id}/participants/${participantId}`,
+      { method: "DELETE" },
+    );
+    if (res.ok) {
+      await refreshDashboard();
+    } else {
+      const err = await res.json().catch(() => null);
+      alert(`Error al eliminar participante: ${err?.error || res.statusText}`);
+    }
+  };
+
   // Apply a partial pilot update locally (used by PilotConsentPanel after PATCH)
   const handlePilotPatched = (update: Partial<Pilot>) => {
     setSelectedPilot((prev) => (prev ? { ...prev, ...update } : prev));
@@ -510,7 +517,7 @@ export default function PilotosClient({
             </p>
           </div>
           <button
-            onClick={() => { resetWizard(); setShowWizard(true); }}
+            onClick={() => { resetWizard(); setShowWizard(true); setStep(STEP_INSTITUCION); }}
             className="flex items-center gap-2 px-4 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
           >
             <Plus size={16} />
@@ -524,7 +531,7 @@ export default function PilotosClient({
               <Rocket size={48} className="text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 text-sm">No hay pilotos creados aún</p>
               <button
-                onClick={() => { resetWizard(); setShowWizard(true); }}
+                onClick={() => { resetWizard(); setShowWizard(true); setStep(STEP_INSTITUCION); }}
                 className="mt-4 px-4 py-2 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
               >
                 Crear primer piloto
@@ -576,7 +583,7 @@ export default function PilotosClient({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-2 mt-4">
                     <button
                       onClick={(e) => { e.stopPropagation(); openPilot(pilot); }}
                       className="text-xs text-sidebar hover:underline flex items-center gap-1 cursor-pointer"
@@ -639,9 +646,15 @@ export default function PilotosClient({
               <button
                 key={i}
                 onClick={() => {
-                  if (selectedPilot && i <= step + 1) setStep(i);
+                  // For a saved pilot, tabs are freely navigable. The old
+                  // "i <= step + 1" forward-gate made sense when the order
+                  // was naturally sequential (Institución → Consent →
+                  // Envío → Dashboard → Informe); the 2026-04-20 reorder
+                  // put Consentimiento first, so sequential gating would
+                  // block going back to Institución without a reason.
+                  if (selectedPilot) setStep(i);
                 }}
-                disabled={(showWizard && !selectedPilot && i > 0) || creating}
+                disabled={(showWizard && !selectedPilot && i !== STEP_INSTITUCION) || creating}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex-shrink-0 cursor-pointer disabled:cursor-not-allowed ${
                   isActive
                     ? "bg-sidebar text-white"
@@ -659,9 +672,29 @@ export default function PilotosClient({
         </div>
       </div>
 
-      {/* Step content */}
+      {/* Step content — index mapping uses STEP_* constants. */}
       <div className="px-4 sm:px-8 pb-8">
-        {step === 0 && <Step1Upload
+        {step === STEP_CONSENTIMIENTO && selectedPilot && (
+          <div className="space-y-4 max-w-4xl">
+            <PilotConsentPanel
+              pilot={(dashboardData || selectedPilot)!}
+              onPilotUpdated={handlePilotPatched}
+            />
+            <div className="flex justify-end">
+              <button
+                onClick={() => setStep(STEP_CORREO)}
+                className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
+              >
+                Continuar al correo
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === STEP_CORREO && <Step3Preview pilot={selectedPilot} />}
+
+        {step === STEP_INSTITUCION && <Step1Upload
           formData={formData}
           setFormData={setFormData}
           csvRows={csvRows}
@@ -673,42 +706,22 @@ export default function PilotosClient({
           onFileSelect={handleFileSelect}
           onCreatePilot={handleCreatePilot}
           isEditing={!!selectedPilot}
-          onNext={() => setStep(1)}
+          onNext={() => setStep(STEP_CONSENTIMIENTO)}
           establishments={establishments}
         />}
 
-        {step === 1 && selectedPilot && (
-          <div className="space-y-4 max-w-4xl">
-            <PilotConsentPanel
-              pilot={(dashboardData || selectedPilot)!}
-              onPilotUpdated={handlePilotPatched}
-            />
-            <div className="flex justify-end">
-              <button
-                onClick={() => setStep(2)}
-                className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
-              >
-                Continuar al envío
-                <ArrowRight size={16} />
-              </button>
-            </div>
-          </div>
+        {step === STEP_LINK && selectedPilot && (
+          <StepLinkPanel pilot={(dashboardData || selectedPilot)!} />
         )}
 
-        {step === 2 && <Step3Preview
-          pilot={selectedPilot}
-          sending={sending}
-          sendResult={sendResult}
-          onSend={handleSendInvites}
-          onNext={() => setStep(3)}
-        />}
-
-        {step === 3 && (
+        {step === STEP_DASHBOARD && (
           <Step4Dashboard
             pilot={dashboardData || selectedPilot}
             refreshing={refreshing}
             onRefresh={refreshDashboard}
             onResetParticipant={handleResetParticipant}
+            onDeleteParticipant={handleDeleteParticipant}
+            onActivate={handleActivate}
             onFinalize={async () => {
               if (!selectedPilot) return;
               const res = await fetch(`/api/admin/pilots/${selectedPilot.id}`, {
@@ -718,13 +731,13 @@ export default function PilotosClient({
               });
               if (res.ok) {
                 await refreshDashboard();
-                setStep(4);
+                setStep(STEP_INFORME);
               }
             }}
           />
         )}
 
-        {step === 4 && <Step5Report
+        {step === STEP_INFORME && <Step5Report
           pilot={dashboardData || selectedPilot}
         />}
       </div>
@@ -758,14 +771,17 @@ function Step1Upload({
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<CsvRow>({ email: "", full_name: "", role: "student" });
   const [createError, setCreateError] = useState("");
-  // Snapshot of the logo_url when this step mounted — used as the
-  // "Restaurar" target by LogoUrlField. Stays stable across re-renders.
-  const initialLogoRef = useRef<string>(formData.logo_url || "");
   // CSV pre-loading is optional — see handleCreatePilot for context.
   // Institution is auto-resolved server-side from establishment_id, so the
   // admin only has to pick the establishment.
   const emailValid = !formData.contact_email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email.trim());
   const canCreate = !!(formData.name.trim() && formData.establishment_id && emailValid);
+  // Logo preview is derived from the selected establishment. The pilot-
+  // specific logo URL override was removed 2026-04-20 — institutions now
+  // own a single canonical logo managed from /admin/establecimientos, and
+  // the sidebar cascade in (app)/layout.tsx picks it up automatically.
+  const selectedEstablishment = establishments.find((e) => e.id === formData.establishment_id);
+  const establishmentLogoUrl = selectedEstablishment?.logo_url || "";
 
   const handleAddManual = () => {
     if (!manualForm.first_name.trim() || !manualForm.last_name.trim() || !manualForm.email.trim()) return;
@@ -879,12 +895,32 @@ function Step1Upload({
             )}
           </div>
           <div className="sm:col-span-2">
-            <LogoUrlField
-              value={formData.logo_url || ""}
-              initialValue={initialLogoRef.current}
-              onChange={(v) => setFormData((f) => ({ ...f, logo_url: v }))}
-              helper="Aparece en el sidebar durante el piloto y debajo del header en los correos."
-            />
+            <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1.5">
+              <ImageIcon size={12} />
+              Logo de la institución
+            </label>
+            <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <div className="flex-shrink-0 w-24 h-12 bg-sidebar border border-sidebar-hover rounded flex items-center justify-center p-1.5">
+                {establishmentLogoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={establishmentLogoUrl}
+                    alt="Logo"
+                    className="max-w-full max-h-full object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.opacity = "0.2";
+                    }}
+                  />
+                ) : (
+                  <span className="text-[10px] text-white/50">sin logo</span>
+                )}
+              </div>
+              <p className="text-[11px] text-gray-500 leading-snug">
+                {formData.establishment_id
+                  ? "El logo viene del establecimiento seleccionado. Se edita en Instituciones, no acá."
+                  : "Selecciona un establecimiento para ver su logo."}
+              </p>
+            </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -1144,214 +1180,6 @@ function Step1Upload({
 }
 
 // ════════════════════════════════════════════
-// Step 2: Validate
-// ════════════════════════════════════════════
-
-function Step2Validate({
-  csvRows, setCsvRows, validating, validationResult, onValidate, onNext,
-}: {
-  csvRows: CsvRow[];
-  setCsvRows: (rows: CsvRow[]) => void;
-  validating: boolean;
-  validationResult: { valid_count: number; error_count: number; errors: ValidationError[] } | null;
-  onValidate: () => void;
-  onNext: () => void;
-}) {
-  const [editIdx, setEditIdx] = useState<number | null>(null);
-  const [editRow, setEditRow] = useState<CsvRow>({ email: "", full_name: "", role: "student" });
-
-  const startEdit = (i: number) => { setEditIdx(i); setEditRow({ ...csvRows[i] }); };
-  const saveEdit = () => {
-    if (editIdx === null) return;
-    const updated = [...csvRows];
-    updated[editIdx] = { ...editRow, email: editRow.email.trim().toLowerCase() };
-    setCsvRows(updated);
-    setEditIdx(null);
-  };
-  const removeRow = (i: number) => setCsvRows(csvRows.filter((_, idx) => idx !== i));
-
-  return (
-    <div className="space-y-6 max-w-4xl">
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-900">Validación de datos</h3>
-          <button
-            onClick={onValidate}
-            disabled={validating}
-            className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {validating ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-            {validating ? "Validando..." : "Validar datos"}
-          </button>
-        </div>
-
-        {/* Pre-validation summary */}
-        {!validationResult && (
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-700 mb-3">
-                Se validarán <strong>{csvRows.length} participantes</strong> — verificando formato de email, duplicados y existencia en la base de datos.
-              </p>
-              <div className="border border-gray-200 rounded-lg overflow-hidden max-h-[300px] overflow-y-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="text-left px-3 py-2 text-gray-500 font-medium w-10">#</th>
-                      <th className="text-left px-3 py-2 text-gray-500 font-medium">Email</th>
-                      <th className="text-left px-3 py-2 text-gray-500 font-medium">Nombre</th>
-                      <th className="text-left px-3 py-2 text-gray-500 font-medium">Rol</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {csvRows.map((row, i) => (
-                      <tr key={i} className="border-t border-gray-100">
-                        <td className="px-3 py-2 text-gray-400">{i + 1}</td>
-                        <td className="px-3 py-2 text-gray-700">{row.email}</td>
-                        <td className="px-3 py-2 text-gray-700">{row.full_name}</td>
-                        <td className="px-3 py-2">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                            row.role === "instructor" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                          }`}>
-                            {row.role === "instructor" ? "Docente" : "Estudiante"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Validation results */}
-        {validationResult && (
-          <div className="space-y-4">
-            {/* Summary */}
-            <div className="flex items-center gap-6 p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                  <Check size={14} className="text-green-600" />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-green-600">{validationResult.valid_count}</p>
-                  <p className="text-[10px] text-gray-500">válidos</p>
-                </div>
-              </div>
-              {validationResult.error_count > 0 && (
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                    <XCircle size={14} className="text-red-500" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-red-500">{validationResult.error_count}</p>
-                    <p className="text-[10px] text-gray-500">errores</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Row-by-row results */}
-            <div className="border border-gray-200 rounded-lg overflow-hidden max-h-[400px] overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium w-10">#</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium">Email</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium">Nombre</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium">Rol</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium">Estado</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium w-16"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {csvRows.map((row, i) => {
-                    const rowErrors = validationResult.errors.filter((e) => e.row === i + 1);
-                    const hasError = rowErrors.length > 0;
-                    const isEditing = editIdx === i;
-                    return (
-                      <tr key={i} className={`border-t border-gray-100 ${hasError ? "bg-red-50" : ""}`}>
-                        <td className="px-3 py-2 text-gray-400">{i + 1}</td>
-                        {isEditing ? (
-                          <>
-                            <td className="px-2 py-1">
-                              <input value={editRow.email} onChange={(e) => setEditRow(r => ({ ...r, email: e.target.value }))}
-                                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-sidebar/30" />
-                            </td>
-                            <td className="px-2 py-1">
-                              <input value={editRow.full_name} onChange={(e) => setEditRow(r => ({ ...r, full_name: e.target.value }))}
-                                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-sidebar/30" />
-                            </td>
-                            <td className="px-2 py-1">
-                              <select value={editRow.role} onChange={(e) => setEditRow(r => ({ ...r, role: e.target.value }))}
-                                className="border border-gray-300 rounded px-2 py-1 text-xs bg-white hover:border-gray-400 cursor-pointer">
-                                <option value="student">Estudiante</option>
-                                <option value="instructor">Docente</option>
-                              </select>
-                            </td>
-                            <td className="px-3 py-2"></td>
-                            <td className="px-3 py-2 flex gap-1">
-                              <button onClick={saveEdit} className="text-green-500 hover:text-green-700 cursor-pointer"><Check size={14} /></button>
-                              <button onClick={() => setEditIdx(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer"><XCircle size={14} /></button>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="px-3 py-2 text-gray-700">{row.email}</td>
-                            <td className="px-3 py-2 text-gray-700">{row.full_name}</td>
-                            <td className="px-3 py-2 text-gray-500">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                row.role === "instructor" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                              }`}>
-                                {row.role === "instructor" ? "Docente" : "Estudiante"}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2">
-                              {hasError ? (
-                                <span className="text-red-500 text-[10px]">{rowErrors[0].message}</span>
-                              ) : (
-                                <CheckCircle2 size={14} className="text-green-500" />
-                              )}
-                            </td>
-                            <td className="px-3 py-2 flex gap-1">
-                              {hasError && (
-                                <button onClick={() => startEdit(i)} className="text-amber-500 hover:text-amber-700 cursor-pointer" title="Editar">
-                                  <Eye size={14} />
-                                </button>
-                              )}
-                              <button onClick={() => removeRow(i)} className="text-gray-300 hover:text-red-500 cursor-pointer" title="Eliminar">
-                                <XCircle size={14} />
-                              </button>
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Next button */}
-      {validationResult && validationResult.error_count === 0 && (
-        <div className="flex justify-end">
-          <button
-            onClick={onNext}
-            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
-          >
-            Confirmar datos
-            <ArrowRight size={16} />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════
 // Step 3: Preview Email & Send
 // ════════════════════════════════════════════
 
@@ -1360,97 +1188,21 @@ const DEFAULT_EMAIL_BODY = `La evidencia muestra que la práctica con simulació
 Practicarás entrevistas clínicas con pacientes virtuales impulsados por inteligencia artificial, recibiendo retroalimentación inmediata sobre tus competencias terapéuticas. Sin riesgos, sin presiones, las veces que necesites.`;
 
 function Step3Preview({
-  pilot, sending, sendResult, onSend, onNext,
+  pilot,
 }: {
   pilot: Pilot | null;
-  sending: boolean;
-  sendResult: { total: number; success: number; failed: number } | null;
-  onSend: (customBody?: string) => void;
-  onNext: () => void;
 }) {
   const appUrl = "https://app.glor-ia.com";
 
-  const [assigningPatients, setAssigningPatients] = useState(false);
-  const [patientMsg, setPatientMsg] = useState("");
   const [emailBody, setEmailBody] = useState(DEFAULT_EMAIL_BODY);
   const [editingBody, setEditingBody] = useState(false);
 
-  const assignPatients = async (queryParams = "") => {
-    if (!pilot?.establishment_id) {
-      setPatientMsg("Este piloto no tiene un establecimiento asociado. Crea primero el establecimiento.");
-      return;
-    }
-    setAssigningPatients(true);
-    setPatientMsg("");
-    try {
-      const res = await fetch(`/api/admin/patients/all${queryParams}`);
-      if (!res.ok) { setPatientMsg("Error al obtener pacientes"); return; }
-      const patients = await res.json();
-      const ids = patients.map((p: { id: string }) => p.id);
-      if (ids.length === 0) { setPatientMsg("No se encontraron pacientes con ese filtro"); return; }
-      const addRes = await fetch(`/api/admin/establishments/${pilot.establishment_id}/patients`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ _action: "add", patient_ids: ids }),
-      });
-      if (addRes.ok) {
-        setPatientMsg(`${ids.length} paciente(s) asignados correctamente`);
-      } else {
-        setPatientMsg("Error al asignar pacientes");
-      }
-    } catch { setPatientMsg("Error de conexión"); }
-    finally { setAssigningPatients(false); }
-  };
-
   return (
     <div className="space-y-6 max-w-4xl">
-      {/* Patient assignment */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">Pacientes del piloto</h3>
-        <p className="text-xs text-gray-500 mb-3">
-          Asigna pacientes al establecimiento para que los participantes puedan verlos.
-        </p>
-        {patientMsg && (
-          <div className={`text-xs mb-3 px-3 py-2 rounded-lg ${patientMsg.includes("Error") || patientMsg.includes("no tiene") ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"}`}>
-            {patientMsg}
-          </div>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => assignPatients()}
-            disabled={assigningPatients}
-            className="px-3 py-1.5 rounded-lg bg-sidebar text-white text-xs font-medium hover:bg-[#354080] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {assigningPatients ? "Asignando..." : "Asignar todos"}
-          </button>
-          {["Chile", "Argentina", "Colombia", "México", "Perú", "República Dominicana"].map((country) => (
-            <button
-              key={country}
-              onClick={() => assignPatients(`?country=${encodeURIComponent(country)}`)}
-              disabled={assigningPatients}
-              className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:border-sidebar/30 hover:text-sidebar transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {country}
-            </button>
-          ))}
-          {(["beginner", "intermediate", "advanced"] as const).map((level) => (
-            <button
-              key={level}
-              onClick={() => assignPatients(`?difficulty=${level}`)}
-              disabled={assigningPatients}
-              className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
-                level === "beginner" ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50" :
-                level === "intermediate" ? "border-amber-200 text-amber-600 hover:bg-amber-50" :
-                "border-red-200 text-red-600 hover:bg-red-50"
-              }`}
-            >
-              {level === "beginner" ? "Principiante" : level === "intermediate" ? "Intermedio" : "Avanzado"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Email body editor */}
+      {/* Email body editor — reference template only. The "Enviar
+          invitaciones" button was removed 2026-04-20 since enrolment
+          happens through the public link in the Link tab; there is no
+          roster to mail from here. */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-gray-900">Cuerpo del mensaje</h3>
@@ -1581,55 +1333,105 @@ function Step3Preview({
         )}
       </div>
 
-      {/* Send results */}
-      {sendResult && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Resultado del envío</h3>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                <Check size={14} className="text-green-600" />
-              </div>
-              <div>
-                <p className="text-lg font-bold text-green-600">{sendResult.success}</p>
-                <p className="text-[10px] text-gray-500">enviados</p>
-              </div>
-            </div>
-            {sendResult.failed > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                  <XCircle size={14} className="text-red-500" />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-red-500">{sendResult.failed}</p>
-                  <p className="text-[10px] text-gray-500">fallidos</p>
-                </div>
-              </div>
-            )}
-          </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
+// Step: Public enrolment link
+// ════════════════════════════════════════════
+//
+// Extracted from the former PilotConsentPanel on 2026-04-20. Each pilot
+// has a public `/piloto/<slug>/consentimiento` URL where participants
+// self-enrol, sign the consent and receive their credentials. The admin
+// copies that URL from here and shares it with the institution.
+//
+// Logo preview and the "Modo de prueba" toggle that used to live next to
+// this link have been removed — the logo is derived from the
+// establishment and test_mode is not being used in production.
+function StepLinkPanel({ pilot }: { pilot: Pilot }) {
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const enrollmentUrl = pilot.enrollment_slug
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/piloto/${pilot.enrollment_slug}/consentimiento`
+    : null;
+
+  async function handleCopy() {
+    if (!enrollmentUrl) return;
+    try {
+      await navigator.clipboard.writeText(enrollmentUrl);
+      setCopied(true);
+      setCopyError(null);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopyError("No se pudo copiar al portapapeles. Cópialo manualmente.");
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border-2 border-[#4A55A2]/20 p-6 space-y-4 shadow-lg shadow-[#4A55A2]/5 max-w-4xl">
+      <div className="flex items-start gap-3 pb-4 border-b border-gray-100">
+        <div className="w-10 h-10 rounded-xl bg-[#4A55A2] flex items-center justify-center flex-shrink-0">
+          <Link2 size={20} className="text-white" />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-lg font-bold text-gray-900">Link de inscripción</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Comparte este link con el coordinador de la institución. Cada
+            persona que entre podrá inscribirse, firmar el consentimiento y
+            recibir sus credenciales por correo automáticamente.
+          </p>
+        </div>
+      </div>
+
+      {copyError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">
+          {copyError}
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex items-center gap-3 justify-end">
-        {!sendResult && (
-          <button
-            onClick={() => onSend(emailBody !== DEFAULT_EMAIL_BODY ? emailBody : undefined)}
-            disabled={sending}
-            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-            {sending ? "Enviando invitaciones..." : "Enviar invitaciones"}
-          </button>
-        )}
-        {sendResult && sendResult.success > 0 && (
-          <button
-            onClick={onNext}
-            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
-          >
-            Ver dashboard
-            <ArrowRight size={16} />
-          </button>
+      <div>
+        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+          Link único del piloto
+        </label>
+        {enrollmentUrl ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              readOnly
+              value={enrollmentUrl}
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+              className="flex-1 font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700"
+            />
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[#4A55A2] hover:bg-[#5C6BB5] text-white text-xs font-medium rounded-lg transition-colors cursor-pointer"
+            >
+              {copied ? (
+                <>
+                  <Check size={14} /> Copiado
+                </>
+              ) : (
+                <>
+                  <Copy size={14} /> Copiar
+                </>
+              )}
+            </button>
+            <a
+              href={enrollmentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-medium rounded-lg"
+              title="Abrir en nueva pestaña"
+            >
+              <ExternalLink size={14} />
+            </a>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 italic">
+            Este piloto no tiene link único todavía. Edita y guarda el piloto
+            para generar uno automáticamente.
+          </p>
         )}
       </div>
     </div>
@@ -1641,17 +1443,20 @@ function Step3Preview({
 // ════════════════════════════════════════════
 
 function Step4Dashboard({
-  pilot, refreshing, onRefresh, onFinalize, onResetParticipant,
+  pilot, refreshing, onRefresh, onFinalize, onActivate, onResetParticipant, onDeleteParticipant,
 }: {
   pilot: Pilot | null;
   refreshing: boolean;
   onRefresh: () => void;
   onFinalize: () => Promise<void>;
+  onActivate: () => Promise<void>;
   onResetParticipant: (participantId: string, participantEmail: string) => Promise<void>;
+  onDeleteParticipant: (participantId: string, participantLabel: string) => Promise<void>;
 }) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [deactivating, setDeactivating] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [activating, setActivating] = useState(false);
   const [openParticipantId, setOpenParticipantId] = useState<string | null>(null);
   if (!pilot) return null;
 
@@ -1700,7 +1505,22 @@ function Step4Dashboard({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {pilot.status !== "cancelado" && pilot.status !== "finalizado" && (
+          {(pilot.status === "borrador" || pilot.status === "validado") && (
+            <button
+              onClick={async () => {
+                if (!confirm("¿Activar este piloto? Los participantes podrán ingresar a la plataforma con el link público de inscripción.")) return;
+                setActivating(true);
+                await onActivate();
+                setActivating(false);
+              }}
+              disabled={activating}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg text-xs font-medium hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {activating ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}
+              Activar piloto
+            </button>
+          )}
+          {pilot.status !== "cancelado" && pilot.status !== "finalizado" && pilot.status !== "borrador" && pilot.status !== "validado" && (
             <button
               onClick={async () => {
                 if (!confirm("¿Finalizar este piloto? Los participantes perderán acceso y se generará el informe de cierre.")) return;
@@ -1725,15 +1545,29 @@ function Step4Dashboard({
               Desactivar piloto
             </button>
           )}
-          {pilot.status === "cancelado" && (
-            <span className="text-xs font-medium text-red-500 bg-red-50 px-3 py-1.5 rounded-lg">
-              Piloto desactivado
-            </span>
-          )}
-          {pilot.status === "finalizado" && (
-            <span className="text-xs font-medium text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">
-              Piloto finalizado
-            </span>
+          {(pilot.status === "cancelado" || pilot.status === "finalizado") && (
+            <>
+              <span className={`text-xs font-medium px-3 py-1.5 rounded-lg ${
+                pilot.status === "cancelado"
+                  ? "text-red-500 bg-red-50"
+                  : "text-amber-600 bg-amber-50"
+              }`}>
+                {pilot.status === "cancelado" ? "Piloto desactivado" : "Piloto finalizado"}
+              </span>
+              <button
+                onClick={async () => {
+                  if (!confirm("¿Reactivar este piloto? Verifica que las fechas de inicio y fin sigan vigentes — los estudiantes solo pueden ingresar dentro de esa ventana.")) return;
+                  setActivating(true);
+                  await onActivate();
+                  setActivating(false);
+                }}
+                disabled={activating}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg text-xs font-medium hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {activating ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                Reactivar piloto
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -1849,9 +1683,7 @@ function Step4Dashboard({
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Encuesta</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Última actividad</th>
                 <th className="text-center px-3 py-2 text-gray-500 font-medium w-12">Ver</th>
-                {pilot.test_mode && (
-                  <th className="text-right px-3 py-2 text-gray-500 font-medium">Acciones</th>
-                )}
+                <th className="text-right px-3 py-2 text-gray-500 font-medium">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -1875,10 +1707,18 @@ function Step4Dashboard({
                     {p.survey_completed_at ? (
                       <span
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700"
-                        title={new Date(p.survey_completed_at).toLocaleString("es-CL")}
+                        title={`Respondida — ${new Date(p.survey_completed_at).toLocaleString("es-CL")}`}
                       >
                         <Check size={10} />
                         {new Date(p.survey_completed_at).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                      </span>
+                    ) : p.survey_declined_at ? (
+                      <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700"
+                        title={`No realizada — ${new Date(p.survey_declined_at).toLocaleString("es-CL")}`}
+                      >
+                        <XCircle size={10} />
+                        No realizada
                       </span>
                     ) : (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
@@ -1899,23 +1739,33 @@ function Step4Dashboard({
                       <Eye size={14} />
                     </button>
                   </td>
-                  {pilot.test_mode && (
-                    <td className="px-3 py-2.5 text-right">
+                  <td className="px-3 py-2.5 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      {pilot.test_mode && (
+                        <button
+                          onClick={() => onResetParticipant(p.id, p.email)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md cursor-pointer"
+                          title="Borrar consent + auth user y volver a pendiente. Solo disponible en modo de prueba."
+                        >
+                          <RotateCcw size={11} />
+                          Reset
+                        </button>
+                      )}
                       <button
-                        onClick={() => onResetParticipant(p.id, p.email)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md cursor-pointer"
-                        title="Borrar consent + auth user y volver a pendiente. Solo disponible en modo de prueba."
+                        onClick={() => onDeleteParticipant(p.id, p.full_name || p.email)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md cursor-pointer"
+                        title="Eliminar permanentemente al participante, sus sesiones y conversaciones (irreversible)"
                       >
-                        <RotateCcw size={11} />
-                        Reset
+                        <Trash2 size={11} />
+                        Eliminar
                       </button>
-                    </td>
-                  )}
+                    </div>
+                  </td>
                 </tr>
               ))}
               {filteredParticipants.length === 0 && (
                 <tr>
-                  <td colSpan={pilot.test_mode ? 10 : 9} className="px-3 py-8 text-center text-gray-400">
+                  <td colSpan={10} className="px-3 py-8 text-center text-gray-400">
                     No hay participantes con este filtro
                   </td>
                 </tr>
@@ -1964,10 +1814,20 @@ type ReportData = {
   top_areas: { text: string; count: number }[];
 };
 
+type GeneratedReport = {
+  id: string;
+  variant: "named" | "anonymous";
+  file_path: string;
+  file_size_bytes: number | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  public_url: string;
+};
+
 function Step5Report({ pilot }: { pilot: Pilot | null }) {
-  const [downloading, setDownloading] = useState(false);
-  const [sendingReport, setSendingReport] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [generating, setGenerating] = useState<null | "named" | "anonymous">(null);
+  const [reports, setReports] = useState<GeneratedReport[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
 
@@ -1992,6 +1852,21 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
     };
   }, [pilot]);
 
+  // Fetch historical generated reports list
+  const refreshReports = useCallback(async () => {
+    if (!pilot) return;
+    setLoadingReports(true);
+    try {
+      const res = await fetch(`/api/admin/pilots/${pilot.id}/reports`);
+      if (res.ok) setReports(await res.json());
+    } finally {
+      setLoadingReports(false);
+    }
+  }, [pilot]);
+  useEffect(() => {
+    refreshReports();
+  }, [refreshReports]);
+
   if (!pilot) return null;
 
   const participants: Participant[] = (pilot as Pilot & { participants?: Participant[] }).participants || [];
@@ -2010,28 +1885,36 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
     ? Math.round((students.filter((p) => (p.sessions_count || 0) > 0).length / students.length) * 100)
     : 0;
 
-  const handleDownloadPDF = async () => {
-    setDownloading(true);
+  const handleGenerate = async (variant: "named" | "anonymous") => {
+    setGenerating(variant);
     try {
-      const { generatePilotReportPDF } = await import("@/lib/generate-pilot-report");
-      await generatePilotReportPDF(pilot.id);
+      const res = await fetch(`/api/admin/pilots/${pilot.id}/report/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ variant }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        alert("Error al generar el informe: " + (err?.error || res.status));
+        return;
+      }
+      const newReport: GeneratedReport = await res.json();
+      setReports((prev) => [newReport, ...prev]);
+      window.open(newReport.public_url, "_blank");
     } catch (err) {
-      console.error("PDF generation error:", err);
-      alert("Error al generar el PDF: " + (err instanceof Error ? err.message : "desconocido"));
+      alert("Error: " + (err instanceof Error ? err.message : "desconocido"));
     } finally {
-      setDownloading(false);
+      setGenerating(null);
     }
   };
 
-  const handleSendReport = async () => {
-    if (!pilot.contact_email) {
-      alert("No hay email de contacto configurado para este piloto.");
-      return;
-    }
-    setSendingReport(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setSendingReport(false);
-    setSent(true);
+  const handleDeleteReport = async (reportId: string) => {
+    if (!confirm("¿Eliminar este informe? No se puede recuperar el archivo.")) return;
+    const res = await fetch(
+      `/api/admin/pilots/${pilot.id}/reports?reportId=${reportId}`,
+      { method: "DELETE" },
+    );
+    if (res.ok) setReports((prev) => prev.filter((r) => r.id !== reportId));
   };
 
   return (
@@ -2047,20 +1930,12 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={handleDownloadPDF}
-              disabled={downloading}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-              Descargar PDF
-            </button>
-            <button
-              onClick={handleSendReport}
-              disabled={sendingReport || sent}
+              onClick={() => handleGenerate("anonymous")}
+              disabled={!!generating}
               className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-xs font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              {sendingReport ? <Loader2 size={14} className="animate-spin" /> : sent ? <Check size={14} /> : <Send size={14} />}
-              {sent ? "Informe enviado" : "Enviar informe"}
+              {generating ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+              Generar informe
             </button>
           </div>
         </div>
@@ -2084,6 +1959,67 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
             <p className="text-[10px] text-gray-500 mt-1">Sesiones totales</p>
           </div>
         </div>
+      </div>
+
+      {/* Informes generados — historial de DOCX persistidos */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Informes generados</h3>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              Cada vez que presionás &ldquo;Generar informe&rdquo; se guarda un archivo .docx acá. Podés
+              volver a descargarlo o eliminarlo.
+            </p>
+          </div>
+          {loadingReports && <Loader2 size={14} className="animate-spin text-gray-400" />}
+        </div>
+
+        {reports.length === 0 && !loadingReports ? (
+          <p className="text-xs text-gray-400 text-center py-4">
+            Aún no hay informes generados para este piloto.
+          </p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {reports.map((r) => {
+              const kb = r.file_size_bytes ? Math.round(r.file_size_bytes / 1024) : 0;
+              return (
+                <li key={r.id} className="flex items-center gap-3 py-2.5">
+                  <FileText size={16} className="text-sidebar flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-900 truncate">
+                      Informe {r.variant === "anonymous" ? "anonimizado" : "con nombres"}
+                    </p>
+                    <p className="text-[10px] text-gray-400">
+                      {new Date(r.created_at).toLocaleString("es-CL", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                      {kb > 0 && ` · ${kb} KB`}
+                    </p>
+                  </div>
+                  <a
+                    href={r.public_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-sidebar hover:bg-sidebar/5 rounded-md cursor-pointer"
+                  >
+                    <Download size={12} /> Descargar
+                  </a>
+                  <button
+                    onClick={() => handleDeleteReport(r.id)}
+                    className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-md cursor-pointer"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       {/* Competency averages */}
@@ -2307,6 +2243,10 @@ const OPEN_QUESTIONS = [
 function OpenAnswersSection({ pilotId }: { pilotId: string }) {
   const [view, setView] = useState<"cards" | "table">("cards");
   const [rows, setRows] = useState<OpenAnswerRow[]>([]);
+  // Count of participants who pressed "No realizar" — rendered as a
+  // dedicated summary line next to the received-responses count so
+  // declines are visible rather than hidden behind "pending".
+  const [declinedTotal, setDeclinedTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -2324,6 +2264,7 @@ function OpenAnswersSection({ pilotId }: { pilotId: string }) {
       .then((data) => {
         if (cancelled) return;
         setRows((data.rows || []) as OpenAnswerRow[]);
+        setDeclinedTotal((data.declinedTotal as number) || 0);
       })
       .catch((e) => {
         if (cancelled) return;
@@ -2355,6 +2296,11 @@ function OpenAnswersSection({ pilotId }: { pilotId: string }) {
               : rows.length > 0
                 ? `${rows.length} respuesta${rows.length === 1 ? "" : "s"} recibida${rows.length === 1 ? "" : "s"}.`
                 : "Aún no hay respuestas."}
+            {!loading && declinedTotal > 0 && (
+              <span className="ml-2 text-amber-700">
+                · {declinedTotal} no realizada{declinedTotal === 1 ? "" : "s"}
+              </span>
+            )}
           </p>
         </div>
 

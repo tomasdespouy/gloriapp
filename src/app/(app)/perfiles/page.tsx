@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getUserProfile } from "@/lib/supabase/user-profile";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Plus } from "lucide-react";
@@ -8,41 +9,48 @@ import PatientTable from "./PatientTable";
 const SAFE_EMPTY_ID = "00000000-0000-0000-0000-000000000000";
 
 export default async function PerfilesPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getUserProfile();
+  if (!profile) redirect("/login");
 
-  if (!user) redirect("/login");
+  // Authorization uses the real DB role; effective role drives UI/scoping so
+  // that a superadmin impersonating admin/instructor sees what that role would.
+  if (
+    profile.realRole !== "instructor" &&
+    profile.realRole !== "admin" &&
+    profile.realRole !== "superadmin"
+  ) {
+    redirect("/dashboard");
+  }
 
-  // Only admin/superadmin/instructor can access
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, establishment_id")
-    .eq("id", user.id)
-    .single();
-
-  const role = profile?.role;
+  const role = profile.role;
   if (role !== "instructor" && role !== "admin" && role !== "superadmin") {
     redirect("/dashboard");
   }
 
-  // Only superadmin can create/edit patients. Admin only views.
+  // Only effective superadmin can create/edit patients. If impersonating admin,
+  // this is false even though the real user is superadmin.
   const canEdit = role === "superadmin";
 
+  const supabase = await createClient();
   const admin = createAdminClient();
 
   // Resolve which patients this user can see:
   //  - superadmin: all
-  //  - admin: only patients assigned to their establishments via establishment_patients
-  //  - instructor: same as admin (uses their profile.establishment_id)
+  //  - admin: only patients assigned to their scope via establishment_patients
+  //  - instructor: the patients of their establishment
   let visiblePatientIds: string[] | null = null; // null = all (superadmin)
   if (role === "admin") {
-    const { data: assignments } = await supabase
-      .from("admin_establishments")
-      .select("establishment_id")
-      .eq("admin_id", user.id);
-    const estIds = (assignments || []).map((a) => a.establishment_id);
+    let estIds: string[];
+    if (profile.isImpersonating && profile.establishmentId) {
+      // Scope mirrors the impersonation cookie's single establishment.
+      estIds = [profile.establishmentId];
+    } else {
+      const { data: assignments } = await supabase
+        .from("admin_establishments")
+        .select("establishment_id")
+        .eq("admin_id", profile.id);
+      estIds = (assignments || []).map((a) => a.establishment_id);
+    }
     if (estIds.length === 0) {
       visiblePatientIds = [];
     } else {
@@ -53,13 +61,14 @@ export default async function PerfilesPage() {
       visiblePatientIds = (ep || []).map((r) => r.ai_patient_id);
     }
   } else if (role === "instructor") {
-    if (!profile?.establishment_id) {
+    // profile.establishmentId already honors the impersonation cookie override.
+    if (!profile.establishmentId) {
       visiblePatientIds = [];
     } else {
       const { data: ep } = await admin
         .from("establishment_patients")
         .select("ai_patient_id")
-        .eq("establishment_id", profile.establishment_id);
+        .eq("establishment_id", profile.establishmentId);
       visiblePatientIds = (ep || []).map((r) => r.ai_patient_id);
     }
   }

@@ -165,32 +165,40 @@ export default function Sidebar({
       )}
 
       {/* Navigation — only this area scrolls */}
-      <nav className="flex flex-col px-4 flex-1 min-h-0 overflow-y-auto">
-        {navSections.map((section, si) => (
-          <div key={si}>
-            {section.title && (
-              <p className={`text-[9px] uppercase tracking-wider text-white/30 font-semibold px-4 mb-1.5 ${si === 0 ? "mt-1" : "mt-4"}`}>
-                {section.title}
-              </p>
-            )}
-            {section.items.map((item) => {
-              const isActive = currentPath === item.href || currentPath.startsWith(item.href + "/");
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  onClick={closeSidebar}
-                  className={`sidebar-link flex items-center gap-3 px-4 py-2.5 rounded-lg text-[13px] font-medium w-full text-left ${
-                    isActive ? "active text-white" : "text-white/70"
-                  }`}
-                >
-                  <item.icon size={16} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
+      <nav className="flex flex-col px-4 flex-1 min-h-0 overflow-y-auto gap-0.5">
+        {navSections.map((section, si) => {
+          // Admin/superadmin keeps dense grouping. Student/instructor get
+          // a slightly larger, more breathable layout.
+          const iconSize = isAdmin ? 16 : 18;
+          const linkCls = isAdmin
+            ? "text-[13px] px-4 py-2.5 gap-3"
+            : "text-sm px-4 py-3 gap-3.5";
+          return (
+            <div key={si} className={!isAdmin ? "mb-1" : ""}>
+              {section.title && (
+                <p className={`text-[9px] uppercase tracking-wider text-white/30 font-semibold px-4 mb-1.5 ${si === 0 ? "mt-1" : "mt-4"}`}>
+                  {section.title}
+                </p>
+              )}
+              {section.items.map((item) => {
+                const isActive = currentPath === item.href || currentPath.startsWith(item.href + "/");
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    onClick={closeSidebar}
+                    className={`sidebar-link flex items-center ${linkCls} rounded-lg font-medium w-full text-left ${
+                      isActive ? "active text-white" : "text-white/70"
+                    }`}
+                  >
+                    <item.icon size={iconSize} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          );
+        })}
       </nav>
 
       {/* Footer — institution logo, always pinned to bottom */}
@@ -200,7 +208,7 @@ export default function Sidebar({
           <img
             src={establishmentLogoUrl || "/branding/ugm-logo.png"}
             alt="Institución"
-            className="h-10 w-auto"
+            className="h-20 w-auto max-w-[180px] object-contain"
           />
         </div>
       </div>
@@ -245,12 +253,19 @@ export default function Sidebar({
           />
           <aside
             className="absolute left-0 top-0 h-full w-[280px] bg-sidebar flex flex-col text-white transition-transform duration-200 ease-out"
-            style={{ transform: drawerIn ? "translateX(0)" : "translateX(-100%)" }}
+            style={{
+              transform: drawerIn ? "translateX(0)" : "translateX(-100%)",
+              // Respect iOS notch / Android top inset so the close button
+              // and logo don't hide under the status bar.
+              paddingTop: "env(safe-area-inset-top)",
+              paddingBottom: "env(safe-area-inset-bottom)",
+            }}
           >
             {/* Close button */}
             <button
               onClick={closeSidebar}
               className="absolute top-5 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer z-10"
+              style={{ top: "calc(env(safe-area-inset-top) + 1.25rem)" }}
               aria-label="Cerrar menú"
             >
               <ArrowLeft size={18} />
@@ -260,10 +275,12 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* Mobile hamburger button — fixed top-left */}
+      {/* Mobile hamburger button — fixed top-left, vertically centered on the
+          TopHeader (h-12 = 48px). Respects iOS notch via safe-area. */}
       <button
         onClick={openSidebar}
-        className="md:hidden fixed top-3 left-3 z-40 w-10 h-10 rounded-lg bg-sidebar text-white flex items-center justify-center shadow-lg cursor-pointer hover:bg-white/10"
+        style={{ top: "calc(env(safe-area-inset-top) + 0.375rem)" }}
+        className="md:hidden fixed left-3 z-40 w-9 h-9 rounded-lg bg-sidebar text-white flex items-center justify-center shadow-lg cursor-pointer hover:bg-white/10"
         aria-label="Abrir menú"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -320,9 +337,9 @@ function AccessibilityModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-5"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 max-h-[calc(100dvh-1.5rem)] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -429,9 +446,9 @@ function SupportModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 space-y-5"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5 max-h-[calc(100dvh-1.5rem)] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">

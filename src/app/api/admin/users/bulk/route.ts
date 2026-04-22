@@ -41,9 +41,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Máximo 200 usuarios por carga" }, { status: 400 });
   }
 
-  // Admin can only create students and instructors
+  // Admin can only create students and instructors. Superadmin is intentionally
+  // excluded from this endpoint — it must be created directly in the database.
   const allowedRoles = callerRole === "superadmin"
-    ? ["student", "instructor", "admin", "superadmin"]
+    ? ["student", "instructor", "admin"]
     : ["student", "instructor"];
   const targetRole = role || "student";
   if (!allowedRoles.includes(targetRole)) {
@@ -59,13 +60,20 @@ export async function POST(request: Request) {
       continue;
     }
 
+    // Per-row role must also be within the caller's allowed set.
+    const rowRole = row.role || targetRole;
+    if (!allowedRoles.includes(rowRole)) {
+      results.push({ email: row.email, success: false, error: `Rol no permitido: ${rowRole}` });
+      continue;
+    }
+
     try {
       const { data: newUser, error: createError } = await admin.auth.admin.createUser({
         email: row.email.trim().toLowerCase(),
         email_confirm: true,
         user_metadata: {
           full_name: row.full_name.trim(),
-          role: row.role || targetRole,
+          role: rowRole,
           establishment_id: establishment_id || undefined,
         },
       });
@@ -75,12 +83,17 @@ export async function POST(request: Request) {
         continue;
       }
 
-      // Set course/section
-      if (newUser?.user?.id && (course_id || section_id)) {
-        const updates: Record<string, unknown> = {};
+      // The `handle_new_user()` trigger forces role='student'; apply the
+      // intended role + establishment + course/section here explicitly.
+      if (newUser?.user?.id) {
+        const updates: Record<string, unknown> = { role: rowRole };
+        if (establishment_id) updates.establishment_id = establishment_id;
         if (course_id) updates.course_id = course_id;
         if (section_id) updates.section_id = section_id;
-        await admin.from("profiles").update(updates).eq("id", newUser.user.id);
+        const { error: profileError } = await admin.from("profiles").update(updates).eq("id", newUser.user.id);
+        if (profileError) {
+          console.error("[users/bulk] profile update failed", profileError);
+        }
       }
 
       results.push({ email: row.email, success: true });

@@ -78,18 +78,24 @@ async function enrichParticipants(participants: any[], supabase: any) {
     sessionsMap.set(row.student_id, prev);
   }
 
-  // Fetch latest closure-survey response per user. We take the MAX
-  // created_at so if they somehow answered more than one we surface
-  // the most recent. Field surfaced to the UI as survey_completed_at.
+  // Fetch every closure-survey row per user (both completed and
+  // declined). We split by status so the UI can render three distinct
+  // states:
+  //   survey_completed_at — MAX created_at where status='completed'
+  //   survey_declined_at  — MAX created_at where status='not_taken'
+  //                         (label rendered as "No realizada")
+  //   both null           — pending (never responded, never declined)
   const { data: surveyRows } = await supabase
     .from("survey_responses")
-    .select("user_id, created_at")
+    .select("user_id, created_at, status")
     .in("user_id", userIds);
 
   const surveyMap = new Map<string, string>();
+  const declinedMap = new Map<string, string>();
   for (const row of surveyRows || []) {
-    const prev = surveyMap.get(row.user_id);
-    if (!prev || row.created_at > prev) surveyMap.set(row.user_id, row.created_at);
+    const target = row.status === "not_taken" ? declinedMap : surveyMap;
+    const prev = target.get(row.user_id);
+    if (!prev || row.created_at > prev) target.set(row.user_id, row.created_at);
   }
 
   // Merge into participants and update DB in background
@@ -102,6 +108,7 @@ async function enrichParticipants(participants: any[], supabase: any) {
     const lastActive = stats?.lastAt || lastSignIn || null;
     const firstLogin = lastSignIn || null;
     const surveyCompletedAt = surveyMap.get(p.user_id) || null;
+    const surveyDeclinedAt = declinedMap.get(p.user_id) || null;
 
     // Determine live status
     let status = p.status;
@@ -133,6 +140,7 @@ async function enrichParticipants(participants: any[], supabase: any) {
       sessions_count: sessionsCount,
       last_active_at: lastActive,
       survey_completed_at: surveyCompletedAt,
+      survey_declined_at: surveyDeclinedAt,
       status,
     };
   });

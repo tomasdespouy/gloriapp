@@ -28,7 +28,20 @@ export const emailSchema = z
   .max(254, "Email demasiado largo")
   .email("Email inválido");
 
-export const uuidSchema = z.string().uuid("ID inválido");
+// Accept any 8-4-4-4-12 hex string. Zod 4's `.uuid()` strictly enforces RFC 4122
+// version/variant bits, which rejects synthetic UUIDs used in test seed data
+// (e.g., "11111111-1111-1111-1111-111111111111"). Production UUIDs come from
+// `gen_random_uuid()` and always pass this regex. Postgres still validates on insert.
+export const uuidSchema = z
+  .string()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "ID inválido");
+
+// Optional UUID that also accepts empty strings and null (common in form payloads
+// where a "no selection" control serializes as "" or null). Normalizes to undefined.
+export const optionalUuid = z.preprocess(
+  (v) => (v === "" || v === null ? undefined : v),
+  uuidSchema.optional(),
+);
 
 export const nonEmptyString = (max = 200) =>
   z.string().trim().min(1, "Campo requerido").max(max, `Máximo ${max} caracteres`);
@@ -70,9 +83,12 @@ export const createUserSchema = z.object({
   email: emailSchema,
   full_name: nonEmptyString(150),
   role: userRoleSchema.optional(),
-  establishment_id: uuidSchema.optional(),
-  course_id: uuidSchema.optional(),
-  section_id: uuidSchema.optional(),
+  establishment_id: optionalUuid,
+  course_id: optionalUuid,
+  section_id: optionalUuid,
+  // If true (default), send welcome email with credentials immediately.
+  // If false, create the user and let the admin send credentials later.
+  send_credentials: z.boolean().optional().default(true),
 });
 
 // ─────────────────────────────────────────────────────────────────────────

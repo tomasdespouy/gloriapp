@@ -14,10 +14,18 @@ export default async function UsuariosPage({
   // before interpolating into the filter expression.
   const searchQuery = (params.q || "").trim().slice(0, 100).replace(/[,()]/g, " ");
   const roleFilter = params.role || "";
-  const estFilter = params.est || "";
+  const rawEstFilter = params.est || "";
 
   const ctx = await getAdminContext();
   const supabase = await createClient();
+
+  // Reject URL-tampered est filters that fall outside the caller's scope.
+  // Superadmin can filter by any establishment; admin can only filter within
+  // their own assigned establishments.
+  const estFilter =
+    rawEstFilter && (ctx.isSuperadmin || ctx.establishmentIds.includes(rawEstFilter))
+      ? rawEstFilter
+      : "";
 
   // Build scoping filter helper
   const scopeFilter = ctx.isSuperadmin
@@ -43,7 +51,7 @@ export default async function UsuariosPage({
 
   let usersQuery = supabase
     .from("profiles")
-    .select("id, email, full_name, role, establishment_id, course_id, section_id, is_disabled, created_at")
+    .select("id, email, full_name, role, establishment_id, course_id, section_id, is_disabled, created_at, credentials_sent_at")
     .order("full_name")
     .range(from, to);
   if (scopeFilter) usersQuery = usersQuery.in("establishment_id", scopeFilter);

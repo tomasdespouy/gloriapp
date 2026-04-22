@@ -136,7 +136,7 @@ SOLO URLs reales. SOLO JSON. Sin markdown.`
       `).join("");
 
       await resend.emails.send({
-        from: "GlorIA Research <onboarding@resend.dev>",
+        from: "GlorIA Research <noreply@glor-ia.com>",
         to: NOTIFY_EMAIL,
         subject: `[GlorIA] ${confs.length} congresos + ${grants.length} fondos (${highFit.length} alta afinidad)`,
         html: `

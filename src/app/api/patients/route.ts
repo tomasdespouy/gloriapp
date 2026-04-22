@@ -22,6 +22,18 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  // Only superadmin can create patients. Use the real DB role (not the
+  // impersonation cookie, which is UI-only) so an admin can't POST directly.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role !== "superadmin") {
+    return NextResponse.json({ error: "Solo superadmin puede crear pacientes" }, { status: 403 });
+  }
+
   try {
     let patientData: Record<string, unknown>;
 

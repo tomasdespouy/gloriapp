@@ -2,12 +2,31 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import HistorialClient from "./HistorialClient";
+import { isPilotActive } from "@/lib/pilot-helpers";
 
 export default async function HistorialPage() {
   const supabase = await createClient();
   const admin = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  // Pilot gate: non-pilot students must not see AI scores until the
+  // docente has approved them. Pilot students see the score with a
+  // "(preliminar)" tag next to it — same data, explicit labelling.
+  let isPilot = false;
+  const { data: pp } = await admin
+    .from("pilot_participants")
+    .select("pilot_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (pp?.pilot_id) {
+    const { data: pilotRow } = await admin
+      .from("pilots")
+      .select("status, scheduled_at, ended_at")
+      .eq("id", pp.pilot_id)
+      .single();
+    if (isPilotActive(pilotRow)) isPilot = true;
+  }
 
   const [{ data: rawSessions }, { data: summaries }, { data: rawObservations }] = await Promise.all([
     supabase
@@ -88,7 +107,7 @@ export default async function HistorialPage() {
         </div>
       </header>
       <div className="px-4 sm:px-8 pb-8">
-        <HistorialClient sessions={sessions || []} summaryMap={summaryMap} observations={observations} />
+        <HistorialClient sessions={sessions || []} summaryMap={summaryMap} observations={observations} isPilot={isPilot} />
       </div>
     </div>
   );

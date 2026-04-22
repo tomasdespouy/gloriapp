@@ -224,7 +224,7 @@ Responde SOLO con JSON válido. Sin markdown.`
       `).join("");
 
       await resend.emails.send({
-        from: "GlorIA Research <onboarding@resend.dev>",
+        from: "GlorIA Research <noreply@glor-ia.com>",
         to: body.email || "tomas.despouy@ugm.cl",
         subject: `GlorIA — ${typeLabel}: ${highFit.length} alta, ${medFit.length} media (Perplexity)`,
         html: `

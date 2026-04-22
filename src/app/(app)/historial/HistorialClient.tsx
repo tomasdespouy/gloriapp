@@ -49,9 +49,14 @@ interface Props {
   sessions: Session[];
   summaryMap: Record<string, { summary: string; revelations: string[] }>;
   observations?: ObservationSession[];
+  /** Whether the student belongs to an active pilot. When true, AI-only
+      scores (feedback_status='pending') are still visible next to a small
+      "(preliminar)" tag. When false, those scores are hidden entirely
+      until the docente approves the evaluation. */
+  isPilot?: boolean;
 }
 
-export default function HistorialClient({ sessions, summaryMap, observations: initialObservations = [] }: Props) {
+export default function HistorialClient({ sessions, summaryMap, observations: initialObservations = [], isPilot = false }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -251,13 +256,20 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
               {session.active_seconds ? ` · ${formatDuration(session.active_seconds)}` : ""}
             </p>
           </div>
-          {comp && Number(comp.eval_version) === 2 && (
-            <div className="flex items-center gap-1">
-              <Brain size={14} className="text-sidebar" />
-              <span className="text-lg font-bold text-sidebar">{Number(comp.overall_score_v2).toFixed(1)}</span>
-              <span className="text-xs text-gray-400">/4</span>
-            </div>
-          )}
+          {comp && Number(comp.eval_version) === 2 && (() => {
+            const approved = comp.feedback_status === "approved" || comp.feedback_status === "evaluated";
+            if (!approved && !isPilot) return null;
+            return (
+              <div className="flex items-center gap-1">
+                <Brain size={14} className="text-sidebar" />
+                <span className="text-lg font-bold text-sidebar">{Number(comp.overall_score_v2).toFixed(1)}</span>
+                <span className="text-xs text-gray-400">/4</span>
+                {!approved && isPilot && (
+                  <span className="text-[9px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded ml-1">preliminar</span>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* 2 column layout */}
@@ -454,10 +466,13 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
             )}
           </div>
           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-            {score != null && score > 0 && (
+            {score != null && score > 0 && (isApproved || isPilot) && (
               <div className="flex items-center gap-1">
                 <Brain size={12} className="text-sidebar" />
                 <span className="text-sm font-bold text-sidebar">{score.toFixed(1)}</span>
+                {!isApproved && isPilot && (
+                  <span className="text-[9px] font-semibold text-amber-600 bg-amber-50 px-1 py-0.5 rounded">preliminar</span>
+                )}
               </div>
             )}
             {isEvaluated ? (
@@ -645,7 +660,14 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
               {groupedByPatient.map(([patientId, patientSessions]) => {
                 const patient = patientSessions[0].ai_patients as Patient | null;
                 const slug = getSlug(patient?.name || "");
-                const scores = patientSessions.map(s => getComp(s)).filter(c => c && Number(c.eval_version) === 2).map(c => Number(c!.overall_score_v2)).filter(v => v > 0);
+                // Trend only reflects scores the student can actually see —
+                // approved/evaluated always, plus pending rows when isPilot.
+                const scores = patientSessions
+                  .map(s => getComp(s))
+                  .filter(c => c && Number(c.eval_version) === 2)
+                  .filter(c => isPilot || c!.feedback_status === "approved" || c!.feedback_status === "evaluated")
+                  .map(c => Number(c!.overall_score_v2))
+                  .filter(v => v > 0);
                 const trend = scores.length >= 2 ? ((scores[0] - scores[scores.length - 1]) / scores[scores.length - 1] * 100) : null;
 
                 return (
@@ -671,12 +693,13 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
                         const score = comp && Number(comp.eval_version) === 2 ? Number(comp.overall_score_v2) : null;
                         const isEvaluated = comp?.feedback_status === "evaluated";
                         const isApproved = comp?.feedback_status === "approved" || isEvaluated;
+                        const canShowScore = isApproved || isPilot;
                         return (
                           <button key={s.id} onClick={() => handleSessionClick(s)}
                             className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left cursor-pointer">
                             <span className="text-xs text-gray-600 w-20">Sesión #{s.session_number}</span>
                             <span className="text-[11px] text-gray-400 flex-1">{formatTime(s.created_at)} {formatDuration(s.active_seconds) ? `· ${formatDuration(s.active_seconds)}` : ""}</span>
-                            <span className="text-xs font-medium text-sidebar w-10">{score && score > 0 ? score.toFixed(1) : "—"}</span>
+                            <span className="text-xs font-medium text-sidebar w-10">{canShowScore && score && score > 0 ? score.toFixed(1) : "—"}</span>
                             {isEvaluated ? (
                               <span className="text-[10px] text-green-600">Cerrada</span>
                             ) : isApproved ? (
