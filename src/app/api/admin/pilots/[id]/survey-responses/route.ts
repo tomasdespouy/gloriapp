@@ -2,8 +2,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import ExcelJS from "exceljs";
+import {
+  getSurveySchema,
+  computeLikertStats,
+  type SurveySchema,
+} from "@/lib/survey-schema";
 
-// Export survey responses for a pilot. Four formats supported:
+// Export survey responses for a pilot. Five formats supported:
 //
 //   GET .../survey-responses?format=csv-named
 //   GET .../survey-responses?format=csv-anonymous
@@ -15,13 +20,10 @@ import ExcelJS from "exceljs";
 // fallback pilot_participants). Anonymous exports replace name/email
 // with a sequential id (P-001, P-002...).
 //
-// Scope: we look at `survey_responses` for every user that belongs to
-// this pilot via `pilot_participants` — this is robust whether the
-// survey is pilot-scoped, global, or the UGM form. Previously the
-// endpoint filtered by survey title, which broke for global surveys.
-
-const USAB_KEYS = ["navegacion", "performance", "claridad", "feedback"] as const;
-const FORM_KEYS = ["aplicacion", "habilidades", "incorporacion", "verosimilitud", "atencion"] as const;
+// Schema-driven: the endpoint reads the `form_version` of the survey
+// associated with the pilot and picks the matching schema from
+// `src/lib/survey-schema.ts`. Any future form version plugs in by
+// adding a constant there — no changes needed here.
 
 const VALID_FORMATS = new Set([
   "csv-named",
@@ -93,7 +95,21 @@ export async function GET(
     return NextResponse.json({ error: "Piloto no encontrado" }, { status: 404 });
   }
 
-  // 2. All participants of this pilot (including those without user_id
+  // 2. Figure out which form version this pilot uses. We pick the
+  // most recent survey row linked to this pilot. If no explicit
+  // survey is linked, the schema defaults to v1 — matching the
+  // legacy seeding behaviour where `form_version` was null.
+  const { data: survey } = await admin
+    .from("surveys")
+    .select("form_version")
+    .eq("pilot_id", pilotId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const schema = getSurveySchema(survey?.form_version ?? null);
+
+  // 3. All participants of this pilot (including those without user_id
   // so we can show emails even if they never responded).
   const { data: participants } = await admin
     .from("pilot_participants")
@@ -110,7 +126,7 @@ export async function GET(
     );
   }
 
-  // 3. All responses for any survey, filtered by participant user_id.
+  // 4. All responses for any survey, filtered by participant user_id.
   // Covers UGM global survey, pilot-scoped surveys, etc.
   //
   // Filter to status='completed' so decline rows (status='not_taken',
@@ -143,7 +159,7 @@ export async function GET(
     );
   }
 
-  // 4. Name/email lookup — prefer pilot_consents (signed at enrollment)
+  // 5. Name/email lookup — prefer pilot_consents (signed at enrollment)
   // then fallback to pilot_participants.
   const nameMap = new Map<string, { full_name: string; email: string }>();
   if (!anonymized && format !== "json") {
@@ -164,8 +180,15 @@ export async function GET(
     }
   }
 
-  // ── JSON branch (used by the Dashboard to render cards/tabla) ─────
+  // ── JSON branch (used by the Dashboard to render the quantitative
+  //    summary + open answers section) ────────────────────────────────
   if (format === "json") {
+    const answersList = respList
+      .map((r) => r.answers)
+      .filter((a): a is Record<string, unknown> => !!a && typeof a === "object");
+
+    const stats = computeLikertStats(schema, answersList);
+
     const rows = respList.map((resp) => {
       const id = resp.user_id;
       const who = nameMap.get(id) || { full_name: "(sin nombre)", email: "" };
@@ -178,8 +201,16 @@ export async function GET(
         answers: resp.answers || {},
       };
     });
+
     return NextResponse.json({
       pilot,
+      formVersion: schema.formVersion,
+      schema: {
+        shortLabel: schema.shortLabel,
+        likertGroups: schema.likertGroups,
+        openQuestions: schema.openQuestions,
+      },
+      stats,
       total: rows.length,
       declinedTotal: declinedTotal || 0,
       rows,
@@ -187,53 +218,12 @@ export async function GET(
   }
 
   // ── Tabular export (CSV or XLSX) ──────────────────────────────────
-  const headers: string[] = ["institucion", "fecha"];
-  if (anonymized) {
-    headers.push("id_anonimo");
-  } else {
-    headers.push("nombre", "email");
-  }
-  headers.push(
-    "q1_carrera",
-    "q2_genero",
-    "q3_edad",
-    "q4_rol",
-    ...USAB_KEYS.map((k) => `q5_usabilidad_${k}`),
-    ...FORM_KEYS.map((k) => `q6_formacion_${k}`),
-    "q7_mas_gusto",
-    "q8_mejoras",
-    "q9_integracion",
-    "q10_comentarios",
-  );
-
-  const dataRows: (string | number | null)[][] = respList.map((resp, idx) => {
-    const a = (resp.answers || {}) as Record<string, unknown>;
-    const usabilidad = (a.q5_usabilidad || {}) as Record<string, unknown>;
-    const formacion = (a.q6_formacion || {}) as Record<string, unknown>;
-
-    const row: (string | number | null)[] = [pilot.institution, formatDate(resp.created_at)];
-
-    if (anonymized) {
-      row.push(`P-${String(idx + 1).padStart(3, "0")}`);
-    } else {
-      const who = nameMap.get(resp.user_id);
-      row.push(who?.full_name || "(sin consentimiento)");
-      row.push(who?.email || "");
-    }
-
-    row.push(
-      str(a.q1_carrera),
-      str(a.q2_genero),
-      numOrStr(a.q3_edad),
-      str(a.q4_rol),
-      ...USAB_KEYS.map((k) => numOrStr(usabilidad[k])),
-      ...FORM_KEYS.map((k) => numOrStr(formacion[k])),
-      str(a.q7_mas_gusto),
-      str(a.q8_mejoras),
-      str(a.q9_integracion),
-      str(a.q10_comentarios),
-    );
-    return row;
+  const { headers, rows: dataRows } = buildTabularRows({
+    schema,
+    pilot,
+    respList,
+    anonymized,
+    nameMap,
   });
 
   const dateStr = new Date().toISOString().slice(0, 10);
@@ -256,7 +246,7 @@ export async function GET(
   // CSV
   const csvRows = [headers, ...dataRows.map((r) => r.map((v) => (v == null ? "" : String(v))))];
   const csvBody = csvRows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
-  const csv = "\uFEFF" + csvBody;
+  const csv = "﻿" + csvBody;
 
   return new NextResponse(csv, {
     status: 200,
@@ -266,6 +256,73 @@ export async function GET(
       "Cache-Control": "no-store",
     },
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Tabular export builder — generates headers + rows from the active
+// schema. Demographics (q1..q4) come from the `answers` JSON too
+// because the SurveyModal server-side enriches each response with the
+// pilot_consents values before writing.
+// ─────────────────────────────────────────────────────────────────────
+
+function buildTabularRows({
+  schema,
+  pilot,
+  respList,
+  anonymized,
+  nameMap,
+}: {
+  schema: SurveySchema;
+  pilot: { institution: string; name: string };
+  respList: ResponseRow[];
+  anonymized: boolean;
+  nameMap: Map<string, { full_name: string; email: string }>;
+}): { headers: string[]; rows: (string | number | null)[][] } {
+  const headers: string[] = ["institucion", "fecha"];
+  if (anonymized) {
+    headers.push("id_anonimo");
+  } else {
+    headers.push("nombre", "email");
+  }
+  headers.push("q1_carrera", "q2_genero", "q3_edad", "q4_rol");
+
+  for (const group of schema.likertGroups) {
+    for (const item of group.items) {
+      headers.push(`${group.answersKey}_${item.key}`);
+    }
+  }
+  for (const q of schema.openQuestions) {
+    headers.push(q.exportColumn);
+  }
+
+  const rows: (string | number | null)[][] = respList.map((resp, idx) => {
+    const a = (resp.answers || {}) as Record<string, unknown>;
+
+    const row: (string | number | null)[] = [pilot.institution, formatDate(resp.created_at)];
+
+    if (anonymized) {
+      row.push(`P-${String(idx + 1).padStart(3, "0")}`);
+    } else {
+      const who = nameMap.get(resp.user_id);
+      row.push(who?.full_name || "(sin consentimiento)");
+      row.push(who?.email || "");
+    }
+
+    row.push(str(a.q1_carrera), str(a.q2_genero), numOrStr(a.q3_edad), str(a.q4_rol));
+
+    for (const group of schema.likertGroups) {
+      const groupAnswers = (a[group.answersKey] || {}) as Record<string, unknown>;
+      for (const item of group.items) {
+        row.push(numOrStr(groupAnswers[item.key]));
+      }
+    }
+    for (const q of schema.openQuestions) {
+      row.push(str(a[q.answersKey]));
+    }
+    return row;
+  });
+
+  return { headers, rows };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -343,7 +400,7 @@ function slugify(s: string): string {
   return s
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
