@@ -137,7 +137,7 @@ export async function POST(
       password: anonPassword,
       email_confirm: true,
       user_metadata: {
-        full_name: "(anónimo)",
+        full_name: "anónimo",
         role: "student",
         pilot_id: pilot.id,
         establishment_id: pilot.establishment_id || null,
@@ -165,7 +165,7 @@ export async function POST(
   await admin
     .from("profiles")
     .update({
-      full_name: "(anónimo)",
+      full_name: "anónimo",
       establishment_id: pilot.establishment_id || null,
       role: "student",
     })
@@ -177,7 +177,7 @@ export async function POST(
     .insert({
       pilot_id: pilot.id,
       email: anonEmail,
-      full_name: "(anónimo)",
+      full_name: "anónimo",
       role: "student",
       user_id: userId,
       status: "activo",
@@ -199,13 +199,13 @@ export async function POST(
   const { error: consentErr } = await admin.from("pilot_consents").insert({
     pilot_id: pilot.id,
     pilot_participant_id: newPart.id,
-    full_name: "(anónimo)",
+    full_name: "anónimo",
     email: anonEmail,
     age: data.age ?? null,
     gender: "prefiere_no_decir",
     role: data.role || "estudiante",
     university: pilot.institution || "—",
-    signed_name: "(acepto)",
+    signed_name: "acepto",
     signed_ip: ip,
     signed_user_agent: userAgent,
     consent_version: data.consent_version,

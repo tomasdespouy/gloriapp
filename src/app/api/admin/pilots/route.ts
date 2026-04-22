@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  DEFAULT_CONSENT_TEXT,
+  DEFAULT_CONSENT_TEXT_ANON,
+} from "@/lib/consent-texts";
 
 async function requireSuperadmin() {
   const supabase = await createClient();
@@ -38,35 +42,6 @@ export async function GET() {
 
   return NextResponse.json(result);
 }
-
-// Default consent text used when an admin creates a pilot without
-// providing one. They can edit it later from the pilot detail screen.
-const DEFAULT_CONSENT_TEXT = `Consentimiento Informado — Piloto GlorIA
-
-Por favor lee con calma. Si tienes dudas antes de aceptar, escríbenos a soporte@glor-ia.com.
-
-¿Qué es GlorIA?
-GlorIA es una plataforma de aprendizaje basada en inteligencia artificial diseñada para que estudiantes de psicología practiquen entrevistas clínicas en un entorno seguro, sin riesgo para personas reales. Cada conversación queda registrada y es evaluada automáticamente por IA conforme a un marco de diez competencias clínicas.
-
-¿Qué se te pide?
-Participar voluntariamente en sesiones de práctica con pacientes simulados durante el período del piloto. Después de cada sesión, completarás una breve auto-reflexión y recibirás retroalimentación inmediata sobre tu desempeño.
-
-¿Qué datos se recogen?
-- Nombre completo, correo electrónico, edad, género y rol (estudiante / docente / coordinador)
-- Universidad o institución a la que perteneces
-- Las conversaciones que sostengas con los pacientes virtuales
-- Tus respuestas a las auto-reflexiones post-sesión
-- Las evaluaciones automáticas de IA sobre tus competencias clínicas
-
-¿Cómo se usan tus datos?
-Tus datos serán utilizados única y exclusivamente para fines investigativos y formativos del proyecto GlorIA, en condiciones de confidencialidad. Cualquier publicación o reporte derivado del piloto presentará los resultados de forma agregada y anonimizada — tu nombre no aparecerá nunca asociado a tus respuestas individuales. Tus datos no serán compartidos con terceros ajenos al proyecto.
-
-Tus derechos
-- Puedes retirar tu consentimiento en cualquier momento, escribiéndonos a soporte@glor-ia.com.
-- Puedes solicitar acceso a una copia de tus datos personales en cualquier momento.
-- Puedes solicitar la eliminación de tus datos al finalizar el piloto.
-
-Al firmar este consentimiento, declaro que he leído y comprendido la información anterior, y acepto participar voluntariamente en el piloto institucional de GlorIA.`;
 
 function generateEnrollmentSlug(name: string, institution: string): string {
   const base = `${institution}-${name}`
@@ -145,7 +120,11 @@ export async function POST(request: Request) {
       created_by: auth.user.id,
       status: "borrador",
       enrollment_slug: generateEnrollmentSlug(name, finalInstitution),
-      consent_text: consent_text || DEFAULT_CONSENT_TEXT,
+      consent_text:
+        consent_text ||
+        (is_anonymous === true
+          ? DEFAULT_CONSENT_TEXT_ANON
+          : DEFAULT_CONSENT_TEXT),
       consent_version: "v1",
       test_mode: test_mode === true,
       logo_url: logo_url?.trim() || null,

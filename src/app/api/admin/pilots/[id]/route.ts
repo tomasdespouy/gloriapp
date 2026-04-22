@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  DEFAULT_CONSENT_TEXT,
+  DEFAULT_CONSENT_TEXT_ANON,
+} from "@/lib/consent-texts";
 
 async function requireSuperadmin() {
   const supabase = await createClient();
@@ -169,6 +173,7 @@ const PATCH_ALLOWED_FIELDS = new Set([
   "enrollment_slug",
   "logo_url",
   "ui_config",
+  "is_anonymous",
 ]);
 
 export async function PATCH(
@@ -192,6 +197,24 @@ export async function PATCH(
       { error: "Ningún campo válido para actualizar" },
       { status: 400 },
     );
+  }
+
+  // Smart swap: if the admin flips is_anonymous and the stored consent
+  // text is still one of our bakeable defaults, swap it to the matching
+  // one. Custom text (edited by the admin) is left alone.
+  if ("is_anonymous" in update && !("consent_text" in update)) {
+    const { data: current } = await auth.supabase
+      .from("pilots")
+      .select("consent_text")
+      .eq("id", id)
+      .single();
+    const currentText = current?.consent_text || "";
+    const goingAnon = update.is_anonymous === true;
+    if (goingAnon && currentText === DEFAULT_CONSENT_TEXT) {
+      update.consent_text = DEFAULT_CONSENT_TEXT_ANON;
+    } else if (!goingAnon && currentText === DEFAULT_CONSENT_TEXT_ANON) {
+      update.consent_text = DEFAULT_CONSENT_TEXT;
+    }
   }
 
   // If editing consent_text, bump consent_version automatically so any

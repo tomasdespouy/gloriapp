@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
+import { DEFAULT_CONSENT_TEXT_ANON } from "@/lib/consent-texts";
 import AnonEnrollmentClient from "./AnonEnrollmentClient";
 
 // Public, unauthenticated landing for anonymous pilot self-enrollment.
@@ -76,14 +77,6 @@ export default async function PilotAnonEnrollmentPage({
     );
   }
 
-  const defaultAnonConsent =
-    "Al marcar “Acepto” participo voluntariamente en este piloto de forma anónima. " +
-    "No se recopilan mis datos personales (nombre, correo electrónico, institución individual). " +
-    "Solo se conservan las conversaciones con los pacientes simulados y la retroalimentación que " +
-    "dé a la plataforma, con fines de investigación académica agregada. Entiendo que las " +
-    "credenciales de acceso se generan automáticamente y se muestran una sola vez: si las pierdo, " +
-    "no hay forma de recuperar mi cuenta ni las conversaciones asociadas.";
-
   return (
     <AnonEnrollmentClient
       pilot={{
@@ -91,7 +84,7 @@ export default async function PilotAnonEnrollmentPage({
         name: pilot.name,
         institution: pilot.institution,
         slug: pilot.enrollment_slug,
-        consent_text: pilot.consent_text || defaultAnonConsent,
+        consent_text: pilot.consent_text || DEFAULT_CONSENT_TEXT_ANON,
         consent_version: pilot.consent_version,
         logo_url: pilot.logo_url,
       }}

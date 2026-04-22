@@ -432,7 +432,7 @@ function Step2Consent(props: {
 
       <ConsentRenderer
         text={props.consentText}
-        className="bg-[#FAFAFA] border border-[#E5E5E5] rounded-xl p-5 max-h-96 overflow-y-auto text-sm leading-relaxed text-gray-800"
+        className="bg-[#FAFAFA] border border-[#E5E5E5] rounded-xl p-5 text-sm leading-relaxed text-gray-800"
       />
 
       <label className="flex items-start gap-3 cursor-pointer">
