@@ -1810,7 +1810,7 @@ function Step4Dashboard({
       </div>
 
       {/* Open answers from the automatic closure survey — cards / table toggle + export */}
-      <OpenAnswersSection pilotId={pilot.id} />
+      <SurveyInsights pilotId={pilot.id} />
 
       {/* Participant detail drawer — lazy loaded, only when open */}
       {openParticipantId && (
@@ -2258,6 +2258,13 @@ function formatRelativeTime(iso: string): string {
 // Open answers from the UGM closure survey
 // ════════════════════════════════════════════
 
+// ════════════════════════════════════════════
+// Survey insights — schema-driven dashboard
+// (quantitative summary + open answers). The schema comes from the
+// endpoint response, so adding a future v3 form only requires touching
+// `src/lib/survey-schema.ts` — nothing here changes.
+// ════════════════════════════════════════════
+
 type OpenAnswerRow = {
   response_id: string;
   user_id: string;
@@ -2267,20 +2274,54 @@ type OpenAnswerRow = {
   answers: Record<string, unknown>;
 };
 
-const OPEN_QUESTIONS = [
-  { key: "q7_mas_gusto", label: "10. ¿Qué fue lo que más te gustó?" },
-  { key: "q8_mejoras", label: "11. ¿Qué mejorarías?" },
-  { key: "q9_integracion", label: "12. ¿Cómo integrarla mejor?" },
-  { key: "q10_comentarios", label: "13. Comentarios adicionales" },
-] as const;
+type SurveyLikertItemStats = {
+  key: string;
+  label: string;
+  n: number;
+  mean: number | null;
+  distribution: { 1: number; 2: number; 3: number; 4: number; 5: number };
+};
 
-function OpenAnswersSection({ pilotId }: { pilotId: string }) {
-  const [view, setView] = useState<"cards" | "table">("cards");
-  const [rows, setRows] = useState<OpenAnswerRow[]>([]);
-  // Count of participants who pressed "No realizar" — rendered as a
-  // dedicated summary line next to the received-responses count so
-  // declines are visible rather than hidden behind "pending".
-  const [declinedTotal, setDeclinedTotal] = useState(0);
+type SurveyLikertGroupStats = {
+  answersKey: string;
+  title: string;
+  number: number;
+  groupMean: number | null;
+  items: SurveyLikertItemStats[];
+};
+
+type SurveyOpenQuestion = {
+  answersKey: string;
+  label: string;
+  number: number;
+  exportColumn: string;
+};
+
+type SurveyData = {
+  pilot: { id: string; name: string; institution: string };
+  formVersion: string;
+  schema: {
+    shortLabel: string;
+    likertGroups: Array<{
+      answersKey: string;
+      title: string;
+      number: number;
+      items: Array<{ key: string; label: string }>;
+    }>;
+    openQuestions: SurveyOpenQuestion[];
+  };
+  stats: {
+    formVersion: string;
+    totalResponses: number;
+    groups: SurveyLikertGroupStats[];
+  };
+  total: number;
+  declinedTotal: number;
+  rows: OpenAnswerRow[];
+};
+
+function SurveyInsights({ pilotId }: { pilotId: string }) {
+  const [data, setData] = useState<SurveyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -2290,15 +2331,13 @@ function OpenAnswersSection({ pilotId }: { pilotId: string }) {
     fetch(`/api/admin/pilots/${pilotId}/survey-responses?format=json`)
       .then(async (r) => {
         if (!r.ok) {
-          const data = await r.json().catch(() => null);
-          throw new Error(data?.error || `Error ${r.status}`);
+          const body = await r.json().catch(() => null);
+          throw new Error(body?.error || `Error ${r.status}`);
         }
-        return r.json();
+        return r.json() as Promise<SurveyData>;
       })
-      .then((data) => {
-        if (cancelled) return;
-        setRows((data.rows || []) as OpenAnswerRow[]);
-        setDeclinedTotal((data.declinedTotal as number) || 0);
+      .then((d) => {
+        if (!cancelled) setData(d);
       })
       .catch((e) => {
         if (cancelled) return;
@@ -2311,6 +2350,216 @@ function OpenAnswersSection({ pilotId }: { pilotId: string }) {
       cancelled = true;
     };
   }, [pilotId]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5 text-xs text-gray-400">
+        Cargando respuestas de la encuesta…
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded px-3 py-2">
+        {error}
+      </div>
+    );
+  }
+  if (!data) return null;
+
+  return (
+    <div className="space-y-5">
+      <QuantitativeSummary data={data} />
+      <OpenAnswersSection data={data} pilotId={pilotId} />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Quantitative summary — aggregated Likert stats
+// ─────────────────────────────────────────────
+
+function QuantitativeSummary({ data }: { data: SurveyData }) {
+  const [expanded, setExpanded] = useState(false);
+  const { stats, total, declinedTotal, schema } = data;
+
+  if (total === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <h3 className="text-sm font-semibold text-gray-900">Panorámica cuantitativa</h3>
+        <p className="text-xs text-gray-400 italic mt-3">
+          Aún no hay respuestas para calcular promedios.
+          {declinedTotal > 0 && ` (${declinedTotal} no realizada${declinedTotal === 1 ? "" : "s"})`}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">Panorámica cuantitativa</h3>
+          <p className="text-[11px] text-gray-500 mt-0.5">
+            N = {total} respuesta{total === 1 ? "" : "s"} · Escalas 1–5 · Formato {schema.shortLabel}
+            {declinedTotal > 0 && (
+              <span className="ml-2 text-amber-700">
+                · {declinedTotal} no realizada{declinedTotal === 1 ? "" : "s"}
+              </span>
+            )}
+          </p>
+        </div>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="text-[11px] text-sidebar hover:underline cursor-pointer shrink-0"
+        >
+          {expanded ? "Ocultar detalle por ítem" : "Ver detalle por ítem ▾"}
+        </button>
+      </div>
+
+      {/* Group-level summary bars */}
+      <div className="space-y-2.5">
+        {stats.groups.map((g) => (
+          <GroupBar key={g.answersKey} group={g} />
+        ))}
+      </div>
+
+      {/* Legend */}
+      <p className="text-[10px] text-gray-400 pt-1">
+        <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1 align-middle" /> Promedio &lt; 3.0
+        <span className="inline-block w-2 h-2 rounded-full bg-sidebar mx-1 ml-3 align-middle" /> 3.0 – 4.0
+        <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mx-1 ml-3 align-middle" /> ≥ 4.0
+      </p>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div className="pt-4 border-t border-gray-100 space-y-6">
+          {stats.groups.map((g) => (
+            <GroupDetail key={g.answersKey} group={g} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function barClass(mean: number): string {
+  if (mean >= 4) return "bg-emerald-500";
+  if (mean >= 3) return "bg-sidebar";
+  return "bg-red-500";
+}
+
+function labelClass(mean: number): string {
+  if (mean >= 4) return "text-emerald-700";
+  if (mean >= 3) return "text-gray-700";
+  return "text-red-700";
+}
+
+function GroupBar({ group }: { group: SurveyLikertGroupStats }) {
+  if (group.groupMean === null) {
+    return (
+      <div className="flex items-center gap-3">
+        <div className="w-56 shrink-0">
+          <p className="text-xs text-gray-700">
+            {group.number}. {group.title}
+          </p>
+        </div>
+        <div className="flex-1 text-[11px] text-gray-400 italic">Sin respuestas</div>
+      </div>
+    );
+  }
+
+  const pct = (group.groupMean / 5) * 100;
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-56 shrink-0">
+        <p className="text-xs text-gray-700">
+          {group.number}. {group.title}
+        </p>
+      </div>
+      <div className="flex-1">
+        <div className="h-5 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className={`h-full ${barClass(group.groupMean)} transition-all duration-500`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+      <div className="w-12 shrink-0 text-right">
+        <span className={`text-xs font-bold tabular-nums ${labelClass(group.groupMean)}`}>
+          {group.groupMean.toFixed(1)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function GroupDetail({ group }: { group: SurveyLikertGroupStats }) {
+  return (
+    <div>
+      <h4 className="text-xs font-semibold text-gray-900 mb-2">
+        {group.number}. {group.title}
+        {group.groupMean !== null && (
+          <span className={`ml-2 text-[11px] font-normal ${labelClass(group.groupMean)}`}>
+            · promedio {group.groupMean.toFixed(1)}
+          </span>
+        )}
+      </h4>
+      <div className="space-y-1.5">
+        {group.items.map((item) => (
+          <ItemRow key={item.key} item={item} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ItemRow({ item }: { item: SurveyLikertItemStats }) {
+  if (item.n === 0 || item.mean === null) {
+    return (
+      <div className="flex items-center gap-3 text-[11px]">
+        <div className="flex-1 min-w-0">
+          <p className="text-gray-400 italic truncate">{item.label} — sin respuestas</p>
+        </div>
+      </div>
+    );
+  }
+
+  const pct = (item.mean / 5) * 100;
+  return (
+    <div className="flex items-center gap-3 text-[11px]">
+      <div className="flex-1 min-w-0">
+        <p className="text-gray-700 truncate" title={item.label}>
+          {item.label}
+        </p>
+      </div>
+      <div className="w-28 shrink-0">
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div className={`h-full ${barClass(item.mean)}`} style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+      <div className="w-8 shrink-0 text-right tabular-nums text-gray-700 font-medium">
+        {item.mean.toFixed(1)}
+      </div>
+      <div
+        className="w-32 shrink-0 text-gray-400 tabular-nums text-[10px]"
+        title={`n=${item.n} · distribución: 1(${item.distribution[1]}) 2(${item.distribution[2]}) 3(${item.distribution[3]}) 4(${item.distribution[4]}) 5(${item.distribution[5]})`}
+      >
+        1·{item.distribution[1]} 2·{item.distribution[2]} 3·{item.distribution[3]} 4·{item.distribution[4]} 5·{item.distribution[5]}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Open answers section — one card per response
+// or a wide table, schema-driven.
+// ─────────────────────────────────────────────
+
+function OpenAnswersSection({ data, pilotId }: { data: SurveyData; pilotId: string }) {
+  const [view, setView] = useState<"cards" | "table">("cards");
+  const { rows, declinedTotal } = data;
+  const openQuestions = data.schema.openQuestions;
 
   const exportLinks = [
     { label: "XLSX con nombres", href: `/api/admin/pilots/${pilotId}/survey-responses?format=xlsx-named`, primary: true },
@@ -2325,12 +2574,10 @@ function OpenAnswersSection({ pilotId }: { pilotId: string }) {
         <div>
           <h3 className="text-sm font-semibold text-gray-900">Respuestas abiertas de la encuesta</h3>
           <p className="text-xs text-gray-500 mt-0.5">
-            {loading
-              ? "Cargando respuestas…"
-              : rows.length > 0
-                ? `${rows.length} respuesta${rows.length === 1 ? "" : "s"} recibida${rows.length === 1 ? "" : "s"}.`
-                : "Aún no hay respuestas."}
-            {!loading && declinedTotal > 0 && (
+            {rows.length > 0
+              ? `${rows.length} respuesta${rows.length === 1 ? "" : "s"} recibida${rows.length === 1 ? "" : "s"}.`
+              : "Aún no hay respuestas."}
+            {declinedTotal > 0 && (
               <span className="ml-2 text-amber-700">
                 · {declinedTotal} no realizada{declinedTotal === 1 ? "" : "s"}
               </span>
@@ -2377,19 +2624,13 @@ function OpenAnswersSection({ pilotId }: { pilotId: string }) {
       </div>
 
       {/* Content */}
-      {error && (
-        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
-          {error}
-        </p>
-      )}
-
-      {!error && !loading && rows.length === 0 && (
+      {rows.length === 0 && (
         <p className="text-xs text-gray-400 italic text-center py-6">
           Todavía nadie ha respondido la encuesta de cierre en este piloto.
         </p>
       )}
 
-      {!error && !loading && rows.length > 0 && view === "cards" && (
+      {rows.length > 0 && view === "cards" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {rows.map((r) => (
             <div key={r.response_id} className="border border-gray-100 rounded-lg p-3 bg-gray-50/50">
@@ -2400,12 +2641,14 @@ function OpenAnswersSection({ pilotId }: { pilotId: string }) {
                 </span>
               </div>
               <div className="space-y-1.5">
-                {OPEN_QUESTIONS.map(({ key, label }) => {
-                  const val = r.answers?.[key];
+                {openQuestions.map((q) => {
+                  const val = r.answers?.[q.answersKey];
                   const text = typeof val === "string" ? val.trim() : "";
                   return (
-                    <div key={key}>
-                      <p className="text-[10px] font-medium text-gray-500">{label}</p>
+                    <div key={q.answersKey}>
+                      <p className="text-[10px] font-medium text-gray-500">
+                        {q.number}. {q.label}
+                      </p>
                       <p className="text-xs text-gray-800 whitespace-pre-wrap">
                         {text || <span className="text-gray-300 italic">—</span>}
                       </p>
@@ -2418,7 +2661,7 @@ function OpenAnswersSection({ pilotId }: { pilotId: string }) {
         </div>
       )}
 
-      {!error && !loading && rows.length > 0 && view === "table" && (
+      {rows.length > 0 && view === "table" && (
         <div className="border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-gray-50">
@@ -2426,9 +2669,9 @@ function OpenAnswersSection({ pilotId }: { pilotId: string }) {
                 <th className="text-left px-3 py-2 text-gray-500 font-medium w-8">#</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Nombre</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium whitespace-nowrap">Fecha</th>
-                {OPEN_QUESTIONS.map((q) => (
-                  <th key={q.key} className="text-left px-3 py-2 text-gray-500 font-medium min-w-[200px]">
-                    {q.label}
+                {openQuestions.map((q) => (
+                  <th key={q.answersKey} className="text-left px-3 py-2 text-gray-500 font-medium min-w-[200px]">
+                    {q.number}. {q.label}
                   </th>
                 ))}
               </tr>
@@ -2441,11 +2684,11 @@ function OpenAnswersSection({ pilotId }: { pilotId: string }) {
                   <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap">
                     {new Date(r.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
                   </td>
-                  {OPEN_QUESTIONS.map(({ key }) => {
-                    const val = r.answers?.[key];
+                  {openQuestions.map((q) => {
+                    const val = r.answers?.[q.answersKey];
                     const text = typeof val === "string" ? val.trim() : "";
                     return (
-                      <td key={key} className="px-3 py-2.5 text-gray-700 whitespace-pre-wrap">
+                      <td key={q.answersKey} className="px-3 py-2.5 text-gray-700 whitespace-pre-wrap">
                         {text || <span className="text-gray-300 italic">—</span>}
                       </td>
                     );
