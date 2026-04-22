@@ -132,7 +132,7 @@ export default function EnrollmentClient({ pilot }: { pilot: Pilot }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] flex flex-col">
+    <div className="min-h-screen bg-[#FAFAFA]">
       {/* Header */}
       <header className="bg-white border-b border-[#E5E5E5]">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -162,7 +162,7 @@ export default function EnrollmentClient({ pilot }: { pilot: Pilot }) {
       </header>
 
       {/* Body */}
-      <main className="flex-1 flex justify-center px-4 sm:px-6 py-10">
+      <main className="flex justify-center px-4 sm:px-6 py-10">
         <div className="w-full max-w-2xl">
           {/* Pilot title */}
           <div className="mb-8 text-center">

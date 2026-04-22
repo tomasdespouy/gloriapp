@@ -675,9 +675,18 @@ html.a11y-font-xl input[type="password"] {
 
 /* ─── Mobile responsive guards ────────────────────────────────────
    Defensive rules that prevent accidental horizontal overflow and
-   bouncy overscroll on mobile. Desktop behavior is unaffected. */
-html, body {
-  overflow-x: hidden;
+   bouncy overscroll on mobile. Desktop behavior is unaffected.
+
+   We apply overflow-x to <body> only (not <html>) and prefer `clip`
+   over `hidden` where supported: putting overflow-x: hidden on <html>
+   can make Chrome misplace the scroll container and break wheel/
+   trackpad scrolling on long pages (reproduced in the anonymous
+   pilot consent page). `clip` is visually equivalent to `hidden`
+   but does not create a new scroll context, so wheel events keep
+   propagating to the viewport. */
+body {
+  overflow-x: hidden;      /* fallback for browsers without `clip` */
+  overflow-x: clip;
   overscroll-behavior-y: none;
 }
 

@@ -97,7 +97,7 @@ export default function AnonEnrollmentClient({ pilot }: { pilot: Pilot }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] flex flex-col">
+    <div className="min-h-screen bg-[#FAFAFA]">
       <header className="bg-white border-b border-[#E5E5E5]">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -125,7 +125,7 @@ export default function AnonEnrollmentClient({ pilot }: { pilot: Pilot }) {
         </div>
       </header>
 
-      <main className="flex-1 flex justify-center px-4 sm:px-6 py-10">
+      <main className="flex justify-center px-4 sm:px-6 py-10">
         <div className="w-full max-w-2xl">
           <div className="mb-8 text-center">
             <h1 className="text-2xl sm:text-3xl font-bold text-[#1A1A1A] mb-2">

@@ -39,16 +39,16 @@ Por favor lee con calma. Si tienes dudas antes de aceptar, escríbenos a soporte
 GlorIA es una plataforma de aprendizaje basada en inteligencia artificial diseñada para que estudiantes de psicología practiquen entrevistas clínicas en un entorno seguro, sin riesgo para personas reales. Cada conversación queda registrada y es evaluada automáticamente por IA conforme a un marco de diez competencias clínicas.
 
 ¿Qué se te pide?
-Participar voluntariamente en sesiones de práctica con pacientes simulados durante el período del piloto. Después de cada sesión, completarás una breve auto-reflexión y recibirás retroalimentación inmediata sobre tu desempeño.
+Participar voluntariamente en una sesión de práctica con pacientes simulados con Inteligencia Artificial durante la duración del piloto y completar una encuesta anónima de experiencia del usuario. La información de la interacción con el paciente y la encuesta, será usado
 
 Participación anónima — qué NO se recoge
 En este piloto tu participación es completamente anónima. NO se solicita ni se guarda tu nombre, apellido, correo electrónico personal ni ningún otro dato que permita identificarte. Las credenciales de acceso se generan automáticamente al aceptar este consentimiento.
 
-¿Qué datos se conservan?
+¿Qué datos se conservan temporalmente?
 - Las conversaciones que sostengas con los pacientes virtuales
-- Tus respuestas a las auto-reflexiones post-sesión
 - Las evaluaciones automáticas de IA sobre tus competencias clínicas
 - Opcionalmente: edad y rol declarado (estudiante / docente / coordinador), solo si tú decides ingresarlos, exclusivamente para análisis agregado
+- Estos datos se borrarán al finalizar el piloto y posterior entrega del informe evaluación de la experiencia que entregamos a la universidad.
 
 ¿Cómo se usan estos datos?
 Los datos recogidos serán utilizados única y exclusivamente para fines investigativos y formativos del proyecto GlorIA, siempre de forma agregada. Como no se recopilan datos personales, no es posible asociar ninguna respuesta o conversación con una persona real. No serán compartidos con terceros ajenos al proyecto.
