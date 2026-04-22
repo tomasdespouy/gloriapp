@@ -100,6 +100,7 @@ export async function POST(request: Request) {
     consent_text,
     test_mode,
     logo_url,
+    is_anonymous,
   } = body;
 
   if (!name) {
@@ -148,6 +149,7 @@ export async function POST(request: Request) {
       consent_version: "v1",
       test_mode: test_mode === true,
       logo_url: logo_url?.trim() || null,
+      is_anonymous: is_anonymous === true,
     })
     .select()
     .single();

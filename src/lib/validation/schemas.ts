@@ -133,6 +133,29 @@ export const pilotEnrollSchema = z.object({
 });
 
 // ─────────────────────────────────────────────────────────────────────────
+// /api/public/pilot-enroll-anon/[slug] (POST) — anonymous consent submission
+// ─────────────────────────────────────────────────────────────────────────
+// Used when pilots.is_anonymous = true. No personal data is collected:
+// name, email, gender and signed_name are NOT asked. The server generates
+// a synthetic email + secure password and returns them to the client.
+
+export const pilotEnrollAnonSchema = z.object({
+  accepted: z
+    .boolean()
+    .refine((v) => v === true, { message: "Debes aceptar el consentimiento" }),
+  consent_version: nonEmptyString(40),
+  // Optional demographic tags kept purely for aggregated research analysis.
+  // They cannot be linked back to a real person.
+  age: z
+    .number()
+    .int()
+    .min(15, "Edad mínima: 15")
+    .max(99, "Edad máxima: 99")
+    .optional(),
+  role: z.enum(["estudiante", "docente", "coordinador"]).optional(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────
 // /api/contact (POST) — public landing form body
 // ─────────────────────────────────────────────────────────────────────────
 
