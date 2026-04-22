@@ -1810,6 +1810,8 @@ function Step4Dashboard({
       </div>
 
       {/* Open answers from the automatic closure survey — cards / table toggle + export */}
+      <AlertsSection pilotId={pilot.id} />
+
       <SurveyInsights pilotId={pilot.id} />
 
       {/* Participant detail drawer — lazy loaded, only when open */}
@@ -2319,6 +2321,283 @@ type SurveyData = {
   declinedTotal: number;
   rows: OpenAnswerRow[];
 };
+
+// ════════════════════════════════════════════
+// Chat alerts section — observational supervision
+// ════════════════════════════════════════════
+
+type ChatAlertRow = {
+  id: string;
+  conversation_id: string;
+  message_id: string | null;
+  student_id: string | null;
+  ai_patient_id: string | null;
+  source: "user" | "assistant";
+  kind: string;
+  severity: "low" | "medium" | "high" | "critical";
+  matched_terms: string | null;
+  sample: string | null;
+  turn_number: number | null;
+  reviewed_at: string | null;
+  created_at: string;
+  student_name: string | null;
+  student_email: string | null;
+  patient_name: string | null;
+};
+
+type AlertsResponse = {
+  alerts: ChatAlertRow[];
+  total: number;
+  unreviewed: number;
+};
+
+const ALERT_KIND_UI: Record<string, { label: string; color: string }> = {
+  short_response: { label: "Respuesta truncada", color: "bg-amber-100 text-amber-800 border-amber-200" },
+  profanity: { label: "Groserías", color: "bg-orange-100 text-orange-800 border-orange-200" },
+  violence: { label: "Violencia", color: "bg-red-100 text-red-800 border-red-200" },
+  self_harm: { label: "Riesgo / autolesión", color: "bg-red-200 text-red-900 border-red-300" },
+  disrespect: { label: "Falta de respeto", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
+  prompt_leak: { label: "Fuga de prompt", color: "bg-purple-100 text-purple-800 border-purple-200" },
+};
+
+const ALERT_SEVERITY_UI: Record<string, { label: string; color: string }> = {
+  low: { label: "Baja", color: "bg-gray-100 text-gray-700 border-gray-200" },
+  medium: { label: "Media", color: "bg-amber-100 text-amber-800 border-amber-200" },
+  high: { label: "Alta", color: "bg-orange-100 text-orange-800 border-orange-300" },
+  critical: { label: "Crítica", color: "bg-red-100 text-red-900 border-red-300 font-bold" },
+};
+
+function AlertsSection({ pilotId }: { pilotId: string }) {
+  const [data, setData] = useState<AlertsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [kindFilter, setKindFilter] = useState<string>("all");
+  const [severityFilter, setSeverityFilter] = useState<string>("all");
+  const [showReviewed, setShowReviewed] = useState(false);
+  const [marking, setMarking] = useState<string | null>(null);
+
+  const reload = useCallback(() => {
+    setLoading(true);
+    fetch(`/api/admin/pilots/${pilotId}/alerts`)
+      .then(async (r) => {
+        if (!r.ok) {
+          const body = await r.json().catch(() => null);
+          throw new Error(body?.error || `Error ${r.status}`);
+        }
+        return r.json() as Promise<AlertsResponse>;
+      })
+      .then((d) => setData(d))
+      .catch((e) => setError(e instanceof Error ? e.message : "Error al cargar alertas"))
+      .finally(() => setLoading(false));
+  }, [pilotId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/admin/pilots/${pilotId}/alerts`)
+      .then(async (r) => {
+        if (!r.ok) {
+          const body = await r.json().catch(() => null);
+          throw new Error(body?.error || `Error ${r.status}`);
+        }
+        return r.json() as Promise<AlertsResponse>;
+      })
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Error al cargar alertas");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pilotId]);
+
+  async function markReviewed(alertId: string, reviewed: boolean) {
+    setMarking(alertId);
+    try {
+      await fetch(`/api/admin/pilots/${pilotId}/alerts`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alert_id: alertId, reviewed }),
+      });
+      reload();
+    } finally {
+      setMarking(null);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5 text-xs text-gray-400">
+        Cargando alertas…
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded px-3 py-2">
+        {error}
+      </div>
+    );
+  }
+  if (!data) return null;
+
+  const filtered = data.alerts.filter((a) => {
+    if (!showReviewed && a.reviewed_at) return false;
+    if (kindFilter !== "all" && a.kind !== kindFilter) return false;
+    if (severityFilter !== "all" && a.severity !== severityFilter) return false;
+    return true;
+  });
+
+  const kindsPresent = [...new Set(data.alerts.map((a) => a.kind))];
+  const severitiesPresent = [...new Set(data.alerts.map((a) => a.severity))];
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+            Alertas de la sesión
+            {data.unreviewed > 0 && (
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                {data.unreviewed}
+              </span>
+            )}
+          </h3>
+          <p className="text-[11px] text-gray-500 mt-0.5">
+            Patrones detectados automáticamente — respuestas truncadas, groserías, violencia, riesgo, falta de respeto, fugas de prompt.
+            {" "}
+            Nunca cortan una conversación.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-[11px]">
+          <select
+            value={kindFilter}
+            onChange={(e) => setKindFilter(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2 py-1 bg-white cursor-pointer hover:border-gray-300"
+          >
+            <option value="all">Todos los tipos</option>
+            {kindsPresent.map((k) => (
+              <option key={k} value={k}>{ALERT_KIND_UI[k]?.label || k}</option>
+            ))}
+          </select>
+          <select
+            value={severityFilter}
+            onChange={(e) => setSeverityFilter(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2 py-1 bg-white cursor-pointer hover:border-gray-300"
+          >
+            <option value="all">Toda severidad</option>
+            {severitiesPresent.map((s) => (
+              <option key={s} value={s}>{ALERT_SEVERITY_UI[s]?.label || s}</option>
+            ))}
+          </select>
+          <label className="flex items-center gap-1.5 cursor-pointer text-gray-600">
+            <input
+              type="checkbox"
+              checked={showReviewed}
+              onChange={(e) => setShowReviewed(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-300"
+            />
+            Mostrar revisadas
+          </label>
+        </div>
+      </div>
+
+      {data.total === 0 && (
+        <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+          Sin alertas registradas en este piloto.
+        </p>
+      )}
+
+      {data.total > 0 && filtered.length === 0 && (
+        <p className="text-xs text-gray-400 italic text-center py-4">
+          No hay alertas que coincidan con los filtros seleccionados.
+        </p>
+      )}
+
+      {filtered.length > 0 && (
+        <div className="border border-gray-200 rounded-lg overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium whitespace-nowrap">Fecha</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">Estudiante</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">Paciente</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">Tipo</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">Severidad</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">Origen</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium min-w-[240px]">Muestra</th>
+                <th className="text-right px-3 py-2 text-gray-500 font-medium">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((a) => {
+                const kindUi = ALERT_KIND_UI[a.kind] || { label: a.kind, color: "bg-gray-100 text-gray-700 border-gray-200" };
+                const sevUi = ALERT_SEVERITY_UI[a.severity] || { label: a.severity, color: "bg-gray-100 text-gray-700 border-gray-200" };
+                return (
+                  <tr key={a.id} className={`border-t border-gray-100 align-top ${a.reviewed_at ? "opacity-60" : ""}`}>
+                    <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">
+                      {new Date(a.created_at).toLocaleString("es-CL", {
+                        day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                      })}
+                      {a.turn_number != null && <div className="text-[10px] text-gray-400">turno {a.turn_number}</div>}
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-800 font-medium">
+                      {a.student_name || "(sin nombre)"}
+                      {a.student_email && <div className="text-[10px] text-gray-400 truncate max-w-[180px]">{a.student_email}</div>}
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-700">{a.patient_name || "—"}</td>
+                    <td className="px-3 py-2.5">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold ${kindUi.color}`}>
+                        {kindUi.label}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold ${sevUi.color}`}>
+                        {sevUi.label}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">
+                      {a.source === "user" ? "Estudiante" : "Paciente IA"}
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-700 whitespace-pre-wrap break-words max-w-[320px]">
+                      <div>{a.sample || "—"}</div>
+                      {a.matched_terms && (
+                        <div className="text-[10px] text-gray-400 mt-1">
+                          match: <span className="font-mono">{a.matched_terms}</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => markReviewed(a.id, !a.reviewed_at)}
+                        disabled={marking === a.id}
+                        className="text-[11px] text-sidebar hover:underline cursor-pointer disabled:opacity-50"
+                      >
+                        {a.reviewed_at ? "Des-revisar" : "Marcar revisada"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {filtered.length > 0 && (
+        <p className="text-[10px] text-gray-400">
+          Mostrando {filtered.length} de {data.total} alertas. Máximo 500 por carga.
+        </p>
+      )}
+    </div>
+  );
+}
 
 function SurveyInsights({ pilotId }: { pilotId: string }) {
   const [data, setData] = useState<SurveyData | null>(null);
