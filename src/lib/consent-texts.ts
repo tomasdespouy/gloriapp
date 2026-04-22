@@ -39,7 +39,7 @@ Por favor lee con calma. Si tienes dudas antes de aceptar, escríbenos a soporte
 GlorIA es una plataforma de aprendizaje basada en inteligencia artificial diseñada para que estudiantes de psicología practiquen entrevistas clínicas en un entorno seguro, sin riesgo para personas reales. Cada conversación queda registrada y es evaluada automáticamente por IA conforme a un marco de diez competencias clínicas.
 
 ¿Qué se te pide?
-Participar voluntariamente en una sesión de práctica con pacientes simulados con Inteligencia Artificial durante la duración del piloto y completar una encuesta anónima de experiencia del usuario. La información de la interacción con el paciente y la encuesta, será usado
+Participar voluntariamente en una sesión de práctica con pacientes simulados con Inteligencia Artificial durante la duración del piloto y completar una encuesta anónima de experiencia del usuario. La información de la interacción con el paciente y la encuesta, será usado exclusivamente para fines de investigación y mejora del proyecto GlorIA.
 
 Participación anónima — qué NO se recoge
 En este piloto tu participación es completamente anónima. NO se solicita ni se guarda tu nombre, apellido, correo electrónico personal ni ningún otro dato que permita identificarte. Las credenciales de acceso se generan automáticamente al aceptar este consentimiento.
