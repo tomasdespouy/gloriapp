@@ -76,7 +76,15 @@ type CsvRow = {
   role: string;
 };
 
-type ParticipantSortKey = "name" | "email" | "role" | "status";
+type ParticipantSortKey = "name" | "email" | "role" | "status" | "sessions" | "survey" | "last_activity";
+
+// Prioridad para sort por estado de encuesta: completadas primero (0),
+// declinadas en el medio (1), pendientes al final (2). En desc se invierte.
+const SURVEY_STATE_ORDER = (p: { survey_completed_at: string | null; survey_declined_at: string | null }): number => {
+  if (p.survey_completed_at) return 0;
+  if (p.survey_declined_at) return 1;
+  return 2;
+};
 type PilotSortKey = "name" | "institution" | "country" | "status" | "participants" | "created_at";
 
 // Logical order para sort por estado (no alfabetico): refleja el funnel
@@ -1838,12 +1846,17 @@ function Step4Dashboard({
       : participants.filter((p) => p.status === statusFilter);
     if (!sortKey) return base;
     const sign = sortDir === "asc" ? 1 : -1;
+    // last_activity null siempre al final: damos +Infinity en asc y
+    // -Infinity en desc para que los null no ganen el sort.
     const sortValue = (p: Participant): string | number => {
       switch (sortKey) {
-        case "name":   return (p.full_name || "").toLowerCase();
-        case "email":  return (p.email || "").toLowerCase();
-        case "role":   return (p.role || "").toLowerCase();
-        case "status": return PARTICIPANT_STATUS_ORDER[p.status] ?? 99;
+        case "name":          return (p.full_name || "").toLowerCase();
+        case "email":         return (p.email || "").toLowerCase();
+        case "role":          return (p.role || "").toLowerCase();
+        case "status":        return PARTICIPANT_STATUS_ORDER[p.status] ?? 99;
+        case "sessions":      return p.sessions_count || 0;
+        case "survey":        return SURVEY_STATE_ORDER(p);
+        case "last_activity": return p.last_active_at ? new Date(p.last_active_at).getTime() : (sign === 1 ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY);
       }
     };
     return [...base].sort((a, b) => {
@@ -2059,13 +2072,13 @@ function Step4Dashboard({
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium w-8">#</th>
-                <SortableTh label="Nombre" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableTh label="Email" sortKey="email" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableTh label="Rol" sortKey="role" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableTh label="Estado" sortKey="status" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <th className="text-right px-3 py-2 text-gray-500 font-medium">Sesiones</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">Encuesta</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">Última actividad</th>
+                <SortableTh<ParticipantSortKey> label="Nombre" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableTh<ParticipantSortKey> label="Email" sortKey="email" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableTh<ParticipantSortKey> label="Rol" sortKey="role" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableTh<ParticipantSortKey> label="Estado" sortKey="status" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableTh<ParticipantSortKey> label="Sesiones" sortKey="sessions" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} align="right" />
+                <SortableTh<ParticipantSortKey> label="Encuesta" sortKey="survey" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableTh<ParticipantSortKey> label="Última actividad" sortKey="last_activity" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <th className="text-center px-3 py-2 text-gray-500 font-medium w-12">Ver</th>
                 <th className="text-right px-3 py-2 text-gray-500 font-medium">Acciones</th>
               </tr>
