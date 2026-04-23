@@ -9,7 +9,7 @@ import {
   Download, Send, Clock, UserCheck, MessageSquare,
   AlertCircle, Check, ChevronDown, ChevronUp, RotateCcw,
   Link2, Copy, ExternalLink, Image as ImageIcon,
-  ClipboardCheck,
+  ClipboardCheck, LayoutGrid, List as ListIcon,
 } from "lucide-react";
 import PilotConsentPanel from "./PilotConsentPanel";
 
@@ -77,6 +77,7 @@ type CsvRow = {
 };
 
 type ParticipantSortKey = "name" | "email" | "role" | "status";
+type PilotSortKey = "name" | "institution" | "country" | "status" | "participants" | "created_at";
 
 // Logical order para sort por estado (no alfabetico): refleja el funnel
 // pendiente → invitado → activo → inactivo, asi "asc" muestra primero los
@@ -86,6 +87,17 @@ const PARTICIPANT_STATUS_ORDER: Record<string, number> = {
   invitado: 1,
   activo: 2,
   inactivo: 3,
+};
+
+// Orden logico para sort por estado de piloto: respeta el ciclo de vida
+// borrador → validado → en_desarrollo → enviado → finalizado → cancelado.
+const PILOT_STATUS_ORDER: Record<string, number> = {
+  borrador: 0,
+  validado: 1,
+  en_desarrollo: 2,
+  enviado: 3,
+  finalizado: 4,
+  cancelado: 5,
 };
 
 // ────────────────────────────────────────────
@@ -249,6 +261,63 @@ export default function PilotosClient({
   // Dashboard state
   const [dashboardData, setDashboardData] = useState<Pilot | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // List view (gallery vs table) state. La preferencia se persiste en
+  // localStorage para no resetearse entre navegaciones. Inicializo con
+  // "gallery" para no romper SSR/hidratación; el efecto la sincroniza
+  // con localStorage al montar.
+  const [pilotView, setPilotView] = useState<"gallery" | "list">("gallery");
+  useEffect(() => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("pilotos.view") : null;
+    if (stored === "gallery" || stored === "list") setPilotView(stored);
+  }, []);
+  const setViewAndPersist = (mode: "gallery" | "list") => {
+    setPilotView(mode);
+    if (typeof window !== "undefined") localStorage.setItem("pilotos.view", mode);
+  };
+
+  // Sort para la lista de pilotos. Click cicla asc → desc → off (igual
+  // que la tabla de participantes). Filtro por estado tambien aplica en
+  // ambas vistas.
+  const [pilotSortKey, setPilotSortKey] = useState<PilotSortKey | null>(null);
+  const [pilotSortDir, setPilotSortDir] = useState<"asc" | "desc">("asc");
+  const togglePilotSort = (key: PilotSortKey) => {
+    if (pilotSortKey !== key) {
+      setPilotSortKey(key);
+      setPilotSortDir("asc");
+    } else if (pilotSortDir === "asc") {
+      setPilotSortDir("desc");
+    } else {
+      setPilotSortKey(null);
+      setPilotSortDir("asc");
+    }
+  };
+  const [pilotStatusFilter, setPilotStatusFilter] = useState<string>("all");
+
+  const sortedPilots = (() => {
+    const base = pilotStatusFilter === "all"
+      ? pilots
+      : pilots.filter((p) => (p.derived_status || p.status) === pilotStatusFilter);
+    if (!pilotSortKey) return base;
+    const sign = pilotSortDir === "asc" ? 1 : -1;
+    const sortValue = (p: Pilot): string | number => {
+      switch (pilotSortKey) {
+        case "name":         return (p.name || "").toLowerCase();
+        case "institution":  return (p.institution || "").toLowerCase();
+        case "country":      return (p.country || "").toLowerCase();
+        case "status":       return PILOT_STATUS_ORDER[p.derived_status || p.status] ?? 99;
+        case "participants": return p.participant_count;
+        case "created_at":   return new Date(p.created_at).getTime();
+      }
+    };
+    return [...base].sort((a, b) => {
+      const av = sortValue(a);
+      const bv = sortValue(b);
+      if (av < bv) return -1 * sign;
+      if (av > bv) return 1 * sign;
+      return 0;
+    });
+  })();
 
   // ────────────────────────────────
   // Helpers
@@ -587,20 +656,58 @@ export default function PilotosClient({
   if (!selectedPilot && !showWizard && step === 0) {
     return (
       <div className="min-h-screen">
-        <header className="px-4 sm:px-8 py-5 flex items-center justify-between">
+        <header className="px-4 sm:px-8 py-5 flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Pilotos</h1>
             <p className="text-sm text-gray-500 mt-0.5">
               Gestiona despliegues piloto en instituciones
             </p>
           </div>
-          <button
-            onClick={() => { resetWizard(); setShowWizard(true); setStep(STEP_INSTITUCION); }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
-          >
-            <Plus size={16} />
-            Nuevo piloto
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {pilots.length > 0 && (
+              <>
+                <select
+                  value={pilotStatusFilter}
+                  onChange={(e) => setPilotStatusFilter(e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-sidebar/30 hover:border-gray-300 cursor-pointer bg-white"
+                >
+                  <option value="all">Todos los estados</option>
+                  <option value="borrador">Borrador</option>
+                  <option value="enviado">Activo</option>
+                  <option value="en_desarrollo">En desarrollo</option>
+                  <option value="finalizado">Finalizado</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+                <div className="flex border border-gray-200 rounded-lg overflow-hidden bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setViewAndPersist("gallery")}
+                    aria-label="Vista de galería"
+                    title="Vista de galería"
+                    className={`px-2.5 py-2 cursor-pointer transition-colors ${pilotView === "gallery" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}
+                  >
+                    <LayoutGrid size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewAndPersist("list")}
+                    aria-label="Vista de lista"
+                    title="Vista de lista"
+                    className={`px-2.5 py-2 cursor-pointer transition-colors ${pilotView === "list" ? "bg-sidebar text-white" : "text-gray-500 hover:bg-gray-50"}`}
+                  >
+                    <ListIcon size={14} />
+                  </button>
+                </div>
+              </>
+            )}
+            <button
+              onClick={() => { resetWizard(); setShowWizard(true); setStep(STEP_INSTITUCION); }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
+            >
+              <Plus size={16} />
+              Nuevo piloto
+            </button>
+          </div>
         </header>
 
         <div className="px-4 sm:px-8 pb-8">
@@ -615,9 +722,13 @@ export default function PilotosClient({
                 Crear primer piloto
               </button>
             </div>
-          ) : (
+          ) : sortedPilots.length === 0 ? (
+            <div className="text-center py-12 text-gray-400 text-sm">
+              No hay pilotos con este filtro
+            </div>
+          ) : pilotView === "gallery" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {pilots.map((pilot) => (
+              {sortedPilots.map((pilot) => (
                 <div
                   key={pilot.id}
                   className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer group"
@@ -688,6 +799,73 @@ export default function PilotosClient({
                   </div>
                 </div>
               ))}
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <SortableTh<PilotSortKey> label="Nombre" sortKey="name" currentKey={pilotSortKey} currentDir={pilotSortDir} onSort={togglePilotSort} />
+                    <SortableTh<PilotSortKey> label="Institución" sortKey="institution" currentKey={pilotSortKey} currentDir={pilotSortDir} onSort={togglePilotSort} />
+                    <SortableTh<PilotSortKey> label="País" sortKey="country" currentKey={pilotSortKey} currentDir={pilotSortDir} onSort={togglePilotSort} />
+                    <SortableTh<PilotSortKey> label="Estado" sortKey="status" currentKey={pilotSortKey} currentDir={pilotSortDir} onSort={togglePilotSort} />
+                    <SortableTh<PilotSortKey> label="Participantes" sortKey="participants" currentKey={pilotSortKey} currentDir={pilotSortDir} onSort={togglePilotSort} align="right" />
+                    <SortableTh<PilotSortKey> label="Creado" sortKey="created_at" currentKey={pilotSortKey} currentDir={pilotSortDir} onSort={togglePilotSort} />
+                    <th className="text-right px-3 py-2 text-gray-500 font-medium w-32">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedPilots.map((pilot) => {
+                    const effective = pilot.derived_status || pilot.status;
+                    const flag = countryToFlag(pilot.country);
+                    return (
+                      <tr
+                        key={pilot.id}
+                        onClick={() => openPilot(pilot)}
+                        className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <td className="px-3 py-2.5 text-gray-900 font-medium">{pilot.name}</td>
+                        <td className="px-3 py-2.5 text-gray-600">
+                          <span className="flex items-center gap-1.5">
+                            <Building2 size={11} className="text-gray-400 flex-shrink-0" />
+                            {pilot.institution}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-gray-600">
+                          {pilot.country
+                            ? (flag
+                                ? <span title={pilot.country} aria-label={pilot.country} className="text-base leading-none">{flag}</span>
+                                : <span className="flex items-center gap-1"><Globe size={11} className="text-gray-400" />{pilot.country}</span>)
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS_EXTENDED[effective] || "bg-gray-100 text-gray-600"}`}>
+                            {STATUS_LABELS[effective] || effective}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right tabular-nums text-gray-700">{pilot.participant_count}</td>
+                        <td className="px-3 py-2.5 text-gray-500">{formatDate(pilot.created_at)}</td>
+                        <td className="px-3 py-2.5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openPilot(pilot); }}
+                              className="text-xs text-sidebar hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <Eye size={12} /> Ver
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDelete(pilot.id); }}
+                              className="text-xs text-red-500 hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <Trash2 size={12} /> Eliminar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -2376,26 +2554,33 @@ function KpiCard({
   );
 }
 
-function SortableTh({
+function SortableTh<K extends string>({
   label,
   sortKey,
   currentKey,
   currentDir,
   onSort,
+  align = "left",
+  className = "",
 }: {
   label: string;
-  sortKey: ParticipantSortKey;
-  currentKey: ParticipantSortKey | null;
+  sortKey: K;
+  currentKey: K | null;
   currentDir: "asc" | "desc";
-  onSort: (key: ParticipantSortKey) => void;
+  onSort: (key: K) => void;
+  align?: "left" | "right" | "center";
+  className?: string;
 }) {
   const isActive = currentKey === sortKey;
+  const alignClass =
+    align === "right" ? "justify-end" :
+    align === "center" ? "justify-center" : "";
   return (
-    <th className="text-left px-3 py-2 text-gray-500 font-medium">
+    <th className={`text-${align} px-3 py-2 text-gray-500 font-medium ${className}`}>
       <button
         type="button"
         onClick={() => onSort(sortKey)}
-        className={`flex items-center gap-1 cursor-pointer transition-colors ${isActive ? "text-gray-700" : "hover:text-gray-700"}`}
+        className={`flex items-center gap-1 cursor-pointer transition-colors ${alignClass} ${isActive ? "text-gray-700" : "hover:text-gray-700"}`}
         aria-label={`Ordenar por ${label}`}
       >
         {label}
