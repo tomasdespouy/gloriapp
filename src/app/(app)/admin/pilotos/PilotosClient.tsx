@@ -2282,6 +2282,7 @@ type SurveyLikertItemStats = {
   n: number;
   mean: number | null;
   distribution: { 1: number; 2: number; 3: number; 4: number; 5: number };
+  top2Pct: number | null;
 };
 
 type SurveyLikertGroupStats = {
@@ -2289,6 +2290,7 @@ type SurveyLikertGroupStats = {
   title: string;
   number: number;
   groupMean: number | null;
+  groupTop2Pct: number | null;
   items: SurveyLikertItemStats[];
 };
 
@@ -2708,6 +2710,7 @@ function QuantitativeSummary({ data }: { data: SurveyData }) {
         <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1 align-middle" /> Promedio &lt; 3.0
         <span className="inline-block w-2 h-2 rounded-full bg-sidebar mx-1 ml-3 align-middle" /> 3.0 – 4.0
         <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mx-1 ml-3 align-middle" /> ≥ 4.0
+        <span className="ml-4 text-emerald-700 font-semibold">fav.</span> = % de respuestas con nota 4 o 5
       </p>
 
       {/* Expanded detail */}
@@ -2769,6 +2772,18 @@ function GroupBar({ group }: { group: SurveyLikertGroupStats }) {
           {group.groupMean.toFixed(1)}
         </span>
       </div>
+      <div
+        className="w-20 shrink-0 text-right"
+        title="Porcentaje de respuestas con nota 4 o 5 (top-2-box)"
+      >
+        {group.groupTop2Pct !== null ? (
+          <span className="text-[11px] font-semibold tabular-nums text-emerald-700">
+            {group.groupTop2Pct}% fav.
+          </span>
+        ) : (
+          <span className="text-[11px] text-gray-300">—</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -2781,6 +2796,11 @@ function GroupDetail({ group }: { group: SurveyLikertGroupStats }) {
         {group.groupMean !== null && (
           <span className={`ml-2 text-[11px] font-normal ${labelClass(group.groupMean)}`}>
             · promedio {group.groupMean.toFixed(1)}
+          </span>
+        )}
+        {group.groupTop2Pct !== null && (
+          <span className="ml-2 text-[11px] font-normal text-emerald-700">
+            · {group.groupTop2Pct}% favorables (4-5)
           </span>
         )}
       </h4>
@@ -2819,6 +2839,12 @@ function ItemRow({ item }: { item: SurveyLikertItemStats }) {
       </div>
       <div className="w-8 shrink-0 text-right tabular-nums text-gray-700 font-medium">
         {item.mean.toFixed(1)}
+      </div>
+      <div
+        className="w-12 shrink-0 text-right tabular-nums text-emerald-700 font-semibold"
+        title="Porcentaje de respuestas con nota 4 o 5"
+      >
+        {item.top2Pct !== null ? `${item.top2Pct}%` : "—"}
       </div>
       <div
         className="w-32 shrink-0 text-gray-400 tabular-nums text-[10px]"

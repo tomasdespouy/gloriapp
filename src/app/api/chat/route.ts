@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat, chatStream, type ChatMessage } from "@/lib/ai";
-import { detectAlerts, stripPromptLeaks, type AlertSpec } from "@/lib/chat-alerts";
+import { detectAlerts, isLikelyTruncated, stripPromptLeaks, type AlertSpec } from "@/lib/chat-alerts";
 import { z } from "zod";
 import {
   classifyIntervention, calculateDeltas, applyDeltas,
@@ -438,12 +438,19 @@ ${isShortGreeting
           turn: turnNumber,
         });
 
-        // Retry guardrail: if the model returned a too-short response
-        // after the intentional short-reply window (turns 1-2), do ONE
-        // non-streaming retry. Keeps costs bounded and covers the
-        // observed "Mi" / "[Se enc" truncation failure modes.
+        // Guardrail: detect genuine truncation ("Mi", "[Se enc",
+        // "Ah, los ch"…) while letting legitimate short replies
+        // ("Sí, doctorita.", "[asiente]") pass through. After the
+        // intentional short-reply window (turns 1-2) only.
+        const firstCheck = turnNumber > 2
+          ? isLikelyTruncated(patientResponse)
+          : { truncated: false };
+
         let retryAttempted = false;
-        if (patientResponse.trim().length < 15 && turnNumber > 2) {
+        let retryFailed = false;
+        let retryReason: string | undefined = firstCheck.reason;
+
+        if (firstCheck.truncated) {
           retryAttempted = true;
           try {
             const retry = await chat(sanitizedHistory, systemPrompt, { lite: true });
@@ -453,10 +460,16 @@ ${isShortGreeting
               patientId,
               turn: turnNumber,
             });
-            if (retryPolished.trim().length >= 15) {
+            const retryCheck = isLikelyTruncated(retryPolished);
+            if (!retryCheck.truncated) {
               patientResponse = retryPolished;
+            } else {
+              retryFailed = true;
+              retryReason = `first=${firstCheck.reason}; retry=${retryCheck.reason}`;
             }
           } catch (retryErr) {
+            retryFailed = true;
+            retryReason = `first=${firstCheck.reason}; retry_error`;
             logger.warn("chat_short_retry_failed", {
               conversationId,
               turnNumber,
@@ -465,34 +478,8 @@ ${isShortGreeting
           }
         }
 
-        // If polish / strip / retry changed the rendered text, tell
-        // the client to replace what was typed from the raw chunks.
-        if (patientResponse !== rawResponse) {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: "correction", value: patientResponse })}\n\n`)
-          );
-        }
-
-        const { data: savedMessage } = await supabase
-          .from("messages")
-          .insert({
-            conversation_id: conversationId,
-            role: "assistant",
-            content: patientResponse,
-          })
-          .select("id")
-          .single();
-
-        // ── Alerts ────────────────────────────────────────────────
-        // Build the list of observational alerts for this turn:
-        //   1. prompt_leak — detected on the RAW response (before
-        //      stripping) so we don't miss it once cleaned.
-        //   2. short_response — only if we DIDN'T successfully retry.
-        //   3. profanity / violence / self_harm — detected on the
-        //      final text (either the cleaned assistant response or
-        //      the user message captured earlier).
-        // Everything is persisted in chat_alerts and surfaced in the
-        // pilot dashboard. Never blocks the conversation.
+        // Build the assistant alert specs ahead of the branch so both
+        // paths (save or error) persist what we observed.
         const assistantAlertSpecs: AlertSpec[] = [];
 
         if (leakStrip.changed) {
@@ -501,13 +488,67 @@ ${isShortGreeting
           assistantAlertSpecs.push(...leakOnly);
         }
 
-        const finalAlerts = detectAlerts(patientResponse, "assistant", turnNumber)
-          .filter((a) => a.kind !== "prompt_leak")
-          // If the retry succeeded we don't want to also log a
-          // short_response alert — the user no longer sees a short message.
-          .filter((a) => !(a.kind === "short_response" && retryAttempted && patientResponse.trim().length >= 15));
+        if (retryFailed) {
+          // Record a short_response alert tagged with BOTH the original
+          // and retry truncation reasons so the admin sees the history.
+          assistantAlertSpecs.push({
+            kind: "short_response",
+            severity: "high",
+            matchedTerms: `retry_failed: ${retryReason}`,
+            sample: rawResponse.slice(0, 120),
+          });
+        } else {
+          // Non-retry-failed path: detect the remaining alert kinds on
+          // the final text that will be persisted. Skip short_response
+          // because we already decided it's a legitimate short reply.
+          const finalAlerts = detectAlerts(patientResponse, "assistant", turnNumber)
+            .filter((a) => a.kind !== "prompt_leak" && a.kind !== "short_response");
+          assistantAlertSpecs.push(...finalAlerts);
+        }
 
-        assistantAlertSpecs.push(...finalAlerts);
+        // Persist alerts (user + assistant) regardless of whether the
+        // assistant message ends up saved. message_id will be null for
+        // the retry-failed path because no message row is inserted.
+        let savedMessageId: string | null = null;
+
+        if (retryFailed) {
+          // No assistant message stored. Tell the client that the
+          // connection with the patient was unstable and they should
+          // resend. The student's own user message stays in the
+          // transcript, ready for a retry without re-typing.
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({
+              type: "error",
+              value: "Conexión intermitente con el paciente. Por favor, vuelve a enviar tu último mensaje.",
+              recoverable: true,
+            })}\n\n`)
+          );
+          logger.warn("chat_response_unusable", {
+            conversationId,
+            turnNumber,
+            reason: retryReason,
+            rawSample: rawResponse.slice(0, 80),
+          });
+        } else {
+          // Normal path: emit correction if needed, save the message.
+          if (patientResponse !== rawResponse) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: "correction", value: patientResponse })}\n\n`)
+            );
+          }
+
+          const { data: savedMessage } = await supabase
+            .from("messages")
+            .insert({
+              conversation_id: conversationId,
+              role: "assistant",
+              content: patientResponse,
+            })
+            .select("id")
+            .single();
+
+          savedMessageId = savedMessage?.id ?? null;
+        }
 
         const allAlertRows: Array<Record<string, unknown>> = [];
         for (const spec of userAlerts) {
@@ -527,7 +568,7 @@ ${isShortGreeting
         for (const spec of assistantAlertSpecs) {
           allAlertRows.push({
             conversation_id: conversationId,
-            message_id: savedMessage?.id ?? null,
+            message_id: savedMessageId,
             student_id: user.id,
             ai_patient_id: patientId,
             source: "assistant",
@@ -554,6 +595,16 @@ ${isShortGreeting
                 });
               }
             });
+        }
+
+        // If the retry failed, close the stream without writing a
+        // state_log / metric — we want the dashboard counters to only
+        // reflect turns with an actual AI response. The student's own
+        // user message remains intact so they can resend.
+        if (retryFailed) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
+          controller.close();
+          return;
         }
 
         // Save clinical state log (trazabilidad causal)
