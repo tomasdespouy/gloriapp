@@ -137,6 +137,52 @@ const STEPS = [
   { label: "Informe",            icon: Rocket },
 ];
 
+// Country → flag emoji. Comparison is accent-insensitive and case-insensitive
+// via normalizeCountry(). Includes both Spanish and English spellings of the
+// most common Latin American + iberoamerican countries we deploy to.
+const COUNTRY_FLAGS: Record<string, string> = {
+  chile: "\u{1F1E8}\u{1F1F1}",
+  argentina: "\u{1F1E6}\u{1F1F7}",
+  mexico: "\u{1F1F2}\u{1F1FD}",
+  colombia: "\u{1F1E8}\u{1F1F4}",
+  peru: "\u{1F1F5}\u{1F1EA}",
+  brasil: "\u{1F1E7}\u{1F1F7}",
+  brazil: "\u{1F1E7}\u{1F1F7}",
+  uruguay: "\u{1F1FA}\u{1F1FE}",
+  paraguay: "\u{1F1F5}\u{1F1FE}",
+  bolivia: "\u{1F1E7}\u{1F1F4}",
+  ecuador: "\u{1F1EA}\u{1F1E8}",
+  venezuela: "\u{1F1FB}\u{1F1EA}",
+  panama: "\u{1F1F5}\u{1F1E6}",
+  costarica: "\u{1F1E8}\u{1F1F7}",
+  republicadominicana: "\u{1F1E9}\u{1F1F4}",
+  guatemala: "\u{1F1EC}\u{1F1F9}",
+  honduras: "\u{1F1ED}\u{1F1F3}",
+  elsalvador: "\u{1F1F8}\u{1F1FB}",
+  nicaragua: "\u{1F1F3}\u{1F1EE}",
+  cuba: "\u{1F1E8}\u{1F1FA}",
+  puertorico: "\u{1F1F5}\u{1F1F7}",
+  espana: "\u{1F1EA}\u{1F1F8}",
+  spain: "\u{1F1EA}\u{1F1F8}",
+  estadosunidos: "\u{1F1FA}\u{1F1F8}",
+  unitedstates: "\u{1F1FA}\u{1F1F8}",
+  usa: "\u{1F1FA}\u{1F1F8}",
+  portugal: "\u{1F1F5}\u{1F1F9}",
+};
+
+function normalizeCountry(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+}
+
+function countryToFlag(country: string | null | undefined): string | null {
+  if (!country) return null;
+  return COUNTRY_FLAGS[normalizeCountry(country)] || null;
+}
+
 const COMPETENCY_LABELS: Record<string, string> = {
   setting_terapeutico: "Setting terapéutico",
   motivo_consulta: "Motivo de consulta",
@@ -214,42 +260,58 @@ export default function PilotosClient({
 
   const openPilot = async (pilot: Pilot, targetStep?: number) => {
     // Fetch full pilot details
-    const res = await fetch(`/api/admin/pilots/${pilot.id}`);
-    if (res.ok) {
-      const data = await res.json();
-      setSelectedPilot(data);
-      setDashboardData(data);
-      setCsvRows(data.csv_data || []);
-      setFormData({
-        name: data.name,
-        institution: data.institution,
-        country: data.country || "",
-        contact_name: data.contact_name || "",
-        contact_email: data.contact_email || "",
-        scheduled_at: data.scheduled_at ? new Date(data.scheduled_at).toISOString().slice(0, 16) : "",
-        ended_at: data.ended_at ? new Date(data.ended_at).toISOString().slice(0, 16) : "",
-        establishment_id: data.establishment_id || "",
-        logo_url: data.logo_url || "",
-        is_anonymous: data.is_anonymous === true,
-      });
-
-      // Determine step from status or target (uses STEP_* constants)
-      if (targetStep !== undefined) {
-        setStep(targetStep);
-      } else if (data.status === "borrador") {
-        setStep(STEP_CONSENTIMIENTO);
-      } else if (data.status === "validado") {
-        setStep(STEP_CORREO);
-      } else if (data.status === "enviado") {
-        setStep(STEP_DASHBOARD);
-      } else if (data.status === "finalizado") {
-        setStep(STEP_INFORME);
-      } else {
-        setStep(STEP_CONSENTIMIENTO);
-      }
-      setShowWizard(false);
-      setCreating(false);
+    let res: Response;
+    try {
+      res = await fetch(`/api/admin/pilots/${pilot.id}`);
+    } catch (err) {
+      console.error("openPilot: network error", err);
+      alert(`Error de red al abrir el piloto. Revisá tu conexión.`);
+      return;
     }
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      console.error("openPilot: API error", res.status, errBody);
+      alert(`Error al abrir el piloto (${res.status}). Recargá la página o avisá al equipo.`);
+      return;
+    }
+    const data = await res.json();
+    setSelectedPilot(data);
+    setDashboardData(data);
+    setCsvRows(data.csv_data || []);
+    setFormData({
+      name: data.name,
+      institution: data.institution,
+      country: data.country || "",
+      contact_name: data.contact_name || "",
+      contact_email: data.contact_email || "",
+      scheduled_at: data.scheduled_at ? new Date(data.scheduled_at).toISOString().slice(0, 16) : "",
+      ended_at: data.ended_at ? new Date(data.ended_at).toISOString().slice(0, 16) : "",
+      establishment_id: data.establishment_id || "",
+      logo_url: data.logo_url || "",
+      is_anonymous: data.is_anonymous === true,
+    });
+
+    // Determine step from status or target (uses STEP_* constants).
+    // Default for any state that lands a user in the dashboard view
+    // (incl. cancelado) is STEP_DASHBOARD so the card click always
+    // surfaces the same primary screen as "Ver detalle".
+    if (targetStep !== undefined) {
+      setStep(targetStep);
+    } else if (data.status === "borrador") {
+      setStep(STEP_CONSENTIMIENTO);
+    } else if (data.status === "validado") {
+      setStep(STEP_CORREO);
+    } else if (data.status === "enviado") {
+      setStep(STEP_DASHBOARD);
+    } else if (data.status === "finalizado") {
+      setStep(STEP_INFORME);
+    } else if (data.status === "cancelado") {
+      setStep(STEP_DASHBOARD);
+    } else {
+      setStep(STEP_CONSENTIMIENTO);
+    }
+    setShowWizard(false);
+    setCreating(false);
   };
 
   // ────────────────────────────────
@@ -570,12 +632,23 @@ export default function PilotosClient({
                   </div>
 
                   <div className="flex items-center gap-4 text-xs text-gray-500 mt-3">
-                    {pilot.country && (
-                      <span className="flex items-center gap-1">
-                        <Globe size={12} />
-                        {pilot.country}
-                      </span>
-                    )}
+                    {pilot.country && (() => {
+                      const flag = countryToFlag(pilot.country);
+                      return flag ? (
+                        <span
+                          className="text-base leading-none"
+                          title={pilot.country}
+                          aria-label={pilot.country}
+                        >
+                          {flag}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1" title={pilot.country}>
+                          <Globe size={12} />
+                          {pilot.country}
+                        </span>
+                      );
+                    })()}
                     <span className="flex items-center gap-1">
                       <Users size={12} />
                       {pilot.participant_count} participantes
