@@ -33,6 +33,22 @@ export type PacingProfile = {
   thinkingCeilingMs: number;
   /** silence nudge thresholds in ms; length defines maxStages */
   silenceThresholdsMs: number[];
+  /** En la primera sesion el paciente debe preguntar el nombre del
+      terapeuta si este no se ha presentado. Cada arquetipo lo hace en
+      un turno distinto y con un estilo distinto. La inyeccion se hace
+      server-side desde /api/chat/route.ts, una sola vez en el turno
+      indicado. */
+  introductionProtocol?: {
+    /** turno del paciente (= turn_number en clinical_state_log)
+        donde se inyecta la instruccion */
+    askNameAtTurn: number;
+    /** etiqueta de estilo que se inserta literal en el prompt — el
+        LLM la usa como guia del tono */
+    askNameStyle: string;
+    /** 3 variantes de frase para inspirar al LLM (no se copian
+        literal, se adaptan a la personalidad del paciente) */
+    askNameVariants: string[];
+  };
 };
 
 // Typing speed reference:
@@ -54,6 +70,15 @@ export const PACING_PROFILES: Record<PacingProfileKey, PacingProfile> = {
     thinkingMaxMs: 1500,
     thinkingCeilingMs: 800,
     silenceThresholdsMs: [45_000, 90_000, 150_000, 300_000],
+    introductionProtocol: {
+      askNameAtTurn: 2,
+      askNameStyle: "demandante e impaciente",
+      askNameVariants: [
+        "Perdón, ¿cómo me dijo que se llamaba? No le entendí bien.",
+        "A todo esto, ¿cómo le digo a usted? No me dijo su nombre.",
+        "Disculpe que le interrumpa, pero no sé ni cómo se llama, ¿me lo repite?",
+      ],
+    },
   },
   conversational_medium: {
     charDelayMs: 75, // ~27 cps / ~5.3 wps
@@ -63,6 +88,15 @@ export const PACING_PROFILES: Record<PacingProfileKey, PacingProfile> = {
     thinkingMaxMs: 2500,
     thinkingCeilingMs: 800,
     silenceThresholdsMs: [60_000, 120_000, 210_000, 300_000],
+    introductionProtocol: {
+      askNameAtTurn: 3,
+      askNameStyle: "natural y cálido",
+      askNameVariants: [
+        "Disculpe, creo que no le entendí bien su nombre. ¿Me lo podría repetir?",
+        "A todo esto, ¿cómo le digo a usted? Quiero asegurarme de tratarle bien.",
+        "Perdón si es muy básica la pregunta… ¿cómo es su nombre?",
+      ],
+    },
   },
   reflective_paused: {
     charDelayMs: 110, // ~18 cps / ~3.6 wps
@@ -72,6 +106,15 @@ export const PACING_PROFILES: Record<PacingProfileKey, PacingProfile> = {
     thinkingMaxMs: 4500,
     thinkingCeilingMs: 1200,
     silenceThresholdsMs: [75_000, 150_000, 240_000, 300_000],
+    introductionProtocol: {
+      askNameAtTurn: 4,
+      askNameStyle: "introspectivo y curioso, observando la situación",
+      askNameVariants: [
+        "Pensaba en algo mientras le escuchaba… qué raro estar contándole esto y no saber ni su nombre.",
+        "Es curioso… llevamos un rato y todavía no sé cómo llamarle. ¿Cuál es su nombre?",
+        "Mientras le escuchaba me di cuenta de que no sé ni cómo se llama. Disculpe la pregunta.",
+      ],
+    },
   },
   depressive_slow: {
     charDelayMs: 140, // ~14 cps / ~2.9 wps
@@ -81,6 +124,15 @@ export const PACING_PROFILES: Record<PacingProfileKey, PacingProfile> = {
     thinkingMaxMs: 4000,
     thinkingCeilingMs: 1000,
     silenceThresholdsMs: [90_000, 180_000, 300_000],
+    introductionProtocol: {
+      askNameAtTurn: 5,
+      askNameStyle: "suave y autodesvalorizante, casi disculpándose por preguntar",
+      askNameVariants: [
+        "Perdone… esto va a sonar tonto, pero… no sé cómo se llama usted.",
+        "Disculpe… me da pena preguntar tan tarde, pero no me quedó claro su nombre.",
+        "Igual capaz no importa, pero… ¿cómo dijo que se llamaba?",
+      ],
+    },
   },
   inhibited_timid: {
     charDelayMs: 95, // ~21 cps / ~4.2 wps
@@ -90,6 +142,15 @@ export const PACING_PROFILES: Record<PacingProfileKey, PacingProfile> = {
     thinkingMaxMs: 3000,
     thinkingCeilingMs: 1000,
     silenceThresholdsMs: [90_000, 180_000, 300_000],
+    introductionProtocol: {
+      askNameAtTurn: 6,
+      askNameStyle: "muy tímido e indirecto, frase entrecortada",
+      askNameVariants: [
+        "Eh… qué vergüenza… creo que no le pregunté su nombre.",
+        "Discúlpeme… no sé bien cómo decirle… ¿usted es…?",
+        "Mmm… perdón… ¿le puedo preguntar su nombre? Me dio pena antes.",
+      ],
+    },
   },
 };
 
@@ -123,4 +184,75 @@ export function randomBetween(min: number, max: number): number {
 export function thinkingDelayFor(profile: PacingProfile, realElapsedMs: number): number {
   if (realElapsedMs >= profile.thinkingCeilingMs) return 0;
   return randomBetween(profile.thinkingMinMs, profile.thinkingMaxMs);
+}
+
+/**
+ * Detecta si el estudiante se presento por su nombre en cualquiera de
+ * los mensajes que envio. Usada por el protocolo de identificacion del
+ * paciente IA — si devuelve true, el paciente NO insistira en preguntar.
+ *
+ * Patrones aceptados (case-insensitive salvo el ultimo):
+ *   - "me llamo X"
+ *   - "mi nombre es X"
+ *   - "aqui (le) habla X"
+ *   - "Soy X" donde X arranca con mayuscula (case-sensitive a proposito
+ *     para evitar falsos positivos como "soy chilena", "soy estudiante",
+ *     "soy de Argentina"). Permite prefijos como "Soy el doctor X",
+ *     "Soy la psicologa X", "Soy terapeuta X".
+ *
+ * Returns true si CUALQUIER mensaje del estudiante matchea.
+ */
+export function hasStudentIntroducedName(messages: string[]): boolean {
+  for (const msg of messages) {
+    if (/\bme\s+llamo\s+\S/i.test(msg)) return true;
+    if (/\bmi\s+nombre\s+es\s+\S/i.test(msg)) return true;
+    if (/\baqu[ií]\s+(?:le\s+)?habla\s+\S/i.test(msg)) return true;
+    // "soy X" / "Soy X" — el verbo es case-insensitive pero el nombre
+    // DEBE arrancar con mayuscula (capitalizado). Asi diferenciamos
+    // "soy Tomas" (nombre propio) de "soy chilena", "soy estudiante",
+    // "soy de Argentina", "soy una persona" (todos lowercase tras "soy").
+    if (/\b[Ss]oy\s+(?:el\s+|la\s+)?(?:doctor[ae]?\s+|psic[oó]log[ao]\s+|terapeuta\s+)?[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+/.test(msg)) return true;
+  }
+  return false;
+}
+
+/**
+ * Construye el bloque [PROTOCOLO DE IDENTIFICACION] que se inyecta en
+ * el system prompt del paciente justo antes del turno indicado por el
+ * arquetipo. Devuelve string vacio si el protocolo no aplica (no hay
+ * config, no es el turno, o el estudiante ya se presento).
+ *
+ * Reglas:
+ *   - Solo en primera sesion (sessionNumber === 1; null/undefined se
+ *     trata como "es primera" para no romper sesiones legacy).
+ *   - Solo en el turno EXACTO definido por el arquetipo. No reintenta.
+ *   - Solo si el estudiante no se ha presentado.
+ */
+export function buildIntroductionRule(
+  profile: PacingProfile,
+  turnNumber: number,
+  sessionNumber: number | null | undefined,
+  studentMessages: string[],
+): string {
+  const intro = profile.introductionProtocol;
+  if (!intro) return "";
+  if (turnNumber !== intro.askNameAtTurn) return "";
+  if (sessionNumber != null && sessionNumber !== 1) return "";
+  if (hasStudentIntroducedName(studentMessages)) return "";
+
+  const variants = intro.askNameVariants
+    .map((v, i) => `  ${i + 1}. "${v}"`)
+    .join("\n");
+
+  return `\n\n[PROTOCOLO DE IDENTIFICACION]
+Aun no sabes el nombre del terapeuta porque no se presento. En ESTA respuesta, integra de forma natural una pregunta por su nombre, en estilo: ${intro.askNameStyle}.
+
+Variantes de inspiracion (NO las copies textuales — adapta a tu personalidad y al hilo del momento):
+${variants}
+
+Reglas:
+- Pregunta solo UNA vez. Si la respuesta natural seria muy corta, esta pregunta puede ser tu mensaje completo.
+- No insistas en turnos siguientes — esta es tu unica oportunidad de preguntar el nombre con esta intencionalidad.
+- Manten tu personalidad al pie: si eres timido(a), preguntalo con vacilacion; si eres ansioso(a), con urgencia.
+- Si el terapeuta ya dijo su nombre y no lo notaste, mejor di "perdon, no le entendi bien" en vez de inventar uno.\n`;
 }
