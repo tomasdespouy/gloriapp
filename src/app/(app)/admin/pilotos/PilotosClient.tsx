@@ -162,10 +162,13 @@ const STEPS = [
   { label: "Informe",            icon: Rocket },
 ];
 
-// Country → flag emoji. Comparison is accent-insensitive and case-insensitive
-// via normalizeCountry(). Includes both Spanish and English spellings of the
-// most common Latin American + iberoamerican countries we deploy to.
+// Country → flag emoji. Normalización: NFD + strip diacritics + lowercase +
+// solo a-z. Incluye tanto nombres completos (Chile, México) como códigos
+// ISO-2 (cl, mx) porque el campo `pilots.country` en la DB puede venir en
+// cualquiera de los dos formatos — la UI de creación lo guarda como ISO-2
+// y pilotos antiguos usaban nombres completos.
 const COUNTRY_FLAGS: Record<string, string> = {
+  // Nombres completos
   chile: "\u{1F1E8}\u{1F1F1}",
   argentina: "\u{1F1E6}\u{1F1F7}",
   mexico: "\u{1F1F2}\u{1F1FD}",
@@ -193,6 +196,30 @@ const COUNTRY_FLAGS: Record<string, string> = {
   unitedstates: "\u{1F1FA}\u{1F1F8}",
   usa: "\u{1F1FA}\u{1F1F8}",
   portugal: "\u{1F1F5}\u{1F1F9}",
+  // Códigos ISO-2 (lowercase porque normalizeCountry lo aplica)
+  cl: "\u{1F1E8}\u{1F1F1}",
+  ar: "\u{1F1E6}\u{1F1F7}",
+  mx: "\u{1F1F2}\u{1F1FD}",
+  co: "\u{1F1E8}\u{1F1F4}",
+  pe: "\u{1F1F5}\u{1F1EA}",
+  br: "\u{1F1E7}\u{1F1F7}",
+  uy: "\u{1F1FA}\u{1F1FE}",
+  py: "\u{1F1F5}\u{1F1FE}",
+  bo: "\u{1F1E7}\u{1F1F4}",
+  ec: "\u{1F1EA}\u{1F1E8}",
+  ve: "\u{1F1FB}\u{1F1EA}",
+  pa: "\u{1F1F5}\u{1F1E6}",
+  cr: "\u{1F1E8}\u{1F1F7}",
+  do: "\u{1F1E9}\u{1F1F4}",
+  gt: "\u{1F1EC}\u{1F1F9}",
+  hn: "\u{1F1ED}\u{1F1F3}",
+  sv: "\u{1F1F8}\u{1F1FB}",
+  ni: "\u{1F1F3}\u{1F1EE}",
+  cu: "\u{1F1E8}\u{1F1FA}",
+  pr: "\u{1F1F5}\u{1F1F7}",
+  es: "\u{1F1EA}\u{1F1F8}",
+  us: "\u{1F1FA}\u{1F1F8}",
+  pt: "\u{1F1F5}\u{1F1F9}",
 };
 
 function normalizeCountry(name: string): string {
@@ -261,6 +288,9 @@ export default function PilotosClient({
   // Dashboard state
   const [dashboardData, setDashboardData] = useState<Pilot | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // ID del piloto que se esta abriendo — usado para mostrar spinner sobre
+  // la card/fila clickeada mientras corre el fetch.
+  const [openingPilotId, setOpeningPilotId] = useState<string | null>(null);
 
   // List view (gallery vs table) state. La preferencia se persiste en
   // localStorage para no resetearse entre navegaciones. Inicializo con
@@ -341,6 +371,9 @@ export default function PilotosClient({
   };
 
   const openPilot = async (pilot: Pilot, targetStep?: number) => {
+    // Evita doble fetch si ya se esta abriendo el mismo piloto
+    if (openingPilotId === pilot.id) return;
+    setOpeningPilotId(pilot.id);
     // Fetch full pilot details
     let res: Response;
     try {
@@ -348,12 +381,14 @@ export default function PilotosClient({
     } catch (err) {
       console.error("openPilot: network error", err);
       alert(`Error de red al abrir el piloto. Revisá tu conexión.`);
+      setOpeningPilotId(null);
       return;
     }
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
       console.error("openPilot: API error", res.status, errBody);
       alert(`Error al abrir el piloto (${res.status}). Recargá la página o avisá al equipo.`);
+      setOpeningPilotId(null);
       return;
     }
     const data = await res.json();
@@ -394,6 +429,7 @@ export default function PilotosClient({
     }
     setShowWizard(false);
     setCreating(false);
+    setOpeningPilotId(null);
   };
 
   // ────────────────────────────────
@@ -731,9 +767,14 @@ export default function PilotosClient({
               {sortedPilots.map((pilot) => (
                 <div
                   key={pilot.id}
-                  className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer group"
+                  className={`relative bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group ${openingPilotId === pilot.id ? "cursor-wait opacity-70" : "cursor-pointer"}`}
                   onClick={() => openPilot(pilot)}
                 >
+                  {openingPilotId === pilot.id && (
+                    <div className="absolute inset-0 bg-white/60 rounded-xl flex items-center justify-center z-10">
+                      <Loader2 size={20} className="animate-spin text-sidebar" />
+                    </div>
+                  )}
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold text-gray-900 truncate">{pilot.name}</h3>
@@ -822,9 +863,14 @@ export default function PilotosClient({
                       <tr
                         key={pilot.id}
                         onClick={() => openPilot(pilot)}
-                        className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
+                        className={`border-t border-gray-100 hover:bg-gray-50 ${openingPilotId === pilot.id ? "cursor-wait opacity-60" : "cursor-pointer"}`}
                       >
-                        <td className="px-3 py-2.5 text-gray-900 font-medium">{pilot.name}</td>
+                        <td className="px-3 py-2.5 text-gray-900 font-medium">
+                          <span className="inline-flex items-center gap-2">
+                            {openingPilotId === pilot.id && <Loader2 size={12} className="animate-spin text-sidebar flex-shrink-0" />}
+                            {pilot.name}
+                          </span>
+                        </td>
                         <td className="px-3 py-2.5 text-gray-600">
                           <span className="flex items-center gap-1.5">
                             <Building2 size={11} className="text-gray-400 flex-shrink-0" />
