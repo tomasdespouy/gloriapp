@@ -93,7 +93,7 @@ const STATUS_COLORS: Record<string, string> = {
   borrador: "bg-gray-100 text-gray-700",
   validado: "bg-blue-100 text-blue-700",
   enviado: "bg-green-100 text-green-700",
-  finalizado: "bg-amber-100 text-amber-700",
+  finalizado: "bg-yellow-100 text-yellow-700",
   cancelado: "bg-red-100 text-red-600",
 };
 
@@ -1637,7 +1637,11 @@ function Step4Dashboard({
           {pilot.status !== "cancelado" && pilot.status !== "finalizado" && pilot.status !== "borrador" && pilot.status !== "validado" && (
             <button
               onClick={async () => {
-                if (!confirm("¿Finalizar este piloto? Los participantes perderán acceso y se generará el informe de cierre.")) return;
+                if (!confirm(
+                  "¿Finalizar este piloto?\n\n" +
+                  "ACCIÓN IRREVERSIBLE: una vez finalizado no podrá reabrirse y la información del informe queda congelada. " +
+                  "Si solo quieres pausarlo temporalmente, usa 'Desactivar piloto'."
+                )) return;
                 setFinalizing(true);
                 await onFinalize();
                 setFinalizing(false);
@@ -1659,14 +1663,10 @@ function Step4Dashboard({
               Desactivar piloto
             </button>
           )}
-          {(pilot.status === "cancelado" || pilot.status === "finalizado") && (
+          {pilot.status === "cancelado" && (
             <>
-              <span className={`text-xs font-medium px-3 py-1.5 rounded-lg ${
-                pilot.status === "cancelado"
-                  ? "text-red-500 bg-red-50"
-                  : "text-amber-600 bg-amber-50"
-              }`}>
-                {pilot.status === "cancelado" ? "Piloto desactivado" : "Piloto finalizado"}
+              <span className="text-xs font-medium px-3 py-1.5 rounded-lg text-red-500 bg-red-50">
+                Piloto desactivado
               </span>
               <button
                 onClick={async () => {
@@ -1682,6 +1682,12 @@ function Step4Dashboard({
                 Reactivar piloto
               </button>
             </>
+          )}
+          {pilot.status === "finalizado" && (
+            <span className="text-xs font-medium px-3 py-1.5 rounded-lg text-yellow-700 bg-yellow-100 border border-yellow-200 flex items-center gap-1.5">
+              <CheckCircle2 size={12} />
+              Finalizado
+            </span>
           )}
         </div>
       </div>

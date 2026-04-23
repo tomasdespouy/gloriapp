@@ -199,6 +199,33 @@ export async function PATCH(
     );
   }
 
+  // Lock: una vez status=finalizado el piloto queda congelado. La única
+  // mutación admitida es la propia transición a "finalizado" (idempotente)
+  // y los timestamps que la acompañan (ended_at), para que el handler que
+  // dispara la finalización siga funcionando si se reintenta. Cualquier
+  // otro cambio se rechaza para preservar la información del informe.
+  const { data: currentPilot } = await auth.supabase
+    .from("pilots")
+    .select("status")
+    .eq("id", id)
+    .single();
+  if (currentPilot?.status === "finalizado") {
+    const tryingToReopen =
+      "status" in update && update.status !== "finalizado";
+    const writingProtectedField = Object.keys(update).some(
+      (k) => k !== "status" && k !== "ended_at" && k !== "updated_at",
+    );
+    if (tryingToReopen || writingProtectedField) {
+      return NextResponse.json(
+        {
+          error:
+            "Este piloto está finalizado y no admite cambios. La información del informe queda congelada.",
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   // Smart swap: if the admin flips is_anonymous and the stored consent
   // text is still one of our bakeable defaults, swap it to the matching
   // one. Custom text (edited by the admin) is left alone.
