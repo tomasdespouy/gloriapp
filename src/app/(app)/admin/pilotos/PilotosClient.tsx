@@ -9,7 +9,7 @@ import {
   Download, Send, Clock, UserCheck, MessageSquare,
   AlertCircle, Check, ChevronDown, ChevronUp, RotateCcw,
   Link2, Copy, ExternalLink, Image as ImageIcon,
-  ClipboardCheck, LayoutGrid, List as ListIcon,
+  ClipboardCheck, LayoutGrid, List as ListIcon, Pencil,
 } from "lucide-react";
 import PilotConsentPanel from "./PilotConsentPanel";
 
@@ -243,6 +243,18 @@ function countryToFlag(country: string | null | undefined): string | null {
   return COUNTRY_FLAGS[normalizeCountry(country)] || null;
 }
 
+// Placeholder sugerido para el nombre del piloto — "Piloto 22 de abril 2026
+// - Grupo 1" con la fecha de hoy. No es valor inicial: si el admin no
+// escribe nada el submit se bloquea (name es requerido).
+function todayPilotPlaceholder(): string {
+  const d = new Date();
+  const months = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+  ];
+  return `Piloto ${d.getDate()} de ${months[d.getMonth()]} ${d.getFullYear()} - Grupo 1`;
+}
+
 const COMPETENCY_LABELS: Record<string, string> = {
   setting_terapeutico: "Setting terapéutico",
   motivo_consulta: "Motivo de consulta",
@@ -299,6 +311,42 @@ export default function PilotosClient({
   // ID del piloto que se esta abriendo — usado para mostrar spinner sobre
   // la card/fila clickeada mientras corre el fetch.
   const [openingPilotId, setOpeningPilotId] = useState<string | null>(null);
+
+  // Edicion inline del nombre desde el header del wizard. No regenera el
+  // enrollment_slug ni ningun otro campo derivado — el link publico y los
+  // datos "back-generated" siguen atados al nombre original.
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
+  const startEditName = () => {
+    if (!selectedPilot) return;
+    setNameDraft(selectedPilot.name || "");
+    setEditingName(true);
+  };
+
+  const saveName = async () => {
+    if (!selectedPilot) return;
+    const next = nameDraft.trim();
+    if (!next || next === selectedPilot.name) {
+      setEditingName(false);
+      return;
+    }
+    setSavingName(true);
+    const res = await fetch(`/api/admin/pilots/${selectedPilot.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: next }),
+    });
+    setSavingName(false);
+    if (res.ok) {
+      handlePilotPatched({ name: next });
+      setEditingName(false);
+    } else {
+      const body = await res.json().catch(() => null);
+      alert(`No se pudo actualizar el nombre: ${body?.error || res.statusText}`);
+    }
+  };
 
   // List view (gallery vs table) state. La preferencia se persiste en
   // localStorage para no resetearse entre navegaciones. Inicializo con
@@ -942,9 +990,41 @@ export default function PilotosClient({
           <ArrowLeft size={14} />
           Volver a pilotos
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">
-          {showWizard && !selectedPilot ? "Nuevo piloto" : selectedPilot?.name || "Piloto"}
-        </h1>
+        {showWizard && !selectedPilot ? (
+          <h1 className="text-2xl font-bold text-gray-900">Nuevo piloto</h1>
+        ) : selectedPilot && editingName ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveName();
+                if (e.key === "Escape") setEditingName(false);
+              }}
+              onBlur={() => { if (!savingName) saveName(); }}
+              autoFocus
+              disabled={savingName}
+              className="text-2xl font-bold text-gray-900 border-b-2 border-sidebar bg-transparent focus:outline-none min-w-[280px] px-1"
+            />
+            {savingName && <Loader2 size={16} className="animate-spin text-sidebar" />}
+          </div>
+        ) : (
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2 group">
+            {selectedPilot?.name || "Piloto"}
+            {selectedPilot && selectedPilot.status !== "finalizado" && (
+              <button
+                type="button"
+                onClick={startEditName}
+                aria-label="Editar nombre del piloto"
+                title="Editar nombre (solo display — no afecta el link ni datos generados)"
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-sidebar cursor-pointer p-1"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
+          </h1>
+        )}
         {selectedPilot && (
           <p className="text-sm text-gray-500 mt-0.5">
             {selectedPilot.institution}
@@ -1155,7 +1235,7 @@ function Step1Upload({
               type="text"
               value={formData.name}
               onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Piloto UGM 2026-S1"
+              placeholder={todayPilotPlaceholder()}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
             />
           </div>
