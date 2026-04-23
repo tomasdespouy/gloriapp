@@ -216,6 +216,10 @@ export type LikertItemStats = {
   mean: number | null;
   /** Count of each score, 1..5. */
   distribution: { 1: number; 2: number; 3: number; 4: number; 5: number };
+  /** Percentage of responses that were 4 or 5 ("top 2 box"),
+   *  rounded to integer (null if n=0). Useful for statements like
+   *  "el 95% de los estudiantes recomendaría la plataforma". */
+  top2Pct: number | null;
 };
 
 export type LikertGroupStats = {
@@ -224,6 +228,9 @@ export type LikertGroupStats = {
   number: number;
   /** Mean of the items' means (items without responses are ignored). */
   groupMean: number | null;
+  /** Aggregated top-2-box across all items in the group:
+   *  sum(4s+5s) / sum(n) × 100. Null if no responses in the group. */
+  groupTop2Pct: number | null;
   items: Array<LikertItemStats & { key: string; label: string }>;
 };
 
@@ -259,12 +266,16 @@ export function computeLikertStats(
         count++;
       }
 
+      const top2Count = distribution[4] + distribution[5];
+      const top2Pct = count > 0 ? Math.round((top2Count / count) * 100) : null;
+
       return {
         key: item.key,
         label: item.label,
         n: count,
         mean: count > 0 ? Number((sum / count).toFixed(2)) : null,
         distribution,
+        top2Pct,
       };
     });
 
@@ -274,11 +285,21 @@ export function computeLikertStats(
         ? Number((itemMeans.reduce((a, b) => a + b, 0) / itemMeans.length).toFixed(2))
         : null;
 
+    // Aggregated top-2-box for the group: share of all responses (across
+    // every item in the group) that were 4 or 5.
+    const totalN = items.reduce((acc, it) => acc + it.n, 0);
+    const totalTop2 = items.reduce(
+      (acc, it) => acc + it.distribution[4] + it.distribution[5],
+      0,
+    );
+    const groupTop2Pct = totalN > 0 ? Math.round((totalTop2 / totalN) * 100) : null;
+
     return {
       answersKey: group.answersKey,
       title: group.title,
       number: group.number,
       groupMean,
+      groupTop2Pct,
       items,
     };
   });

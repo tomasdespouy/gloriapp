@@ -207,15 +207,17 @@ export function detectAlerts(
   const alerts: AlertSpec[] = [];
   if (!text) return alerts;
 
-  // 1. Short LLM response — only for assistant, only after turn 2
-  //    (turns 1-2 have an intentional "respond in 3-5 words" rule).
+  // 1. Short LLM response — only for assistant, only after turn 2.
+  //    Uses isLikelyTruncated() so a closed-off patient replying
+  //    "Sí, doctorita." or "[asiente]" is NOT flagged — we only
+  //    catch genuine cuts like "Mi" or "[Se enc" or "Ah, los ch".
   if (source === "assistant" && turnNumber > 2) {
-    const trimmed = text.trim();
-    if (trimmed.length < 15 && trimmed.split(/\s+/).length < 4) {
+    const truncCheck = isLikelyTruncated(text);
+    if (truncCheck.truncated) {
       alerts.push({
         kind: "short_response",
         severity: "medium",
-        matchedTerms: `length=${trimmed.length}`,
+        matchedTerms: `truncated: ${truncCheck.reason}`,
         sample: shortSample(text),
       });
     }
@@ -291,6 +293,112 @@ export function detectAlerts(
   }
 
   return alerts;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Truncation heuristic — detects "obvious cuts", not short responses
+// ─────────────────────────────────────────────────────────────────────
+//
+// A closed-off patient legitimately replies "Sí, doctorita.",
+// "[asiente]", "Mmm, capaz.", "No." — all short, all valid. We only
+// want to catch responses that are genuinely unfinished mid-word or
+// mid-structure, like "Mi", "[Se enc", "Ah, los ch", "…".
+//
+// Rules (ordered, first hit wins):
+//   (a) empty / whitespace-only                                → truncated
+//   (b) unbalanced brackets [...] or parentheses (...)          → truncated
+//   (c) ends with , : ;                                        → truncated
+//   (d) in the short-valid whitelist ("sí", "no", "mmm"…)      → NOT truncated
+//   (e) only an enclosed action like "[asiente levemente]"      → NOT truncated
+//   (f) ends with . ! ? … ) ]                                   → NOT truncated
+//   (g) single word (no spaces), not in whitelist, no punctuation → truncated
+//   (h) short (<30 chars) without terminal punctuation, not
+//       whitelisted                                             → truncated
+//   (i) anything else                                           → NOT truncated
+
+const SHORT_VALID_RESPONSES = new Set([
+  "si", "no",
+  "claro", "quizas", "tal vez", "capaz", "puede ser", "a veces",
+  "nunca", "siempre",
+  "mmm", "mm", "eh", "uhm", "uh", "aja", "ya", "okay", "ok",
+  "bueno", "pues", "cierto", "verdad", "exacto",
+  "entiendo", "gracias", "igual", "igualmente",
+  "claro que si", "claro que no",
+]);
+
+export type TruncationCheck = {
+  truncated: boolean;
+  /** Machine-readable reason when truncated: "empty",
+      "unbalanced_bracket", "unbalanced_paren", "ends_with_separator",
+      "single_short_word_no_punct", "short_no_terminator". Undefined
+      when not truncated. Surfaced in the chat_alerts table. */
+  reason?: string;
+};
+
+/**
+ * Decide whether an assistant message looks genuinely cut off (as in
+ * a truncated stream). Tuned for Spanish therapy dialogue — a quiet
+ * patient replying "Sí." or "[suspira]" is considered intact; a
+ * response ending mid-word like "Mi" or "[Se enc" is flagged.
+ */
+export function isLikelyTruncated(text: string): TruncationCheck {
+  if (!text) return { truncated: true, reason: "empty" };
+
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return { truncated: true, reason: "whitespace_only" };
+
+  // (b) Unbalanced brackets / parens — strong signal of cut mid-action.
+  const open = (trimmed.match(/\[/g) || []).length;
+  const close = (trimmed.match(/\]/g) || []).length;
+  if (open !== close) return { truncated: true, reason: "unbalanced_bracket" };
+
+  const pOpen = (trimmed.match(/\(/g) || []).length;
+  const pClose = (trimmed.match(/\)/g) || []).length;
+  if (pOpen !== pClose) return { truncated: true, reason: "unbalanced_paren" };
+
+  const lastChar = trimmed[trimmed.length - 1];
+
+  // (c) Ends with separator (, : ;) — never a valid sentence ending.
+  if (/[,;:]/.test(lastChar)) return { truncated: true, reason: "ends_with_separator" };
+
+  // Compute normalized form for whitelist comparison: lowercase, no
+  // diacritics, stripped punctuation.
+  const normalized = normalize(trimmed)
+    .replace(/[.,;:!?¡¿"'()[\]…-]/g, "")
+    .trim();
+
+  // (d) Exact match against short-valid whitelist (including combos).
+  if (SHORT_VALID_RESPONSES.has(normalized)) {
+    return { truncated: false };
+  }
+
+  // (e) Only an enclosed action? E.g. "[asiente]" or "[mira hacia abajo]".
+  if (/^\[[^\]]+\]\s*$/.test(trimmed)) {
+    return { truncated: false };
+  }
+
+  // (f) Ends with valid terminator → accept.
+  if (/[.!?…)\]]/.test(lastChar)) {
+    return { truncated: false };
+  }
+
+  // Remaining branch: ends in a letter (no terminator), not whitelisted.
+  const wordCount = trimmed.split(/\s+/).length;
+
+  // (g) Single short word, no punctuation: classic truncation ("Mi").
+  if (wordCount === 1 && trimmed.length < 6) {
+    return { truncated: true, reason: "single_short_word_no_punct" };
+  }
+
+  // (h) Short utterance without a terminator: "Ah, los ch", "Mi mamá",
+  //     "Bueno pues".
+  if (trimmed.length < 30) {
+    return { truncated: true, reason: "short_no_terminator" };
+  }
+
+  // (i) Long enough to be a real response even without a period at the
+  //     end. Accept — model just forgot the period.
+  return { truncated: false };
 }
 
 /**
