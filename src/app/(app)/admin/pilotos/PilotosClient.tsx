@@ -231,16 +231,40 @@ const COUNTRY_FLAGS: Record<string, string> = {
 };
 
 function normalizeCountry(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z]/g, "");
+  // Construccion manual (sin regex de rangos literales) porque el bundler
+  // de Next/Turbopack estaba comiendose el rango [U+0300..U+036F] escrito
+  // como caracteres literales, dejando el replace sin efecto en prod.
+  const nfd = name.normalize("NFD");
+  let out = "";
+  for (let i = 0; i < nfd.length; i++) {
+    const code = nfd.charCodeAt(i);
+    if (code >= 0x0300 && code <= 0x036f) continue; // combining diacriticals
+    if (code >= 0x0041 && code <= 0x005a) out += String.fromCharCode(code + 32); // A-Z → a-z
+    else if (code >= 0x0061 && code <= 0x007a) out += nfd[i]; // a-z
+  }
+  return out;
 }
 
 function countryToFlag(country: string | null | undefined): string | null {
   if (!country) return null;
-  return COUNTRY_FLAGS[normalizeCountry(country)] || null;
+  const key = normalizeCountry(country);
+  const flag = COUNTRY_FLAGS[key];
+  if (!flag && typeof window !== "undefined") {
+    // Diagnóstico: log una sola vez por valor faltante para ver que llega
+    // de la DB sin inundar la consola.
+    diagMissingCountry(country, key);
+  }
+  return flag || null;
+}
+
+// Set para evitar warnings duplicados en la misma sesión
+const _diagSeen = new Set<string>();
+function diagMissingCountry(original: string, normalized: string) {
+  const k = `${original}|${normalized}`;
+  if (_diagSeen.has(k)) return;
+  _diagSeen.add(k);
+  // eslint-disable-next-line no-console
+  console.warn(`[countryToFlag] sin bandera para country="${original}" (normalizado="${normalized}")`);
 }
 
 // Placeholder sugerido para el nombre del piloto — "Piloto 22 de abril 2026
@@ -1172,6 +1196,13 @@ function Step1Upload({
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<CsvRow>({ email: "", full_name: "", role: "student" });
   const [createError, setCreateError] = useState("");
+  // Placeholder sugerido con fecha de hoy. Se computa solo en cliente para
+  // evitar hydration mismatch (SSR en UTC vs cliente en horario local
+  // pueden diferir en el dia cerca de medianoche).
+  const [namePlaceholder, setNamePlaceholder] = useState("Piloto — Grupo 1");
+  useEffect(() => {
+    setNamePlaceholder(todayPilotPlaceholder());
+  }, []);
   // CSV pre-loading is optional — see handleCreatePilot for context.
   // Institution is auto-resolved server-side from establishment_id, so the
   // admin only has to pick the establishment.
@@ -1235,7 +1266,7 @@ function Step1Upload({
               type="text"
               value={formData.name}
               onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
-              placeholder={todayPilotPlaceholder()}
+              placeholder={namePlaceholder}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30"
             />
           </div>
