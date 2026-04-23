@@ -7,7 +7,7 @@ import {
   FileText, Plus, ArrowLeft, ArrowRight, Loader2, Users,
   Calendar, Globe, Building2, Trash2, Eye, RefreshCw,
   Download, Send, Clock, UserCheck, MessageSquare,
-  AlertCircle, Check, ChevronDown, RotateCcw,
+  AlertCircle, Check, ChevronDown, ChevronUp, RotateCcw,
   Link2, Copy, ExternalLink, Image as ImageIcon,
   ClipboardCheck,
 } from "lucide-react";
@@ -74,6 +74,18 @@ type CsvRow = {
   email: string;
   full_name: string;
   role: string;
+};
+
+type ParticipantSortKey = "name" | "email" | "role" | "status";
+
+// Logical order para sort por estado (no alfabetico): refleja el funnel
+// pendiente → invitado → activo → inactivo, asi "asc" muestra primero los
+// que estan al inicio del embudo.
+const PARTICIPANT_STATUS_ORDER: Record<string, number> = {
+  pendiente: 0,
+  invitado: 1,
+  activo: 2,
+  inactivo: 3,
 };
 
 // ────────────────────────────────────────────
@@ -1566,6 +1578,20 @@ function Step4Dashboard({
   const [finalizing, setFinalizing] = useState(false);
   const [activating, setActivating] = useState(false);
   const [openParticipantId, setOpenParticipantId] = useState<string | null>(null);
+  // Sort state for the participants table. Click cycles asc → desc → off.
+  const [sortKey, setSortKey] = useState<ParticipantSortKey | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const toggleSort = (key: ParticipantSortKey) => {
+    if (sortKey !== key) {
+      setSortKey(key);
+      setSortDir("asc");
+    } else if (sortDir === "asc") {
+      setSortDir("desc");
+    } else {
+      setSortKey(null);
+      setSortDir("asc");
+    }
+  };
   if (!pilot) return null;
 
   const participants: Participant[] = (pilot as Pilot & { participants?: Participant[] }).participants || [];
@@ -1582,9 +1608,28 @@ function Step4Dashboard({
 
   const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0);
 
-  const filteredParticipants = statusFilter === "all"
-    ? participants
-    : participants.filter((p) => p.status === statusFilter);
+  const filteredParticipants = (() => {
+    const base = statusFilter === "all"
+      ? participants
+      : participants.filter((p) => p.status === statusFilter);
+    if (!sortKey) return base;
+    const sign = sortDir === "asc" ? 1 : -1;
+    const sortValue = (p: Participant): string | number => {
+      switch (sortKey) {
+        case "name":   return (p.full_name || "").toLowerCase();
+        case "email":  return (p.email || "").toLowerCase();
+        case "role":   return (p.role || "").toLowerCase();
+        case "status": return PARTICIPANT_STATUS_ORDER[p.status] ?? 99;
+      }
+    };
+    return [...base].sort((a, b) => {
+      const av = sortValue(a);
+      const bv = sortValue(b);
+      if (av < bv) return -1 * sign;
+      if (av > bv) return 1 * sign;
+      return 0;
+    });
+  })();
 
   const handleDeactivate = async () => {
     if (!confirm("¿Estás seguro de desactivar este piloto? Los participantes perderán acceso.")) return;
@@ -1790,10 +1835,10 @@ function Step4Dashboard({
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium w-8">#</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">Nombre</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">Email</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">Rol</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">Estado</th>
+                <SortableTh label="Nombre" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Email" sortKey="email" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Rol" sortKey="role" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Estado" sortKey="status" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <th className="text-right px-3 py-2 text-gray-500 font-medium">Sesiones</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Encuesta</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">Última actividad</th>
@@ -2328,6 +2373,41 @@ function KpiCard({
         </div>
       </div>
     </div>
+  );
+}
+
+function SortableTh({
+  label,
+  sortKey,
+  currentKey,
+  currentDir,
+  onSort,
+}: {
+  label: string;
+  sortKey: ParticipantSortKey;
+  currentKey: ParticipantSortKey | null;
+  currentDir: "asc" | "desc";
+  onSort: (key: ParticipantSortKey) => void;
+}) {
+  const isActive = currentKey === sortKey;
+  return (
+    <th className="text-left px-3 py-2 text-gray-500 font-medium">
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`flex items-center gap-1 cursor-pointer transition-colors ${isActive ? "text-gray-700" : "hover:text-gray-700"}`}
+        aria-label={`Ordenar por ${label}`}
+      >
+        {label}
+        {isActive ? (
+          currentDir === "asc"
+            ? <ChevronUp size={11} />
+            : <ChevronDown size={11} />
+        ) : (
+          <ChevronDown size={11} className="opacity-25" />
+        )}
+      </button>
+    </th>
   );
 }
 
