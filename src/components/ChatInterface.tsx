@@ -1622,7 +1622,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         {/* Chat column */}
         <div className={`flex flex-col flex-1 min-w-0 transition-all duration-300`}>
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-3 chat-pattern">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-3 dashboard-pattern">
         {!sessionStarted && messages.length === 0 && (
           <div className="flex flex-col items-center justify-center mt-10 sm:mt-16 animate-fade-in px-4">
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 max-w-md w-full">
@@ -1853,7 +1853,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                 }
               }}
               onKeyDown={handleKeyDown}
-              placeholder={sessionStarted ? "Escribe tu mensaje..." : "Presiona \"Iniciar sesión\" para comenzar"}
+              placeholder={sessionStarted ? "Dirige la sesión como terapeuta…" : "Presiona \"Iniciar sesión\" para comenzar"}
               rows={1}
               className={`w-full resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar disabled:bg-gray-100 disabled:text-gray-400 ${voiceMode ? "overflow-y-auto" : "overflow-hidden"}`}
               disabled={!sessionStarted}

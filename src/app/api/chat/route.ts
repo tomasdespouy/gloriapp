@@ -300,9 +300,12 @@ Reglas de oro:
   }
 
   // 9. Build system prompt WITH state + RAG
-  // Detect if user message is a short greeting (under 6 words, common salutations)
+  // Detect if user message is a short greeting (under 6 words, common salutations).
+  // Cubrimos variantes informales / abreviadas / AI-chat tipicas que un
+  // estudiante mal encuadrado suele tirar: "holi", "holii", "hey",
+  // "holiwis", "buenas", "ola" (sin 'h'), signos de admiracion, etc.
   const isShortGreeting = turnNumber === 1 && message.trim().split(/\s+/).length <= 6 &&
-    /^(hola|buenos?\s*(d[ií]as?|tardes?|noches?)|qu[eé]\s*tal|c[oó]mo\s*(est[aá]s?|andas?|va)|hey|buenas|saludos|buen\s*d[ií]a)/i.test(message.trim());
+    /^(hola|holi+|hol+a+|hey+|h[iíy]+|buenos?\s*(d[ií]as?|tardes?|noches?)|qu[eé]\s*tal|c[oó]mo\s*(est[aá]s?|andas?|va)|buenas|saludos|buen\s*d[ií]a|ola+|wena+s?|aj[aá]|hol[ai]wis)[\s!¡.…?¿]*/i.test(message.trim());
 
   const firstTurnRule = turnNumber <= 2
     ? `\n\n[INICIO DE SESIÓN — TURNOS ${turnNumber}/2]
@@ -314,7 +317,18 @@ ${isShortGreeting
 - No cuentes detalles de tu vida aún. Solo responde lo mínimo necesario.`}
 - Muestra incomodidad, timidez o desconfianza natural de un paciente que recién conoce a su terapeuta.
 - NO expliques tu problemática completa. Solo da pistas vagas si te preguntan directamente.
-- Espera a que el terapeuta genere confianza antes de abrirte.\n`
+- Espera a que el terapeuta genere confianza antes de abrirte.
+
+[PROHIBIDO EN TUS PRIMEROS 2 MENSAJES — LEE ESTO]
+Las siguientes frases son 100% terapéuticas y te delatan si las usás. NUNCA empieces con algo así:
+- "¿Qué te trae por acá?" / "¿Qué te trae hoy?" / "¿Qué te trae aquí?"
+- "¿Querés contarme qué...?" / "¿Quieres contarme qué...?"
+- "¿Cómo te sientes hoy?" / "¿Cómo está/estás?"
+- "Estoy aquí para escucharte" / "Te escucho" / "Cuéntame"
+- "Dime/Decime qué pasa" / "Dime qué necesitas"
+- "Puedes/Podés compartir lo que quieras"
+
+Si el/la terapeuta recién te saluda y NO te hizo una pregunta directa: tu mensaje debe ser un SALUDO DE PACIENTE — breve, tímido, quizá con un "gracias por recibirme" o un silencio incómodo ("[mira el suelo]", "Mmm…"). NUNCA devuelvas la pregunta. ESPERA a que el/la terapeuta conduzca.\n`
     : "";
 
   // Use pinned prompt snapshot if available; fall back to ai_patients for pre-migration conversations
