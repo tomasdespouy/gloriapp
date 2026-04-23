@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   Rocket, Upload, CheckCircle2, XCircle, Mail, BarChart3,
@@ -9,6 +9,7 @@ import {
   Download, Send, Clock, UserCheck, MessageSquare,
   AlertCircle, Check, ChevronDown, RotateCcw,
   Link2, Copy, ExternalLink, Image as ImageIcon,
+  ClipboardCheck,
 } from "lucide-react";
 import PilotConsentPanel from "./PilotConsentPanel";
 
@@ -1569,11 +1570,17 @@ function Step4Dashboard({
 
   const participants: Participant[] = (pilot as Pilot & { participants?: Participant[] }).participants || [];
 
+  // Funnel denominators: total = todos los participantes registrados (CSV o
+  // link público); invited = los que efectivamente recibieron invitación o
+  // ya entraron. El resto del funnel se mide contra invited.
+  const total = participants.length;
   const invited = participants.filter((p) => p.status === "invitado" || p.status === "activo" || p.status === "inactivo").length;
   const loggedIn = participants.filter((p) => p.first_login_at).length;
   const active = participants.filter((p) => p.status === "activo").length;
+  const surveysCompleted = participants.filter((p) => p.survey_completed_at).length;
   const totalSessions = participants.reduce((sum, p) => sum + (p.sessions_count || 0), 0);
-  const totalMessages = totalSessions * 12; // estimate
+
+  const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0);
 
   const filteredParticipants = statusFilter === "all"
     ? participants
@@ -1679,52 +1686,47 @@ function Step4Dashboard({
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Mail size={16} className="text-purple-500" />
-            </div>
-            <div>
-              <p className="text-xl font-bold text-gray-900">{invited}</p>
-              <p className="text-[10px] text-gray-500">Invitados</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
-              <UserCheck size={16} className="text-blue-500" />
-            </div>
-            <div>
-              <p className="text-xl font-bold text-gray-900">{loggedIn}</p>
-              <p className="text-[10px] text-gray-500">Conectados</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center">
-              <Users size={16} className="text-green-500" />
-            </div>
-            <div>
-              <p className="text-xl font-bold text-gray-900">{active}</p>
-              <p className="text-[10px] text-gray-500">Activos</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
-              <MessageSquare size={16} className="text-amber-500" />
-            </div>
-            <div>
-              <p className="text-xl font-bold text-gray-900">{totalSessions}</p>
-              <p className="text-[10px] text-gray-500">Sesiones totales</p>
-            </div>
-          </div>
-        </div>
+      {/* KPIs — formato "X / Y (Z%)". Denominador: total para Invitados,
+           invitados para el resto del funnel. Sesiones es absoluto. */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <KpiCard
+          icon={<Mail size={16} className="text-purple-500" />}
+          iconBg="bg-purple-50"
+          value={invited}
+          total={total}
+          percent={pct(invited, total)}
+          label="Invitados"
+        />
+        <KpiCard
+          icon={<UserCheck size={16} className="text-blue-500" />}
+          iconBg="bg-blue-50"
+          value={loggedIn}
+          total={invited}
+          percent={pct(loggedIn, invited)}
+          label="Conectados"
+        />
+        <KpiCard
+          icon={<Users size={16} className="text-green-500" />}
+          iconBg="bg-green-50"
+          value={active}
+          total={invited}
+          percent={pct(active, invited)}
+          label="Activos"
+        />
+        <KpiCard
+          icon={<ClipboardCheck size={16} className="text-indigo-500" />}
+          iconBg="bg-indigo-50"
+          value={surveysCompleted}
+          total={invited}
+          percent={pct(surveysCompleted, invited)}
+          label="Encuestas"
+        />
+        <KpiCard
+          icon={<MessageSquare size={16} className="text-amber-500" />}
+          iconBg="bg-amber-50"
+          value={totalSessions}
+          label="Sesiones totales"
+        />
       </div>
 
       {/* Connection rate */}
@@ -2279,6 +2281,49 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
 // ════════════════════════════════════════════
 // Shared sub-components
 // ════════════════════════════════════════════
+
+function KpiCard({
+  icon,
+  iconBg,
+  value,
+  total,
+  percent,
+  label,
+}: {
+  icon: ReactNode;
+  iconBg: string;
+  value: number;
+  total?: number;
+  percent?: number;
+  label: string;
+}) {
+  const hasTotal = typeof total === "number";
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="flex items-center gap-3">
+        <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center flex-shrink-0`}>
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-lg font-bold text-gray-900 tabular-nums leading-tight">
+            {value}
+            {hasTotal && (
+              <span className="text-sm text-gray-400 font-normal">
+                {" "}/ {total}
+              </span>
+            )}
+          </p>
+          <p className="text-[10px] text-gray-500">
+            {label}
+            {hasTotal && typeof percent === "number" && (
+              <span className="text-gray-400"> ({percent}%)</span>
+            )}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function StatusIndicator({ status }: { status: string }) {
   const config: Record<string, { color: string; label: string }> = {
