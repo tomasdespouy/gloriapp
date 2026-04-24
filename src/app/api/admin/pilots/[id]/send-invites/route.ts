@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendInvitesSchema, parseBody, uuidSchema } from "@/lib/validation/schemas";
 import { getGloriaLogoUrl } from "@/lib/email-assets";
+import { getAppUrl } from "@/lib/app-url";
 
 // Allow up to 60 seconds for sending many invites in one batch.
 // Internally we parallelize in chunks of 10 to stay well under the limit.
@@ -75,7 +76,7 @@ export async function POST(
   }
 
   const admin = createAdminClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.glor-ia.com";
+  const appUrl = getAppUrl();
 
   type InviteResult = {
     email: string;

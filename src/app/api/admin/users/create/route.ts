@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { logAdminAction } from "@/lib/audit";
 import { createUserSchema, parseBody } from "@/lib/validation/schemas";
+import { getAppUrl } from "@/lib/app-url";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -108,7 +109,7 @@ export async function POST(request: Request) {
   }
 
   // Send welcome email with credentials (only if requested)
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://gloria-app.vercel.app";
+  const appUrl = getAppUrl();
   const roleLabels: Record<string, string> = {
     student: "Estudiante", instructor: "Docente", admin: "Administrador", superadmin: "Superadministrador",
   };

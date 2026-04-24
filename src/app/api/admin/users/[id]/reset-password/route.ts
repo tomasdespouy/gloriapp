@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { logAdminAction } from "@/lib/audit";
+import { getAppUrl } from "@/lib/app-url";
 
 export async function POST(
   _request: Request,
@@ -67,7 +68,7 @@ export async function POST(
 
   // Send email with credentials. The template differs depending on whether this
   // is the first delivery (welcome) or a password reset.
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://gloria-app.vercel.app";
+  const appUrl = getAppUrl();
   const firstTime = target.credentials_sent_at == null;
   let emailSent = false;
 

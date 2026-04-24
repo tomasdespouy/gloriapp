@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomInt } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pilotEnrollAnonSchema, parseBody } from "@/lib/validation/schemas";
+import { getAppUrl } from "@/lib/app-url";
 
 // Public endpoint for anonymous pilot enrollment.
 // Only works when pilots.is_anonymous = true.
@@ -225,7 +226,7 @@ export async function POST(
   }
 
   // ── 8. Return credentials inline (there is no real inbox) ────────────
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.glor-ia.com";
+  const appUrl = getAppUrl();
   return NextResponse.json({
     success: true,
     anonymous: true,

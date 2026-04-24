@@ -12,6 +12,7 @@ import {
   ClipboardCheck, LayoutGrid, List as ListIcon, Pencil,
 } from "lucide-react";
 import PilotConsentPanel from "./PilotConsentPanel";
+import { getAppUrl } from "@/lib/app-url";
 
 // ────────────────────────────────────────────
 // Types
@@ -1647,7 +1648,9 @@ function Step3Preview({
 }: {
   pilot: Pilot | null;
 }) {
-  const appUrl = "https://app.glor-ia.com";
+  // Preview del email de invitacion — usa el mismo dominio canonico que
+  // los endpoints server-side via el helper de app-url.
+  const appUrl = getAppUrl();
 
   const [emailBody, setEmailBody] = useState(DEFAULT_EMAIL_BODY);
   const [editingBody, setEditingBody] = useState(false);

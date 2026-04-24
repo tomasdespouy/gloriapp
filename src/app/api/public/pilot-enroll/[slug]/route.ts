@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pilotEnrollSchema, parseBody } from "@/lib/validation/schemas";
 import { getGloriaLogoUrl } from "@/lib/email-assets";
+import { getAppUrl } from "@/lib/app-url";
 
 // Public endpoint — no auth check (the public consent page hits this).
 // Whitelisted in src/lib/supabase/middleware.ts via /api/public/ prefix.
@@ -263,7 +264,7 @@ export async function POST(
   }
 
   // ── 8. Send credentials by email (or skip if test_mode) ──────────────
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.glor-ia.com";
+  const appUrl = getAppUrl();
 
   if (pilot.test_mode) {
     return NextResponse.json({
