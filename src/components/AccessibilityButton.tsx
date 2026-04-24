@@ -85,7 +85,7 @@ export default function AccessibilityButton({ initialPrefs }: { initialPrefs: A1
         <div
           role="dialog"
           aria-label="Ajustes de accesibilidad"
-          className="absolute right-0 top-11 z-[200] w-[min(calc(100vw-1.5rem),18rem)] sm:w-72 bg-white rounded-xl shadow-2xl border border-gray-100 p-4 animate-fade-in text-gray-900"
+          className="fixed left-3 right-3 top-14 w-auto sm:absolute sm:left-auto sm:right-0 sm:top-11 sm:w-72 z-[200] bg-white rounded-xl shadow-2xl border border-gray-100 p-4 animate-fade-in text-gray-900"
         >
           <p className="text-xs font-semibold text-gray-900 mb-0.5">Accesibilidad</p>
           <p className="text-[11px] text-gray-500 mb-3">

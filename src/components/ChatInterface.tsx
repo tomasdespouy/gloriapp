@@ -85,7 +85,6 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const sentenceGapMaxRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const router = useRouter();
 
@@ -406,29 +405,22 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     messagesEndRef.current?.scrollIntoView({ behavior: prefersReduced ? "instant" : "smooth" });
   }, [messages]);
 
-  // Mobile keyboard handling.
-  // iOS Safari and Android Chrome do not reflow layout viewport when the
-  // soft keyboard opens — only visualViewport.height changes. `h-full` /
-  // `h-dvh` stay at the pre-keyboard size, so the chat input ends up
-  // hidden behind the keyboard. We listen to visualViewport on touch
-  // devices and pin the wrapper height to the actual visible area.
-  // Desktop is left alone: on hoverable devices we short-circuit.
+  // Mobile keyboard coordination.
+  // The layout root contracts via --app-vh (see SidebarContext). That
+  // alone doesn't re-scroll the messages list, so the last message can
+  // fall above the newly-visible area when the keyboard opens. This
+  // effect nudges the scroll to the latest message whenever the visual
+  // viewport size changes on touch devices. Desktop short-circuits.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const vv = window.visualViewport;
-    const el = wrapperRef.current;
-    if (!vv || !el) return;
+    if (!vv) return;
     if (!window.matchMedia("(hover: none)").matches) return;
-
-    const applyHeight = () => { el.style.height = `${vv.height}px`; };
-    applyHeight();
-    vv.addEventListener("resize", applyHeight);
-    vv.addEventListener("scroll", applyHeight);
-    return () => {
-      vv.removeEventListener("resize", applyHeight);
-      vv.removeEventListener("scroll", applyHeight);
-      el.style.height = "";
+    const onResize = () => {
+      messagesEndRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
     };
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
   }, []);
 
   // Session timer — extracted to <SessionTimer /> component.
@@ -1233,7 +1225,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   }
 
   return (
-    <div ref={wrapperRef} className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-2 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-3 flex-shrink-0">
         {/* Patient video avatar — clickable */}

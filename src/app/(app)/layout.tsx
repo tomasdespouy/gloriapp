@@ -133,10 +133,12 @@ export default async function AppLayout({
 
   return (
     <SidebarProvider>
-      {/* Use dynamic viewport height so mobile browsers don't collapse the
-          app when the URL bar / keyboard slides in and out. Falls back
-          gracefully on older browsers via Tailwind's @supports emission. */}
-      <div className="flex h-dvh overflow-hidden">
+      {/* Uses --app-vh published by SidebarContext when the device is
+          touch-only; falls back to 100dvh on desktop and on older
+          browsers. With this, the whole app contracts when the mobile
+          soft keyboard opens — not just the chat wrapper — so the input
+          sits right above the keyboard without a gap. */}
+      <div className="flex h-[var(--app-vh,100dvh)] overflow-hidden">
         <Suspense><NavigationProgress /></Suspense>
         <Sidebar role={role} establishmentLogoUrl={sidebarLogoUrl} activeModules={activeModules} />
         <ContentWrapper>
