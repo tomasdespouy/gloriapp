@@ -68,3 +68,13 @@ public/learning/originals/
 # simulation data (not needed in prod)
 public/*.json
 public/*.txt
+.env*.local
+
+# pilot report data — contiene PII (nombres, emails, transcripts de chat).
+# Los scripts extractores generan archivos informes/*-pilot-data.json que
+# NO se commitean. El .docx generado tampoco porque tambien tiene nombres
+# y citas textuales. Si se quiere archivar un informe por razones de
+# traceability, subir a Drive/supradmin separado, no al repo.
+informes/*-pilot-data.json
+informes/pilotos/*.docx
+informes/pilotos/*.pdf
