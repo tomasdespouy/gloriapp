@@ -106,6 +106,14 @@ export default function ResearchClient() {
   const [scanning, setScanning] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<string | null>(null);
+  const [activeJob, setActiveJob] = useState<{
+    id: string;
+    started_at: string;
+    model: string;
+    status: string;
+    scan_type?: string;
+  } | null>(null);
+  const [polling, setPolling] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -113,14 +121,16 @@ export default function ResearchClient() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadData = useCallback(async () => {
-    const [opp, pap, ins] = await Promise.all([
+    const [opp, pap, ins, jobInfo] = await Promise.all([
       fetch("/api/admin/research/scan").then(r => r.json()),
       fetch("/api/admin/research/papers").then(r => r.json()),
       fetch("/api/admin/research/insights").then(r => r.json()).catch(() => []),
+      fetch("/api/admin/research/jobs/active").then(r => r.json()).catch(() => ({})),
     ]);
     if (Array.isArray(opp)) setOpportunities(opp);
     if (Array.isArray(pap)) setPapers(pap);
     if (Array.isArray(ins)) setInsights(ins);
+    if (jobInfo?.activeJob) setActiveJob(jobInfo.activeJob);
     setLoading(false);
   }, []);
 
@@ -178,42 +188,89 @@ export default function ResearchClient() {
     setEditingId(null);
   };
 
-  const runScan = async (withEmail = false) => {
-    setScanning(true);
-    setScanResult(null);
-    const res = await fetch("/api/admin/research/scan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sendEmail: withEmail, email: "tomasdespouy@gmail.com" }),
-    });
-    const data = await res.json();
-    setScanResult(res.ok
-      ? `${data.count} oportunidades encontradas${withEmail ? " — email enviado" : ""}`
-      : "Error: " + (data.error || "desconocido"));
-    if (res.ok) {
-      const updated = await fetch("/api/admin/research/scan").then(r => r.json());
-      if (Array.isArray(updated)) setOpportunities(updated);
+  // Kickoff Deep Research (async). Mismo backend para "Escanear congresos" y "Buscar fondos".
+  const runScan = async (scanType: "mixed" | "funds" = "mixed") => {
+    if (activeJob) {
+      setScanResult(`Ya hay un Deep Research en curso (iniciado ${new Date(activeJob.started_at).toLocaleTimeString()}). Espera a que termine.`);
+      return;
     }
-    setScanning(false);
+    setScanning(true);
+    setScanningFunds(scanType === "funds");
+    setScanResult(null);
+    setFundScanResult(null);
+    try {
+      const res = await fetch("/api/admin/research/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scanType }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const msg = "Error: " + (data.error || "desconocido");
+        setScanResult(msg);
+        setFundScanResult(msg);
+      } else if (data.skipped && data.activeJob) {
+        setActiveJob(data.activeJob);
+        const msg = `Ya hay un Deep Research en curso. Iniciado a las ${new Date(data.activeJob.started_at).toLocaleTimeString()}.`;
+        setScanResult(msg);
+        setFundScanResult(msg);
+      } else {
+        setActiveJob({
+          id: data.job_id,
+          started_at: new Date().toISOString(),
+          model: data.model,
+          status: "pending",
+          scan_type: scanType,
+        });
+        const msg = `Deep Research iniciada (${data.model}). Tarda 5-15 min — el digest llega por email cuando termine. Podes cerrar esta pestana.`;
+        setScanResult(msg);
+        setFundScanResult(msg);
+      }
+    } catch (e) {
+      const msg = "Error: " + (e instanceof Error ? e.message : "fallo la peticion");
+      setScanResult(msg);
+      setFundScanResult(msg);
+    } finally {
+      setScanning(false);
+      setScanningFunds(false);
+    }
   };
 
-  const runFundScan = async () => {
-    setScanningFunds(true);
-    setFundScanResult(null);
-    const res = await fetch("/api/admin/research/scan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "funds" }),
-    });
-    const data = await res.json();
-    setFundScanResult(res.ok
-      ? `${data.count} fondos encontrados`
-      : "Error: " + (data.error || "desconocido"));
-    if (res.ok) {
-      const updated = await fetch("/api/admin/research/scan").then(r => r.json());
-      if (Array.isArray(updated)) setOpportunities(updated);
+  const runFundScan = () => runScan("funds");
+
+  // Polling manual: procesa el job activo si ya termino. Refresca la lista al completar.
+  const pollResults = async () => {
+    setPolling(true);
+    try {
+      const res = await fetch("/api/admin/research/scan/poll");
+      const data = await res.json();
+      if (!res.ok) {
+        setScanResult("Error verificando: " + (data.error || "desconocido"));
+      } else if (data.processed === 0) {
+        setActiveJob(null);
+        setScanResult("Sin jobs pendientes.");
+      } else {
+        type PollResult = { status: string; opps_inserted?: number; email_sent?: boolean; email_error?: string | null };
+        const results: PollResult[] = Array.isArray(data.results) ? data.results : [];
+        const completed = results.find((r) => r.status === "completed");
+        const inProgress = results.find((r) => r.status === "still_in_progress");
+        if (completed) {
+          setActiveJob(null);
+          const emailNote = completed.email_sent ? " · email enviado" : completed.email_error ? ` · email fallo: ${completed.email_error}` : "";
+          setScanResult(`Deep Research lista — ${completed.opps_inserted ?? 0} oportunidades agregadas${emailNote}.`);
+          const updated = await fetch("/api/admin/research/scan").then((r) => r.json());
+          if (Array.isArray(updated)) setOpportunities(updated);
+        } else if (inProgress) {
+          setScanResult("Aun en progreso. Volve a verificar en 2-3 min.");
+        } else {
+          setScanResult(`Estado: ${results.map((r) => r.status).join(", ")}.`);
+        }
+      }
+    } catch (e) {
+      setScanResult("Error verificando: " + (e instanceof Error ? e.message : "desconocido"));
+    } finally {
+      setPolling(false);
     }
-    setScanningFunds(false);
   };
 
   // Separate opportunities from funds
@@ -265,25 +322,36 @@ export default function ResearchClient() {
 
           {tab === "opportunities" && (
             <div className="flex items-center gap-2">
-              <button onClick={() => runScan(false)} disabled={scanning}
-                className="flex items-center gap-2 bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
-                {scanning ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-                {scanning ? "Escaneando..." : "Escanear congresos"}
+              <button onClick={() => runScan("mixed")} disabled={scanning || polling || activeJob !== null}
+                className="flex items-center gap-2 bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                {scanning || activeJob ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                {scanning ? "Iniciando..." : activeJob ? "Trabajando en informe..." : "Escanear congresos"}
               </button>
-              <button onClick={() => runScan(true)} disabled={scanning}
-                className="flex items-center gap-2 border border-sidebar text-sidebar px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
-                <Send size={14} /> + Email
+              <button onClick={pollResults} disabled={polling || (!activeJob && opportunities.length === 0)}
+                className="flex items-center gap-2 border border-sidebar text-sidebar px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                {polling ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                {polling ? "Verificando..." : "Verificar resultado"}
               </button>
             </div>
           )}
           {tab === "funds" && (
-            <button onClick={runFundScan} disabled={scanningFunds}
-              className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
-              {scanningFunds ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-              {scanningFunds ? "Buscando fondos..." : "Buscar fondos"}
+            <button onClick={() => runFundScan()} disabled={scanning || scanningFunds || polling || activeJob !== null}
+              className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+              {scanningFunds || activeJob ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+              {scanningFunds ? "Iniciando..." : activeJob ? "Trabajando en informe..." : "Buscar fondos"}
             </button>
           )}
         </div>
+
+        {activeJob && (
+          <div className="mb-4 text-sm px-4 py-2.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-2">
+            <Loader2 size={14} className="animate-spin" />
+            <span>
+              Deep Research en curso ({activeJob.model}) — iniciado a las {new Date(activeJob.started_at).toLocaleTimeString()}.
+              Tarda 5-15 min. Podes cerrar esta pestana, el digest llega por email.
+            </span>
+          </div>
+        )}
 
         {scanResult && (
           <div className={`mb-4 text-sm px-4 py-2.5 rounded-lg ${scanResult.startsWith("Error") ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>
