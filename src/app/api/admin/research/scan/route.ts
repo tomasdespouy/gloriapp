@@ -78,7 +78,6 @@ export async function POST(request: Request) {
         },
       ],
       tools: [{ type: "web_search_preview" }],
-      reasoning: { summary: "auto" },
       background: true,
     });
 

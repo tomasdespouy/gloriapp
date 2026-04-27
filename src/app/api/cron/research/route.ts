@@ -65,7 +65,6 @@ export async function GET(request: Request) {
         },
       ],
       tools: [{ type: "web_search_preview" }],
-      reasoning: { summary: "auto" },
       background: true,
     });
 
