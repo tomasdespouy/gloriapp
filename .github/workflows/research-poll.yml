@@ -1,0 +1,41 @@
+name: Research poll (cron externo)
+
+# El kickoff lo hace Vercel Cron a las 11:00 UTC del lunes via /api/cron/research.
+# Ese endpoint inicia un job de OpenAI Deep Research en background mode.
+# Como Vercel Hobby permite solo 2 cron jobs y solo una corrida diaria por cron,
+# el polling lo hacemos desde GitHub Actions (gratis, sin esos limites).
+#
+# Schedule: cada 15 min los lunes entre 11:00 y 14:45 UTC.
+# El endpoint /api/cron/research/poll es idempotente: si no hay jobs pendientes
+# no hace nada; si los hay, los procesa y envia el digest por email.
+#
+# Requisitos:
+#   - Secret repo `CRON_SECRET` debe coincidir con el de Vercel
+#   - Secret repo `APP_URL` (default: https://app.glor-ia.com)
+
+on:
+  schedule:
+    - cron: '*/15 11-14 * * 1'
+  workflow_dispatch: {}
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit poll endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ secrets.APP_URL || 'https://app.glor-ia.com' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET no esta configurado en repo secrets"
+            exit 1
+          fi
+          response=$(curl -sS -w "\n%{http_code}" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$APP_URL/api/cron/research/poll")
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n 1)
+          echo "HTTP $status"
+          echo "$body" | head -c 4000
+          if [ "$status" != "200" ]; then exit 1; fi
