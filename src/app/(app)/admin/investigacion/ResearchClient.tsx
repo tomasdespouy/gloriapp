@@ -250,9 +250,10 @@ export default function ResearchClient() {
         setActiveJob(null);
         setScanResult("Sin jobs pendientes.");
       } else {
-        type PollResult = { status: string; opps_inserted?: number; email_sent?: boolean; email_error?: string | null };
+        type PollResult = { status: string; opps_inserted?: number; email_sent?: boolean; email_error?: string | null; error?: string };
         const results: PollResult[] = Array.isArray(data.results) ? data.results : [];
         const completed = results.find((r) => r.status === "completed");
+        const failed = results.find((r) => r.status === "failed");
         const inProgress = results.find((r) => r.status === "still_in_progress");
         if (completed) {
           setActiveJob(null);
@@ -260,6 +261,9 @@ export default function ResearchClient() {
           setScanResult(`Deep Research lista — ${completed.opps_inserted ?? 0} oportunidades agregadas${emailNote}.`);
           const updated = await fetch("/api/admin/research/scan").then((r) => r.json());
           if (Array.isArray(updated)) setOpportunities(updated);
+        } else if (failed) {
+          setActiveJob(null);
+          setScanResult(`Error: el job fallo. ${failed.error || "Sin detalle"}`);
         } else if (inProgress) {
           setScanResult("Aun en progreso. Volve a verificar en 2-3 min.");
         } else {
