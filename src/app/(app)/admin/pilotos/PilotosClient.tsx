@@ -13,6 +13,11 @@ import {
 } from "lucide-react";
 import PilotConsentPanel from "./PilotConsentPanel";
 import { getAppUrl } from "@/lib/app-url";
+import {
+  utcIsoToChileLocal,
+  chileLocalToUtcIso,
+  formatChileDateTime,
+} from "@/lib/datetime-cl";
 
 // ────────────────────────────────────────────
 // Types
@@ -440,9 +445,16 @@ export default function PilotosClient({
 
   const formatDate = (iso: string | null) => {
     if (!iso) return "—";
-    const d = new Date(iso);
+    // Anclado a hora Chile para que la fecha mostrada al admin no varíe
+    // según el TZ del navegador (un admin en Madrid ve lo mismo que uno
+    // en Santiago).
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Santiago",
+      year: "numeric", month: "numeric", day: "numeric",
+    }).formatToParts(new Date(iso));
+    const get = (t: string) => parts.find((p) => p.type === t)!.value;
     const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    return `${parseInt(get("day"), 10)} ${months[parseInt(get("month"), 10) - 1]} ${get("year")}`;
   };
 
   const resetWizard = () => {
@@ -487,8 +499,8 @@ export default function PilotosClient({
       country: data.country || "",
       contact_name: data.contact_name || "",
       contact_email: data.contact_email || "",
-      scheduled_at: data.scheduled_at ? new Date(data.scheduled_at).toISOString().slice(0, 16) : "",
-      ended_at: data.ended_at ? new Date(data.ended_at).toISOString().slice(0, 16) : "",
+      scheduled_at: data.scheduled_at ? utcIsoToChileLocal(data.scheduled_at) : "",
+      ended_at: data.ended_at ? utcIsoToChileLocal(data.ended_at) : "",
       establishment_id: data.establishment_id || "",
       logo_url: data.logo_url || "",
       is_anonymous: data.is_anonymous === true,
@@ -635,8 +647,8 @@ export default function PilotosClient({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...formData,
-        scheduled_at: formData.scheduled_at ? new Date(formData.scheduled_at).toISOString() : null,
-        ended_at: formData.ended_at ? new Date(formData.ended_at).toISOString() : null,
+        scheduled_at: formData.scheduled_at ? chileLocalToUtcIso(formData.scheduled_at) : null,
+        ended_at: formData.ended_at ? chileLocalToUtcIso(formData.ended_at) : null,
         csv_data: finalRows,
       }),
     });
@@ -780,18 +792,17 @@ export default function PilotosClient({
     if (formData.is_anonymous !== originalFormSnapshot.is_anonymous) {
       payload.is_anonymous = formData.is_anonymous;
     }
-    // Fechas: el input devuelve "YYYY-MM-DDTHH:MM" en hora local del
-    // navegador. Replicamos la conversión que usa handleCreatePilot
-    // (new Date(...).toISOString()) para no introducir drift entre
-    // crear y editar.
+    // Fechas: el input devuelve "YYYY-MM-DDTHH:MM" interpretado siempre
+    // como hora Chile (vía chileLocalToUtcIso), independiente de la zona
+    // del navegador. Mantiene paridad con handleCreatePilot.
     if (formData.scheduled_at !== originalFormSnapshot.scheduled_at) {
       payload.scheduled_at = formData.scheduled_at
-        ? new Date(formData.scheduled_at).toISOString()
+        ? chileLocalToUtcIso(formData.scheduled_at)
         : null;
     }
     if (formData.ended_at !== originalFormSnapshot.ended_at) {
       payload.ended_at = formData.ended_at
-        ? new Date(formData.ended_at).toISOString()
+        ? chileLocalToUtcIso(formData.ended_at)
         : null;
     }
 
@@ -1938,6 +1949,7 @@ function Step3Preview({
                     <p className="text-xs text-amber-800 font-semibold">
                       Tu acceso estará disponible hasta el{" "}
                       {new Date(pilot.ended_at).toLocaleDateString("es-CL", {
+                        timeZone: "America/Santiago",
                         day: "numeric",
                         month: "long",
                         year: "numeric",
@@ -2181,13 +2193,13 @@ function Step4Dashboard({
           {pilot.scheduled_at && (
             <span className="text-xs text-gray-500 flex items-center gap-1">
               <Clock size={12} />
-              Inicio: {new Date(pilot.scheduled_at).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+              Inicio: {formatChileDateTime(pilot.scheduled_at)}
             </span>
           )}
           {pilot.ended_at && (
             <span className="text-xs text-gray-500 flex items-center gap-1 ml-3">
               <Clock size={12} />
-              Fin: {new Date(pilot.ended_at).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+              Fin: {formatChileDateTime(pilot.ended_at)}
             </span>
           )}
         </div>
@@ -2395,15 +2407,15 @@ function Step4Dashboard({
                     {p.survey_completed_at ? (
                       <span
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700"
-                        title={`Respondida — ${new Date(p.survey_completed_at).toLocaleString("es-CL")}`}
+                        title={`Respondida — ${new Date(p.survey_completed_at).toLocaleString("es-CL", { timeZone: "America/Santiago" })}`}
                       >
                         <Check size={10} />
-                        {new Date(p.survey_completed_at).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                        {new Date(p.survey_completed_at).toLocaleDateString("es-CL", { timeZone: "America/Santiago", day: "numeric", month: "short" })}
                       </span>
                     ) : p.survey_declined_at ? (
                       <span
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700"
-                        title={`No realizada — ${new Date(p.survey_declined_at).toLocaleString("es-CL")}`}
+                        title={`No realizada — ${new Date(p.survey_declined_at).toLocaleString("es-CL", { timeZone: "America/Santiago" })}`}
                       >
                         <XCircle size={10} />
                         No realizada
@@ -2681,6 +2693,7 @@ function Step5Report({ pilot }: { pilot: Pilot | null }) {
                     </p>
                     <p className="text-[10px] text-gray-400">
                       {new Date(r.created_at).toLocaleString("es-CL", {
+                        timeZone: "America/Santiago",
                         day: "numeric",
                         month: "short",
                         year: "numeric",
@@ -3284,6 +3297,7 @@ function AlertsSection({ pilotId }: { pilotId: string }) {
                   <tr key={a.id} className={`border-t border-gray-100 align-top ${a.reviewed_at ? "opacity-60" : ""}`}>
                     <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">
                       {new Date(a.created_at).toLocaleString("es-CL", {
+                        timeZone: "America/Santiago",
                         day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
                       })}
                       {a.turn_number != null && <div className="text-[10px] text-gray-400">turno {a.turn_number}</div>}
@@ -3681,7 +3695,7 @@ function OpenAnswersSection({ data, pilotId }: { data: SurveyData; pilotId: stri
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-gray-900 truncate">{r.full_name || "(sin nombre)"}</p>
                 <span className="text-[10px] text-gray-400 shrink-0 ml-2">
-                  {new Date(r.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
+                  {new Date(r.created_at).toLocaleDateString("es-CL", { timeZone: "America/Santiago", day: "numeric", month: "short", year: "numeric" })}
                 </span>
               </div>
               <div className="space-y-1.5">
@@ -3726,7 +3740,7 @@ function OpenAnswersSection({ data, pilotId }: { data: SurveyData; pilotId: stri
                   <td className="px-3 py-2.5 text-gray-400 tabular-nums">{idx + 1}</td>
                   <td className="px-3 py-2.5 text-gray-900 font-medium whitespace-nowrap">{r.full_name || "(sin nombre)"}</td>
                   <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap">
-                    {new Date(r.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
+                    {new Date(r.created_at).toLocaleDateString("es-CL", { timeZone: "America/Santiago", day: "numeric", month: "short", year: "numeric" })}
                   </td>
                   {openQuestions.map((q) => {
                     const val = r.answers?.[q.answersKey];
@@ -3895,6 +3909,7 @@ function ParticipantDetailDrawer({
               )}
               {data?.conversations.map((c) => {
                 const when = new Date(c.created_at).toLocaleString("es-CL", {
+                  timeZone: "America/Santiago",
                   day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
                 });
                 const statusBadge =
@@ -3963,7 +3978,7 @@ function ParticipantDetailDrawer({
                   <div className="border-b border-gray-100 pb-2 mb-2">
                     <p className="text-sm font-medium text-gray-900">{convo.patient_name}</p>
                     <p className="text-[11px] text-gray-500">
-                      {new Date(convo.created_at).toLocaleString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      {new Date(convo.created_at).toLocaleString("es-CL", { timeZone: "America/Santiago", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                       {" · "}
                       {convo.message_count} msgs
                     </p>
