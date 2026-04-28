@@ -199,31 +199,49 @@ export async function PATCH(
     );
   }
 
-  // Lock: una vez status=finalizado el piloto queda congelado. La única
-  // mutación admitida es la propia transición a "finalizado" (idempotente)
-  // y los timestamps que la acompañan (ended_at), para que el handler que
-  // dispara la finalización siga funcionando si se reintenta. Cualquier
-  // otro cambio se rechaza para preservar la información del informe.
+  // Lock jerárquico: status=finalizado congela el piloto. Hay tres
+  // caminos admitidos:
+  //   1. Idempotencia del finalizar: { status:'finalizado', ended_at }
+  //      sigue funcionando para reintentos del handler que cierra.
+  //   2. Reapertura explícita: cualquier { status: <≠finalizado> } abre
+  //      la ventana para mutar otros campos en el mismo PATCH.
+  //   3. Cualquier otra cosa → 409 con la instrucción de reactivar
+  //      primero. Esto cierra el hueco por el que ended_at podía
+  //      modificarse en silencio sobre un piloto ya cerrado.
   const { data: currentPilot } = await auth.supabase
     .from("pilots")
     .select("status")
     .eq("id", id)
     .single();
   if (currentPilot?.status === "finalizado") {
-    const tryingToReopen =
-      "status" in update && update.status !== "finalizado";
-    const writingProtectedField = Object.keys(update).some(
-      (k) => k !== "status" && k !== "ended_at" && k !== "updated_at",
-    );
-    if (tryingToReopen || writingProtectedField) {
+    const incomingStatus = update.status;
+    const isIdempotentFinalization = incomingStatus === "finalizado";
+    const isExplicitReopen =
+      typeof incomingStatus === "string" && incomingStatus !== "finalizado";
+
+    if (isIdempotentFinalization) {
+      const writingProtectedField = Object.keys(update).some(
+        (k) => k !== "status" && k !== "ended_at" && k !== "updated_at",
+      );
+      if (writingProtectedField) {
+        return NextResponse.json(
+          {
+            error:
+              "Este piloto está finalizado. Para modificar otros campos, primero reactívalo.",
+          },
+          { status: 409 },
+        );
+      }
+    } else if (!isExplicitReopen) {
       return NextResponse.json(
         {
           error:
-            "Este piloto está finalizado y no admite cambios. La información del informe queda congelada.",
+            "Este piloto está finalizado. Para modificarlo (incluyendo la fecha de término), primero debes reactivarlo cambiando su estado.",
         },
         { status: 409 },
       );
     }
+    // isExplicitReopen=true → cae al flujo normal y aplica el update.
   }
 
   // Smart swap: if the admin flips is_anonymous and the stored consent

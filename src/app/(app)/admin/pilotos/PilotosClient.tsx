@@ -9,7 +9,7 @@ import {
   Download, Send, Clock, UserCheck, MessageSquare,
   AlertCircle, Check, ChevronDown, ChevronUp, RotateCcw,
   Link2, Copy, ExternalLink, Image as ImageIcon,
-  ClipboardCheck, LayoutGrid, List as ListIcon, Pencil,
+  ClipboardCheck, LayoutGrid, List as ListIcon, Pencil, Save,
 } from "lucide-react";
 import PilotConsentPanel from "./PilotConsentPanel";
 import { getAppUrl } from "@/lib/app-url";
@@ -327,6 +327,10 @@ export default function PilotosClient({
     logo_url: "",
     is_anonymous: false,
   });
+  // Snapshot del formData tal como se cargó al abrir el piloto. Lo usa el
+  // botón "Guardar cambios" del Step1Upload para detectar campos sucios y
+  // armar un PATCH parcial. Null hasta que se abre un piloto existente.
+  const [originalFormSnapshot, setOriginalFormSnapshot] = useState<typeof formData | null>(null);
   const [csvError, setCsvError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -447,6 +451,7 @@ export default function PilotosClient({
     setCreating(false);
     setCsvRows([]);
     setFormData({ name: "", institution: "", country: "", contact_name: "", contact_email: "", scheduled_at: "", ended_at: "", establishment_id: "", logo_url: "", is_anonymous: false });
+    setOriginalFormSnapshot(null);
     setCsvError("");
     setDashboardData(null);
   };
@@ -476,7 +481,7 @@ export default function PilotosClient({
     setSelectedPilot(data);
     setDashboardData(data);
     setCsvRows(data.csv_data || []);
-    setFormData({
+    const loaded = {
       name: data.name,
       institution: data.institution,
       country: data.country || "",
@@ -487,7 +492,9 @@ export default function PilotosClient({
       establishment_id: data.establishment_id || "",
       logo_url: data.logo_url || "",
       is_anonymous: data.is_anonymous === true,
-    });
+    };
+    setFormData(loaded);
+    setOriginalFormSnapshot(loaded);
 
     // Determine step from status or target (uses STEP_* constants).
     // Default for any state that lands a user in the dashboard view
@@ -748,6 +755,69 @@ export default function PilotosClient({
     setPilots((prev) =>
       prev.map((p) => (p.id === selectedPilot?.id ? { ...p, ...update } : p)),
     );
+  };
+
+  // Guardar cambios desde la pestaña "Ingresar Institución" cuando se está
+  // editando un piloto. Diff contra el snapshot inicial y manda sólo los
+  // campos sucios. Si el piloto está finalizado, requiere reactivación
+  // explícita (status='enviado') — el caller decide vía opts.reactivate.
+  const handleSavePilotEdit = async (
+    opts: { reactivate: boolean },
+  ): Promise<{ ok: true; noChanges?: boolean } | { ok: false; error: string }> => {
+    if (!selectedPilot || !originalFormSnapshot) {
+      return { ok: false, error: "Sin piloto seleccionado" };
+    }
+
+    const payload: Record<string, unknown> = {};
+    const stringFields: Array<
+      "name" | "institution" | "country" | "contact_name" | "contact_email" | "establishment_id"
+    > = ["name", "institution", "country", "contact_name", "contact_email", "establishment_id"];
+    for (const f of stringFields) {
+      if (formData[f] !== originalFormSnapshot[f]) {
+        payload[f] = formData[f];
+      }
+    }
+    if (formData.is_anonymous !== originalFormSnapshot.is_anonymous) {
+      payload.is_anonymous = formData.is_anonymous;
+    }
+    // Fechas: el input devuelve "YYYY-MM-DDTHH:MM" en hora local del
+    // navegador. Replicamos la conversión que usa handleCreatePilot
+    // (new Date(...).toISOString()) para no introducir drift entre
+    // crear y editar.
+    if (formData.scheduled_at !== originalFormSnapshot.scheduled_at) {
+      payload.scheduled_at = formData.scheduled_at
+        ? new Date(formData.scheduled_at).toISOString()
+        : null;
+    }
+    if (formData.ended_at !== originalFormSnapshot.ended_at) {
+      payload.ended_at = formData.ended_at
+        ? new Date(formData.ended_at).toISOString()
+        : null;
+    }
+
+    if (opts.reactivate) {
+      payload.status = "enviado";
+    }
+
+    if (Object.keys(payload).length === 0) {
+      return { ok: true, noChanges: true };
+    }
+
+    const res = await fetch(`/api/admin/pilots/${selectedPilot.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      return { ok: false, error: err?.error || `Error ${res.status}` };
+    }
+    const data = await res.json();
+    handlePilotPatched(data);
+    // El snapshot pasa a ser el formData recién persistido para que el
+    // botón vuelva a quedar deshabilitado hasta el próximo cambio.
+    setOriginalFormSnapshot({ ...formData });
+    return { ok: true };
   };
 
   // ────────────────────────────────
@@ -1134,6 +1204,9 @@ export default function PilotosClient({
           isEditing={!!selectedPilot}
           onNext={() => setStep(STEP_CONSENTIMIENTO)}
           establishments={establishments}
+          pilotStatus={selectedPilot?.status ?? null}
+          originalFormSnapshot={originalFormSnapshot}
+          onSavePilotEdit={handleSavePilotEdit}
         />}
 
         {step === STEP_LINK && selectedPilot && (
@@ -1178,6 +1251,7 @@ export default function PilotosClient({
 function Step1Upload({
   formData, setFormData, csvRows, setCsvRows, csvError, creating, fileInputRef,
   onFileDrop, onFileSelect, onCreatePilot, isEditing, onNext, establishments,
+  pilotStatus, originalFormSnapshot, onSavePilotEdit,
 }: {
   formData: { name: string; institution: string; country: string; contact_name: string; contact_email: string; scheduled_at: string; ended_at: string; establishment_id: string; logo_url: string; is_anonymous: boolean };
   setFormData: (fn: (prev: typeof formData) => typeof formData) => void;
@@ -1192,11 +1266,19 @@ function Step1Upload({
   isEditing: boolean;
   onNext?: () => void;
   establishments: Establishment[];
+  pilotStatus?: string | null;
+  originalFormSnapshot?: typeof formData | null;
+  onSavePilotEdit?: (opts: { reactivate: boolean }) => Promise<{ ok: true; noChanges?: boolean } | { ok: false; error: string }>;
 }) {
   const [manualForm, setManualForm] = useState({ first_name: "", last_name: "", email: "", role: "student" });
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<CsvRow>({ email: "", full_name: "", role: "student" });
   const [createError, setCreateError] = useState("");
+  // Estado del botón "Guardar cambios" (sólo en modo edición).
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedToast, setSavedToast] = useState<string | null>(null);
+  const [showReactivateConfirm, setShowReactivateConfirm] = useState(false);
   // Placeholder sugerido con fecha de hoy. Se computa solo en cliente para
   // evitar hydration mismatch (SSR en UTC vs cliente en horario local
   // pueden diferir en el dia cerca de medianoche).
@@ -1253,6 +1335,45 @@ function Step1Upload({
 
   const cancelEdit = () => {
     setEditingIdx(null);
+  };
+
+  // ── "Guardar cambios" — sólo activo en modo edición ─────────────────
+  const isPilotFinalized = pilotStatus === "finalizado";
+  const isDirty = !!originalFormSnapshot && (
+    formData.name !== originalFormSnapshot.name ||
+    formData.institution !== originalFormSnapshot.institution ||
+    formData.country !== originalFormSnapshot.country ||
+    formData.contact_name !== originalFormSnapshot.contact_name ||
+    formData.contact_email !== originalFormSnapshot.contact_email ||
+    formData.scheduled_at !== originalFormSnapshot.scheduled_at ||
+    formData.ended_at !== originalFormSnapshot.ended_at ||
+    formData.establishment_id !== originalFormSnapshot.establishment_id ||
+    formData.is_anonymous !== originalFormSnapshot.is_anonymous
+  );
+  const runSaveEdit = async (reactivate: boolean) => {
+    if (!onSavePilotEdit) return;
+    setSaveError(null);
+    setSavingEdit(true);
+    const result = await onSavePilotEdit({ reactivate });
+    setSavingEdit(false);
+    if (!result.ok) {
+      setSaveError(result.error);
+      return;
+    }
+    setSavedToast(reactivate ? "Reactivado y guardado" : "Cambios guardados");
+    setTimeout(() => setSavedToast(null), 2500);
+  };
+  const handleSaveClick = () => {
+    if (!isDirty || savingEdit) return;
+    if (isPilotFinalized) {
+      setShowReactivateConfirm(true);
+    } else {
+      runSaveEdit(false);
+    }
+  };
+  const handleConfirmReactivate = async () => {
+    setShowReactivateConfirm(false);
+    await runSaveEdit(true);
   };
 
   return (
@@ -1610,27 +1731,83 @@ function Step1Upload({
       </details>
 
       {/* Action */}
-      <div className="flex justify-end">
-        {isEditing ? (
-          <button
-            onClick={() => onNext?.()}
-            disabled={csvRows.length === 0}
-            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <ArrowRight size={16} />
-            Siguiente
-          </button>
-        ) : (
-          <button
-            onClick={onCreatePilot}
-            disabled={!canCreate || creating}
-            className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {creating ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-            Crear piloto
-          </button>
+      <div className="space-y-3">
+        {isEditing && saveError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">
+            {saveError}
+          </div>
         )}
+        <div className="flex justify-end items-center gap-3 flex-wrap">
+          {isEditing && savedToast && (
+            <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full font-medium">
+              {savedToast}
+            </span>
+          )}
+          {isEditing ? (
+            <>
+              <button
+                onClick={handleSaveClick}
+                disabled={!isDirty || savingEdit}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-sidebar text-sidebar rounded-xl text-sm font-medium hover:bg-sidebar/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {savingEdit ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                Guardar cambios
+              </button>
+              <button
+                onClick={() => onNext?.()}
+                disabled={csvRows.length === 0}
+                className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <ArrowRight size={16} />
+                Siguiente
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={onCreatePilot}
+              disabled={!canCreate || creating}
+              className="flex items-center gap-2 px-6 py-2.5 bg-sidebar text-white rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {creating ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+              Crear piloto
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Reactivate confirmation modal — sólo cuando el piloto está finalizado */}
+      {showReactivateConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <AlertCircle size={20} className="text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-semibold text-gray-900">Piloto finalizado</h3>
+                <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                  Este piloto está cerrado. Para guardar los cambios será reactivado a estado <strong>Activo</strong>. Los participantes volverán a poder ingresar dentro de la nueva ventana de fechas.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowReactivateConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmReactivate}
+                className="flex items-center gap-2 px-4 py-2 bg-sidebar text-white rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
+              >
+                <Save size={14} />
+                Reactivar y guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
