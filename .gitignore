@@ -78,3 +78,7 @@ public/*.txt
 informes/*-pilot-data.json
 informes/pilotos/*.docx
 informes/pilotos/*.pdf
+
+# spike experimental: modelo de Picovoice Eagle (4.6 MB). No se commitea
+# para no engordar el repo. Re-bajarlo con el README del spike.
+public/eagle_params.pv
