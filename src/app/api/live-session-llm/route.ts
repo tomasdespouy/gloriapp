@@ -21,44 +21,59 @@ const MAX_CHUNK_SIZE = 24 * 1024 * 1024; // 24MB safe margin under Whisper 25MB
 const DIARIZE_PROMPT = `Eres un asistente experto en transcripción de sesiones terapéuticas de práctica clínica.
 
 Recibirás una transcripción de audio de una sesión entre dos personas:
-- OBSERVADOR / TERAPEUTA: estudiante o profesional de psicología que conduce la sesión. Hace preguntas clínicas, refleja, parafrasea, valida emociones, propone intervenciones, sostiene el encuadre.
-- PACIENTE / CONSULTANTE: persona que asume rol de paciente. Relata su experiencia, expresa síntomas y emociones, responde preguntas, comparte historia personal.
+- TERAPEUTA: estudiante o profesional de psicología que conduce la sesión. Hace preguntas clínicas, refleja, parafrasea, valida emociones, propone intervenciones, sostiene el encuadre.
+- PACIENTE: persona que asume rol de paciente. Relata su experiencia, expresa síntomas y emociones, responde preguntas, comparte historia personal.
 
-Tu tarea:
-1. Asignar cada turno a OBSERVADOR o PACIENTE basándote en CONTENIDO clínico (quién pregunta y qué tipo, quién relata, quién interpreta), NO en orden.
+═══════════════════════════════════════════════════════════════
+REGLA CRÍTICA — FIDELIDAD COMPLETA AL RAW TRANSCRIPT
+═══════════════════════════════════════════════════════════════
+DEBES incluir CADA palabra del raw transcript en algún turno. NO omitas, NO resumas, NO edites.
+
+Antes de responder, valida MENTALMENTE:
+1. Concatena el texto de todos los turnos en orden.
+2. Compara con el raw transcript (ignorando espacios extra y diferencias de puntuación menores).
+3. Si falta algo, agregalo a un turno existente cercano o crea un turno nuevo con prefijo "[?]" para fragmentos que no sabés a quién atribuir.
+
+Esta regla supera a cualquier criterio estético. Es preferible un turno torpe pero completo a un turno limpio pero incompleto.
+
+═══════════════════════════════════════════════════════════════
+TU TAREA
+═══════════════════════════════════════════════════════════════
+1. Asignar cada turno a TERAPEUTA o PACIENTE basándote en CONTENIDO clínico (quién pregunta y qué tipo, quién relata, quién interpreta), NO en orden.
 2. Marcar ambigüedades EN LUGAR DE adivinar:
    - "[solapado]" como prefijo del turno cuando dos hablan al mismo tiempo y la transcripción tiene frases mezcladas.
    - "[interrupción]" como prefijo cuando uno corta al otro a mitad de turno.
-   - "[?]" como prefijo cuando la atribución no es clara y elegiste un speaker pero podría ser el otro.
-3. Indicar pausas largas con un turno de tipo pausa entre turnos normales cuando se notan en la transcripción (ej. "[pausa: 5s]").
-4. Si una porción es inaudible, marcar "[inaudible]" dentro del texto.
+   - "[?]" como prefijo cuando la atribución no es clara o el fragmento es difícil de ubicar.
+3. Si una porción es inaudible, marcar "[inaudible]" dentro del texto (sin omitirla).
 
-Responde ÚNICAMENTE con JSON válido (sin markdown, sin backticks):
+═══════════════════════════════════════════════════════════════
+FORMATO DE RESPUESTA (JSON estricto, sin markdown ni backticks)
+═══════════════════════════════════════════════════════════════
 {
   "speakers": [
-    { "label": "OBSERVADOR", "role": "terapeuta" },
+    { "label": "TERAPEUTA", "role": "terapeuta" },
     { "label": "PACIENTE", "role": "consultante" }
   ],
   "turns": [
     {
-      "speaker": "OBSERVADOR",
+      "speaker": "TERAPEUTA",
       "text": "texto del turno tal cual aparece en la transcripción",
       "confidence": "alta",
       "overlap": "ninguno"
     }
   ],
   "overlaps_detected": 0,
-  "notes": "Observaciones breves: calidad de audio, dificultades de atribución, momentos de mucho solapamiento."
+  "notes": "Observaciones breves: calidad de audio, dificultades de atribución, fragmentos marcados con [?]."
 }
 
 Valores válidos:
 - confidence: "alta" | "media" | "baja"
 - overlap: "ninguno" | "solapado" | "interrupcion"
 
-Reglas estrictas:
-- Mantén el texto original de la transcripción tan fiel como sea posible.
-- NO inventes contenido. Si la transcripción dice algo poco claro, deja [inaudible].
-- Si hay un solo hablante en todo el audio (monólogo), devuelve un solo speaker en speakers[] y todos los turns con ese speaker.
+Reglas adicionales:
+- Mantén el texto original lo más fiel posible (puntuación + ortografía).
+- NO inventes contenido.
+- Si hay un solo hablante en todo el audio (monólogo), devuelve un solo speaker y todos los turnos con ese speaker.
 - Responde siempre en español neutro.`;
 
 function splitAudioBlob(buffer: Buffer, mimeType: string, chunkSize: number): Blob[] {
@@ -71,6 +86,29 @@ function splitAudioBlob(buffer: Buffer, mimeType: string, chunkSize: number): Bl
     offset = end;
   }
   return chunks;
+}
+
+// Normaliza texto para comparar: lower, sin puntuacion ni simbolos,
+// espacios colapsados.
+function normalizeText(s: string): string {
+  return s.toLowerCase()
+    // Quita marcadores que el LLM agrega y no estan en el raw.
+    .replace(/\[\?\]/g, "")
+    .replace(/\[(solapado|interrupci[oó]n|inaudible|pausa[^\]]*)\]/gi, "")
+    .replace(/[\p{P}\p{S}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Coverage = chars normalizados de turnos / chars normalizados de raw.
+// Detecta omisiones grandes (caso reportado: el LLM "comio" frases).
+// No detecta sustituciones (raw="hola" → turn="chau"); para spike OK.
+function computeCoverage(raw: string, turns: Array<{ text: string }>): number {
+  const rawNorm = normalizeText(raw);
+  if (!rawNorm) return 100;
+  const turnsText = turns.map((t) => t.text || "").join(" ");
+  const turnsNorm = normalizeText(turnsText);
+  return Math.min(100, Math.round((turnsNorm.length / rawNorm.length) * 100));
 }
 
 export async function POST(request: NextRequest) {
@@ -145,12 +183,21 @@ export async function POST(request: NextRequest) {
     const diarized = JSON.parse(jsonStr);
     const tLlm = Date.now() - t1;
 
+    const turns = diarized.turns || [];
+    const coveragePct = computeCoverage(transcript, turns);
+    let notes = diarized.notes || "";
+    if (coveragePct < 95) {
+      const warning = `⚠ Cobertura ${coveragePct}%: el LLM omitió fragmentos del raw transcript. Revisar y agregar manualmente lo que falte.`;
+      notes = notes ? `${warning}  ${notes}` : warning;
+    }
+
     return NextResponse.json({
       raw_transcript: transcript,
       speakers: diarized.speakers || [],
-      turns: diarized.turns || [],
+      turns,
       overlaps_detected: diarized.overlaps_detected || 0,
-      notes: diarized.notes || "",
+      coverage_pct: coveragePct,
+      notes,
       timings_ms: { whisper: tWhisper, llm: tLlm, total: tWhisper + tLlm },
     });
   } catch {

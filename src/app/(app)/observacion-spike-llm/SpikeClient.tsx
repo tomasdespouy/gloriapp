@@ -26,9 +26,13 @@ type DiarizationResult = {
   speakers: Array<{ label: string; role: string }>;
   turns: Turn[];
   overlaps_detected: number;
+  coverage_pct?: number;
   notes: string;
   timings_ms?: { whisper: number; llm: number; total: number };
 };
+
+const SPEAKER_TERAPEUTA = "TERAPEUTA";
+const SPEAKER_PACIENTE = "PACIENTE";
 
 const SOFT_LIMIT_SECONDS = 30 * 60; // 30 min — solo aviso visual, no bloqueo
 const HARD_HINT_SECONDS = 60 * 60;  // 1 h — recomendamos detener
@@ -144,17 +148,56 @@ export default function SpikeClient() {
     setProgressMessage("");
   };
 
-  // Toggle speaker manual: alterna entre OBSERVADOR y PACIENTE para un
+  // Toggle speaker manual: alterna entre TERAPEUTA y PACIENTE para un
   // turno especifico. Util para corregir cuando el LLM se equivoca.
   const handleToggleSpeaker = (idx: number) => {
     setResult((prev) => {
       if (!prev) return prev;
       const turns = [...prev.turns];
       const cur = turns[idx];
-      const next = cur.speaker === "OBSERVADOR" ? "PACIENTE"
-        : cur.speaker === "PACIENTE" ? "OBSERVADOR"
-        : "OBSERVADOR";
+      const next = cur.speaker === SPEAKER_TERAPEUTA ? SPEAKER_PACIENTE
+        : cur.speaker === SPEAKER_PACIENTE ? SPEAKER_TERAPEUTA
+        : SPEAKER_TERAPEUTA;
       turns[idx] = { ...cur, speaker: next };
+      return { ...prev, turns };
+    });
+  };
+
+  // Editar texto de un turno (cuando el LLM dice algo incompleto o
+  // queremos pulir).
+  const handleEditTurn = (idx: number, newText: string) => {
+    setResult((prev) => {
+      if (!prev) return prev;
+      const turns = [...prev.turns];
+      turns[idx] = { ...turns[idx], text: newText };
+      return { ...prev, turns };
+    });
+  };
+
+  // Borrar un turno completo.
+  const handleDeleteTurn = (idx: number) => {
+    setResult((prev) => {
+      if (!prev) return prev;
+      const turns = prev.turns.filter((_, i) => i !== idx);
+      return { ...prev, turns };
+    });
+  };
+
+  // Insertar un nuevo turno antes o despues del turno idx. Si idx=-1
+  // inserta al final. El turno nuevo arranca con TERAPEUTA por default
+  // (es el speaker que mas suele agregar texto manualmente).
+  const handleAddTurn = (idx: number, position: "before" | "after") => {
+    setResult((prev) => {
+      if (!prev) return prev;
+      const newTurn: Turn = {
+        speaker: SPEAKER_TERAPEUTA,
+        text: "",
+        confidence: "alta",
+        overlap: "ninguno",
+      };
+      const turns = [...prev.turns];
+      const insertAt = idx < 0 ? turns.length : (position === "before" ? idx : idx + 1);
+      turns.splice(insertAt, 0, newTurn);
       return { ...prev, turns };
     });
   };
@@ -246,9 +289,14 @@ export default function SpikeClient() {
         <section className="border border-gray-200 rounded-xl p-5 bg-white space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap pb-3 border-b border-gray-100">
             <h2 className="text-base font-semibold text-gray-900">Resultado</h2>
-            <div className="flex items-center gap-3 text-xs text-gray-500">
+            <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
               <span><strong>{result.turns.length}</strong> turnos</span>
               <span>· <strong>{result.overlaps_detected}</strong> overlaps</span>
+              {typeof result.coverage_pct === "number" && (
+                <span className={result.coverage_pct >= 95 ? "text-emerald-700" : "text-rose-700 font-semibold"}>
+                  · cobertura {result.coverage_pct}%
+                </span>
+              )}
               {result.timings_ms && (
                 <span>· Whisper {(result.timings_ms.whisper / 1000).toFixed(1)}s · LLM {(result.timings_ms.llm / 1000).toFixed(1)}s</span>
               )}
@@ -256,14 +304,29 @@ export default function SpikeClient() {
           </div>
 
           {result.notes && (
-            <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs rounded-lg px-3 py-2">
+            <div className={`border text-xs rounded-lg px-3 py-2 ${
+              result.notes.startsWith("⚠")
+                ? "bg-rose-50 border-rose-200 text-rose-800"
+                : "bg-blue-50 border-blue-200 text-blue-800"
+            }`}>
               <strong>Notas del LLM:</strong> {result.notes}
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-1">
+            {/* Boton agregar turno al inicio */}
+            <AddTurnButton onClick={() => handleAddTurn(0, "before")} />
             {result.turns.map((turn, i) => (
-              <TurnRow key={i} turn={turn} idx={i} onToggleSpeaker={() => handleToggleSpeaker(i)} />
+              <div key={i}>
+                <TurnRow
+                  turn={turn}
+                  idx={i}
+                  onToggleSpeaker={() => handleToggleSpeaker(i)}
+                  onEdit={(newText) => handleEditTurn(i, newText)}
+                  onDelete={() => handleDeleteTurn(i)}
+                />
+                <AddTurnButton onClick={() => handleAddTurn(i, "after")} />
+              </div>
             ))}
           </div>
 
@@ -281,19 +344,55 @@ export default function SpikeClient() {
   );
 }
 
+// ─── Sub-componente: boton "+" para insertar un turno entre otros ──
+function AddTurnButton({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="flex items-center justify-center group h-2 hover:h-7 transition-all">
+      <button
+        onClick={onClick}
+        className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-gray-400 hover:text-gray-700 border border-dashed border-gray-300 hover:border-gray-500 rounded-full px-2 py-0.5 bg-white cursor-pointer"
+        title="Agregar turno aquí"
+      >
+        + agregar turno
+      </button>
+    </div>
+  );
+}
+
 // ─── Sub-componente: una fila de turno ────────────────────────────
-function TurnRow({ turn, idx, onToggleSpeaker }: { turn: Turn; idx: number; onToggleSpeaker: () => void }) {
-  const isObs = turn.speaker === "OBSERVADOR";
-  const isPac = turn.speaker === "PACIENTE";
-  const speakerColor = isObs ? "bg-indigo-50 border-indigo-200 text-indigo-900"
+function TurnRow({
+  turn, idx, onToggleSpeaker, onEdit, onDelete,
+}: {
+  turn: Turn;
+  idx: number;
+  onToggleSpeaker: () => void;
+  onEdit: (newText: string) => void;
+  onDelete: () => void;
+}) {
+  const [editing, setEditing] = useState(turn.text === "");
+  const [draft, setDraft] = useState(turn.text);
+
+  const isTer = turn.speaker === SPEAKER_TERAPEUTA;
+  const isPac = turn.speaker === SPEAKER_PACIENTE;
+  const speakerColor = isTer ? "bg-indigo-50 border-indigo-200 text-indigo-900"
     : isPac ? "bg-orange-50 border-orange-200 text-orange-900"
     : "bg-gray-50 border-gray-200 text-gray-700";
-  const speakerBadge = isObs ? "bg-indigo-600 text-white"
+  const speakerBadge = isTer ? "bg-indigo-600 text-white"
     : isPac ? "bg-orange-500 text-white"
     : "bg-gray-400 text-white";
   const confColor = turn.confidence === "alta" ? "text-emerald-700 bg-emerald-50 border-emerald-200"
     : turn.confidence === "media" ? "text-amber-700 bg-amber-50 border-amber-200"
     : "text-rose-700 bg-rose-50 border-rose-200";
+
+  const commitEdit = () => {
+    onEdit(draft);
+    setEditing(false);
+  };
+
+  const cancelEdit = () => {
+    setDraft(turn.text);
+    setEditing(false);
+  };
 
   return (
     <div className={`border rounded-lg p-3 ${speakerColor}`}>
@@ -311,17 +410,68 @@ function TurnRow({ turn, idx, onToggleSpeaker }: { turn: Turn; idx: number; onTo
             confianza: {turn.confidence}
           </span>
         </div>
-        {(isObs || isPac) && (
+        <div className="flex items-center gap-2">
+          {(isTer || isPac) && !editing && (
+            <button
+              onClick={onToggleSpeaker}
+              className="text-[10px] text-gray-500 hover:text-gray-800 underline cursor-pointer"
+              title="Cambiar atribución de speaker"
+            >
+              cambiar speaker
+            </button>
+          )}
+          {!editing && (
+            <button
+              onClick={() => { setDraft(turn.text); setEditing(true); }}
+              className="text-[10px] text-gray-500 hover:text-gray-800 underline cursor-pointer"
+              title="Editar texto del turno"
+            >
+              editar
+            </button>
+          )}
           <button
-            onClick={onToggleSpeaker}
-            className="text-[10px] text-gray-500 hover:text-gray-800 underline cursor-pointer"
-            title="Cambiar atribución de speaker"
+            onClick={onDelete}
+            className="text-[10px] text-rose-500 hover:text-rose-800 underline cursor-pointer"
+            title="Borrar turno"
           >
-            cambiar speaker
+            borrar
           </button>
-        )}
+        </div>
       </div>
-      <p className="text-sm leading-relaxed text-gray-800">{turn.text}</p>
+      {editing ? (
+        <div className="space-y-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={Math.max(2, Math.min(8, draft.split("\n").length + 1))}
+            autoFocus
+            className="w-full text-sm leading-relaxed text-gray-800 bg-white border border-gray-300 rounded p-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            placeholder="Texto del turno..."
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={commitEdit}
+              className="text-[11px] px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 cursor-pointer"
+            >
+              Guardar
+            </button>
+            <button
+              onClick={cancelEdit}
+              className="text-[11px] px-3 py-1 border border-gray-300 text-gray-600 rounded hover:bg-gray-50 cursor-pointer"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p
+          className="text-sm leading-relaxed text-gray-800 cursor-text"
+          onClick={() => { setDraft(turn.text); setEditing(true); }}
+          title="Click para editar"
+        >
+          {turn.text || <span className="text-gray-400 italic">(turno vacío — click para editar)</span>}
+        </p>
+      )}
     </div>
   );
 }
