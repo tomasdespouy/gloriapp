@@ -54,9 +54,13 @@ interface Props {
       "(preliminar)" tag. When false, those scores are hidden entirely
       until the docente approves the evaluation. */
   isPilot?: boolean;
+  /** Rol del usuario logueado. Los estudiantes no pueden borrar
+      grabaciones (la decision de auditoria/revision la tiene el
+      docente). */
+  userRole?: string | null;
 }
 
-export default function HistorialClient({ sessions, summaryMap, observations: initialObservations = [], isPilot = false }: Props) {
+export default function HistorialClient({ sessions, summaryMap, observations: initialObservations = [], isPilot = false, userRole = null }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -534,13 +538,15 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
               <ChevronRight size={14} className="text-gray-300" />
             </div>
           </button>
-          <button
-            onClick={() => setConfirmDeleteObs(obs.id)}
-            className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer flex-shrink-0 mt-1"
-            title="Eliminar grabación"
-          >
-            <Trash2 size={14} />
-          </button>
+          {userRole !== "student" && (
+            <button
+              onClick={() => setConfirmDeleteObs(obs.id)}
+              className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer flex-shrink-0 mt-1"
+              title="Eliminar grabación"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
       </div>
     );

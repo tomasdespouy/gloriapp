@@ -24,6 +24,11 @@ type Turn = {
 
 type LlmAnalysis = {
   version?: string;
+  // Metadata ingresada por el usuario antes de grabar
+  session_name?: string | null;
+  session_description?: string | null;
+  therapist_name?: string | null;
+  patient_name?: string | null;
   turns?: Turn[];
   speakers?: Array<{ label: string; role: string }>;
   overlaps_detected?: number;
@@ -100,17 +105,26 @@ export default function ObservacionReviewClient({
       </button>
 
       {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex items-center gap-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex items-start gap-4">
         <div className="w-11 h-11 rounded-full bg-sidebar/10 flex items-center justify-center flex-shrink-0">
           <Radio size={22} className="text-sidebar" />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="text-base font-bold text-gray-900">{session.title}</p>
-          <p className="text-xs text-gray-500">
+          {analysis.patient_name && analysis.session_name && (
+            <p className="text-sm text-orange-700 mt-0.5">Paciente — {analysis.patient_name}</p>
+          )}
+          {analysis.therapist_name && (
+            <p className="text-xs text-indigo-700 mt-0.5">Terapeuta — {analysis.therapist_name}</p>
+          )}
+          {analysis.session_description && (
+            <p className="text-xs text-gray-600 mt-2 leading-relaxed italic">{analysis.session_description}</p>
+          )}
+          <p className="text-xs text-gray-500 mt-2">
             {formatDate(session.created_at)} · <Clock size={11} className="inline" /> {formatDuration(session.total_duration_seconds)}
           </p>
         </div>
-        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
           session.status === "completed" ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"
         }`}>
           {session.status === "completed" ? "Completada" : session.status === "active" ? "En curso" : "Abandonada"}

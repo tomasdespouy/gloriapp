@@ -84,9 +84,11 @@ export default function LiveSessionClient() {
   const [result, setResult] = useState<DiarizationResult | null>(null);
   const [progressMessage, setProgressMessage] = useState<string>("");
 
-  // Inputs opcionales para anclar identidades en la diarizacion.
+  // Inputs para anclar identidades + metadata de la sesion.
   const [therapistName, setTherapistName] = useState("");
   const [patientName, setPatientName] = useState("");
+  const [sessionName, setSessionName] = useState("");
+  const [sessionDescription, setSessionDescription] = useState("");
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -145,6 +147,8 @@ export default function LiveSessionClient() {
         fd.append("audio", blob, `session.${supportedMime.includes("ogg") ? "ogg" : "webm"}`);
         if (therapistName.trim()) fd.append("therapistName", therapistName.trim());
         if (patientName.trim()) fd.append("patientName", patientName.trim());
+        if (sessionName.trim()) fd.append("sessionName", sessionName.trim());
+        if (sessionDescription.trim()) fd.append("sessionDescription", sessionDescription.trim());
         const res = await fetch("/api/live-session-llm", { method: "POST", body: fd });
         if (!res.ok) {
           const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -240,40 +244,71 @@ export default function LiveSessionClient() {
         </p>
       </header>
 
-      {/* Identidades opcionales — buena práctica */}
+      {/* Datos de la sesión (titulo, descriptor, identidades) */}
       {(phase === "idle" || phase === "recording") && (
-        <section className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
+        <section className="border border-gray-200 rounded-xl p-4 bg-white space-y-4">
           <details open={phase === "idle"}>
             <summary className="text-sm font-semibold text-gray-900 cursor-pointer">
-              Identidades (opcional · buena práctica)
+              Datos de la sesión
             </summary>
-            <p className="text-xs text-gray-500 mt-1 mb-3">
-              Antes de empezar, podés escribir el nombre del/la terapeuta y del/la paciente.
-              Si en la sesión se mencionan por nombre, el LLM los usa para anclar la atribución
-              de turnos y reduce errores. <strong>No es obligatorio.</strong>
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+            {/* Titulo de la sesion + descripcion */}
+            <div className="mt-3 space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Tu nombre (terapeuta)</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Nombre de la sesión</label>
                 <input
                   type="text"
-                  value={therapistName}
-                  onChange={(e) => setTherapistName(e.target.value)}
-                  placeholder="Ej: Tomás"
+                  value={sessionName}
+                  onChange={(e) => setSessionName(e.target.value)}
+                  placeholder="Ej: Sesión 1 — primera entrevista"
                   disabled={phase === "recording"}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-50"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30 disabled:bg-gray-50"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nombre del/la paciente</label>
-                <input
-                  type="text"
-                  value={patientName}
-                  onChange={(e) => setPatientName(e.target.value)}
-                  placeholder="Ej: Josefina"
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Descripción <span className="text-gray-400">(opcional)</span>
+                </label>
+                <textarea
+                  value={sessionDescription}
+                  onChange={(e) => setSessionDescription(e.target.value)}
+                  placeholder="Ej: Sesión realizada en Universidad Gabriela Mistral, abordamos motivo de consulta inicial y configuración de objetivos."
+                  rows={2}
                   disabled={phase === "recording"}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:bg-gray-50"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/30 disabled:bg-gray-50 resize-y"
                 />
+              </div>
+            </div>
+
+            {/* Identidades — buena practica */}
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <p className="text-xs text-gray-500 mb-3">
+                <strong>Identidades</strong> (recomendado): si en la sesión se mencionan los nombres, el sistema los
+                usa para anclar la atribución de turnos y reduce errores.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Terapeuta</label>
+                  <input
+                    type="text"
+                    value={therapistName}
+                    onChange={(e) => setTherapistName(e.target.value)}
+                    placeholder="Escribe el nombre tuyo como Terapeuta"
+                    disabled={phase === "recording"}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Paciente</label>
+                  <input
+                    type="text"
+                    value={patientName}
+                    onChange={(e) => setPatientName(e.target.value)}
+                    placeholder="Escribe el nombre del Paciente"
+                    disabled={phase === "recording"}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:bg-gray-50"
+                  />
+                </div>
               </div>
             </div>
           </details>

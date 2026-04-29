@@ -177,6 +177,8 @@ export async function POST(request: NextRequest) {
   const audioFile = formData.get("audio") as File | null;
   const therapistName = (formData.get("therapistName") as string | null)?.trim() || undefined;
   const patientName = (formData.get("patientName") as string | null)?.trim() || undefined;
+  const sessionName = (formData.get("sessionName") as string | null)?.trim() || undefined;
+  const sessionDescription = (formData.get("sessionDescription") as string | null)?.trim() || undefined;
   if (!audioFile) {
     return NextResponse.json({ error: "No se recibió audio" }, { status: 400 });
   }
@@ -303,12 +305,29 @@ export async function POST(request: NextRequest) {
       const totalSeconds = allSegments.length > 0
         ? Math.round(allSegments[allSegments.length - 1].end)
         : null;
-      const defaultTitle = `Grabación ${new Date().toLocaleDateString("es-CL", {
+      // Title:
+      //   sessionName + patientName  → "{sessionName} · Paciente - {patientName}"
+      //   solo sessionName           → sessionName
+      //   solo patientName           → "Paciente - {patientName}"
+      //   ninguno                    → "Grabación {fecha}"
+      // Asi en el historial siempre se identifica al paciente cuando
+      // se proporciono, y el sessionName del usuario tampoco se pierde.
+      const fallbackTitle = `Grabación ${new Date().toLocaleDateString("es-CL", {
         timeZone: "America/Santiago",
         day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
       })}`;
+      const patientPart = patientName ? `Paciente - ${patientName}` : null;
+      const finalTitle = (sessionName && patientPart)
+        ? `${sessionName} · ${patientPart}`
+        : sessionName || patientPart || fallbackTitle;
       const semanticAnalysis = {
         version: "llm_v1",
+        // Metadata de sesion ingresada por el usuario antes de grabar.
+        session_name: sessionName || null,
+        session_description: sessionDescription || null,
+        therapist_name: therapistName || null,
+        patient_name: patientName || null,
+        // Resultado de la diarizacion + analisis.
         turns,
         speakers: diarized.speakers || [],
         overlaps_detected: diarized.overlaps_detected || 0,
@@ -329,7 +348,7 @@ export async function POST(request: NextRequest) {
         .from("observation_sessions")
         .insert({
           student_id: user.id,
-          title: defaultTitle,
+          title: finalTitle,
           status: "completed",
           total_duration_seconds: totalSeconds,
           semantic_analysis: semanticAnalysis,

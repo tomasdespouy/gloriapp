@@ -10,6 +10,15 @@ export default async function HistorialPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Rol del usuario para gate del boton "borrar grabacion": estudiantes
+  // no pueden borrar (la decision de auditoria/revision la tiene el docente).
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  const userRole = profileRow?.role ?? null;
+
   // Pilot gate: non-pilot students must not see AI scores until the
   // docente has approved them. Pilot students see the score with a
   // "(preliminar)" tag next to it — same data, explicit labelling.
@@ -107,7 +116,7 @@ export default async function HistorialPage() {
         </div>
       </header>
       <div className="px-4 sm:px-8 pb-8">
-        <HistorialClient sessions={sessions || []} summaryMap={summaryMap} observations={observations} isPilot={isPilot} />
+        <HistorialClient sessions={sessions || []} summaryMap={summaryMap} observations={observations} isPilot={isPilot} userRole={userRole} />
       </div>
     </div>
   );
