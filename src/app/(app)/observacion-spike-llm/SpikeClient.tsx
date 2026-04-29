@@ -5,28 +5,40 @@ import { useEffect, useRef, useState } from "react";
 // Spike: diarización post-hoc con LLM. El observador aprieta "Iniciar",
 // graba la sesión completa sin walkie-talkie, y al detener manda el
 // audio al endpoint /api/live-session-llm que devuelve los turnos
-// separados por speaker con marcadores de overlap.
+// separados por speaker, summary, temperatura de la conversación,
+// tono por turno y alertas de seguridad.
 //
 // La idea es validar si el approach LLM (sin enrollment, sin Eagle)
-// resuelve el caso clínico — los overlaps son el caso difícil. La UI
-// permite corregir manualmente la atribución de cada turno por si el
-// LLM se equivoca.
+// resuelve el caso clínico. La UI permite corregir manualmente cada
+// turno por si el LLM se equivoca.
 
 type Phase = "idle" | "recording" | "processing" | "ready" | "error";
+
+type SafetyFlags = {
+  profanity: string[];
+  clinical_risk: string[];
+};
 
 type Turn = {
   speaker: string;
   text: string;
   confidence: "alta" | "media" | "baja" | string;
   overlap: "ninguno" | "solapado" | "interrupcion" | string;
+  tone: "calmado" | "emocional" | "evasivo" | "asertivo" | "neutro" | string;
+  safety_flags: SafetyFlags;
 };
 
 type DiarizationResult = {
   raw_transcript: string;
+  enriched_transcript?: string;
   speakers: Array<{ label: string; role: string }>;
   turns: Turn[];
   overlaps_detected: number;
   coverage_pct?: number;
+  summary: string;
+  conversation_temperature: string;
+  temperature_reason: string;
+  safety_summary: { profanity_turns: number; clinical_risk_turns: number };
   notes: string;
   timings_ms?: { whisper: number; llm: number; total: number };
 };
@@ -34,8 +46,24 @@ type DiarizationResult = {
 const SPEAKER_TERAPEUTA = "TERAPEUTA";
 const SPEAKER_PACIENTE = "PACIENTE";
 
-const SOFT_LIMIT_SECONDS = 30 * 60; // 30 min — solo aviso visual, no bloqueo
-const HARD_HINT_SECONDS = 60 * 60;  // 1 h — recomendamos detener
+const SOFT_LIMIT_SECONDS = 30 * 60;
+const HARD_HINT_SECONDS = 60 * 60;
+
+const TEMPERATURE_STYLES: Record<string, { color: string; label: string; emoji: string }> = {
+  tranquila:    { color: "bg-emerald-100 text-emerald-800 border-emerald-300", label: "Tranquila",    emoji: "🟢" },
+  exploratoria: { color: "bg-sky-100 text-sky-800 border-sky-300",             label: "Exploratoria", emoji: "🔵" },
+  emocional:    { color: "bg-amber-100 text-amber-800 border-amber-300",       label: "Emocional",    emoji: "🟠" },
+  tensa:        { color: "bg-rose-100 text-rose-800 border-rose-300",          label: "Tensa",        emoji: "🔴" },
+  fragmentada:  { color: "bg-violet-100 text-violet-800 border-violet-300",    label: "Fragmentada",  emoji: "🟣" },
+};
+
+const TONE_STYLES: Record<string, { color: string; label: string }> = {
+  calmado:   { color: "bg-emerald-50 border-emerald-200 text-emerald-800", label: "calmado" },
+  emocional: { color: "bg-amber-50 border-amber-200 text-amber-800",       label: "emocional" },
+  evasivo:   { color: "bg-violet-50 border-violet-200 text-violet-800",    label: "evasivo" },
+  asertivo:  { color: "bg-sky-50 border-sky-200 text-sky-800",             label: "asertivo" },
+  neutro:    { color: "bg-gray-50 border-gray-200 text-gray-700",          label: "neutro" },
+};
 
 function formatTime(s: number) {
   const m = Math.floor(s / 60);
@@ -50,12 +78,15 @@ export default function SpikeClient() {
   const [result, setResult] = useState<DiarizationResult | null>(null);
   const [progressMessage, setProgressMessage] = useState<string>("");
 
+  // Inputs opcionales para anclar identidades en la diarizacion.
+  const [therapistName, setTherapistName] = useState("");
+  const [patientName, setPatientName] = useState("");
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Cleanup al desmontar
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -80,13 +111,7 @@ export default function SpikeClient() {
     }
     streamRef.current = stream;
 
-    // MediaRecorder con codec opus a bitrate bajo. 1h ~14 MB → cabe en
-    // una sola request de Whisper (limite 25 MB).
-    const mimeOptions = [
-      "audio/webm;codecs=opus",
-      "audio/webm",
-      "audio/ogg;codecs=opus",
-    ];
+    const mimeOptions = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
     const supportedMime = mimeOptions.find((m) => MediaRecorder.isTypeSupported(m)) || "";
     const recorder = new MediaRecorder(stream, {
       mimeType: supportedMime || undefined,
@@ -112,6 +137,8 @@ export default function SpikeClient() {
       try {
         const fd = new FormData();
         fd.append("audio", blob, `session.${supportedMime.includes("ogg") ? "ogg" : "webm"}`);
+        if (therapistName.trim()) fd.append("therapistName", therapistName.trim());
+        if (patientName.trim()) fd.append("patientName", patientName.trim());
         const res = await fetch("/api/live-session-llm", { method: "POST", body: fd });
         if (!res.ok) {
           const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -129,7 +156,7 @@ export default function SpikeClient() {
       }
     });
 
-    recorder.start(1000); // emite chunks cada 1s para no perder data si crashea
+    recorder.start(1000);
     setPhase("recording");
     timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
   };
@@ -148,8 +175,6 @@ export default function SpikeClient() {
     setProgressMessage("");
   };
 
-  // Toggle speaker manual: alterna entre TERAPEUTA y PACIENTE para un
-  // turno especifico. Util para corregir cuando el LLM se equivoca.
   const handleToggleSpeaker = (idx: number) => {
     setResult((prev) => {
       if (!prev) return prev;
@@ -163,8 +188,6 @@ export default function SpikeClient() {
     });
   };
 
-  // Editar texto de un turno (cuando el LLM dice algo incompleto o
-  // queremos pulir).
   const handleEditTurn = (idx: number, newText: string) => {
     setResult((prev) => {
       if (!prev) return prev;
@@ -174,7 +197,6 @@ export default function SpikeClient() {
     });
   };
 
-  // Borrar un turno completo.
   const handleDeleteTurn = (idx: number) => {
     setResult((prev) => {
       if (!prev) return prev;
@@ -183,9 +205,6 @@ export default function SpikeClient() {
     });
   };
 
-  // Insertar un nuevo turno antes o despues del turno idx. Si idx=-1
-  // inserta al final. El turno nuevo arranca con TERAPEUTA por default
-  // (es el speaker que mas suele agregar texto manualmente).
   const handleAddTurn = (idx: number, position: "before" | "after") => {
     setResult((prev) => {
       if (!prev) return prev;
@@ -194,6 +213,8 @@ export default function SpikeClient() {
         text: "",
         confidence: "alta",
         overlap: "ninguno",
+        tone: "neutro",
+        safety_flags: { profanity: [], clinical_risk: [] },
       };
       const turns = [...prev.turns];
       const insertAt = idx < 0 ? turns.length : (position === "before" ? idx : idx + 1);
@@ -202,7 +223,6 @@ export default function SpikeClient() {
     });
   };
 
-  // ─── Render ─────────────────────────────────────────────────────
   return (
     <div className="p-6 sm:p-8 max-w-4xl mx-auto space-y-5">
       <header className="space-y-1 pb-3 border-b border-gray-200">
@@ -215,10 +235,50 @@ export default function SpikeClient() {
         <h1 className="text-2xl font-bold text-gray-900">Diarización con LLM</h1>
         <p className="text-sm text-gray-500">
           Pantalla aislada para probar diarización post-hoc: graba toda la sesión continua, al detener
-          el audio se transcribe con Whisper y un LLM separa los turnos por contenido. Sin walkie-talkie,
-          sin enrollment.
+          el audio se transcribe con Whisper y un LLM separa los turnos por contenido. Devuelve summary,
+          tono por turno, temperatura de la conversación y alertas de seguridad.
         </p>
       </header>
+
+      {/* Identidades opcionales — buena práctica */}
+      {(phase === "idle" || phase === "recording") && (
+        <section className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
+          <details open={phase === "idle"}>
+            <summary className="text-sm font-semibold text-gray-900 cursor-pointer">
+              Identidades (opcional · buena práctica)
+            </summary>
+            <p className="text-xs text-gray-500 mt-1 mb-3">
+              Antes de empezar, podés escribir el nombre del/la terapeuta y del/la paciente.
+              Si en la sesión se mencionan por nombre, el LLM los usa para anclar la atribución
+              de turnos y reduce errores. <strong>No es obligatorio.</strong>
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Tu nombre (terapeuta)</label>
+                <input
+                  type="text"
+                  value={therapistName}
+                  onChange={(e) => setTherapistName(e.target.value)}
+                  placeholder="Ej: Tomás"
+                  disabled={phase === "recording"}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Nombre del/la paciente</label>
+                <input
+                  type="text"
+                  value={patientName}
+                  onChange={(e) => setPatientName(e.target.value)}
+                  placeholder="Ej: Josefina"
+                  disabled={phase === "recording"}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:bg-gray-50"
+                />
+              </div>
+            </div>
+          </details>
+        </section>
+      )}
 
       {/* Recording controls */}
       <section className="border border-gray-200 rounded-xl p-5 bg-white space-y-4">
@@ -303,18 +363,38 @@ export default function SpikeClient() {
             </div>
           </div>
 
+          {/* Alertas de seguridad globales */}
+          <SafetyBanner result={result} />
+
+          {/* Notas del LLM (warnings de cobertura, etc.) */}
           {result.notes && (
             <div className={`border text-xs rounded-lg px-3 py-2 ${
               result.notes.startsWith("⚠")
                 ? "bg-rose-50 border-rose-200 text-rose-800"
                 : "bg-blue-50 border-blue-200 text-blue-800"
             }`}>
-              <strong>Notas del LLM:</strong> {result.notes}
+              <strong>Notas:</strong> {result.notes}
             </div>
           )}
 
+          {/* Resumen de la sesión */}
+          {result.summary && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 space-y-1">
+              <p className="text-[10px] uppercase tracking-wider text-indigo-700 font-semibold">Resumen</p>
+              <p className="text-sm leading-relaxed text-indigo-900">{result.summary}</p>
+            </div>
+          )}
+
+          {/* Termómetro de la conversación */}
+          {result.conversation_temperature && (
+            <TemperatureBadge
+              temperature={result.conversation_temperature}
+              reason={result.temperature_reason}
+            />
+          )}
+
+          {/* Lista de turnos */}
           <div className="space-y-1">
-            {/* Boton agregar turno al inicio */}
             <AddTurnButton onClick={() => handleAddTurn(0, "before")} />
             {result.turns.map((turn, i) => (
               <div key={i}>
@@ -337,6 +417,14 @@ export default function SpikeClient() {
             <pre className="text-[11px] font-mono text-gray-600 whitespace-pre-wrap leading-relaxed mt-2 bg-gray-50 p-3 rounded">
               {result.raw_transcript}
             </pre>
+            {result.enriched_transcript && result.enriched_transcript !== result.raw_transcript && (
+              <>
+                <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mt-3 mb-1">Con timestamps (input al LLM)</p>
+                <pre className="text-[11px] font-mono text-gray-600 whitespace-pre-wrap leading-relaxed bg-gray-50 p-3 rounded">
+                  {result.enriched_transcript}
+                </pre>
+              </>
+            )}
           </details>
         </section>
       )}
@@ -344,7 +432,47 @@ export default function SpikeClient() {
   );
 }
 
-// ─── Sub-componente: boton "+" para insertar un turno entre otros ──
+// ─── Banner global de alertas de safety ──────────────────────────
+function SafetyBanner({ result }: { result: DiarizationResult }) {
+  const { profanity_turns, clinical_risk_turns } = result.safety_summary || { profanity_turns: 0, clinical_risk_turns: 0 };
+  if (profanity_turns === 0 && clinical_risk_turns === 0) return null;
+  return (
+    <div className={`border-2 rounded-lg p-3 space-y-1 ${
+      clinical_risk_turns > 0
+        ? "bg-rose-50 border-rose-300 text-rose-900"
+        : "bg-amber-50 border-amber-300 text-amber-900"
+    }`}>
+      <p className="text-xs font-semibold uppercase tracking-wide">
+        {clinical_risk_turns > 0 ? "🚨 Alertas de seguridad" : "⚠ Alertas de lenguaje"}
+      </p>
+      <ul className="text-sm space-y-0.5">
+        {clinical_risk_turns > 0 && (
+          <li><strong>{clinical_risk_turns}</strong> turno(s) con posible riesgo clínico (ideación suicida, autolesión, violencia). Revisar marcados con 🚨.</li>
+        )}
+        {profanity_turns > 0 && (
+          <li><strong>{profanity_turns}</strong> turno(s) con vulgaridad detectada. Revisar marcados con ⚠.</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+// ─── Badge de temperatura ────────────────────────────────────────
+function TemperatureBadge({ temperature, reason }: { temperature: string; reason: string }) {
+  const style = TEMPERATURE_STYLES[temperature] || TEMPERATURE_STYLES.tranquila;
+  return (
+    <div className={`border rounded-lg p-3 flex items-start gap-3 ${style.color}`}>
+      <span className="text-2xl flex-shrink-0">{style.emoji}</span>
+      <div>
+        <p className="text-[10px] uppercase tracking-wider font-semibold">Temperatura de la conversación</p>
+        <p className="text-base font-bold">{style.label}</p>
+        {reason && <p className="text-xs mt-0.5 opacity-90">{reason}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Botón "+ agregar turno" entre filas ─────────────────────────
 function AddTurnButton({ onClick }: { onClick: () => void }) {
   return (
     <div className="flex items-center justify-center group h-2 hover:h-7 transition-all">
@@ -359,7 +487,7 @@ function AddTurnButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-// ─── Sub-componente: una fila de turno ────────────────────────────
+// ─── Una fila de turno ───────────────────────────────────────────
 function TurnRow({
   turn, idx, onToggleSpeaker, onEdit, onDelete,
 }: {
@@ -383,6 +511,11 @@ function TurnRow({
   const confColor = turn.confidence === "alta" ? "text-emerald-700 bg-emerald-50 border-emerald-200"
     : turn.confidence === "media" ? "text-amber-700 bg-amber-50 border-amber-200"
     : "text-rose-700 bg-rose-50 border-rose-200";
+  const toneStyle = TONE_STYLES[turn.tone] || TONE_STYLES.neutro;
+
+  const hasRisk = turn.safety_flags?.clinical_risk?.length > 0;
+  const hasProfanity = turn.safety_flags?.profanity?.length > 0;
+  const safetyBorder = hasRisk ? "ring-2 ring-rose-400" : hasProfanity ? "ring-2 ring-amber-400" : "";
 
   const commitEdit = () => {
     onEdit(draft);
@@ -395,7 +528,7 @@ function TurnRow({
   };
 
   return (
-    <div className={`border rounded-lg p-3 ${speakerColor}`}>
+    <div className={`border rounded-lg p-3 ${speakerColor} ${safetyBorder}`}>
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded ${speakerBadge}`}>
@@ -409,6 +542,21 @@ function TurnRow({
           <span className={`text-[10px] font-medium px-2 py-0.5 rounded border ${confColor}`}>
             confianza: {turn.confidence}
           </span>
+          {turn.tone && (
+            <span className={`text-[10px] font-medium px-2 py-0.5 rounded border ${toneStyle.color}`}>
+              tono: {toneStyle.label}
+            </span>
+          )}
+          {hasRisk && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded border bg-rose-100 border-rose-400 text-rose-900">
+              🚨 riesgo clínico: {turn.safety_flags.clinical_risk.join(", ")}
+            </span>
+          )}
+          {hasProfanity && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded border bg-amber-100 border-amber-400 text-amber-900">
+              ⚠ lenguaje: {turn.safety_flags.profanity.join(", ")}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {(isTer || isPac) && !editing && (
