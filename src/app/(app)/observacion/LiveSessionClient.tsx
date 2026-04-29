@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
-// Spike: diarización post-hoc con LLM. El observador aprieta "Iniciar",
-// graba la sesión completa sin walkie-talkie, y al detener manda el
-// audio al endpoint /api/live-session-llm que devuelve los turnos
-// separados por speaker, summary, temperatura de la conversación,
-// tono por turno y alertas de seguridad.
+// Módulo "Grabar en vivo" — versión LLM. El observador aprieta
+// "Iniciar", graba la sesión completa sin walkie-talkie, y al detener
+// manda el audio al endpoint /api/live-session-llm que:
+//   1. Transcribe con Whisper (chunking automático en audios > 24MB).
+//   2. Diariza con LLM por contenido + timestamps.
+//   3. Anota tono, summary, temperatura, alertas de seguridad.
+//   4. Persiste la sesión en observation_sessions y devuelve session_id.
 //
-// La idea es validar si el approach LLM (sin enrollment, sin Eagle)
-// resuelve el caso clínico. La UI permite corregir manualmente cada
-// turno por si el LLM se equivoca.
+// La UI permite corregir cada turno (cambiar speaker, editar texto,
+// borrar, agregar). Al finalizar, link al historial donde queda
+// guardada la sesión.
 
 type Phase = "idle" | "recording" | "processing" | "ready" | "error";
 
@@ -41,6 +44,9 @@ type DiarizationResult = {
   safety_summary: { profanity_turns: number; clinical_risk_turns: number };
   notes: string;
   timings_ms?: { whisper: number; llm: number; total: number };
+  // Devuelto por el endpoint cuando guarda la sesion en
+  // observation_sessions; el cliente usa este id para el link al review.
+  session_id?: string;
 };
 
 const SPEAKER_TERAPEUTA = "TERAPEUTA";
@@ -71,7 +77,7 @@ function formatTime(s: number) {
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
-export default function SpikeClient() {
+export default function LiveSessionClient() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -226,17 +232,11 @@ export default function SpikeClient() {
   return (
     <div className="p-6 sm:p-8 max-w-4xl mx-auto space-y-5">
       <header className="space-y-1 pb-3 border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-semibold">
-            Spike experimental
-          </span>
-          <span className="text-[10px] text-gray-400">/observacion-spike-llm</span>
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900">Diarización con LLM</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Grabar en vivo</h1>
         <p className="text-sm text-gray-500">
-          Pantalla aislada para probar diarización post-hoc: graba toda la sesión continua, al detener
-          el audio se transcribe con Whisper y un LLM separa los turnos por contenido. Devuelve summary,
-          tono por turno, temperatura de la conversación y alertas de seguridad.
+          Grabá toda la sesión continua. Al detener, el audio se transcribe y un asistente separa los
+          turnos por contenido, identifica tono, resumen y alertas de seguridad. La sesión queda
+          guardada en tu historial.
         </p>
       </header>
 
@@ -301,12 +301,22 @@ export default function SpikeClient() {
               </button>
             )}
             {(phase === "ready" || phase === "error") && (
-              <button
-                onClick={handleReset}
-                className="px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 cursor-pointer"
-              >
-                Nueva sesión
-              </button>
+              <>
+                <button
+                  onClick={handleReset}
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 cursor-pointer"
+                >
+                  Nueva sesión
+                </button>
+                {result?.session_id && (
+                  <Link
+                    href={`/observacion/review/${result.session_id}`}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700"
+                  >
+                    Ver en historial →
+                  </Link>
+                )}
+              </>
             )}
             {phase === "processing" && (
               <div className="flex items-center gap-2 text-sm text-gray-600">

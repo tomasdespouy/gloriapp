@@ -173,15 +173,6 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (profile?.role !== "superadmin") {
-    return NextResponse.json({ error: "No autorizado (spike solo superadmin)" }, { status: 403 });
-  }
-
   const formData = await request.formData();
   const audioFile = formData.get("audio") as File | null;
   const therapistName = (formData.get("therapistName") as string | null)?.trim() || undefined;
@@ -301,6 +292,60 @@ export async function POST(request: NextRequest) {
       ? diarized.conversation_temperature
       : "tranquila";
 
+    // Persistir en observation_sessions. Todo el output del LLM va al
+    // campo JSONB semantic_analysis con un version tag para que el
+    // historial sepa que es shape "llm_v1" (vs el shape walkie-talkie
+    // viejo). Si el INSERT falla, devolvemos igual el resultado al
+    // cliente — el usuario no pierde la diarizacion.
+    let savedSessionId: string | null = null;
+    let saveError: string | null = null;
+    try {
+      const totalSeconds = allSegments.length > 0
+        ? Math.round(allSegments[allSegments.length - 1].end)
+        : null;
+      const defaultTitle = `Grabación ${new Date().toLocaleDateString("es-CL", {
+        timeZone: "America/Santiago",
+        day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+      })}`;
+      const semanticAnalysis = {
+        version: "llm_v1",
+        turns,
+        speakers: diarized.speakers || [],
+        overlaps_detected: diarized.overlaps_detected || 0,
+        coverage_pct: coveragePct,
+        summary: diarized.summary || "",
+        conversation_temperature: conversationTemperature,
+        temperature_reason: diarized.temperature_reason || "",
+        safety_summary: {
+          profanity_turns: profanityTotal,
+          clinical_risk_turns: riskTotal,
+        },
+        notes,
+        raw_transcript: rawTranscript,
+        enriched_transcript: enrichedTranscript,
+        timings_ms: { whisper: tWhisper, llm: tLlm, total: tWhisper + tLlm },
+      };
+      const { data: session, error: insertErr } = await supabase
+        .from("observation_sessions")
+        .insert({
+          student_id: user.id,
+          title: defaultTitle,
+          status: "completed",
+          total_duration_seconds: totalSeconds,
+          semantic_analysis: semanticAnalysis,
+          ended_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+      if (insertErr) {
+        saveError = insertErr.message;
+      } else {
+        savedSessionId = session?.id ?? null;
+      }
+    } catch (e) {
+      saveError = e instanceof Error ? e.message : "error guardando sesion";
+    }
+
     return NextResponse.json({
       raw_transcript: rawTranscript,
       enriched_transcript: enrichedTranscript,
@@ -317,6 +362,8 @@ export async function POST(request: NextRequest) {
       },
       notes,
       timings_ms: { whisper: tWhisper, llm: tLlm, total: tWhisper + tLlm },
+      session_id: savedSessionId,
+      save_error: saveError,
     });
   } catch {
     // Fallback: devolver transcripcion cruda como un solo turno.

@@ -12,25 +12,21 @@ export default async function ObservacionReviewPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: session }, { data: segments }] = await Promise.all([
-    supabase
-      .from("observation_sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .eq("student_id", user.id)
-      .single(),
-    supabase
-      .from("observation_segments")
-      .select("*")
-      .eq("session_id", sessionId)
-      .order("segment_order", { ascending: true }),
-  ]);
+  // El nuevo shape (llm_v1) guarda todo el resultado en
+  // semantic_analysis JSONB de observation_sessions. Ya no usamos
+  // observation_segments para grabaciones LLM.
+  const { data: session } = await supabase
+    .from("observation_sessions")
+    .select("*")
+    .eq("id", sessionId)
+    .eq("student_id", user.id)
+    .single();
 
   if (!session) redirect("/historial");
 
   return (
     <div className="min-h-screen">
-      <ObservacionReviewClient session={session} segments={segments || []} />
+      <ObservacionReviewClient session={session} />
     </div>
   );
 }
