@@ -67,13 +67,27 @@ async function main() {
   if (cErr) throw cErr;
   console.log(`${conversations.length} conversaciones totales.`);
 
-  // 4) Duracion por conversacion (primer y ultimo mensaje)
+  // 4) Duracion por conversacion (primer y ultimo mensaje). Paginamos
+  // hasta agotar — PostgREST limita a 1000 filas por default y en pilots
+  // grandes (88 estudiantes) eso truncaba el calculo de minutos.
   const convIds = conversations.map((c) => c.id);
-  const { data: messages } = await supabase
-    .from("messages")
-    .select("conversation_id, role, content, created_at")
-    .in("conversation_id", convIds)
-    .order("created_at", { ascending: true });
+  const messages = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error: msgErr } = await supabase
+      .from("messages")
+      .select("conversation_id, role, content, created_at")
+      .in("conversation_id", convIds)
+      .order("created_at", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (msgErr) {
+      console.log(`(messages page ${from} error: ${msgErr.message})`);
+      break;
+    }
+    if (!data || data.length === 0) break;
+    messages.push(...data);
+    if (data.length < PAGE) break;
+  }
 
   const convMetrics = new Map();
   for (const m of messages || []) {

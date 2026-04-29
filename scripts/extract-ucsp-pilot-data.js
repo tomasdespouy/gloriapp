@@ -60,13 +60,26 @@ async function extractCohort({ id, cohort }) {
   if (cErr) throw cErr;
   console.log(`Conversaciones: ${conversations.length}`);
 
-  // 4) Mensajes (para metrics y duracion)
+  // 4) Mensajes (para metrics y duracion). PostgREST limita a 1000 filas
+  // por default — paginamos hasta agotar para no truncar las metricas.
   const convIds = conversations.map((c) => c.id);
-  const { data: messages } = await supabase
-    .from("messages")
-    .select("conversation_id, role, content, created_at")
-    .in("conversation_id", convIds)
-    .order("created_at", { ascending: true });
+  const messages = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error: msgErr } = await supabase
+      .from("messages")
+      .select("conversation_id, role, content, created_at")
+      .in("conversation_id", convIds)
+      .order("created_at", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (msgErr) {
+      console.log(`(messages page ${from} error: ${msgErr.message})`);
+      break;
+    }
+    if (!data || data.length === 0) break;
+    messages.push(...data);
+    if (data.length < PAGE) break;
+  }
 
   const convMetrics = new Map();
   for (const m of messages || []) {
@@ -87,21 +100,29 @@ async function extractCohort({ id, cohort }) {
     ? await supabase.from("ai_patients").select("id, name, age, pacing_profile").in("id", patientIds)
     : { data: [] };
 
-  // 6) Encuesta
-  const { data: pilotSurveys } = await supabase
+  // 6) Encuesta — patron del endpoint supradmin /survey-responses:
+  // traemos responses directamente por user_id (cubre tanto la survey
+  // del piloto como cualquier global). Filtramos a status=completed
+  // porque las 'not_taken' tienen answers=null. La columna `schema`
+  // que tenia la query antigua no existe en surveys → daba array
+  // vacio en silencio y el resto del informe se quedaba sin datos.
+  const { data: pilotSurveys, error: surveysErr } = await supabase
     .from("surveys")
-    .select("id, title, pilot_id, schema")
+    .select("id, title, pilot_id, form_version")
     .eq("pilot_id", id);
-  const surveyIds = (pilotSurveys || []).map((s) => s.id);
+  if (surveysErr) console.log(`(surveys query error: ${surveysErr.message})`);
+
   let surveyResponses = [];
-  if (surveyIds.length > 0) {
-    const { data } = await supabase
+  if (userIds.length > 0) {
+    const { data, error: respErr } = await supabase
       .from("survey_responses")
       .select("id, user_id, survey_id, status, created_at, answers")
-      .in("survey_id", surveyIds);
+      .in("user_id", userIds)
+      .eq("status", "completed");
+    if (respErr) console.log(`(survey_responses query error: ${respErr.message})`);
     surveyResponses = data || [];
   }
-  console.log(`Encuestas respondidas: ${surveyResponses.filter((r) => r.status === "completed").length}/${surveyResponses.length}`);
+  console.log(`Encuestas respondidas: ${surveyResponses.length} (status=completed; surveys del piloto: ${(pilotSurveys || []).length})`);
 
   // 7) Detalle de respuestas (si existe la tabla larga)
   let answersDetailed = [];

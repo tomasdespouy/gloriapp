@@ -223,8 +223,9 @@ function anonOf(userId) {
 const edadByUserId = new Map();
 const carreraByUserId = new Map();
 function buildSurveyIndexes() {
-  for (const r of data.surveyResponses || []) {
-    if (r.status !== "completed" || !r.answers) continue;
+  // Solo v2 — q3_edad y q1_carrera no existen en v1. Llamar después de
+  // buildV2Responses() en main().
+  for (const r of v2Responses) {
     if (typeof r.answers.q3_edad === "number") edadByUserId.set(r.user_id, r.answers.q3_edad);
     if (typeof r.answers.q1_carrera === "string" && r.answers.q1_carrera.trim()) {
       carreraByUserId.set(r.user_id, r.answers.q1_carrera.trim());
@@ -257,9 +258,10 @@ function statsForCohort(cohort) {
       totalMin += minutesBetween(c.metrics.first, c.metrics.last);
     }
   }
-  const responses = (data.surveyResponses || []).filter(
-    (r) => userIds.has(r.user_id) && r.status === "completed",
-  );
+  // Solo encuestas v2 — buildV2Responses() debe haberse llamado antes
+  // (el extractor trae responses crudas mezcladas v1+v2; aquí contamos
+  // las que efectivamente usaremos en el resto del informe).
+  const responses = v2Responses.filter((r) => userIds.has(r.user_id));
   return {
     invitados: parts.length,
     conectados: parts.filter((p) => p.first_login_at || p.user_id).length,
@@ -299,48 +301,106 @@ function perParticipantMetrics(userId) {
 }
 
 // ─────────────────────────────────────────
-// Encuesta: agregaciones
+// Encuesta: schema-driven
 // ─────────────────────────────────────────
-const LIKERT_DEFS = {
-  q7_usabilidad:    { label: "Usabilidad",    subkeys: ["dialogo", "general", "registro", "navegacion", "inicio_sesion"] },
-  q8_realismo:      { label: "Realismo",      subkeys: ["emocional", "respuestas", "comprension", "sesion_real", "personalidad"] },
-  q9_pertinencia:   { label: "Pertinencia",   subkeys: ["lenguaje", "tematica", "estereotipos", "experiencias", "sensibilidad"] },
-  q10_diseno:       { label: "Diseño",        subkeys: ["visual", "fluidez", "adaptacion", "informacion", "interactivos"] },
-  q11_satisfaccion: { label: "Satisfacción",  subkeys: ["recomendar", "volver_usar", "satisfaccion", "tiempo_valio", "incorporacion"] },
+//
+// Schema v2_pilot replicado tal cual de src/lib/survey-schema.ts. El
+// generador es un script Node CommonJS y no quiero acoplarlo al
+// runtime TS — si el lib cambia (ej. v3), basta actualizar acá la
+// constante. El supradmin lo dashboard usa la version TS via
+// /api/admin/pilots/[id]/survey-responses?format=json y aplica el mismo
+// schema que aca, por lo que los promedios deben coincidir 1:1.
+const SURVEY_SCHEMA_V2_PILOT = {
+  formVersion: "v2_pilot",
+  shortLabel: "v2",
+  likertGroups: [
+    {
+      answersKey: "q7_usabilidad",
+      title: "Usabilidad y navegación",
+      number: 1,
+      items: [
+        { key: "registro", label: "El proceso de registro e inicio de sesión fue sencillo." },
+        { key: "navegacion", label: "La plataforma es fácil de navegar." },
+        { key: "inicio_sesion", label: "Iniciar una sesión de chat fue intuitivo." },
+        { key: "dialogo", label: "Mantener la conversación con el paciente simulado fue simple." },
+        { key: "general", label: "En general, Glor-IA es fácil de usar." },
+      ],
+    },
+    {
+      answersKey: "q8_realismo",
+      title: "Realismo clínico",
+      number: 2,
+      items: [
+        { key: "respuestas", label: "Las respuestas del paciente simulado se sintieron realistas." },
+        { key: "personalidad", label: "La personalidad y motivo de consulta fueron creíbles." },
+        { key: "comprension", label: "El paciente virtual entendió y respondió adecuadamente." },
+        { key: "sesion_real", label: "Me generó una sensación similar a una sesión clínica real." },
+        { key: "emocional", label: "Las reacciones emocionales fueron consistentes con su historia." },
+      ],
+    },
+    {
+      answersKey: "q9_pertinencia",
+      title: "Pertinencia cultural y contextual",
+      number: 3,
+      items: [
+        { key: "lenguaje", label: "El lenguaje es pertinente a mi contexto cultural." },
+        { key: "experiencias", label: "Las experiencias son coherentes con mi realidad local." },
+        { key: "tematica", label: "La temática es pertinente a las problemáticas de salud mental locales." },
+        { key: "estereotipos", label: "La interacción evita estereotipos ofensivos." },
+        { key: "sensibilidad", label: "Glor-IA es sensible a las particularidades del contexto." },
+      ],
+    },
+    {
+      answersKey: "q10_diseno",
+      title: "Diseño, interfaz y funcionamiento técnico",
+      number: 4,
+      items: [
+        { key: "visual", label: "El diseño visual es agradable y coherente." },
+        { key: "informacion", label: "La información en pantalla está bien organizada." },
+        { key: "fluidez", label: "La plataforma funcionó de manera fluida (sin caídas)." },
+        { key: "interactivos", label: "Los elementos interactivos son claros y fáciles de identificar." },
+        { key: "adaptacion", label: "La plataforma se adaptó correctamente al dispositivo." },
+      ],
+    },
+    {
+      answersKey: "q11_satisfaccion",
+      title: "Satisfacción global e intención de uso futuro",
+      number: 5,
+      items: [
+        { key: "satisfaccion", label: "Estoy satisfecho/a con mi experiencia general." },
+        { key: "volver_usar", label: "Me gustaría volver a usar Glor-IA." },
+        { key: "recomendar", label: "Recomendaría Glor-IA a otros estudiantes." },
+        { key: "incorporacion", label: "Sería valioso incorporarlo formalmente en la formación clínica." },
+        { key: "tiempo_valio", label: "El tiempo dedicado valió la pena para mi aprendizaje." },
+      ],
+    },
+  ],
 };
 
-const SUBKEY_LABELS = {
-  // q7_usabilidad
-  dialogo: "Diálogo natural",
-  general: "Experiencia general",
-  registro: "Registro/inscripción",
-  navegacion: "Navegación",
-  inicio_sesion: "Inicio de sesión",
-  // q8_realismo
-  emocional: "Conexión emocional",
-  respuestas: "Calidad de respuestas",
-  comprension: "Comprensión del relato",
-  sesion_real: "Similitud a sesión real",
-  personalidad: "Personalidad del paciente",
-  // q9_pertinencia
-  lenguaje: "Lenguaje culturalmente adecuado",
-  tematica: "Pertinencia temática",
-  estereotipos: "Sin estereotipos",
-  experiencias: "Experiencias representativas",
-  sensibilidad: "Sensibilidad cultural",
-  // q10_diseno
-  visual: "Estética visual",
-  fluidez: "Fluidez de uso",
-  adaptacion: "Adaptación a dispositivos",
-  informacion: "Claridad de información",
-  interactivos: "Elementos interactivos",
-  // q11_satisfaccion
-  recomendar: "Recomendaría a colegas",
-  volver_usar: "Volvería a usar",
-  satisfaccion: "Satisfacción global",
-  tiempo_valio: "El tiempo valió la pena",
-  incorporacion: "Incorporación a malla curricular",
-};
+// Detecta si un response usa el schema v2_pilot. Preferimos el campo
+// explícito form_version dentro de answers (que el SurveyModal escribe
+// junto con las respuestas); si no está, fallback a detección por
+// shape. Imprescindible cuando el pilot tuvo surveys mixtas v1+v2 — en
+// UCSP las primeras responses pueden ser v1 (antes del merge del 22
+// abril) y las posteriores v2_pilot.
+function isV2Response(r) {
+  if (!r || r.status !== "completed" || !r.answers) return false;
+  if (r.answers.form_version === "v2_pilot") return true;
+  // Fallback: presencia de algun grupo Likert v2.
+  for (const g of SURVEY_SCHEMA_V2_PILOT.likertGroups) {
+    if (typeof r.answers[g.answersKey] === "object" && r.answers[g.answersKey] !== null) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Computado una sola vez por main(). El extractor trae todas las
+// responses; aquí filtramos a las que matchean v2_pilot.
+let v2Responses = [];
+function buildV2Responses() {
+  v2Responses = (data.surveyResponses || []).filter(isV2Response);
+}
 
 function avgOf(arr) {
   const xs = arr.filter((v) => typeof v === "number");
@@ -348,37 +408,71 @@ function avgOf(arr) {
   return xs.reduce((a, b) => a + b, 0) / xs.length;
 }
 
+// Redondeo a 1 decimal para mostrar en charts/tablas.
+function round1(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v !== "number") return null;
+  return Math.round(v * 10) / 10;
+}
+
+// % de respuestas en zona alta (4 o 5) — "top-2-box" en jerga de
+// encuestas Likert. Es la metrica que el supradmin tambien muestra.
+function pctTopOf(arr) {
+  const xs = arr.filter((v) => typeof v === "number");
+  if (xs.length === 0) return null;
+  return Math.round((xs.filter((v) => v >= 4).length / xs.length) * 100);
+}
+
 function likertAvgsByCohort() {
-  // Devuelve { cohort: { qKey: { sub: avg, _overall: avg } } }
+  // Devuelve { cohort: { answersKey: { [itemKey]: {avg, pctTop, n}, _overall: {...} } } }
   const result = { 1: {}, 2: {} };
   for (const cohort of [1, 2]) {
-    const responses = (data.surveyResponses || []).filter(
-      (r) => r.cohort === cohort && r.status === "completed",
-    );
-    for (const [qKey, def] of Object.entries(LIKERT_DEFS)) {
-      const subAvgs = {};
+    const responses = v2Responses.filter((r) => r.cohort === cohort);
+    for (const group of SURVEY_SCHEMA_V2_PILOT.likertGroups) {
+      const groupResult = {};
       const overallSamples = [];
-      for (const sub of def.subkeys) {
+      for (const item of group.items) {
         const vals = responses
-          .map((r) => r.answers?.[qKey]?.[sub])
+          .map((r) => r.answers?.[group.answersKey]?.[item.key])
           .filter((v) => typeof v === "number");
-        const avg = avgOf(vals);
-        subAvgs[sub] = avg;
-        if (avg !== null) overallSamples.push(...vals);
+        groupResult[item.key] = {
+          avg: avgOf(vals),
+          pctTop: pctTopOf(vals),
+          n: vals.length,
+        };
+        overallSamples.push(...vals);
       }
-      subAvgs._overall = avgOf(overallSamples);
-      result[cohort][qKey] = subAvgs;
+      groupResult._overall = {
+        avg: avgOf(overallSamples),
+        pctTop: pctTopOf(overallSamples),
+        n: overallSamples.length,
+      };
+      result[cohort][group.answersKey] = groupResult;
     }
   }
   return result;
 }
 
+// % consolidado (suma de cohortes) por dimension grande — para los
+// titulos de los charts en la seccion 2.
+function consolidatedPctByDim() {
+  const result = {};
+  for (const group of SURVEY_SCHEMA_V2_PILOT.likertGroups) {
+    const allVals = v2Responses.flatMap((r) =>
+      group.items
+        .map((item) => r.answers?.[group.answersKey]?.[item.key])
+        .filter((v) => typeof v === "number"),
+    );
+    result[group.answersKey] = pctTopOf(allVals);
+  }
+  return result;
+}
+
 function rolGeneroByCohort() {
-  // Para los pies: consolidados (suma de las dos cohortes).
+  // Pies consolidados de v2_pilot (suma de las dos cohortes).
   const rol = {};
   const genero = {};
-  for (const r of data.surveyResponses || []) {
-    if (r.status !== "completed") continue;
+  for (const r of v2Responses) {
     const a = r.answers || {};
     if (a.q4_rol) rol[a.q4_rol] = (rol[a.q4_rol] || 0) + 1;
     if (a.q2_genero) genero[a.q2_genero] = (genero[a.q2_genero] || 0) + 1;
@@ -391,17 +485,26 @@ function rolGeneroByCohort() {
 // ─────────────────────────────────────────
 const POSITIVE_ONLY_RE = /\b(est[aá] perfect[oa]|me encant[oó]|fue genial|muy real|est[aá] excelente|super bueno|nada[,.]?\s*est[aá])\b/i;
 
+// Devuelve etiqueta despersonalizada para testimonios y ejemplos
+// clinicos: "Estudiante, 23 años (Cohorte 1)". Sin numero (no
+// queremos identificar al estudiante por orden alfabetico).
+function despersonalizedLabel({ userId, cohort }) {
+  const edad = edadOf(userId);
+  return edad !== null
+    ? `Estudiante, ${edad} años (Cohorte ${cohort})`
+    : `Estudiante (Cohorte ${cohort})`;
+}
+
 function pickTestimonios() {
   const positivas = [];
   const mejoras = [];
-  for (const r of data.surveyResponses || []) {
-    if (r.status !== "completed" || !r.answers) continue;
-    const anon = anonOf(r.user_id);
+  for (const r of v2Responses) {
     const cohort = r.cohort;
+    const label = despersonalizedLabel({ userId: r.user_id, cohort });
 
     const pos = (r.answers.q12_mas_gusto || "").trim();
     if (pos && pos.split(/\s+/).length >= 5) {
-      positivas.push({ text: pos, anon, cohort });
+      positivas.push({ text: pos, label, cohort });
     }
     // Para mejoras: q13_menos_gusto principal, fallback q14_cambio.
     let mej = (r.answers.q13_menos_gusto || "").trim();
@@ -409,7 +512,7 @@ function pickTestimonios() {
       mej = (r.answers.q14_cambio || "").trim();
     }
     if (mej && mej.split(/\s+/).length >= 5 && !POSITIVE_ONLY_RE.test(mej)) {
-      mejoras.push({ text: mej, anon, cohort });
+      mejoras.push({ text: mej, label, cohort });
     }
   }
   // Top 3 mas largos.
@@ -491,16 +594,13 @@ function pickCompetencyExamples(key, count = 2) {
     .filter((x) => typeof x.score === "number" && x.evidence?.quote && x.evidence.quote.trim().length > 0);
   if (rows.length === 0) return { solido: [], mejora: [] };
 
-  const hydrate = (x) => {
-    const anon = anonOf(x.row.student_id);
-    return {
-      label: anon.labelWithCohort,
-      score: x.score,
-      cohort: x.cohort,
-      quote: x.evidence.quote.trim(),
-      observation: x.evidence.observation || "",
-    };
-  };
+  const hydrate = (x) => ({
+    label: despersonalizedLabel({ userId: x.row.student_id, cohort: x.cohort }),
+    score: x.score,
+    cohort: x.cohort,
+    quote: x.evidence.quote.trim(),
+    observation: x.evidence.observation || "",
+  });
 
   const high = [...rows].sort((a, b) => b.score - a.score);
   const low = [...rows].sort((a, b) => a.score - b.score);
@@ -541,14 +641,15 @@ function buildSection1() {
   const c1 = statsForCohort(1);
   const c2 = statsForCohort(2);
 
-  // Cuadro consolidado
+  // Cuadro consolidado (mensajes omitidos por inconsistencias en data
+  // y porque el conteo crudo no aporta a la lectura clinica).
   out.push(p("Resumen consolidado (ambas cohortes):", { run: { bold: true } }));
   out.push(new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     rows: [
       [["Invitados (total)", all.invitados], ["Conectados", all.conectados]],
       [["Encuestas respondidas", all.encuestas], ["Sesiones completadas", all.sesionesCompletadas]],
-      [["Mensajes intercambiados", all.mensajes], ["Minutos totales", all.minutos]],
+      [["Minutos totales", all.minutos], ["", ""]],
     ].map((row) => new TableRow({
       children: row.flatMap(([k, v]) => [
         cell(k, { width: { size: 30, type: WidthType.PERCENTAGE } }),
@@ -557,6 +658,19 @@ function buildSection1() {
     })),
   }));
   out.push(p(""));
+
+  // Edad promedio y composicion de rol por cohorte (de v2_pilot).
+  const demoStats = (cohort) => {
+    const responses = v2Responses.filter((r) => r.cohort === cohort);
+    const edades = responses.map((r) => r.answers?.q3_edad).filter((v) => typeof v === "number");
+    const roles = responses.map((r) => r.answers?.q4_rol).filter(Boolean);
+    const avgEdad = edades.length ? round1(avgOf(edades)) : null;
+    const estudiantes = roles.filter((r) => r === "estudiante").length;
+    const docentes = roles.filter((r) => r === "docente" || r === "instructor").length;
+    return { avgEdad, estudiantes, docentes };
+  };
+  const d1 = demoStats(1);
+  const d2 = demoStats(2);
 
   // Cuadro comparativo lado a lado
   out.push(p("Comparativo entre cohortes:", { run: { bold: true } }));
@@ -576,8 +690,9 @@ function buildSection1() {
         ["Conectados", c1.conectados, c2.conectados],
         ["Encuestas respondidas", c1.encuestas, c2.encuestas],
         ["Sesiones completadas", c1.sesionesCompletadas, c2.sesionesCompletadas],
-        ["Mensajes", c1.mensajes, c2.mensajes],
         ["Minutos totales", c1.minutos, c2.minutos],
+        ["Edad promedio", d1.avgEdad !== null ? `${d1.avgEdad} años` : "—", d2.avgEdad !== null ? `${d2.avgEdad} años` : "—"],
+        ["Estudiantes / Docentes", `${d1.estudiantes} / ${d1.docentes}`, `${d2.estudiantes} / ${d2.docentes}`],
       ].map((row) => new TableRow({
         children: [
           cell(row[0]),
@@ -597,31 +712,30 @@ function buildSection1() {
       return (a.full_name || "").localeCompare(b.full_name || "", "es");
     });
 
-  out.push(p("Tabla de participantes (anonimizados):", { run: { bold: true } }));
-  out.push(small("Numeración por cohorte. Edad reportada en encuesta de cierre — quienes no la completaron quedan con \"—\"."));
+  out.push(p("Tabla de participantes:", { run: { bold: true } }));
+  out.push(small("Edad reportada en encuesta de cierre — quienes no la completaron quedan con \"—\". Esta es la única sección con nombres reales; testimonios y ejemplos clínicos van anonimizados."));
   out.push(new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     rows: [
       new TableRow({
         children: [
           headerCell("#", { align: AlignmentType.CENTER, width: { size: 5, type: WidthType.PERCENTAGE } }),
-          headerCell("Estudiante", { width: { size: 22, type: WidthType.PERCENTAGE } }),
-          headerCell("Cohorte", { align: AlignmentType.CENTER, width: { size: 11, type: WidthType.PERCENTAGE } }),
-          headerCell("Edad", { align: AlignmentType.CENTER, width: { size: 10, type: WidthType.PERCENTAGE } }),
-          headerCell("Sesiones", { align: AlignmentType.CENTER, width: { size: 12, type: WidthType.PERCENTAGE } }),
-          headerCell("Minutos", { align: AlignmentType.CENTER, width: { size: 12, type: WidthType.PERCENTAGE } }),
+          headerCell("Nombre", { width: { size: 28, type: WidthType.PERCENTAGE } }),
+          headerCell("Cohorte", { align: AlignmentType.CENTER, width: { size: 10, type: WidthType.PERCENTAGE } }),
+          headerCell("Edad", { align: AlignmentType.CENTER, width: { size: 8, type: WidthType.PERCENTAGE } }),
+          headerCell("Sesiones", { align: AlignmentType.CENTER, width: { size: 11, type: WidthType.PERCENTAGE } }),
+          headerCell("Minutos", { align: AlignmentType.CENTER, width: { size: 10, type: WidthType.PERCENTAGE } }),
           headerCell("Último acceso", { align: AlignmentType.CENTER, width: { size: 28, type: WidthType.PERCENTAGE } }),
         ],
       }),
-      ...participantsSorted.map((p, i) => {
-        const m = perParticipantMetrics(p.user_id);
-        const anon = anonOf(p.user_id);
-        const edad = edadOf(p.user_id);
+      ...participantsSorted.map((part, i) => {
+        const m = perParticipantMetrics(part.user_id);
+        const edad = edadOf(part.user_id);
         return new TableRow({
           children: [
             cell(String(i + 1), { align: AlignmentType.CENTER }),
-            cell(anon.label),
-            cell(String(p.cohort), { align: AlignmentType.CENTER }),
+            cell(part.full_name || "(sin nombre)"),
+            cell(String(part.cohort), { align: AlignmentType.CENTER }),
             cell(edad !== null ? String(edad) : "—", { align: AlignmentType.CENTER }),
             cell(String(m.sesiones), { align: AlignmentType.CENTER }),
             cell(String(m.minutos), { align: AlignmentType.CENTER }),
@@ -639,7 +753,7 @@ async function buildSection2() {
   const out = [];
   out.push(pageBreak());
   out.push(heading("2. Evaluación cuantitativa de la encuesta"));
-  out.push(small(`Encuestas completadas: ${(data.surveyResponses || []).filter((r) => r.status === "completed").length} de ${data.participants.length} participantes.`));
+  out.push(small(`Encuestas completadas (v2_pilot): ${v2Responses.length} de ${data.participants.length} participantes.`));
 
   // Pies (consolidados)
   const { rol, genero } = rolGeneroByCohort();
@@ -670,12 +784,17 @@ async function buildSection2() {
     })],
   }));
 
-  // Bar dual cohorte: 5 grandes Likert
+  // Bar dual cohorte: 5 grandes Likert. Cada categoria muestra el %
+  // consolidado (suma de ambas cohortes) de respuestas en zona alta.
   out.push(p("Likert por dimensión, comparado entre cohortes:", { run: { bold: true } }));
   const likerts = likertAvgsByCohort();
-  const cats = Object.entries(LIKERT_DEFS).map(([qKey, def]) => def.label);
-  const c1Vals = Object.entries(LIKERT_DEFS).map(([qKey]) => likerts[1][qKey]?._overall ?? 0);
-  const c2Vals = Object.entries(LIKERT_DEFS).map(([qKey]) => likerts[2][qKey]?._overall ?? 0);
+  const pctsConsolidados = consolidatedPctByDim();
+  const cats = SURVEY_SCHEMA_V2_PILOT.likertGroups.map((g) => {
+    const pct = pctsConsolidados[g.answersKey];
+    return pct !== null ? `${g.title} (${pct}%)` : g.title;
+  });
+  const c1Vals = SURVEY_SCHEMA_V2_PILOT.likertGroups.map((g) => round1(likerts[1][g.answersKey]?._overall?.avg) ?? 0);
+  const c2Vals = SURVEY_SCHEMA_V2_PILOT.likertGroups.map((g) => round1(likerts[2][g.answersKey]?._overall?.avg) ?? 0);
   out.push(new Paragraph({
     alignment: AlignmentType.CENTER,
     children: [await barChartDualSurvey({
@@ -686,11 +805,12 @@ async function buildSection2() {
       xMin: 1, xMax: 5,
     })],
   }));
+  out.push(small("El porcentaje entre paréntesis representa la proporción consolidada (ambas cohortes) de respuestas en categorías 4 (de acuerdo) o 5 (muy de acuerdo) sobre el total de respuestas válidas en esa dimensión."));
 
   // Tabla detallada de las 25 sub-dimensiones
   out.push(pageBreak());
   out.push(heading("Detalle por sub-dimensión", HeadingLevel.HEADING_2));
-  out.push(small("Avg cohorte 1 / cohorte 2 / diferencia (positiva = mejor en cohorte 2)."));
+  out.push(small("Cada celda muestra el promedio (1–5) y entre paréntesis el porcentaje de respuestas en zona alta (4 o 5). Δ es la diferencia C2−C1: positiva = mejora en cohorte 2."));
 
   const detailRows = [
     new TableRow({
@@ -703,23 +823,28 @@ async function buildSection2() {
       ],
     }),
   ];
-  for (const [qKey, def] of Object.entries(LIKERT_DEFS)) {
-    def.subkeys.forEach((sub, i) => {
-      const a1 = likerts[1][qKey]?.[sub];
-      const a2 = likerts[2][qKey]?.[sub];
+  for (const group of SURVEY_SCHEMA_V2_PILOT.likertGroups) {
+    group.items.forEach((item, i) => {
+      const s1 = likerts[1][group.answersKey]?.[item.key];
+      const s2 = likerts[2][group.answersKey]?.[item.key];
+      const a1 = s1?.avg ?? null;
+      const a2 = s2?.avg ?? null;
       const delta = (typeof a1 === "number" && typeof a2 === "number") ? (a2 - a1) : null;
-      const fmt = (v) => v === null || v === undefined ? "—" : v.toFixed(2);
+      const fmtAvgPct = (s) => {
+        if (!s || s.avg === null) return "—";
+        return `${s.avg.toFixed(1)} (${s.pctTop !== null ? s.pctTop : "—"}%)`;
+      };
       const fmtDelta = (v) => {
         if (v === null) return "—";
         const sign = v > 0 ? "+" : "";
-        return `${sign}${v.toFixed(2)}`;
+        return `${sign}${v.toFixed(1)}`;
       };
       detailRows.push(new TableRow({
         children: [
-          cell(i === 0 ? def.label : "", { italics: true }),
-          cell(SUBKEY_LABELS[sub] || sub),
-          cell(fmt(a1), { align: AlignmentType.CENTER }),
-          cell(fmt(a2), { align: AlignmentType.CENTER }),
+          cell(i === 0 ? group.title : "", { italics: true }),
+          cell(item.label),
+          cell(fmtAvgPct(s1), { align: AlignmentType.CENTER }),
+          cell(fmtAvgPct(s2), { align: AlignmentType.CENTER }),
           cell(fmtDelta(delta), {
             align: AlignmentType.CENTER,
             bold: true,
@@ -745,13 +870,13 @@ function buildSection3() {
   out.push(heading("Lo que más gustó", HeadingLevel.HEADING_2));
   for (const it of t.positivas) {
     out.push(quoteBlock(it.text));
-    out.push(small(`— ${it.anon.labelWithCohort}`, "4A55A2"));
+    out.push(small(`— ${it.label}`, "4A55A2"));
   }
 
   out.push(heading("Lo que mejoraría", HeadingLevel.HEADING_2));
   for (const it of t.mejoras) {
     out.push(quoteBlock(it.text));
-    out.push(small(`— ${it.anon.labelWithCohort}`, "B45309"));
+    out.push(small(`— ${it.label}`, "B45309"));
   }
 
   return out;
@@ -767,8 +892,8 @@ async function buildSection4() {
   const avgs = competencyAvgsByCohort();
   const keys = Object.keys(COMPETENCY_DEFS);
   const cats = keys.map((k) => COMPETENCY_DEFS[k].label);
-  const c1 = keys.map((k) => avgs[1][k]?.avg ?? 0);
-  const c2 = keys.map((k) => avgs[2][k]?.avg ?? 0);
+  const c1 = keys.map((k) => round1(avgs[1][k]?.avg) ?? 0);
+  const c2 = keys.map((k) => round1(avgs[2][k]?.avg) ?? 0);
 
   out.push(p(`N evaluaciones — Cohorte 1: ${(data.sessionCompetencies || []).filter((r) => r.cohort === 1).length} · Cohorte 2: ${(data.sessionCompetencies || []).filter((r) => r.cohort === 2).length}`));
   out.push(new Paragraph({
@@ -827,7 +952,7 @@ async function buildSection4() {
           return new TableRow({
             children: [
               cell(`Cohorte ${c}`, { bold: true }),
-              cell(x.avg !== null ? x.avg.toFixed(2) : "—", { align: AlignmentType.CENTER }),
+              cell(x.avg !== null ? x.avg.toFixed(1) : "—", { align: AlignmentType.CENTER }),
               cell(`${x.pctTop}%`, { align: AlignmentType.CENTER }),
               cell(x.max !== null ? String(x.max) : "—", { align: AlignmentType.CENTER }),
               cell(x.min !== null ? String(x.min) : "—", { align: AlignmentType.CENTER }),
@@ -866,105 +991,165 @@ function buildSection5() {
   const out = [];
   out.push(pageBreak());
   out.push(heading("5. Comparación entre cohortes"));
-  out.push(small("Diferencias destacadas entre la primera y segunda cohorte. Lecciones operativas (qué cambió en la plataforma, en el setup logístico o en los pacientes disponibles) deben agregarse manualmente al final."));
+  out.push(small("Diferencias entre la primera y segunda cohorte en encuesta y competencias clínicas. Lecciones operativas (qué cambió en la plataforma, en el setup logístico o en los pacientes disponibles) deben agregarse manualmente al final."));
 
-  // Diffs en encuesta: ítems con |Δ| > 0.5
   const likerts = likertAvgsByCohort();
-  const survDiffs = [];
-  for (const [qKey, def] of Object.entries(LIKERT_DEFS)) {
-    for (const sub of def.subkeys) {
-      const a1 = likerts[1][qKey]?.[sub];
-      const a2 = likerts[2][qKey]?.[sub];
-      if (typeof a1 === "number" && typeof a2 === "number") {
-        const delta = a2 - a1;
-        if (Math.abs(delta) >= 0.5) {
-          survDiffs.push({ dim: def.label, sub: SUBKEY_LABELS[sub] || sub, a1, a2, delta });
-        }
+  const fmtAvg = (s) => (!s || s.avg === null) ? "—" : `${s.avg.toFixed(1)}${s.pctTop !== null ? ` (${s.pctTop}%)` : ""}`;
+  const fmtDelta = (v) => v === null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}`;
+  const colorOfDelta = (v, threshold) => v === null ? undefined :
+    v > threshold ? "059669" : v < -threshold ? "B91C1C" : undefined;
+
+  // ── 5.1 — Resumen de las 5 dimensiones globales ─────────────────────
+  out.push(heading("Encuesta — resumen por dimensión global", HeadingLevel.HEADING_2));
+  out.push(small("Promedio agregado de cada dimensión (suma de sus 5 sub-ítems) por cohorte. Entre paréntesis, % de respuestas en zona alta (4 o 5)."));
+
+  out.push(new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({
+        children: [
+          headerCell("Dimensión", { width: { size: 50, type: WidthType.PERCENTAGE } }),
+          headerCell("Cohorte 1", { align: AlignmentType.CENTER, width: { size: 18, type: WidthType.PERCENTAGE } }),
+          headerCell("Cohorte 2", { align: AlignmentType.CENTER, width: { size: 18, type: WidthType.PERCENTAGE } }),
+          headerCell("Δ promedio", { align: AlignmentType.CENTER, width: { size: 14, type: WidthType.PERCENTAGE } }),
+        ],
+      }),
+      ...SURVEY_SCHEMA_V2_PILOT.likertGroups.map((g) => {
+        const s1 = likerts[1][g.answersKey]?._overall;
+        const s2 = likerts[2][g.answersKey]?._overall;
+        const delta = (s1?.avg !== null && s2?.avg !== null && typeof s1?.avg === "number" && typeof s2?.avg === "number")
+          ? s2.avg - s1.avg : null;
+        return new TableRow({
+          children: [
+            cell(g.title),
+            cell(fmtAvg(s1), { align: AlignmentType.CENTER }),
+            cell(fmtAvg(s2), { align: AlignmentType.CENTER }),
+            cell(fmtDelta(delta), {
+              align: AlignmentType.CENTER, bold: true,
+              color: colorOfDelta(delta, 0.2),
+            }),
+          ],
+        });
+      }),
+    ],
+  }));
+  out.push(p(""));
+
+  // ── 5.2 — Top mejoras y top retrocesos en sub-dimensiones ───────────
+  const subDiffs = [];
+  for (const group of SURVEY_SCHEMA_V2_PILOT.likertGroups) {
+    for (const item of group.items) {
+      const s1 = likerts[1][group.answersKey]?.[item.key];
+      const s2 = likerts[2][group.answersKey]?.[item.key];
+      if (s1?.avg !== null && s2?.avg !== null && typeof s1?.avg === "number" && typeof s2?.avg === "number") {
+        subDiffs.push({
+          dim: group.title, sub: item.label,
+          a1: s1.avg, a2: s2.avg, delta: s2.avg - s1.avg,
+          pct1: s1.pctTop, pct2: s2.pctTop,
+        });
       }
     }
   }
-  survDiffs.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  const topMejoras = [...subDiffs].sort((a, b) => b.delta - a.delta).slice(0, 3);
+  const topRetrocesos = [...subDiffs].sort((a, b) => a.delta - b.delta).slice(0, 3);
 
-  out.push(heading("Encuesta — sub-dimensiones con diferencia ≥ 0,5", HeadingLevel.HEADING_2));
-  if (survDiffs.length === 0) {
-    out.push(p("No hubo diferencias mayores a 0,5 puntos entre cohortes en ninguna sub-dimensión: la percepción fue muy consistente."));
+  const renderSubDiffTable = (rows) => new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({
+        children: [
+          headerCell("Dimensión"),
+          headerCell("Sub-dimensión"),
+          headerCell("Cohorte 1", { align: AlignmentType.CENTER }),
+          headerCell("Cohorte 2", { align: AlignmentType.CENTER }),
+          headerCell("Δ", { align: AlignmentType.CENTER }),
+        ],
+      }),
+      ...rows.map((d) => new TableRow({
+        children: [
+          cell(d.dim, { italics: true }),
+          cell(d.sub),
+          cell(`${d.a1.toFixed(1)}${d.pct1 !== null ? ` (${d.pct1}%)` : ""}`, { align: AlignmentType.CENTER }),
+          cell(`${d.a2.toFixed(1)}${d.pct2 !== null ? ` (${d.pct2}%)` : ""}`, { align: AlignmentType.CENTER }),
+          cell(fmtDelta(d.delta), {
+            align: AlignmentType.CENTER, bold: true,
+            color: colorOfDelta(d.delta, 0),
+          }),
+        ],
+      })),
+    ],
+  });
+
+  out.push(heading("Top 3 mejoras (cohorte 2 vs cohorte 1)", HeadingLevel.HEADING_2));
+  if (topMejoras.length === 0 || topMejoras[0].delta <= 0) {
+    out.push(p("La cohorte 2 no mostró mejoras significativas en ninguna sub-dimensión."));
   } else {
-    out.push(new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      rows: [
-        new TableRow({
-          children: [
-            headerCell("Dimensión"),
-            headerCell("Sub-dimensión"),
-            headerCell("Cohorte 1", { align: AlignmentType.CENTER }),
-            headerCell("Cohorte 2", { align: AlignmentType.CENTER }),
-            headerCell("Δ", { align: AlignmentType.CENTER }),
-          ],
-        }),
-        ...survDiffs.map((d) => new TableRow({
-          children: [
-            cell(d.dim, { italics: true }),
-            cell(d.sub),
-            cell(d.a1.toFixed(2), { align: AlignmentType.CENTER }),
-            cell(d.a2.toFixed(2), { align: AlignmentType.CENTER }),
-            cell((d.delta > 0 ? "+" : "") + d.delta.toFixed(2), {
-              align: AlignmentType.CENTER, bold: true,
-              color: d.delta > 0 ? "059669" : "B91C1C",
-            }),
-          ],
-        })),
-      ],
-    }));
+    out.push(renderSubDiffTable(topMejoras.filter((d) => d.delta > 0)));
   }
   out.push(p(""));
 
-  // Diffs en competencias: |Δ| > 0.3
+  out.push(heading("Top 3 retrocesos (cohorte 2 vs cohorte 1)", HeadingLevel.HEADING_2));
+  if (topRetrocesos.length === 0 || topRetrocesos[0].delta >= 0) {
+    out.push(p("La cohorte 2 no mostró retrocesos significativos en ninguna sub-dimensión."));
+  } else {
+    out.push(renderSubDiffTable(topRetrocesos.filter((d) => d.delta < 0)));
+  }
+  out.push(p(""));
+
+  // ── 5.3 — Sub-dimensiones con diferencias notables (|Δ| ≥ 0.5) ──────
+  const survDiffs = subDiffs
+    .filter((d) => Math.abs(d.delta) >= 0.5)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+  out.push(heading("Otras sub-dimensiones con diferencia notable (|Δ| ≥ 0,5)", HeadingLevel.HEADING_2));
+  // Excluir las que ya estan en top3 (mejoras o retrocesos) para no duplicar.
+  const taken = new Set([...topMejoras, ...topRetrocesos].map((d) => `${d.dim}|${d.sub}`));
+  const remainingNotable = survDiffs.filter((d) => !taken.has(`${d.dim}|${d.sub}`));
+  if (remainingNotable.length === 0) {
+    out.push(p("Las demás sub-dimensiones se mantuvieron consistentes entre cohortes (|Δ| < 0,5)."));
+  } else {
+    out.push(renderSubDiffTable(remainingNotable));
+  }
+  out.push(p(""));
+
+  // ── 5.4 — Competencias clinicas: comparativo completo ───────────────
   const compAvgs = competencyAvgsByCohort();
-  const compDiffs = [];
-  for (const k of Object.keys(COMPETENCY_DEFS)) {
+  const compRows = Object.keys(COMPETENCY_DEFS).map((k) => {
     const a1 = compAvgs[1][k]?.avg;
     const a2 = compAvgs[2][k]?.avg;
-    if (typeof a1 === "number" && typeof a2 === "number") {
-      const delta = a2 - a1;
-      if (Math.abs(delta) >= 0.3) {
-        compDiffs.push({ comp: COMPETENCY_DEFS[k].label, a1, a2, delta });
-      }
-    }
-  }
-  compDiffs.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+    const delta = (typeof a1 === "number" && typeof a2 === "number") ? (a2 - a1) : null;
+    return { comp: COMPETENCY_DEFS[k].label, a1, a2, delta, pct1: compAvgs[1][k]?.pctTop, pct2: compAvgs[2][k]?.pctTop };
+  });
 
-  out.push(heading("Competencias — diferencias ≥ 0,3", HeadingLevel.HEADING_2));
-  if (compDiffs.length === 0) {
-    out.push(p("Las competencias fueron muy consistentes entre cohortes (sin diferencias ≥ 0,3 puntos)."));
-  } else {
-    out.push(new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      rows: [
-        new TableRow({
-          children: [
-            headerCell("Competencia"),
-            headerCell("Cohorte 1", { align: AlignmentType.CENTER }),
-            headerCell("Cohorte 2", { align: AlignmentType.CENTER }),
-            headerCell("Δ", { align: AlignmentType.CENTER }),
-          ],
-        }),
-        ...compDiffs.map((d) => new TableRow({
-          children: [
-            cell(d.comp),
-            cell(d.a1.toFixed(2), { align: AlignmentType.CENTER }),
-            cell(d.a2.toFixed(2), { align: AlignmentType.CENTER }),
-            cell((d.delta > 0 ? "+" : "") + d.delta.toFixed(2), {
-              align: AlignmentType.CENTER, bold: true,
-              color: d.delta > 0 ? "059669" : "B91C1C",
-            }),
-          ],
-        })),
-      ],
-    }));
-  }
+  out.push(heading("Competencias clínicas — comparativo completo", HeadingLevel.HEADING_2));
+  out.push(small("Promedio (0–5) y % en zona alta (4–5) por cohorte. Δ destacado en verde (mejora) o rojo (retroceso) cuando |Δ| ≥ 0,3."));
+  out.push(new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({
+        children: [
+          headerCell("Competencia", { width: { size: 40, type: WidthType.PERCENTAGE } }),
+          headerCell("Cohorte 1", { align: AlignmentType.CENTER, width: { size: 22, type: WidthType.PERCENTAGE } }),
+          headerCell("Cohorte 2", { align: AlignmentType.CENTER, width: { size: 22, type: WidthType.PERCENTAGE } }),
+          headerCell("Δ", { align: AlignmentType.CENTER, width: { size: 16, type: WidthType.PERCENTAGE } }),
+        ],
+      }),
+      ...compRows.map((d) => new TableRow({
+        children: [
+          cell(d.comp),
+          cell(typeof d.a1 === "number" ? `${d.a1.toFixed(1)}${d.pct1 !== null && d.pct1 !== undefined ? ` (${d.pct1}%)` : ""}` : "—", { align: AlignmentType.CENTER }),
+          cell(typeof d.a2 === "number" ? `${d.a2.toFixed(1)}${d.pct2 !== null && d.pct2 !== undefined ? ` (${d.pct2}%)` : ""}` : "—", { align: AlignmentType.CENTER }),
+          cell(fmtDelta(d.delta), {
+            align: AlignmentType.CENTER, bold: true,
+            color: colorOfDelta(d.delta, 0.3),
+          }),
+        ],
+      })),
+    ],
+  }));
   out.push(p(""));
 
-  // Placeholder para contexto manual
+  // ── 5.5 — Placeholder para contexto manual ──────────────────────────
   out.push(heading("Contexto operativo entre cohortes", HeadingLevel.HEADING_2));
   out.push(p("[Esta sección se completa manualmente.] Razones del primer piloto registrado como cancelado, ajustes operativos entre la primera y la segunda cohorte (cambios de plataforma, prompts, pacientes disponibles, soporte, conexión, etc.), y lecciones aprendidas que conviene capturar de cara a próximos pilotos.", { run: { color: "9CA3AF", italics: true } }));
 
@@ -980,7 +1165,9 @@ function capitalize(s) {
 // ─────────────────────────────────────────
 async function main() {
   buildAnonIds();
+  buildV2Responses();
   buildSurveyIndexes();
+  console.log(`Responses v2_pilot detectadas: ${v2Responses.length}/${(data.surveyResponses || []).length} (cohorte 1: ${v2Responses.filter((r) => r.cohort === 1).length}, cohorte 2: ${v2Responses.filter((r) => r.cohort === 2).length})`);
 
   const children = [];
 
@@ -1008,7 +1195,7 @@ async function main() {
   children.push(new Paragraph({
     alignment: AlignmentType.CENTER,
     children: [new TextRun({
-      text: `${data.participants.length} participantes · ${data.conversations.length} sesiones · ${(data.surveyResponses || []).filter((r) => r.status === "completed").length} encuestas`,
+      text: `${data.participants.length} participantes · ${data.conversations.length} sesiones · ${v2Responses.length} encuestas`,
       font: "Calibri", size: 22, color: "374151",
     })],
   }));
