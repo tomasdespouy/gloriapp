@@ -139,7 +139,7 @@ Reglas de oro:
   dijiste otra cosa"), reconócela como un error de memoria humano ("uy,
   perdón, me confundí, lo correcto es...") y vuelve a la versión original.\n`;
 
-  const memoryPromise = loadMemory(supabase, user.id, patientId, now);
+  const memoryPromise = loadMemory(supabase, user.id, patientId, now, tz);
 
   // 5. Create or reuse existing conversation
   if (!conversationId) {
@@ -691,6 +691,7 @@ async function loadMemory(
   userId: string,
   patientId: string,
   now: Date,
+  tz: string,
 ): Promise<string> {
   // Load ALL session summaries for this student+patient
   const { data: summaries } = await supabase
@@ -721,8 +722,11 @@ async function loadMemory(
 
     for (const s of summaries) {
       const sessionDate = new Date(s.created_at);
+      const fechaLarga = sessionDate.toLocaleDateString("es-CL", {
+        weekday: "long", day: "numeric", month: "long", timeZone: tz,
+      });
       const ago = formatTimeDifference(sessionDate, now);
-      memory += `--- Sesión ${s.session_number} (${ago}) ---\n`;
+      memory += `--- Sesión ${s.session_number} (${fechaLarga}, ${ago}) ---\n`;
       memory += `${s.summary}\n`;
       if (s.key_revelations?.length) {
         memory += `Revelaciones clave: ${s.key_revelations.join("; ")}\n`;
@@ -745,11 +749,14 @@ async function loadMemory(
 
     if (msgs?.length) {
       const lastDate = new Date(last.created_at);
+      const lastFechaLarga = lastDate.toLocaleDateString("es-CL", {
+        weekday: "long", day: "numeric", month: "long", timeZone: tz,
+      });
       const diff = formatTimeDifference(lastDate, now);
 
       const transcript = msgs.map((m) => {
         const t = new Date(m.created_at).toLocaleTimeString("es-CL", {
-          timeZone: "America/Santiago", hour: "2-digit", minute: "2-digit",
+          timeZone: tz, hour: "2-digit", minute: "2-digit",
         });
         // Sanitize user messages to prevent prompt injection via stored history
         const safeContent = m.role === "user"
@@ -758,7 +765,7 @@ async function loadMemory(
         return `[${t}] ${m.role === "user" ? "TERAPEUTA" : "TU (PACIENTE)"}: ${safeContent}`;
       }).join("\n");
 
-      memory += `--- Detalle de la última sesión (${diff}) ---\n${transcript}\n`;
+      memory += `--- Detalle de la última sesión (${lastFechaLarga}, ${diff}) ---\n${transcript}\n`;
     }
   }
 
@@ -783,9 +790,8 @@ function formatTimeDifference(pastDate: Date, now: Date): string {
   if (diffHours === 1) return "hace 1 hora";
   if (diffHours < 24) return `hace ${diffHours} horas`;
   if (diffDays === 1) return "ayer";
-  if (diffDays < 7) return `hace ${diffDays} días`;
+  if (diffDays < 14) return `hace ${diffDays} días`;
   const diffWeeks = Math.floor(diffDays / 7);
-  if (diffWeeks === 1) return "hace 1 semana";
   if (diffDays < 30) return `hace ${diffWeeks} semanas`;
   const diffMonths = Math.floor(diffDays / 30);
   if (diffMonths === 1) return "hace 1 mes";
