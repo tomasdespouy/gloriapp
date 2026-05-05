@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env*.example
 
 # vercel
 .vercel
@@ -78,3 +79,6 @@ public/*.txt
 informes/*-pilot-data.json
 informes/pilotos/*.docx
 informes/pilotos/*.pdf
+
+# load test artifacts (regenerable; reports go to pitch deck, not repo)
+scripts/loadtest/results/

@@ -60,6 +60,9 @@ export async function chat(
   systemPrompt?: string,
   options?: { lite?: boolean }
 ): Promise<string> {
+  // Mock provider for load testing — bypasses external LLM calls
+  if (primaryProvider === "mock") return chatMock();
+
   const model = options?.lite ? chatModel : evalModel;
 
   // Try primary provider with retries
@@ -95,6 +98,9 @@ export function chatStream(
   messages: ChatMessage[],
   systemPrompt?: string
 ): ReadableStream<string> {
+  // Mock provider for load testing — bypasses external LLM calls
+  if (primaryProvider === "mock") return chatStreamMock();
+
   const primary = primaryProvider === "openai"
     ? () => chatStreamOpenAI(messages, systemPrompt, chatModel)
     : () => chatStreamGemini(messages, systemPrompt);
@@ -279,6 +285,47 @@ function chatStreamOpenAI(
         clearTimeout(timeout);
         controller.error(err);
       }
+    },
+  });
+}
+
+// --- Mock provider (load testing only) ---
+// Activated when LLM_PROVIDER=mock. Returns canned patient responses with
+// realistic latency so we can stress-test platform infrastructure without
+// burning LLM credits. Never set this in production.
+
+const MOCK_RESPONSES = [
+  "Bueno... no sé bien por dónde empezar. La verdad es que me cuesta hablar de esto.",
+  "[se queda en silencio un momento] Sí, supongo que tiene razón en eso.",
+  "No sé... a veces siento que no me entiendo a mí mismo.",
+  "Es difícil. Llevo un tiempo así y no sé bien qué hacer.",
+  "Mmm... eso me hace pensar. Nunca lo había visto de esa manera.",
+  "La verdad, no me había detenido a pensar en eso antes.",
+];
+
+async function chatMock(): Promise<string> {
+  // Simulate non-streaming LLM latency: 1.5-3s with jitter
+  await sleep(1500 + Math.random() * 1500);
+  return MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)];
+}
+
+function chatStreamMock(): ReadableStream<string> {
+  return new ReadableStream({
+    async start(controller) {
+      // Initial thinking delay (300-800ms) before first token
+      await sleep(300 + Math.random() * 500);
+
+      const response = MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)];
+      // Split into ~token-sized chunks (words + whitespace)
+      const tokens = response.split(/(\s+)/);
+
+      for (const token of tokens) {
+        if (!token) continue;
+        // 20-60ms per token (~30 tokens/sec, similar to gpt-4o-mini)
+        await sleep(20 + Math.random() * 40);
+        controller.enqueue(token);
+      }
+      controller.close();
     },
   });
 }
