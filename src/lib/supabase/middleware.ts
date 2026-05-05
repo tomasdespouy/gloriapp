@@ -46,6 +46,8 @@ export async function updateSession(request: NextRequest) {
     !pathname.startsWith("/sobre") &&
     !pathname.startsWith("/api/health") &&
     !pathname.startsWith("/api/public/") &&
+    // Formulario de contacto del landing — público por diseño.
+    !pathname.startsWith("/api/contact") &&
     // Vercel Cron hits these with Authorization: Bearer $CRON_SECRET.
     // The endpoints verify the secret themselves, so the middleware
     // must let the request through without redirecting to /login.
