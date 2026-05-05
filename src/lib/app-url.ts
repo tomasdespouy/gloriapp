@@ -11,14 +11,14 @@
  * solo lugar.
  *
  * En runtime (production Vercel), NEXT_PUBLIC_APP_URL debe estar seteada
- * a https://app.glor-ia.com (o el dominio canonico vigente). Si falta:
+ * a https://www.glor-ia.com (o el dominio canonico vigente). Si falta:
  *   - Client: fallback al origin del browser (window.location.origin)
  *   - Server: fallback a localhost en dev, y error visible en prod
  *
  * NEXT_PUBLIC_* es accesible tanto en server como client — el mismo
  * helper vale para ambos.
  */
-const HARDCODED_PROD_FALLBACK = "https://app.glor-ia.com";
+const HARDCODED_PROD_FALLBACK = "https://www.glor-ia.com";
 
 let loggedMissingInProd = false;
 
