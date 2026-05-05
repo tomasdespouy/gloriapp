@@ -2,10 +2,16 @@
  * Load test: 500 concurrent students each sending 5 chat turns.
  *
  * Usage:
- *   k6 run --env BASE_URL=https://gloriapp-pgf2.vercel.app scripts/loadtest/chat-500vu.js
+ *   k6 run \
+ *     --env BASE_URL=https://gloriapp-pgf2-git-loadtest-staging-500vu-tomasdespouys-projects.vercel.app \
+ *     --env BYPASS_TOKEN=<vercel-deployment-protection-bypass-token> \
+ *     scripts/loadtest/chat-500vu.js
  *
  * Optional env:
- *   BASE_URL          target deployment (default: https://gloriapp-pgf2.vercel.app)
+ *   BASE_URL          target deployment (default: branch alias preview de loadtest/staging-500vu)
+ *   BYPASS_TOKEN      Vercel Deployment Protection bypass; injected as
+ *                     "x-vercel-protection-bypass" header on every request.
+ *                     Required when the target deploy has Vercel SSO/Auth enabled.
  *   USER_COUNT        max VUs (default: 500)
  *   PATIENT_ID        skip the patient lookup and pin a specific UUID
  *   STUDENT_PASSWORD  password used by all loadtest_NNN users (default: LoadTest2026!)
@@ -24,7 +30,13 @@ import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporte
 import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.2/index.js";
 
 // ── config ───────────────────────────────────────────────────────────────────
-const BASE_URL = __ENV.BASE_URL || "https://gloriapp-pgf2.vercel.app";
+const BASE_URL =
+  __ENV.BASE_URL ||
+  "https://gloriapp-pgf2-git-loadtest-staging-500vu-tomasdespouys-projects.vercel.app";
+const BYPASS_TOKEN = __ENV.BYPASS_TOKEN || "";
+const EXTRA_HEADERS = BYPASS_TOKEN
+  ? { "x-vercel-protection-bypass": BYPASS_TOKEN }
+  : {};
 const USER_COUNT = parseInt(__ENV.USER_COUNT || "500", 10);
 const STUDENT_PASSWORD = __ENV.STUDENT_PASSWORD || "LoadTest2026!";
 const TURNS_PER_USER = 5;
@@ -84,13 +96,13 @@ export function setup() {
   const loginRes = http.post(
     `${BASE_URL}/api/loadtest/login`,
     JSON.stringify({ email: users[0].email, password: users[0].password }),
-    { headers: { "Content-Type": "application/json" } },
+    { headers: { "Content-Type": "application/json", ...EXTRA_HEADERS } },
   );
   if (loginRes.status !== 200) {
     fail(`setup login failed: ${loginRes.status} ${loginRes.body}`);
   }
 
-  const patientsRes = http.get(`${BASE_URL}/api/patients`);
+  const patientsRes = http.get(`${BASE_URL}/api/patients`, { headers: EXTRA_HEADERS });
   if (patientsRes.status !== 200) {
     fail(`setup GET /api/patients failed: ${patientsRes.status}`);
   }
@@ -114,7 +126,7 @@ export default function (data) {
   const loginRes = http.post(
     `${BASE_URL}/api/loadtest/login`,
     JSON.stringify({ email: u.email, password: u.password }),
-    { headers: { "Content-Type": "application/json" }, tags: { phase: "login" } },
+    { headers: { "Content-Type": "application/json", ...EXTRA_HEADERS }, tags: { phase: "login" } },
   );
   loginLatency.add(Date.now() - t0);
 
@@ -139,7 +151,11 @@ export default function (data) {
     if (conversationId) body.conversationId = conversationId;
 
     const res = http.post(`${BASE_URL}/api/chat`, JSON.stringify(body), {
-      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+        ...EXTRA_HEADERS,
+      },
       tags: { phase: "chat", turn: String(turn) },
       timeout: "60s",
     });

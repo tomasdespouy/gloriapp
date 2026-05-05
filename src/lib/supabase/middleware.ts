@@ -50,6 +50,9 @@ export async function updateSession(request: NextRequest) {
     // The endpoints verify the secret themselves, so the middleware
     // must let the request through without redirecting to /login.
     !pathname.startsWith("/api/cron/") &&
+    // Load test login: gated by LLM_PROVIDER=mock at the route level
+    // (returns 404 in any env without that flag).
+    !pathname.startsWith("/api/loadtest/") &&
     !pathname.startsWith("/piloto/") &&
     !pathname.startsWith("/ANGLO") &&
     !pathname.startsWith("/paulina")

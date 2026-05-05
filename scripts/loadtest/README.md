@@ -20,15 +20,24 @@ the LLM as the real bottleneck under tier-1 quotas.
 
 ## Prerequisites
 
-1. **Branch deployed to staging.** Push `loadtest/staging-500vu` (or merge it
-   into the staging branch) so Vercel deploys it to `gloriapp-pgf2.vercel.app`.
-2. **Env vars set in Vercel staging:**
+1. **Branch pushed to GitHub.** Vercel construye automáticamente un
+   preview por branch en una URL del tipo:
+   `gloriapp-pgf2-git-<branch-slug>-tomasdespouys-projects.vercel.app`
+2. **Env vars en Vercel (Preview environment del proyecto `gloriapp-pgf2`):**
    - `LLM_PROVIDER=mock`
-   - All existing Supabase staging keys
-3. **Local file `scripts/loadtest/.env.staging`** with values from the staging
-   project (Supabase Dashboard → Project Settings → API). See
-   `.env.staging.example`. This file is gitignored.
-4. **k6 installed.** `winget install k6` on Windows. Binary lives at
+   - `NEXT_PUBLIC_SUPABASE_URL` (staging)
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (staging)
+   - `SUPABASE_SERVICE_ROLE_KEY` (staging)
+   Sin las 3 últimas el middleware crashea con `MIDDLEWARE_INVOCATION_FAILED`.
+3. **Vercel Deployment Protection bypass token.** El proyecto tiene SSO
+   habilitado, así que el preview no es accesible público. Generar un token
+   en: Project Settings → Deployment Protection → "Protection Bypass for
+   Automation" → Generate Secret. El script lo manda como header
+   `x-vercel-protection-bypass` en cada request.
+4. **Local `scripts/loadtest/.env.staging`** con valores Supabase staging
+   (Supabase Dashboard → Project Settings → API). Ver `.env.staging.example`.
+   Gitignored.
+5. **k6 instalado.** `winget install k6` en Windows. Binario en
    `C:\Program Files\k6\k6.exe`.
 
 ## Run sequence
@@ -38,8 +47,10 @@ the LLM as the real bottleneck under tier-1 quotas.
 node --env-file=scripts/loadtest/.env.staging scripts/loadtest/seed-test-users.mjs
 
 # 2) Run the load test (writes report to scripts/loadtest/results/)
+$env:BYPASS_TOKEN = "<your-vercel-bypass-token>"
 & "C:\Program Files\k6\k6.exe" run `
-  --env BASE_URL=https://gloriapp-pgf2.vercel.app `
+  --env BASE_URL=https://gloriapp-pgf2-git-loadtest-staging-500vu-tomasdespouys-projects.vercel.app `
+  --env BYPASS_TOKEN=$env:BYPASS_TOKEN `
   scripts/loadtest/chat-500vu.js
 
 # 3) Open the HTML report (the artifact for the pitch deck)
