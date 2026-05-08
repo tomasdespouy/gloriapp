@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Save, ToggleLeft, ToggleRight, ImageIcon, Video, RefreshCw, Upload, Loader2, Sparkles } from "lucide-react";
+import EnrichmentEditor, { type EnrichmentBlock } from "./EnrichmentEditor";
 
 interface FamilyMember {
   name: string;
@@ -31,6 +32,11 @@ interface Patient {
   neighborhood: string | null;
   family_members: FamilyMember[] | null;
   is_active: boolean;
+  enrichment_red_social?: EnrichmentBlock | null;
+  enrichment_lugares?: EnrichmentBlock | null;
+  enrichment_estado_corporal?: EnrichmentBlock | null;
+  enrichment_frases_tipo?: EnrichmentBlock | null;
+  enrichment_version?: number;
 }
 
 const COUNTRY_OPTIONS = [
@@ -627,8 +633,8 @@ export default function PatientEditForm({ patient }: { patient: Patient }) {
 
       {/* System prompt */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6">
-        <h3 className="text-sm font-semibold text-gray-900 mb-1">System prompt</h3>
-        <p className="text-xs text-gray-400 mb-3">Instrucciones que recibe la IA para comportarse como este paciente</p>
+        <h3 className="text-sm font-semibold text-gray-900 mb-1">System prompt (base)</h3>
+        <p className="text-xs text-gray-400 mb-3">Instrucciones base que recibe la IA. Los 4 bloques de enriquecimiento se inyectan al runtime sin modificar este texto.</p>
         <textarea
           value={form.system_prompt}
           onChange={(e) => update("system_prompt", e.target.value)}
@@ -636,6 +642,18 @@ export default function PatientEditForm({ patient }: { patient: Patient }) {
           className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm font-mono resize-y"
         />
       </div>
+
+      {/* Enrichment blocks (INF-2026-050) */}
+      <EnrichmentEditor
+        patientId={patient.id}
+        initial={{
+          red_social: patient.enrichment_red_social ?? null,
+          lugares: patient.enrichment_lugares ?? null,
+          estado_corporal: patient.enrichment_estado_corporal ?? null,
+          frases_tipo: patient.enrichment_frases_tipo ?? null,
+        }}
+        enrichmentVersion={patient.enrichment_version ?? 0}
+      />
 
       {/* Status & save */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6">

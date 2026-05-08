@@ -14,6 +14,7 @@ import { logger } from "@/lib/logger";
 import { patientCache as pCache, stateCache } from "@/lib/cache";
 import { chatLimiter, checkRateLimit } from "@/lib/rate-limit";
 import { buildSafetyPrompt } from "@/lib/content-safety";
+import { buildEnrichedPrompt } from "@/lib/build-system-prompt";
 import { getPacingProfile, thinkingDelayFor, buildIntroductionRule } from "@/lib/conversation-pacing";
 import { polishAndLog } from "@/lib/text-polish";
 
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     async () => {
       const { data } = await createAdminClient()
         .from("ai_patients")
-        .select("id, name, system_prompt, country_origin, country_residence, neighborhood, pacing_profile")
+        .select("id, name, system_prompt, country_origin, country_residence, neighborhood, pacing_profile, enrichment_red_social, enrichment_lugares, enrichment_estado_corporal, enrichment_frases_tipo, enrichment_version")
         .eq("id", patientId)
         .single();
       if (!data) throw new Error("Patient not found");
@@ -159,7 +160,7 @@ Reglas de oro:
       // Re-activate if it was abandoned; pin prompt if not already snapshotted
       const updates: Record<string, unknown> = { status: "active" };
       if (!existing.prompt_snapshot) {
-        updates.prompt_snapshot = patient.system_prompt;
+        updates.prompt_snapshot = buildEnrichedPrompt(patient);
       }
       await supabase.from("conversations").update(updates).eq("id", conversationId);
     } else {
@@ -171,7 +172,7 @@ Reglas de oro:
 
       const { data: conv } = await supabase
         .from("conversations")
-        .insert({ student_id: user.id, ai_patient_id: patientId, session_number: (count || 0) + 1, status: "active", prompt_snapshot: patient.system_prompt })
+        .insert({ student_id: user.id, ai_patient_id: patientId, session_number: (count || 0) + 1, status: "active", prompt_snapshot: buildEnrichedPrompt(patient) })
         .select("id")
         .single();
 
@@ -331,8 +332,8 @@ Las siguientes frases son 100% terapéuticas y te delatan si las usás. NUNCA em
 Si el/la terapeuta recién te saluda y NO te hizo una pregunta directa: tu mensaje debe ser un SALUDO DE PACIENTE — breve, tímido, quizá con un "gracias por recibirme" o un silencio incómodo ("[mira el suelo]", "Mmm…"). NUNCA devuelvas la pregunta. ESPERA a que el/la terapeuta conduzca.\n`
     : "";
 
-  // Use pinned prompt snapshot if available; fall back to ai_patients for pre-migration conversations
-  const basePrompt = convRow?.prompt_snapshot || patient.system_prompt;
+  // Use pinned prompt snapshot if available; fall back to ai_patients (with enrichment composed at runtime) for pre-migration conversations
+  const basePrompt = convRow?.prompt_snapshot || buildEnrichedPrompt(patient);
   // Safety is injected at the TOP (highest priority) AND at the end so it
   // still wins against any legacy prompt snapshot that may contain
   // stylistic instructions about using chilean modismos/garabatos.
