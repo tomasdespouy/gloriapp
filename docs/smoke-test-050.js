@@ -66,15 +66,15 @@ const headers = { apikey: key, Authorization: "Bearer " + key };
     console.log(`   Total filas: ${count3} (esperado: 136 = 34 × 4)`);
   }
 
-  // 4. Spot-check: Diego Fuentes
+  // 4. Spot-check: Diego Fuentes (la versión moderna, enrichment_version > 0)
   console.log("\n4. Spot-check Diego Fuentes — composición runtime del prompt");
   const r4 = await fetch(
-    url + "/rest/v1/ai_patients?name=eq.Diego%20Fuentes&select=id,name,system_prompt,enrichment_red_social,enrichment_lugares,enrichment_estado_corporal,enrichment_frases_tipo,enrichment_version",
+    url + "/rest/v1/ai_patients?name=eq.Diego%20Fuentes&enrichment_version=gt.0&select=id,name,system_prompt,enrichment_red_social,enrichment_lugares,enrichment_estado_corporal,enrichment_frases_tipo,enrichment_version",
     { headers }
   );
   const d4 = await r4.json();
   if (!Array.isArray(d4) || !d4[0]) {
-    console.error("   ❌ Diego no encontrado");
+    console.error("   ❌ Diego (versión enriquecida) no encontrado");
     return;
   }
   const diego = d4[0];
