@@ -18,6 +18,8 @@ const fs = require("fs");
 const { OpenAI } = require("openai");
 
 const TARGET = (process.argv[2] || "staging").toLowerCase();
+const BATCH = process.argv[3] || "1"; // 1 = clinical-tuning-data.js (default, los 5 originales); 2 = clinical-tuning-batch2.js (los 4 menos tipificados)
+const DATA_FILE = BATCH === "2" ? "./clinical-tuning-batch2.js" : "./clinical-tuning-data.js";
 const ENV_FILE = TARGET === "prod" ? ".env.production" : ".env.local";
 const EXPECTED_REF = TARGET === "prod" ? "ndwmnxlwbfqfwwtekjun" : "vhkbbpsdiklguxvjrksd";
 
@@ -34,10 +36,10 @@ if (!url.includes(EXPECTED_REF)) {
 const localEnv = fs.readFileSync(".env.local", "utf8");
 const openai = new OpenAI({ apiKey: localEnv.match(/OPENAI_API_KEY=(\S+)/)[1] });
 
-console.log(`Target: ${TARGET.toUpperCase()} (${url.match(/https:\/\/(\w+)/)[1]})\n`);
+console.log(`Target: ${TARGET.toUpperCase()} (${url.match(/https:\/\/(\w+)/)[1]}) · BATCH ${BATCH} (${DATA_FILE})\n`);
 
 const headers = { apikey: supaKey, Authorization: "Bearer " + supaKey, "Content-Type": "application/json" };
-const TUNING = require("./clinical-tuning-data.js");
+const TUNING = require(DATA_FILE);
 const norm = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 
 const META_PROMPT = `Eres experto en construcción de pacientes simulados para entrenamiento clínico de psicología. Recibes los datos de un paciente IA existente y debes generar 4 bloques de contenido nuevo para enriquecer su prompt sistémico.
