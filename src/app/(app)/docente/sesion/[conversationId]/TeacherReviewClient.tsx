@@ -10,6 +10,7 @@ import {
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import CompetencyTooltip from "@/components/CompetencyTooltip";
+import { getEvidenceList } from "@/lib/evaluation-prompt";
 
 interface Message {
   id: string;
@@ -485,13 +486,17 @@ export default function TeacherReviewClient({
                 {showAllEvidence && competencies.evidence && (
                   <div className="mb-3 space-y-2 max-h-[300px] overflow-y-auto">
                     {COMP_V2_LABELS.map(({ key, label }) => {
-                      const ev = (competencies.evidence as Record<string, { quote: string; observation: string }>)[key];
-                      if (!ev?.quote) return null;
+                      const evList = getEvidenceList((competencies.evidence as Record<string, unknown>)[key]);
+                      if (evList.length === 0) return null;
                       return (
-                        <div key={key} className="bg-sidebar/5 rounded-lg p-2.5 border border-sidebar/10">
-                          <p className="text-[9px] font-bold text-sidebar uppercase mb-1">{label}</p>
-                          <p className="text-[11px] text-gray-700 italic">&ldquo;{ev.quote}&rdquo;</p>
-                          {ev.observation && <p className="text-[10px] text-gray-500 mt-0.5">{ev.observation}</p>}
+                        <div key={key} className="bg-sidebar/5 rounded-lg p-2.5 border border-sidebar/10 space-y-1.5">
+                          <p className="text-[9px] font-bold text-sidebar uppercase">{label}</p>
+                          {evList.map((ev, i) => (
+                            <div key={i} className="border-l-2 pl-2" style={{ borderLeftColor: ev.polarity === "fortaleza" ? "#22c55e" : "#ef4444" }}>
+                              <p className="text-[11px] text-gray-700 italic">&ldquo;{ev.quote}&rdquo;</p>
+                              {ev.observation && <p className="text-[10px] text-gray-500 mt-0.5">{ev.observation}</p>}
+                            </div>
+                          ))}
                         </div>
                       );
                     })}
@@ -503,13 +508,17 @@ export default function TeacherReviewClient({
                   <div className="mb-3 bg-sidebar/5 rounded-lg p-3 border border-sidebar/10 animate-fade-in">
                     <p className="text-[10px] font-bold text-sidebar uppercase mb-1.5">Evidencia textual</p>
                     {(() => {
-                      const ev = (competencies.evidence as Record<string, { quote: string; observation: string }>)[selectedEvidence];
-                      if (!ev?.quote) return <p className="text-[11px] text-gray-400 italic">Sin evidencia registrada para esta competencia.</p>;
+                      const evList = getEvidenceList((competencies.evidence as Record<string, unknown>)[selectedEvidence]);
+                      if (evList.length === 0) return <p className="text-[11px] text-gray-400 italic">Sin evidencia registrada para esta competencia.</p>;
                       return (
-                        <>
-                          <p className="text-xs text-gray-700 italic mb-1">&ldquo;{ev.quote}&rdquo;</p>
-                          {ev.observation && <p className="text-[11px] text-gray-500">{ev.observation}</p>}
-                        </>
+                        <div className="space-y-2">
+                          {evList.map((ev, i) => (
+                            <div key={i} className="border-l-2 pl-2" style={{ borderLeftColor: ev.polarity === "fortaleza" ? "#22c55e" : "#ef4444" }}>
+                              <p className="text-xs text-gray-700 italic mb-1">&ldquo;{ev.quote}&rdquo;</p>
+                              {ev.observation && <p className="text-[11px] text-gray-500">{ev.observation}</p>}
+                            </div>
+                          ))}
+                        </div>
                       );
                     })()}
                   </div>
