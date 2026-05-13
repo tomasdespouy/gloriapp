@@ -82,7 +82,7 @@ export async function POST(
 
   // 3) Fetch patient (admin client bypasses RLS)
   const admin = createAdminClient();
-  const { data: patient, error: pErr } = await admin
+  const { data: patientRaw, error: pErr } = await admin
     .from("ai_patients")
     .select(
       "id, name, age, occupation, quote, presenting_problem, backstory, system_prompt, " +
@@ -92,9 +92,31 @@ export async function POST(
     .eq("id", id)
     .single();
 
-  if (pErr || !patient) {
+  if (pErr || !patientRaw) {
     return NextResponse.json({ error: "Patient not found" }, { status: 404 });
   }
+
+  // Workaround: supabase-js infiere un tipo demasiado amplio cuando el
+  // select tiene muchas columnas; el narrowing por (pErr || !patientRaw)
+  // no lo reduce. Cast explícito al shape conocido.
+  const patient = patientRaw as unknown as {
+    id: string;
+    name: string;
+    age: number;
+    occupation: string;
+    quote: string;
+    presenting_problem: string;
+    backstory: string;
+    system_prompt: string;
+    country: string | string[] | null;
+    country_origin: string | null;
+    country_residence: string | null;
+    neighborhood: string | null;
+    family_members: Array<{ name: string; age: number; relationship: string; notes?: string }> | null;
+    visual_identity: { etnia?: string; gesto?: string; ropa_tipo?: string; ropa_color?: string } | null;
+    difficulty_level: string;
+    tags: string[] | null;
+  };
 
   // 4) Build context for gpt-4o
   const country = Array.isArray(patient.country) ? patient.country.join("/") : patient.country;
