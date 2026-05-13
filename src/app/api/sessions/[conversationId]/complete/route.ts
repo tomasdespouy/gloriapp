@@ -9,6 +9,7 @@ import {
   EVALUATION_PROMPT,
   activeModelLabel,
   buildCompetencyUpsert,
+  buildUserMessage,
   evaluationToFlat,
   normalizeEvaluation,
   type NormalizedEvaluation,
@@ -41,7 +42,7 @@ export async function POST(
   // Verify conversation ownership and get details (defense-in-depth on RLS).
   const { data: conversation } = await supabase
     .from("conversations")
-    .select("id, student_id, ai_patient_id, status")
+    .select("id, student_id, ai_patient_id, status, session_number")
     .eq("id", conversationId)
     .eq("student_id", user.id)
     .single();
@@ -106,6 +107,7 @@ export async function POST(
           conversationId,
           aiPatientId: conversation.ai_patient_id,
           studentId: conversation.student_id,
+          sessionNumber: conversation.session_number,
           transcript,
           reflection: {
             discomfort_moment,
@@ -131,7 +133,7 @@ export async function POST(
   let evaluation: NormalizedEvaluation;
   try {
     const response = await chat(
-      [{ role: "user", content: `Conversación a evaluar:\n\n${transcript}` }],
+      [{ role: "user", content: buildUserMessage(transcript, { sessionNumber: conversation.session_number }) }],
       EVALUATION_PROMPT
     );
     const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
@@ -413,6 +415,7 @@ async function evaluateAndPersist(ctx: {
   conversationId: string;
   aiPatientId: string;
   studentId: string;
+  sessionNumber: number | null;
   transcript: string;
   reflection: {
     discomfort_moment?: string;
@@ -425,11 +428,11 @@ async function evaluateAndPersist(ctx: {
     clinical_hypothesis?: string;
   };
 }) {
-  const { admin, userId, conversationId, aiPatientId, studentId, transcript, reflection } = ctx;
+  const { admin, userId, conversationId, aiPatientId, studentId, sessionNumber, transcript, reflection } = ctx;
 
   // LLM evaluation
   const response = await chat(
-    [{ role: "user", content: `Conversación a evaluar:\n\n${transcript}` }],
+    [{ role: "user", content: buildUserMessage(transcript, { sessionNumber }) }],
     EVALUATION_PROMPT,
   );
   const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();

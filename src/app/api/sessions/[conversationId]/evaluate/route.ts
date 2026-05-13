@@ -6,6 +6,7 @@ import {
   EVALUATION_PROMPT,
   activeModelLabel,
   buildCompetencyUpsert,
+  buildUserMessage,
   normalizeEvaluation,
 } from "@/lib/evaluation-prompt";
 
@@ -22,7 +23,7 @@ export async function POST(
 
   const { data: conversation } = await admin
     .from("conversations")
-    .select("id, student_id, status")
+    .select("id, student_id, status, session_number")
     .eq("id", conversationId)
     .single();
 
@@ -56,7 +57,7 @@ export async function POST(
 
   try {
     const response = await chat(
-      [{ role: "user", content: `Conversación a evaluar:\n\n${transcript}` }],
+      [{ role: "user", content: buildUserMessage(transcript, { sessionNumber: conversation.session_number }) }],
       EVALUATION_PROMPT
     );
 

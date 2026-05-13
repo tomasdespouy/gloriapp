@@ -155,7 +155,31 @@ FORMATO DE RESPUESTA (JSON estricto, sin markdown)
 }
 
 Competencias a evaluar: ${COMPETENCY_LIST}.
-Responde ÚNICAMENTE con el JSON, sin markdown ni backticks.`;
+Responde ÚNICAMENTE con el JSON, sin markdown ni backticks.
+
+═══════════════════════════════════════════════════
+REGLAS CRÍTICAS (cumplir sin excepción)
+═══════════════════════════════════════════════════
+
+1. EVIDENCIA OBLIGATORIA: cada competencia con score numérico (0, 1, 2, 3 o
+   4) DEBE tener al menos 2 entradas en evidence[competency]. Si una
+   competencia obtiene un score numérico, evidence[competency] NO PUEDE ser
+   un array vacío. Si solo encuentras una cita representativa, busca una
+   segunda — puede ser del mismo turno (una fortaleza y una oportunidad
+   del mismo turno cuentan como dos citas distintas).
+
+2. overall_score_v2: usa el promedio aritmético exacto de los scores
+   numéricos (excluyendo "NA"). Usa un decimal — no redondees al entero
+   (ej. 1.9, 2.4, 2.86). No pongas valores como 2.0 a menos que el
+   promedio sea exactamente 2.
+
+3. NA Y CONTEXTO DE SESIÓN: antes de marcar una competencia como "NA",
+   relee el bloque "CONTEXTO DE LA SESIÓN" que se entrega al inicio del
+   mensaje del usuario. Si el contexto indica que es la PRIMERA sesión,
+   NO puedes marcar setting_terapeutico, motivo_consulta ni
+   datos_contextuales como "NA" por motivo de "seguimiento" o "ya
+   consensuado". Esas competencias deben recibir un score 0-4 en una
+   primera sesión.`;
 
 // ─────────────────────────────────────────────────────────────────
 // Parseo y normalización
@@ -243,12 +267,10 @@ export function normalizeEvaluation(raw: unknown): NormalizedEvaluation {
     }
   }
 
-  const llmOverall = typeof r.overall_score_v2 === "number" ? r.overall_score_v2 : null;
-  const computed = computeOverallV2(scores);
-  const overall_score_v2 =
-    llmOverall !== null && Math.abs(llmOverall - computed) <= 0.5
-      ? Math.round(llmOverall * 10) / 10
-      : computed;
+  // Siempre recomputamos overall_score_v2 desde los scores normalizados.
+  // Los LLM tienden a redondear (2.0 en lugar de 1.86), lo que distorsiona
+  // las métricas agregadas a través de muchas sesiones.
+  const overall_score_v2 = computeOverallV2(scores);
 
   return {
     scores,
@@ -341,6 +363,35 @@ export function buildCompetencyUpsert(
     // Snapshot inmutable (P4)
     ai_original: buildAiOriginal(evaluation, { model: ctx.model }),
   };
+}
+
+/**
+ * Construye el mensaje del usuario para el LLM evaluador, anteponiendo
+ * un bloque de contexto de sesión cuando se conoce el número.
+ *
+ * El contexto ayuda al LLM a no marcar setting/motivo/objetivos como
+ * "NA por seguimiento" cuando en realidad es la primera sesión.
+ */
+export function buildUserMessage(
+  transcript: string,
+  ctx?: { sessionNumber?: number | null },
+): string {
+  const n = ctx?.sessionNumber;
+  let header = "";
+  if (typeof n === "number") {
+    if (n === 1) {
+      header =
+        "CONTEXTO DE LA SESIÓN: esta es la PRIMERA sesión entre el estudiante y el paciente. No existen sesiones previas. " +
+        "Por lo tanto, las competencias de Estructura (setting_terapeutico, motivo_consulta, datos_contextuales) NO PUEDEN marcarse como 'NA' por motivo de 'seguimiento' o 'ya consensuado'. " +
+        "En primera sesión esas tres competencias siempre aplican y deben recibir un score 0-4.\n\n";
+    } else {
+      header =
+        `CONTEXTO DE LA SESIÓN: esta es la sesión número ${n} entre el estudiante y el paciente. ` +
+        `Hay ${n - 1} sesion${n - 1 === 1 ? "" : "es"} previa${n - 1 === 1 ? "" : "s"}. ` +
+        "Si una competencia de Estructura quedó consensuada en sesiones anteriores y no aplica re-trabajar en esta, puede marcarse 'NA' con justificación clínica.\n\n";
+    }
+  }
+  return `${header}Conversación a evaluar:\n\n${transcript}`;
 }
 
 /**
