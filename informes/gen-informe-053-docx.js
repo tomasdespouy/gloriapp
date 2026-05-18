@@ -190,7 +190,7 @@ const FASES_ROWS = [
   ["F1", "Informe INF-2026-053 con análisis V3 vs PECT", "Este documento", "Sí (en curso)", "—"],
   ["F2", "Fixes inmediatos de metadata (autores, instrumento PECT, ISBN, marco MSC-VF)", "evaluation-prompt.ts, headers de archivos, INF-052", "Pendiente", "Bajo"],
   ["F3", "Reemplazo de anclas conductuales por texto literal del libro + glosa V3", "competency-rubric.ts (10 competencias)", "Hecho en rama fix/v3-fidelity-pect", "Medio"],
-  ["F4", "Proyección empírica en staging: 3 conversaciones × 3 niveles de estudiante × evaluación V3 + PECT-extendido", "scripts/research/projection-f4/*", "En curso", "Alto"],
+  ["F4", "Proyección empírica en staging: 3 conversaciones × 3 niveles de estudiante × evaluación V3 + PECT-extendido", "scripts/research/projection-f4/*", "Hecho — ver Anexo B", "Alto"],
   ["F5", "Diseño V4 expandido con cobertura de competencias evaluables vía chat", "Documento de diseño + propuesta de schema", "Pendiente", "Alto"],
   ["F6", "Validación con la Escuela de Psicología UGM", "Envío de informe + diseño + ejemplos", "Pendiente", "—"],
 ];
@@ -335,12 +335,12 @@ const content = [
     { center: [0, 3, 4], fontSize: 17 },
   ),
   empty(),
-  body("La fase F1 corresponde a este informe. La fase F3 fue ejecutada y vive en una rama no mergeada (commit f3bd674 en fix/v3-fidelity-pect). La fase F4 está en curso al momento de redactar este documento; sus resultados serán incorporados como anexo en una versión posterior. Las fases F2, F5 y F6 quedan pendientes y deben ser validadas por la Escuela de Psicología de la Universidad Gabriela Mistral antes de afectar el motor en producción."),
+  body("La fase F1 corresponde a este informe. La fase F3 fue ejecutada y vive en una rama no mergeada (commit f3bd674 en fix/v3-fidelity-pect). La fase F4 fue ejecutada y sus resultados se documentan en el Anexo B de este informe. Las fases F5 y F6 quedan pendientes y deben ser validadas por la Escuela de Psicología de la Universidad Gabriela Mistral antes de afectar el motor en producción."),
 
   // Sección 8
   h1("8. Próximos pasos"),
   bullet("Ejecutar F2 (corrección de metadata) sobre el motor actual o aprovechar la rama fix/v3-fidelity-pect que ya incluye los fixes principales (commit f3bd674)."),
-  bullet("Esperar resultados de F4 (proyección empírica) para incorporar al presente informe como Anexo A."),
+  bullet("Iniciar F5 (diseño V4 expandido) tomando como base los hallazgos empíricos del Anexo B: incorporar la dimensión de Intervenciones y Técnicas del PECT (sección 7), reforzar las reglas anti-NA y refinar las anclas conductuales para diferenciar Medio vs Avanzado."),
   bullet("Iniciar conversación con la Escuela de Psicología UGM para validar el alcance del rediseño V4."),
   bullet("Coordinar acceso al libro físico de Valdés & Gómez para verificar los pasajes del OCR que quedaron con menor confianza (en particular el nivel 3 de la competencia «presencia», donde el escaneo quedó parcialmente dañado)."),
   bullet("Considerar contactar directamente a Nelson Valdés (UST) para validar la pauta PECT extendida que se utilizará en F4 y para acordar atribución académica adecuada en futuras publicaciones de GlorIA."),
@@ -352,6 +352,91 @@ const content = [
   bullet("C:/tmp/valdes-anexo-b-ocr.txt — transcripción OCR del Anexo B (PECT completa, 3 páginas). Método: dos pasadas de OCR consolidadas. Output: 8,4 KB."),
   bullet("Scripts utilizados: scripts/research/ocr-anexob.js, scripts/research/ocr-anexob-refine-all.js, scripts/research/ocr-anexob-p2-refine.js. Commit 1eb821c en master."),
   body("Limitaciones del OCR: el escaneo del libro físico introduce errores menores en algunas celdas de tabla, particularmente en la transición entre páginas. Las citas textuales utilizadas en el informe y en el motor V3 (rama fix/v3-fidelity-pect) han sido revisadas manualmente. Los pasajes con menor confianza están explícitamente marcados como «reconstrucción aproximada» en el código de competency-rubric.ts."),
+
+  // ─── Anexo B ───────────────────────────────────────────────────
+  h1("Anexo B — Resultados de la proyección empírica (F4)"),
+  body("Para validar empíricamente las hipótesis del análisis teórico, se diseñó un experimento controlado en el ambiente de staging. Se simularon tres conversaciones de aproximadamente sesenta minutos cada una (veinticinco turnos por sesión) entre un paciente IA fijo y tres estudiantes simulados con niveles de pericia clínica diferenciados (Básico, Medio, Avanzado). Cada conversación fue evaluada en paralelo por dos motores: el motor V3 actual y un evaluador PECT-extendido construido con cuarenta y cuatro ítems del libro, considerados como evaluables desde una transcripción de chat."),
+  body("Paciente IA utilizado: Diego Fuentes — enriquecido con los bloques INF-050 y el tuning clínico INF-051. Modelos LLM: gpt-4o-mini (T=0,7) para simulación de conversaciones y estudiantes simulados; gpt-4o para ambos evaluadores. Costo total del experimento: USD 0,40."),
+
+  h2("B.1 Resumen ejecutivo"),
+  body("La tabla siguiente resume el puntaje overall otorgado por cada evaluador a cada nivel de estudiante."),
+  empty(),
+  makeTable(
+    ["Estudiante", "V3 overall", "PECT-ext overall", "Brecha PECT − V3"],
+    [
+      ["Básico", "1,50", "1,53", "+0,03"],
+      ["Medio", "2,30", "2,83", "+0,53"],
+      ["Avanzado", "2,40", "3,26", "+0,86"],
+    ],
+    [3000, 2400, 2800, CONTENT_W - 3000 - 2400 - 2800],
+    { center: [1, 2, 3] },
+  ),
+  empty(),
+  body("La brecha entre los puntajes V3 y PECT-extendido crece con el nivel de pericia. Más relevante aún: el motor V3 produce una diferencia de apenas 0,10 puntos entre Medio y Avanzado, mientras que PECT-extendido produce una diferencia de 0,43. El motor actual es, por lo tanto, prácticamente incapaz de discriminar entre un estudiante competente y uno avanzado."),
+
+  h2("B.2 Banderas críticas detectadas"),
+  body("Bandera roja 1 — V3 no distingue Medio de Avanzado. La diferencia entre ambos niveles en V3 es de 0,10 puntos, frente a 0,43 en PECT-extendido. Esto indica que la rúbrica V3 alcanza su techo de discriminación en torno al nivel 2 (Básico-Parcial).", { bold: true }),
+  body("Bandera roja 2 — Nueve de cada diez competencias V3 dan puntaje idéntico a Medio y Avanzado. Solo la competencia datos_contextuales discrimina entre ambos niveles (2 versus 3). El resto se comporta de manera binaria: «mal» o «no-mal».", { bold: true }),
+  body("Bandera amarilla — Las competencias objetivos y optimismo recibieron puntaje «NA» en los tres niveles. El modelo evaluador V3 las trata como escape route sistemática, evitando emitir juicio. El evaluador PECT-extendido sí las puntuó (1/2/2 y 2/3/3 respectivamente), lo que sugiere que el problema está en los criterios na_criteria de V3, no en la insuficiencia de la transcripción.", { bold: true }),
+  body("Bandera naranja — Seis técnicas concretas del PECT muestran una diferencia robusta entre Básico y Avanzado (Δ ≥ 2): Argumentación, Clarificación, Focalización, Paráfrasis, Reflejo y Asignación de tareas. El motor V3 no cubre la dimensión de técnicas en absoluto, por lo que pierde toda la señal disponible en esta dimensión.", { bold: true }),
+
+  h2("B.3 Discriminación competencia por competencia (V3)"),
+  body("La tabla siguiente muestra el delta Avanzado − Básico para cada una de las diez competencias V3. Los valores se interpretan como la capacidad del motor para detectar la diferencia entre un estudiante novato y uno avanzado en cada dimensión clínica."),
+  empty(),
+  makeTable(
+    ["Competencia V3", "Básico", "Medio", "Avanzado", "Δ A−B"],
+    [
+      ["setting_terapeutico", "0", "3", "3", "+3"],
+      ["motivo_consulta", "1", "2", "2", "+1"],
+      ["datos_contextuales", "2", "2", "3", "+1"],
+      ["objetivos", "NA", "NA", "NA", "—"],
+      ["escucha_activa", "3", "3", "3", "0"],
+      ["actitud_no_valorativa", "1", "3", "3", "+2"],
+      ["optimismo", "NA", "NA", "NA", "—"],
+      ["presencia", "2", "2", "2", "0"],
+      ["conducta_no_verbal", "1", "1", "1", "0"],
+      ["contencion_afectos", "2", "2", "2", "0"],
+    ],
+    [3400, 1200, 1200, 1500, CONTENT_W - 3400 - 1200 - 1200 - 1500],
+    { center: [1, 2, 3, 4] },
+  ),
+  empty(),
+  body("Solo dos competencias logran una variación apreciable a lo largo del continuo de pericia: setting_terapeutico (que salta del nivel 0 al 3 entre Básico y Medio) y actitud_no_valorativa (que pasa de 1 a 3). El resto de las competencias se estanca o produce variaciones triviales."),
+
+  h2("B.4 Señal recuperada por PECT-extendido"),
+  body("La tabla siguiente lista los ítems del PECT no cubiertos por V3 que mostraron una diferencia significativa (Δ ≥ 2) entre el estudiante Básico y el Avanzado en la evaluación PECT-extendida. Cada uno representa una dimensión donde V4 podría recuperar señal pedagógica que V3 ignora."),
+  empty(),
+  makeTable(
+    ["Ítem PECT no cubierto por V3", "Sección", "Básico", "Avanzado", "Δ"],
+    [
+      ["Muestra curiosidad, cordialidad y sensibilidad", "Actitud", "2", "4", "+2"],
+      ["Maneja los silencios del paciente", "Actitud", "1", "3", "+2"],
+      ["Identifica tensiones o problemas en el vínculo", "Eval. del proceso", "1", "3", "+2"],
+      ["Realiza exploración de contenidos", "Intervenciones", "2", "4", "+2"],
+      ["Muestra sintonía con el paciente", "Intervenciones", "2", "4", "+2"],
+      ["Ofrece apoyo al paciente", "Intervenciones", "2", "4", "+2"],
+      ["Facilita la resignificación de contenidos", "Intervenciones", "1", "3", "+2"],
+      ["Argumentación (técnica)", "Técnicas", "1", "3", "+2"],
+      ["Clarificación (técnica)", "Técnicas", "1", "3", "+2"],
+      ["Focalización (técnica)", "Técnicas", "1", "3", "+2"],
+      ["Paráfrasis (técnica)", "Técnicas", "1", "3", "+2"],
+      ["Reflejo (técnica)", "Técnicas", "1", "3", "+2"],
+      ["Asignación de tareas (técnica)", "Técnicas", "1", "3", "+2"],
+    ],
+    [3800, 2000, 1100, 1300, CONTENT_W - 3800 - 2000 - 1100 - 1300],
+    { center: [2, 3, 4], fontSize: 17 },
+  ),
+  empty(),
+  body("La sección «Tipos de Intervención» (cuatro ítems principales) muestra un Δ promedio de +2,0 entre Básico y Avanzado, siendo la dimensión más discriminadora de toda la pauta PECT. La sección «Técnicas Terapéuticas Específicas» (diecisiete sub-técnicas) muestra un Δ promedio de +1,78. Estas son las dos dimensiones donde el motor V3 tiene cobertura nula y donde la incorporación a V4 produciría el mayor impacto pedagógico."),
+
+  h2("B.5 Implicancias para V4"),
+  bullet("La dimensión de «Intervenciones y Técnicas» (PECT 2.6) es la que mayor capacidad discriminadora demostró. Debe ser la primera prioridad de incorporación al motor V4."),
+  bullet("La rúbrica conductual V3 actual satura en torno al nivel 3: los descriptores actuales no permiten que el evaluador llegue al nivel 4 salvo en casos excepcionales. Hay que reformular los descriptores de nivel 3 y 4 para que sean diferenciables."),
+  bullet("La estrategia «NA» del motor V3 funciona mal en la práctica. Para V4 conviene prohibir explícitamente «NA» en competencias estructurales (setting, motivo, datos, objetivos) durante primera sesión, y exigir justificación clínica más estricta en el resto."),
+  bullet("El costo total del experimento (USD 0,40 para tres conversaciones y seis evaluaciones) es muy bajo. Esto habilita correr el mismo experimento con muchos más perfiles de estudiante, sobre múltiples pacientes y a lo largo del tiempo, como mecanismo de validación continua del motor."),
+  bullet("Antes de implementar V4, conviene re-correr la evaluación PECT-extendida con varias replicaciones por nivel (al menos tres por estudiante simulado) y promediar, dado que con una sola corrida el motor evaluador puede producir variaciones de ±1 punto por ítem."),
+
+  body("Los artefactos completos del experimento se encuentran en C:/tmp/projection/, incluyendo las transcripciones de las tres conversaciones, las seis evaluaciones JSON y el análisis exhaustivo en analysis.md. Los scripts reproducibles fueron commiteados en scripts/research/projection-f4/.", { italic: true }),
 ];
 
 // ─── Documento ───────────────────────────────────────────────────────
