@@ -3,67 +3,17 @@ import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat } from "@/lib/ai";
-import { calculateSessionXp, getLevelInfo, LEVELS } from "@/lib/gamification";
+import { calculateSessionXp, getLevelInfo } from "@/lib/gamification";
 import { evalLimiter, checkRateLimit } from "@/lib/rate-limit";
-
-const EVALUATION_PROMPT = `Eres un supervisor clínico experto evaluando la sesión de un estudiante de psicología.
-Usa la Pauta para la Evaluación de Competencias Psicoterapéuticas para el trabajo con Adultos (Valdés & Gómez, 2023), del libro "Supervisión clínica para estudiantes de Psicología" (Ediciones Universidad Santo Tomás).
-
-Evalúa la conversación en estas 10 competencias, escala de 0 a 4:
-- 0: No aplicaba (la situación no requería esta competencia)
-- 1: Deficiente (no cumplió cuando era necesario)
-- 2: Básico/parcial (cumplió parcialmente)
-- 3: Adecuado (cumplió satisfactoriamente)
-- 4: Excelente/integrado (excepcional e integrado con otras intervenciones)
-
-DOMINIO 1 — ESTRUCTURA DE LA SESIÓN:
-- setting_terapeutico: Capacidad de explicitar encuadre terapéutico y aclarar dudas
-- motivo_consulta: Capacidad de indagar e integrar motivo manifiesto y latente, explorar recursos
-- datos_contextuales: Capacidad de entrevistar e integrar información de contextos relevantes
-- objetivos: Capacidad de construir objetivos terapéuticos con el paciente
-
-DOMINIO 2 — ACTITUDES TERAPÉUTICAS:
-- escucha_activa: Atención coherente a comunicación verbal y no verbal, respondiendo en congruencia
-- actitud_no_valorativa: Aceptación incondicional sin juicios explícitos ni implícitos
-- optimismo: Transmisión proactiva de optimismo integrado con intervenciones técnicas
-- presencia: Atención sostenida, flexibilidad y sintonía con el paciente
-- conducta_no_verbal: Atención a lo no verbal del paciente e integración con lo verbal
-- contencion_afectos: Contención emocional con presencia, calidez, empatía y validación
-
-El promedio general (overall_score_v2) se calcula SOLO con competencias que obtienen > 0.
-
-Para CADA competencia con puntaje > 0, incluye una cita textual del estudiante que justifique el puntaje.
-Si el puntaje es bajo, cita el momento donde falló o donde perdió una oportunidad.
-
-Responde ÚNICAMENTE con JSON válido (sin markdown, sin backticks):
-{
-  "setting_terapeutico": 0.0,
-  "motivo_consulta": 0.0,
-  "datos_contextuales": 0.0,
-  "objetivos": 0.0,
-  "escucha_activa": 0.0,
-  "actitud_no_valorativa": 0.0,
-  "optimismo": 0.0,
-  "presencia": 0.0,
-  "conducta_no_verbal": 0.0,
-  "contencion_afectos": 0.0,
-  "overall_score_v2": 0.0,
-  "commentary": "Retroalimentación constructiva en 2-3 oraciones",
-  "strengths": ["fortaleza 1", "fortaleza 2"],
-  "areas_to_improve": ["área 1", "área 2"],
-  "evidence": {
-    "setting_terapeutico": {"quote": "Cita textual del estudiante que justifica el puntaje", "observation": "Por qué esta intervención demuestra o no la competencia"},
-    "motivo_consulta": {"quote": "...", "observation": "..."},
-    "datos_contextuales": {"quote": "...", "observation": "..."},
-    "objetivos": {"quote": "...", "observation": "..."},
-    "escucha_activa": {"quote": "...", "observation": "..."},
-    "actitud_no_valorativa": {"quote": "...", "observation": "..."},
-    "optimismo": {"quote": "...", "observation": "..."},
-    "presencia": {"quote": "...", "observation": "..."},
-    "conducta_no_verbal": {"quote": "...", "observation": "..."},
-    "contencion_afectos": {"quote": "...", "observation": "..."}
-  }
-}`;
+import {
+  EVALUATION_PROMPT,
+  activeModelLabel,
+  buildCompetencyUpsert,
+  buildUserMessage,
+  evaluationToFlat,
+  normalizeEvaluation,
+  type NormalizedEvaluation,
+} from "@/lib/evaluation-prompt";
 
 export async function POST(
   request: NextRequest,
@@ -92,7 +42,7 @@ export async function POST(
   // Verify conversation ownership and get details (defense-in-depth on RLS).
   const { data: conversation } = await supabase
     .from("conversations")
-    .select("id, student_id, ai_patient_id, status")
+    .select("id, student_id, ai_patient_id, status, session_number")
     .eq("id", conversationId)
     .eq("student_id", user.id)
     .single();
@@ -157,6 +107,7 @@ export async function POST(
           conversationId,
           aiPatientId: conversation.ai_patient_id,
           studentId: conversation.student_id,
+          sessionNumber: conversation.session_number,
           transcript,
           reflection: {
             discomfort_moment,
@@ -179,54 +130,28 @@ export async function POST(
   // Synchronous (legacy) flow: wait for the LLM and return the full
   // results in the response. Still used by non-pilot users who want
   // to see their scores right away.
-  let evaluation;
+  let evaluation: NormalizedEvaluation;
   try {
     const response = await chat(
-      [{ role: "user", content: `Conversación a evaluar:\n\n${transcript}` }],
+      [{ role: "user", content: buildUserMessage(transcript, { sessionNumber: conversation.session_number }) }],
       EVALUATION_PROMPT
     );
-
-    // Parse JSON from response (handle possible markdown wrapping)
     const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    evaluation = JSON.parse(jsonStr);
+    evaluation = normalizeEvaluation(JSON.parse(jsonStr));
   } catch {
     return NextResponse.json({ error: "Error al evaluar la sesión" }, { status: 500 });
   }
 
-  // Save competency scores (V2 + legacy V1 mapped)
-  const overallV2 = evaluation.overall_score_v2 || evaluation.overall_score || 0;
+  const overallV2 = evaluation.overall_score_v2;
 
-  await admin.from("session_competencies").upsert({
-    conversation_id: conversationId,
-    student_id: user.id,
-    feedback_status: "pending",
-    // V2 competencies
-    setting_terapeutico: evaluation.setting_terapeutico || 0,
-    motivo_consulta: evaluation.motivo_consulta || 0,
-    datos_contextuales: evaluation.datos_contextuales || 0,
-    objetivos: evaluation.objetivos || 0,
-    escucha_activa: evaluation.escucha_activa || 0,
-    actitud_no_valorativa: evaluation.actitud_no_valorativa || 0,
-    optimismo: evaluation.optimismo || 0,
-    presencia: evaluation.presencia || 0,
-    conducta_no_verbal: evaluation.conducta_no_verbal || 0,
-    contencion_afectos: evaluation.contencion_afectos || 0,
-    overall_score_v2: overallV2,
-    eval_version: 2,
-    // Legacy V1 mapped (for backward compat with existing views)
-    empathy: evaluation.escucha_activa || 0,
-    active_listening: evaluation.escucha_activa || 0,
-    open_questions: evaluation.motivo_consulta || 0,
-    reformulation: evaluation.datos_contextuales || 0,
-    confrontation: evaluation.actitud_no_valorativa || 0,
-    silence_management: evaluation.presencia || 0,
-    rapport: evaluation.contencion_afectos || 0,
-    overall_score: overallV2,
-    ai_commentary: evaluation.commentary,
-    strengths: evaluation.strengths || [],
-    areas_to_improve: evaluation.areas_to_improve || [],
-    evidence: evaluation.evidence || null,
-  }, { onConflict: "conversation_id" });
+  await admin.from("session_competencies").upsert(
+    buildCompetencyUpsert(evaluation, {
+      conversationId,
+      studentId: user.id,
+      model: activeModelLabel(),
+    }),
+    { onConflict: "conversation_id" },
+  );
 
   // Calculate XP (V2 scale 0-4)
   const xpEarned = calculateSessionXp(overallV2);
@@ -286,21 +211,21 @@ export async function POST(
 
   const { data: allAchievements } = await admin.from("achievements").select("*");
 
+  // V2 (escala 0-4) — umbrales adaptados desde el sistema V1 (0-10)
+  const s = evaluation.scores;
   const achievementChecks: Record<string, () => boolean> = {
     first_session: () => newSessionsCompleted >= 1,
     five_sessions: () => newSessionsCompleted >= 5,
     ten_sessions: () => newSessionsCompleted >= 10,
-    empathy_master: () => evaluation.empathy >= 9,
-    listening_master: () => evaluation.active_listening >= 9,
-    rapport_master: () => evaluation.rapport >= 9,
+    empathy_master: () => (s.escucha_activa ?? 0) >= 4,
+    listening_master: () => (s.escucha_activa ?? 0) >= 4,
+    rapport_master: () => (s.contencion_afectos ?? 0) >= 4,
     streak_3: () => currentStreak >= 3,
     streak_7: () => currentStreak >= 7,
     first_reflection: () => !!(discomfort_moment || would_redo || clinical_note || alliance_framing || rupture_moment || nonverbal_cues || intervention_types || clinical_hypothesis),
-    high_performer: () => evaluation.overall_score >= 8,
+    high_performer: () => evaluation.overall_score_v2 >= 3.5,
     perfect_session: () =>
-      [evaluation.empathy, evaluation.active_listening, evaluation.open_questions,
-       evaluation.reformulation, evaluation.confrontation, evaluation.silence_management,
-       evaluation.rapport].some((s: number) => s >= 10),
+      Object.values(s).some((v) => v === 4),
   };
 
   let bonusXp = 0;
@@ -407,7 +332,7 @@ export async function POST(
   const levelUp = levelInfo.current.level > (progress?.level || 1);
 
   return NextResponse.json({
-    evaluation,
+    evaluation: evaluationToFlat(evaluation),
     xp_earned: xpEarned + bonusXp,
     level_up: levelUp,
     new_level: levelInfo.current,
@@ -490,6 +415,7 @@ async function evaluateAndPersist(ctx: {
   conversationId: string;
   aiPatientId: string;
   studentId: string;
+  sessionNumber: number | null;
   transcript: string;
   reflection: {
     discomfort_moment?: string;
@@ -502,47 +428,26 @@ async function evaluateAndPersist(ctx: {
     clinical_hypothesis?: string;
   };
 }) {
-  const { admin, userId, conversationId, aiPatientId, studentId, transcript, reflection } = ctx;
+  const { admin, userId, conversationId, aiPatientId, studentId, sessionNumber, transcript, reflection } = ctx;
 
   // LLM evaluation
   const response = await chat(
-    [{ role: "user", content: `Conversación a evaluar:\n\n${transcript}` }],
+    [{ role: "user", content: buildUserMessage(transcript, { sessionNumber }) }],
     EVALUATION_PROMPT,
   );
   const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-  const evaluation = JSON.parse(jsonStr);
+  const evaluation = normalizeEvaluation(JSON.parse(jsonStr));
 
-  const overallV2 = evaluation.overall_score_v2 || evaluation.overall_score || 0;
+  const overallV2 = evaluation.overall_score_v2;
 
-  await admin.from("session_competencies").upsert({
-    conversation_id: conversationId,
-    student_id: userId,
-    feedback_status: "pending",
-    setting_terapeutico: evaluation.setting_terapeutico || 0,
-    motivo_consulta: evaluation.motivo_consulta || 0,
-    datos_contextuales: evaluation.datos_contextuales || 0,
-    objetivos: evaluation.objetivos || 0,
-    escucha_activa: evaluation.escucha_activa || 0,
-    actitud_no_valorativa: evaluation.actitud_no_valorativa || 0,
-    optimismo: evaluation.optimismo || 0,
-    presencia: evaluation.presencia || 0,
-    conducta_no_verbal: evaluation.conducta_no_verbal || 0,
-    contencion_afectos: evaluation.contencion_afectos || 0,
-    overall_score_v2: overallV2,
-    eval_version: 2,
-    empathy: evaluation.escucha_activa || 0,
-    active_listening: evaluation.escucha_activa || 0,
-    open_questions: evaluation.motivo_consulta || 0,
-    reformulation: evaluation.datos_contextuales || 0,
-    confrontation: evaluation.actitud_no_valorativa || 0,
-    silence_management: evaluation.presencia || 0,
-    rapport: evaluation.contencion_afectos || 0,
-    overall_score: overallV2,
-    ai_commentary: evaluation.commentary,
-    strengths: evaluation.strengths || [],
-    areas_to_improve: evaluation.areas_to_improve || [],
-    evidence: evaluation.evidence || null,
-  }, { onConflict: "conversation_id" });
+  await admin.from("session_competencies").upsert(
+    buildCompetencyUpsert(evaluation, {
+      conversationId,
+      studentId: userId,
+      model: activeModelLabel(),
+    }),
+    { onConflict: "conversation_id" },
+  );
 
   const xpEarned = calculateSessionXp(overallV2);
 
@@ -597,21 +502,21 @@ async function evaluateAndPersist(ctx: {
     reflection.alliance_framing || reflection.rupture_moment || reflection.nonverbal_cues ||
     reflection.intervention_types || reflection.clinical_hypothesis
   );
+  // V2 (escala 0-4) — mismos umbrales que en el flujo sync
+  const s = evaluation.scores;
   const checks: Record<string, () => boolean> = {
     first_session: () => newSessionsCompleted >= 1,
     five_sessions: () => newSessionsCompleted >= 5,
     ten_sessions: () => newSessionsCompleted >= 10,
-    empathy_master: () => evaluation.empathy >= 9,
-    listening_master: () => evaluation.active_listening >= 9,
-    rapport_master: () => evaluation.rapport >= 9,
+    empathy_master: () => (s.escucha_activa ?? 0) >= 4,
+    listening_master: () => (s.escucha_activa ?? 0) >= 4,
+    rapport_master: () => (s.contencion_afectos ?? 0) >= 4,
     streak_3: () => currentStreak >= 3,
     streak_7: () => currentStreak >= 7,
     first_reflection: () => hasReflection,
-    high_performer: () => evaluation.overall_score >= 8,
+    high_performer: () => evaluation.overall_score_v2 >= 3.5,
     perfect_session: () =>
-      [evaluation.empathy, evaluation.active_listening, evaluation.open_questions,
-       evaluation.reformulation, evaluation.confrontation, evaluation.silence_management,
-       evaluation.rapport].some((s: number) => s >= 10),
+      Object.values(s).some((v) => v === 4),
   };
   let bonusXp = 0;
   for (const achievement of allAchievements || []) {

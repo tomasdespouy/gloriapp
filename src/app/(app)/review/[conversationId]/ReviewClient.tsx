@@ -9,6 +9,7 @@ import CompetencyRadar from "@/components/CompetencyRadar";
 import CompetencyTooltip from "@/components/CompetencyTooltip";
 import { COMPETENCY_INFO } from "@/lib/competency-definitions";
 import type { CompetencyScores, CompetencyScoresV2 } from "@/lib/gamification";
+import { getEvidenceList } from "@/lib/evaluation-prompt";
 
 type ActionItem = {
   id: string;
@@ -734,26 +735,38 @@ export default function ReviewClient({
                           {Object.entries(COMPETENCY_INFO)
                             .filter(([, info]) => info.domain === domain)
                             .map(([key, info]) => {
-                              const score = Number((evaluation as Record<string, unknown>)[key]) || 0;
-                              const ev = ((evaluation as Record<string, unknown>).evidence as Record<string, { quote: string; observation: string }> | undefined)?.[key];
-                              const color = score >= 3 ? "#22c55e" : score >= 2 ? "#eab308" : score > 0 ? "#ef4444" : "#d1d5db";
+                              const rawScore = (evaluation as Record<string, unknown>)[key];
+                              const isNA = rawScore === null || rawScore === undefined;
+                              const score = isNA ? 0 : Number(rawScore) || 0;
+                              const naReason = ((evaluation as Record<string, unknown>).na_justifications as Record<string, string> | undefined)?.[key];
+                              const evList = getEvidenceList(((evaluation as Record<string, unknown>).evidence as Record<string, unknown> | undefined)?.[key]);
+                              const color = isNA ? "#9ca3af" : score >= 3 ? "#22c55e" : score >= 2 ? "#eab308" : score > 0 ? "#ef4444" : "#9ca3af";
                               return (
                                 <div key={key} className="border-b border-gray-50 pb-3 last:border-0">
                                   <div className="flex items-center gap-2 mb-1">
                                     <span className="text-sm font-medium text-gray-800">{info.name}</span>
                                     <CompetencyTooltip compKey={key} />
-                                    <span className="ml-auto text-sm font-bold" style={{ color }}>{score.toFixed(1)}</span>
+                                    <span className="ml-auto text-sm font-bold" style={{ color }}>
+                                      {isNA ? "NA" : score.toFixed(1)}
+                                    </span>
                                   </div>
                                   <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-2">
-                                    <div className="h-full rounded-full" style={{ width: `${(score/4)*100}%`, backgroundColor: color }} />
+                                    <div className="h-full rounded-full" style={{ width: isNA ? "100%" : `${(score/4)*100}%`, backgroundColor: color, opacity: isNA ? 0.3 : 1 }} />
                                   </div>
-                                  {ev?.quote && (
-                                    <div className="bg-gray-50 rounded-lg px-3 py-2 text-xs">
-                                      <p className="text-gray-700 italic mb-1">&ldquo;{ev.quote}&rdquo;</p>
-                                      {ev.observation && <p className="text-gray-500">{ev.observation}</p>}
+                                  {isNA && naReason && (
+                                    <p className="text-[11px] text-gray-500 italic">No aplicaba: {naReason}</p>
+                                  )}
+                                  {!isNA && evList.length > 0 && (
+                                    <div className="space-y-2">
+                                      {evList.map((ev, i) => (
+                                        <div key={i} className="bg-gray-50 rounded-lg px-3 py-2 text-xs border-l-2" style={{ borderLeftColor: ev.polarity === "fortaleza" ? "#22c55e" : "#ef4444" }}>
+                                          <p className="text-gray-700 italic mb-1">&ldquo;{ev.quote}&rdquo;</p>
+                                          {ev.observation && <p className="text-gray-500">{ev.observation}</p>}
+                                        </div>
+                                      ))}
                                     </div>
                                   )}
-                                  {!ev?.quote && score > 0 && (
+                                  {!isNA && evList.length === 0 && score > 0 && (
                                     <p className="text-[11px] text-gray-400 italic">Sin evidencia textual registrada</p>
                                   )}
                                 </div>
