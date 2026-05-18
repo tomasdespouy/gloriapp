@@ -225,8 +225,8 @@ const content = [
 
   // Fuente
   h2("Fuente y validación"),
-  body("Las definiciones y los descriptores conductuales que utiliza el motor están basados en: Valdés, N. & Gómez, D. (2023). Pauta para la Evaluación de Competencias Psicoterapéuticas para el trabajo con Adultos. En Supervisión clínica para estudiantes de Psicología: Un modelo de competencias psicoterapéuticas genéricas básicas. Ediciones Universidad Santo Tomás / RIL Editores. ISBN 978-956-01-1601-7."),
-  body("Los descriptores específicos por nivel se inyectan al prompt del LLM evaluador para reducir la inferencia y mejorar la consistencia inter-evaluador. La rúbrica vive en src/lib/competency-rubric.ts y los textos públicos para tooltips y retroalimentación al estudiante en src/lib/competency-definitions.ts.", { italic: true }),
+  body("Las definiciones que utiliza el motor están basadas en la PECT — Pauta de Evaluación de Competencias Psicoterapéuticas para el trabajo con Adultos — publicada como Anexo B del libro: Valdés Sánchez, N. & Gómez Gallo, D. (2023). Supervisión clínica para estudiantes de Psicología: Un modelo de competencias psicoterapéuticas genéricas básicas. Ediciones Universidad Santo Tomás / RIL Editores. ISBN 978-956-01-1601-7. La pauta forma parte del modelo MSC-VF (Modelo de Supervisión Clínica con Videofeedback) de los autores."),
+  body("Los descriptores conductuales por nivel se inyectan al prompt del LLM evaluador para reducir la inferencia y mejorar la consistencia inter-evaluador. La rúbrica vive en src/lib/competency-rubric.ts y los textos públicos para tooltips y retroalimentación al estudiante en src/lib/competency-definitions.ts. Validación pendiente por la Escuela de Psicología de la Universidad Gabriela Mistral.", { italic: true }),
 ];
 
 const doc = new Document({
