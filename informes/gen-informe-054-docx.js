@@ -1,5 +1,5 @@
 /**
- * INF-2026-053 .docx — Análisis crítico del motor de retroalimentación V3
+ * INF-2026-054 .docx — Análisis crítico del motor de retroalimentación V3
  * frente a la PECT (Pauta de Evaluación de Competencias Psicoterapéuticas)
  * de Valdés Sánchez & Gómez Gallo (2023).
  *
@@ -187,7 +187,7 @@ const BRECHAS_NO_EVALUABLES = [
 
 // Plan de fases
 const FASES_ROWS = [
-  ["F1", "Informe INF-2026-053 con análisis V3 vs PECT", "Este documento", "Sí (en curso)", "—"],
+  ["F1", "Informe INF-2026-054 con análisis V3 vs PECT", "Este documento", "Sí (en curso)", "—"],
   ["F2", "Fixes inmediatos de metadata (autores, instrumento PECT, ISBN, marco MSC-VF)", "evaluation-prompt.ts, headers de archivos, INF-052", "Pendiente", "Bajo"],
   ["F3", "Reemplazo de anclas conductuales por texto literal del libro + glosa V3", "competency-rubric.ts (10 competencias)", "Hecho en rama fix/v3-fidelity-pect", "Medio"],
   ["F4", "Proyección empírica en staging: 3 conversaciones × 3 niveles de estudiante × evaluación V3 + PECT-extendido", "scripts/research/projection-f4/*", "Hecho — ver Anexo B", "Alto"],
@@ -212,7 +212,7 @@ const docFooter = new Footer({
   children: [new Paragraph({
     alignment: AlignmentType.CENTER,
     children: [
-      new TextRun({ text: "GlorIA — INF-2026-053 — Página ", size: 18, font: "Calibri", color: GREY }),
+      new TextRun({ text: "GlorIA — INF-2026-054 — Página ", size: 18, font: "Calibri", color: GREY }),
       new TextRun({ children: [PageNumber.CURRENT], size: 18, font: "Calibri", color: GREY }),
       new TextRun({ text: " de ", size: 18, font: "Calibri", color: GREY }),
       new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 18, font: "Calibri", color: GREY }),
@@ -227,7 +227,7 @@ const content = [
     alignment: AlignmentType.LEFT,
     spacing: { after: 40 },
     children: [new TextRun({
-      text: "INF-2026-053 · Análisis técnico-clínico",
+      text: "INF-2026-054 · Análisis técnico-clínico",
       color: INDIGO, bold: true, size: 18, font: "Calibri",
     })],
   }),
@@ -442,7 +442,7 @@ const content = [
 // ─── Documento ───────────────────────────────────────────────────────
 const doc = new Document({
   creator: "GlorIA",
-  title: "INF-2026-053 — Análisis crítico motor V3 vs PECT",
+  title: "INF-2026-054 — Análisis crítico motor V3 vs PECT",
   description: "Hallazgos, brechas de cobertura y plan de remediación del motor de retroalimentación V3 frente a la pauta PECT de Valdés & Gómez (2023).",
   styles: {
     default: {
@@ -463,7 +463,7 @@ const doc = new Document({
 });
 
 Packer.toBuffer(doc).then((buf) => {
-  const out = "informes/desarrollo/INF-2026-053_analisis-motor-v3-vs-pect.docx";
+  const out = "informes/desarrollo/INF-2026-054_analisis-motor-v3-vs-pect.docx";
   fs.writeFileSync(out, buf);
   console.log(`OK -> ${out}  (${(buf.length / 1024).toFixed(1)} KB)`);
 });
