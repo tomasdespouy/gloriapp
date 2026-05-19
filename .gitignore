@@ -78,3 +78,6 @@ public/*.txt
 informes/*-pilot-data.json
 informes/pilotos/*.docx
 informes/pilotos/*.pdf
+
+# GlorIA 1.0 dump descargado del bucket gloria1-archive — PII, no commitear
+gloria1-dump/
