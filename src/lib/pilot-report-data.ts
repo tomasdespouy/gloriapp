@@ -41,8 +41,28 @@ type RawConversation = {
   student_id: string;
   status: string;
   active_seconds: number | null;
+  started_at: string | null;
   ended_at: string | null;
 };
+
+// Cap per-conversation active_seconds to a sane bound. SessionTimer counts
+// wall-clock time without checking document.visibilityState, so a tab left
+// open after the chat ended can balloon a 15-min session into 30+ hours.
+// Cap to min(stored value, wall-clock + 5min de gracia, 90min absoluto).
+const ABSOLUTE_CAP_SECONDS = 5400;
+const WALL_CLOCK_GRACE_SECONDS = 300;
+
+function cappedActiveSeconds(c: RawConversation): number {
+  const raw = c.active_seconds;
+  if (typeof raw !== "number" || raw <= 0) return 0;
+  let cap = ABSOLUTE_CAP_SECONDS;
+  if (c.started_at && c.ended_at) {
+    const wall =
+      (new Date(c.ended_at).getTime() - new Date(c.started_at).getTime()) / 1000;
+    if (wall > 0) cap = Math.min(cap, wall + WALL_CLOCK_GRACE_SECONDS);
+  }
+  return Math.min(raw, cap);
+}
 
 type RawCompetencyRow = {
   conversation_id: string;
@@ -51,7 +71,50 @@ type RawCompetencyRow = {
   ai_commentary: string | null;
   strengths: string[] | null;
   areas_to_improve: string[] | null;
+  evidence: unknown;
 } & Record<CompetencyKey, number | null>;
+
+export type CompetencyEvidenceEntry = {
+  student_id: string;
+  conversation_id: string;
+  score: number;
+  quote: string;
+  observation: string;
+  polarity: "fortaleza" | "oportunidad";
+};
+
+// Parses evidence JSONB tolerating both shapes: V3 array with explicit
+// polarity, and V2 legacy object { quote, observation } without polarity.
+// For V2, polarity is derived from the session score: score>=3 → fortaleza,
+// score<=2 → oportunidad. This is a coarse but sensible default.
+function parseEvidenceForCompetency(
+  raw: unknown,
+  score: number,
+): Array<{ quote: string; observation: string; polarity: "fortaleza" | "oportunidad" }> {
+  const derived: "fortaleza" | "oportunidad" = score >= 3 ? "fortaleza" : "oportunidad";
+  const normalizeEntry = (
+    e: Record<string, unknown>,
+  ): { quote: string; observation: string; polarity: "fortaleza" | "oportunidad" } | null => {
+    const quote = typeof e.quote === "string" ? e.quote.trim() : "";
+    if (!quote) return null;
+    const observation = typeof e.observation === "string" ? e.observation.trim() : "";
+    const explicit =
+      e.polarity === "fortaleza" || e.polarity === "oportunidad" ? e.polarity : null;
+    return { quote, observation, polarity: explicit ?? derived };
+  };
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw
+      .filter((e): e is Record<string, unknown> => typeof e === "object" && e !== null)
+      .map(normalizeEntry)
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+  }
+  if (typeof raw === "object") {
+    const entry = normalizeEntry(raw as Record<string, unknown>);
+    return entry ? [entry] : [];
+  }
+  return [];
+}
 
 type RawSurveyResponse = {
   id: string;
@@ -107,6 +170,7 @@ export type PilotReportData = {
   };
   competency_averages: Record<CompetencyKey, { avg: number; count: number }>;
   competency_info: typeof COMPETENCY_INFO;
+  competency_evidence: Record<CompetencyKey, CompetencyEvidenceEntry[]>;
   top_strengths: Array<{ text: string; count: number }>;
   top_areas: Array<{ text: string; count: number }>;
   survey: {
@@ -124,6 +188,7 @@ export type PilotReportData = {
   };
   students: Array<{
     id: string;
+    user_id: string | null;
     full_name: string;
     email: string;
     role: Role;
@@ -268,7 +333,7 @@ export async function fetchPilotReportData(
   if (studentUserIds.length > 0) {
     const { data } = await admin
       .from("conversations")
-      .select("id, student_id, status, active_seconds, ended_at")
+      .select("id, student_id, status, active_seconds, started_at, ended_at")
       .in("student_id", studentUserIds);
     conversations = (data || []) as RawConversation[];
   }
@@ -281,8 +346,8 @@ export async function fetchPilotReportData(
     }
   }
   const activeSeconds = conversations
-    .map((c) => c.active_seconds)
-    .filter((v): v is number => typeof v === "number" && v > 0);
+    .map(cappedActiveSeconds)
+    .filter((v) => v > 0);
   const avgSecondsPerSession =
     activeSeconds.length > 0
       ? activeSeconds.reduce((a, b) => a + b, 0) / activeSeconds.length
@@ -294,7 +359,7 @@ export async function fetchPilotReportData(
     const { data } = await admin
       .from("session_competencies")
       .select(
-        "conversation_id, student_id, overall_score_v2, ai_commentary, strengths, areas_to_improve, " +
+        "conversation_id, student_id, overall_score_v2, ai_commentary, strengths, areas_to_improve, evidence, " +
           COMPETENCY_KEYS.join(", "),
       )
       .in(
@@ -313,6 +378,28 @@ export async function fetchPilotReportData(
       avg: values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0,
       count: values.length,
     };
+  }
+
+  // Aggregate evidence per competency.
+  const competency_evidence = {} as Record<CompetencyKey, CompetencyEvidenceEntry[]>;
+  for (const key of COMPETENCY_KEYS) competency_evidence[key] = [];
+  for (const row of competencyRows) {
+    const evRaw = (row.evidence ?? {}) as Record<string, unknown>;
+    for (const key of COMPETENCY_KEYS) {
+      const score = row[key];
+      if (typeof score !== "number" || score <= 0) continue;
+      const parsed = parseEvidenceForCompetency(evRaw[key], score);
+      for (const e of parsed) {
+        competency_evidence[key].push({
+          student_id: row.student_id,
+          conversation_id: row.conversation_id,
+          score,
+          quote: e.quote,
+          observation: e.observation,
+          polarity: e.polarity,
+        });
+      }
+    }
   }
 
   const strengthsCount = new Map<string, number>();
@@ -492,6 +579,7 @@ export async function fetchPilotReportData(
     const preferredName = p.user_id ? consentByUserId.get(p.user_id)?.full_name : undefined;
     return {
       id: p.id,
+      user_id: p.user_id,
       full_name: preferredName || p.full_name,
       email: p.email,
       role: p.role,
@@ -544,6 +632,7 @@ export async function fetchPilotReportData(
     },
     competency_averages,
     competency_info: COMPETENCY_INFO,
+    competency_evidence,
     top_strengths,
     top_areas,
     survey: {
