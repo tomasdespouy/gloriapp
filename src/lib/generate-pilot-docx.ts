@@ -31,20 +31,69 @@ import {
   type PilotReportData,
   type LikertSectionStats,
   type Testimonial,
+  type CompetencyEvidenceEntry,
+  type CompetencyKey,
   COMPETENCY_KEYS,
   formatDuration,
   formatMonthYear,
   formatDateShort,
   testimonialAttribution,
 } from "./pilot-report-data";
+import { chat } from "./ai";
 
 const ACCENT = "4A55A2"; // GlorIA sidebar
 const MUTED = "6B7280";
+const AMBER = "B45309";
 const TABLE_HEADER_BG = "E5E7EB";
 const CELL_BORDER = "D1D5DB";
 const GREEN = "16A34A";
 const ORANGE = "D97706";
 const RED = "DC2626";
+
+// Texto-only pilots can't evaluate presencia or conducta_no_verbal with
+// rigor (need tone/posture/gaze). README explicitly excludes them.
+const TEXT_ONLY_EXCLUDED: CompetencyKey[] = ["presencia", "conducta_no_verbal"];
+
+// Pick up to 2 fortalezas + 2 oportunidades from a competency's evidence
+// pool, preferring entries from different students. Returns empty arrays
+// if a polarity has no entries.
+function pickShowcaseEvidence(entries: CompetencyEvidenceEntry[]): {
+  fortalezas: CompetencyEvidenceEntry[];
+  oportunidades: CompetencyEvidenceEntry[];
+} {
+  const fortalezas = entries
+    .filter((e) => e.polarity === "fortaleza")
+    .sort((a, b) => b.score - a.score || b.quote.length - a.quote.length);
+  const oportunidades = entries
+    .filter((e) => e.polarity === "oportunidad")
+    .sort((a, b) => a.score - b.score || b.quote.length - a.quote.length);
+
+  const seen = new Set<string>();
+  const pick = (pool: CompetencyEvidenceEntry[], limit = 2) => {
+    const out: CompetencyEvidenceEntry[] = [];
+    for (const e of pool) {
+      if (out.length >= limit) break;
+      if (seen.has(e.student_id)) continue;
+      out.push(e);
+      seen.add(e.student_id);
+    }
+    // If not enough distinct students, fill with the best remaining
+    // entries (may repeat a student).
+    if (out.length < limit) {
+      for (const e of pool) {
+        if (out.length >= limit) break;
+        if (out.includes(e)) continue;
+        out.push(e);
+      }
+    }
+    return out;
+  };
+
+  return {
+    fortalezas: pick(fortalezas),
+    oportunidades: pick(oportunidades),
+  };
+}
 
 // ─── Asset loading ────────────────────────────────────────────────────
 
@@ -432,7 +481,11 @@ function section4Results(data: PilotReportData) {
 
 // ─── Section 5: Análisis de competencias ──────────────────────────────
 
-function section5Competencias(data: PilotReportData) {
+function section5Competencias(
+  data: PilotReportData,
+  userIdAnonMap: Map<string, string>,
+  competencyConclusions: Map<CompetencyKey, string>,
+) {
   const blocks: (Paragraph | Table)[] = [h1("5. ANÁLISIS DE LAS INTERACCIONES")];
   blocks.push(
     p(
@@ -443,6 +496,67 @@ function section5Competencias(data: PilotReportData) {
 
   const byDomain: Record<string, typeof COMPETENCY_KEYS[number][]> = { estructura: [], actitudes: [] };
   for (const k of COMPETENCY_KEYS) byDomain[data.competency_info[k].domain].push(k);
+
+  const renderEvidenceBlock = (
+    polarity: "fortaleza" | "oportunidad",
+    entries: CompetencyEvidenceEntry[],
+  ) => {
+    if (entries.length === 0) return;
+    const heading =
+      polarity === "fortaleza"
+        ? "Ejemplos de desempeño sólido:"
+        : "Ejemplos con oportunidad de mejora:";
+    const headingColor = polarity === "fortaleza" ? ACCENT : AMBER;
+    blocks.push(
+      new Paragraph({
+        spacing: { before: 160, after: 60 },
+        children: [
+          new TextRun({ text: heading, bold: true, color: headingColor, size: 20 }),
+        ],
+      }),
+    );
+    for (const e of entries) {
+      const studentLabel = userIdAnonMap.get(e.student_id) || "Estudiante";
+      blocks.push(
+        new Paragraph({
+          spacing: { after: 40 },
+          indent: { left: 300 },
+          children: [
+            new TextRun({
+              text: `${studentLabel} · puntaje ${e.score} / 4`,
+              bold: true,
+              color: MUTED,
+              size: 18,
+            }),
+          ],
+        }),
+      );
+      blocks.push(
+        new Paragraph({
+          spacing: { after: 40 },
+          indent: { left: 300 },
+          children: [new TextRun({ text: `"${e.quote}"`, italics: true, size: 20 })],
+        }),
+      );
+      if (e.observation) {
+        blocks.push(
+          new Paragraph({
+            spacing: { after: 120 },
+            indent: { left: 300 },
+            children: [
+              new TextRun({
+                text: `Observación: ${e.observation}`,
+                color: MUTED,
+                size: 18,
+              }),
+            ],
+          }),
+        );
+      } else {
+        blocks.push(new Paragraph({ spacing: { after: 60 }, children: [] }));
+      }
+    }
+  };
 
   const renderDomain = (domain: "estructura" | "actitudes") => {
     const domainLabel =
@@ -471,6 +585,36 @@ function section5Competencias(data: PilotReportData) {
         }),
       );
       blocks.push(p(info.definition, { size: 20 }));
+
+      // Evidencia textual (2 fortalezas + 2 oportunidades) para las 8
+      // competencias evaluables en piloto texto-only. presencia y
+      // conducta_no_verbal se omiten porque requieren tono/postura/mirada.
+      if (!TEXT_ONLY_EXCLUDED.includes(key) && count > 0) {
+        const pool = data.competency_evidence[key] || [];
+        const { fortalezas, oportunidades } = pickShowcaseEvidence(pool);
+        renderEvidenceBlock("fortaleza", fortalezas);
+        renderEvidenceBlock("oportunidad", oportunidades);
+        const conclusion = competencyConclusions.get(key);
+        if (conclusion) {
+          blocks.push(
+            new Paragraph({
+              spacing: { before: 120, after: 100 },
+              indent: { left: 300 },
+              children: [
+                new TextRun({ text: "Conclusión: ", bold: true, color: ACCENT, size: 20 }),
+                new TextRun({ text: conclusion, size: 20 }),
+              ],
+            }),
+          );
+        }
+      } else if (TEXT_ONLY_EXCLUDED.includes(key)) {
+        blocks.push(
+          p(
+            "(No se incluyen ejemplos textuales: esta competencia requiere observación de tono, postura o mirada y no es evaluable con rigor en un piloto exclusivamente textual.)",
+            { size: 18, italics: true, color: MUTED },
+          ),
+        );
+      }
       idx++;
     }
   };
@@ -687,6 +831,85 @@ function sectionAnnex(data: PilotReportData, anonMap: Map<string, string>) {
   ];
 }
 
+// ─── LLM conclusions per competency ───────────────────────────────────
+
+const CONCLUSION_SYSTEM_PROMPT =
+  "Eres un supervisor clínico que escribe síntesis breves sobre competencias " +
+  "psicoterapéuticas. Marco: Valdés & Gómez (2023), Universidad Santo Tomás. " +
+  "Tono profesional, español neutro sin chilenismos ni voseo, sin frases vacías.";
+
+async function synthesizeOneConclusion(
+  data: PilotReportData,
+  key: CompetencyKey,
+  userIdAnonMap: Map<string, string>,
+): Promise<string> {
+  const info = data.competency_info[key];
+  const { avg, count } = data.competency_averages[key];
+  const pool = data.competency_evidence[key] || [];
+  const { fortalezas, oportunidades } = pickShowcaseEvidence(pool);
+  if (fortalezas.length === 0 && oportunidades.length === 0) return "";
+
+  const lines: string[] = [];
+  for (const e of fortalezas) {
+    const id = userIdAnonMap.get(e.student_id) || "Estudiante";
+    lines.push(
+      `- [FORTALEZA · ${id} · ${e.score}/4] "${e.quote}" — ${e.observation || "sin observación"}`,
+    );
+  }
+  for (const e of oportunidades) {
+    const id = userIdAnonMap.get(e.student_id) || "Estudiante";
+    lines.push(
+      `- [OPORTUNIDAD · ${id} · ${e.score}/4] "${e.quote}" — ${e.observation || "sin observación"}`,
+    );
+  }
+
+  const user =
+    `Genera una conclusión breve (3-4 oraciones, máximo 90 palabras) que explique ` +
+    `por qué el grupo obtuvo puntaje promedio ${avg.toFixed(1)}/4 en "${info.name}" ` +
+    `sobre ${count} sesiones evaluadas.\n\n` +
+    `DEFINICIÓN:\n${info.definition}\n\n` +
+    `EVIDENCIA OBSERVADA:\n${lines.join("\n")}\n\n` +
+    `INSTRUCCIONES:\n` +
+    `- Conecta el puntaje agregado con el patrón observado (qué hacen quienes están ` +
+    `en zona alta vs. dónde fallan quienes están en zona baja).\n` +
+    `- No menciones identificadores P-XXX; habla del grupo y los patrones.\n` +
+    `- No repitas la definición de la competencia.\n` +
+    `- Si hay disparidad entre fortalezas y oportunidades, mencionarla.\n` +
+    `- Termina con una orientación pedagógica breve cuando aplique.\n` +
+    `- Responde solo con el párrafo, sin encabezados ni viñetas.`;
+
+  const response = await chat([{ role: "user", content: user }], CONCLUSION_SYSTEM_PROMPT);
+  return response.trim();
+}
+
+async function generateCompetencyConclusions(
+  data: PilotReportData,
+  userIdAnonMap: Map<string, string>,
+): Promise<Map<CompetencyKey, string>> {
+  const evaluable = COMPETENCY_KEYS.filter(
+    (k) => !TEXT_ONLY_EXCLUDED.includes(k) && data.competency_averages[k].count > 0,
+  );
+  const results = await Promise.all(
+    evaluable.map(async (key) => {
+      try {
+        const txt = await synthesizeOneConclusion(data, key, userIdAnonMap);
+        return [key, txt] as const;
+      } catch (err) {
+        console.warn(
+          `[pilot-docx] Fallo al generar conclusión para ${key}:`,
+          err instanceof Error ? err.message : err,
+        );
+        return [key, ""] as const;
+      }
+    }),
+  );
+  const map = new Map<CompetencyKey, string>();
+  for (const [key, txt] of results) {
+    if (txt) map.set(key, txt);
+  }
+  return map;
+}
+
 // ─── Public entrypoint ────────────────────────────────────────────────
 
 export async function generatePilotDocx(data: PilotReportData): Promise<Buffer> {
@@ -700,14 +923,22 @@ export async function generatePilotDocx(data: PilotReportData): Promise<Buffer> 
   ]);
 
   // Anonymised IDs for students (stable within a single report).
+  // anonMap keyed by participant.id (used by the annex table).
+  // userIdAnonMap keyed by user_id (used by competency evidence, which
+  // joins through conversations.student_id = auth.users.id).
   const anonMap = new Map<string, string>();
+  const userIdAnonMap = new Map<string, string>();
   let c = 1;
   for (const s of data.students) {
     if (s.role === "student") {
-      anonMap.set(s.id, `P-${String(c).padStart(3, "0")}`);
+      const label = `P-${String(c).padStart(3, "0")}`;
+      anonMap.set(s.id, label);
+      if (s.user_id) userIdAnonMap.set(s.user_id, label);
       c++;
     }
   }
+
+  const competencyConclusions = await generateCompetencyConclusions(data, userIdAnonMap);
 
   const header = buildPageHeader(ugmBuf, gloriaBuf, instBuf);
 
@@ -748,7 +979,7 @@ export async function generatePilotDocx(data: PilotReportData): Promise<Buffer> 
           ...section2Objetivos(),
           ...section3Resumen(data),
           ...section4Blocks,
-          ...section5Competencias(data),
+          ...section5Competencias(data, userIdAnonMap, competencyConclusions),
           ...section6Testimonios(data),
           ...section7Conclusiones(data),
           ...sectionAnnex(data, anonMap),
