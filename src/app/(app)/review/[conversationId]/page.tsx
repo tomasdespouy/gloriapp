@@ -74,6 +74,19 @@ export default async function ReviewPage({
 
   const feedbackStatus = (existingEval?.feedback_status as "pending" | "approved" | "evaluated") || null;
 
+  // Defense-in-depth: the AI evaluation must not reach the student's browser
+  // until the teacher approves it. While the feedback is still "pending", the
+  // RSC payload would otherwise carry the full draft (scores, commentary,
+  // evidence) even though the UI hides it behind the "pending" screen. Ship
+  // only a presence stub so the client still renders that screen — without
+  // leaking the unapproved draft or the teacher comment/score.
+  const canSeeResults = feedbackStatus === "approved" || feedbackStatus === "evaluated";
+  const evaluationForClient = existingEval
+    ? canSeeResults
+      ? existingEval
+      : { feedback_status: existingEval.feedback_status }
+    : null;
+
   // Get teacher feedback (comment + score)
   const { data: teacherFeedback } = await supabase
     .from("session_feedback")
@@ -117,13 +130,13 @@ export default async function ReviewPage({
       patient={{ ...patient, id: conversation.ai_patient_id }}
       sessionNumber={conversation.session_number}
       messageCount={count || 0}
-      existingEvaluation={existingEval}
+      existingEvaluation={evaluationForClient}
       feedbackStatus={feedbackStatus}
       tooShort={tooShort}
       durationMinutes={durationMinutes}
       activeSeconds={activeSeconds}
-      teacherComment={teacherFeedback?.teacher_comment || null}
-      teacherScore={teacherFeedback?.teacher_score || null}
+      teacherComment={canSeeResults ? teacherFeedback?.teacher_comment || null : null}
+      teacherScore={canSeeResults ? teacherFeedback?.teacher_score || null : null}
       startedAt={conversation.started_at || null}
       endedAt={conversation.ended_at || null}
       actionItems={actionItems || []}
