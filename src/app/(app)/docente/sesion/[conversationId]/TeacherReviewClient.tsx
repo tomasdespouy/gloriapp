@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Brain, BookOpen, GraduationCap, Send, CheckCircle,
+  ArrowLeft, Brain, BookOpen, GraduationCap, Send, CheckCircle, Save,
   MessageSquare, Clock, User as UserIcon, Sparkles, Loader2, Eye,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -106,6 +106,7 @@ export default function TeacherReviewClient({
     feedback?.teacher_score != null ? String(feedback.teacher_score) : ""
   );
   const [saving, setSaving] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [saved, setSaved] = useState(!!feedback?.teacher_comment || !!feedback?.teacher_score);
   const [editingAI, setEditingAI] = useState(false);
   const [regeneratingEval, setRegeneratingEval] = useState(false);
@@ -207,6 +208,34 @@ export default function TeacherReviewClient({
       toast.error(err instanceof Error ? err.message : "Error al enviar la retroalimentación");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Save a draft (comment + score) without approving or notifying the student.
+  const handleSaveDraft = async () => {
+    const numScore = score ? parseFloat(score) : null;
+    if (numScore != null && (numScore < 0 || numScore > 10)) {
+      toast.error("La nota debe estar entre 0 y 10");
+      return;
+    }
+    setSavingDraft(true);
+    try {
+      const res = await fetch("/api/docente/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          teacher_comment: comment.trim() || null,
+          teacher_score: numScore,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Error al guardar el borrador");
+      setSaved(true);
+      toast.success("Borrador guardado. Podrás retomarlo cuando quieras.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al guardar el borrador");
+    } finally {
+      setSavingDraft(false);
     }
   };
 
@@ -693,15 +722,19 @@ export default function TeacherReviewClient({
                   </div>
                 </div>
               ) : (
-                <div>
-                  <button onClick={handleSubmit} disabled={saving || (!comment.trim() && !score) || !actionItemsSent}
+                <div className="space-y-2">
+                  <button onClick={handleSubmit} disabled={saving || savingDraft || (!comment.trim() && !score) || !actionItemsSent}
                     className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 hover:shadow-md ${
                       saving ? "bg-green-400 text-white cursor-wait"
-                        : "bg-green-600 hover:bg-green-700 text-white cursor-pointer"
+                        : "bg-green-600 hover:bg-green-700 text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     }`}>
                     {saving ? "Enviando..." : (<><Send size={16} /> Enviar retroalimentación al estudiante</>)}
                   </button>
-                  <p className="text-[10px] text-gray-400 mt-2 text-center">Se notificará al estudiante por la plataforma y por correo electrónico.</p>
+                  <button onClick={handleSaveDraft} disabled={savingDraft || saving || (!comment.trim() && !score) || !actionItemsSent}
+                    className="w-full py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 transition-colors flex items-center justify-center gap-2 hover:bg-gray-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                    {savingDraft ? (<><Loader2 size={15} className="animate-spin" /> Guardando...</>) : (<><Save size={15} /> Guardar borrador (sin enviar)</>)}
+                  </button>
+                  <p className="text-[10px] text-gray-400 mt-1 text-center">El borrador queda guardado solo para ti. El estudiante no lo ve hasta que envíes la retroalimentación.</p>
                 </div>
               )}
             </div>
