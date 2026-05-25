@@ -396,9 +396,11 @@ function StepDone({
       <div className="pt-2 text-center">
         <a
           href={result.loginUrl}
+          target="_blank"
+          rel="noopener noreferrer"
           className="inline-block bg-[#4A55A2] hover:bg-[#5C6BB5] text-white font-semibold px-6 py-3 rounded-xl text-sm"
         >
-          Ir al login
+          Ir al login (nueva pestaña)
         </a>
       </div>
     </div>
