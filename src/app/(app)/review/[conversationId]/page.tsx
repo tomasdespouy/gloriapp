@@ -41,6 +41,14 @@ export default async function ReviewPage({
     .select("*", { count: "exact", head: true })
     .eq("conversation_id", conversationId);
 
+  // Full transcript for the reflection panel. The student owns the
+  // conversation, so RLS on `messages` already allows reading these.
+  const { data: messages } = await supabase
+    .from("messages")
+    .select("id, role, content, created_at")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true });
+
   // Use active_seconds from client tracking (accurate) for duration
   const activeSeconds = conversation.active_seconds || 0;
   const durationMinutes = Math.round(activeSeconds / 60);
@@ -130,6 +138,7 @@ export default async function ReviewPage({
       patient={{ ...patient, id: conversation.ai_patient_id }}
       sessionNumber={conversation.session_number}
       messageCount={count || 0}
+      messages={messages || []}
       existingEvaluation={evaluationForClient}
       feedbackStatus={feedbackStatus}
       tooShort={tooShort}

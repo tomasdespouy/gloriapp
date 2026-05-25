@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { MessageSquare, Send, ArrowRight, Flame, Clock, GraduationCap, Maximize2, X, CheckCircle, XCircle, ExternalLink, Mic, Square, Loader2 } from "lucide-react";
+import { MessageSquare, Send, ArrowRight, Flame, Clock, GraduationCap, Maximize2, X, CheckCircle, XCircle, ExternalLink, Mic, Square, Loader2, Search, ChevronDown } from "lucide-react";
 import Confetti from "@/components/Confetti";
 import CountUp from "@/components/CountUp";
 import CompetencyRadar from "@/components/CompetencyRadar";
@@ -25,6 +25,7 @@ interface Props {
   patient: { id?: string; name: string; age: number; occupation: string; difficulty_level: string };
   sessionNumber: number;
   messageCount: number;
+  messages: { id: string; role: string; content: string; created_at: string }[];
   existingEvaluation: Record<string, unknown> | null;
   feedbackStatus: "pending" | "approved" | "evaluated" | null;
   tooShort: boolean;
@@ -39,11 +40,143 @@ interface Props {
   skipReflection?: boolean;
 }
 
+// Collapsible side panel that shows the just-finished conversation as study
+// material during the reflection step, with an in-panel word search that
+// highlights matches and lets the student jump between them.
+function ConversationPanel({
+  messages,
+  patientName,
+}: {
+  messages: { id: string; role: string; content: string; created_at: string }[];
+  patientName: string;
+}) {
+  const [open, setOpen] = useState(true);
+  const [query, setQuery] = useState("");
+  const [activeMatch, setActiveMatch] = useState(0);
+  const matchRefs = useRef<(HTMLElement | null)[]>([]);
+
+  const q = query.trim().toLowerCase();
+  const totalMatches = q
+    ? messages.reduce((acc, m) => acc + (m.content.toLowerCase().split(q).length - 1), 0)
+    : 0;
+
+  // Reset the active match whenever the query changes.
+  useEffect(() => {
+    setActiveMatch(0);
+  }, [query]);
+
+  // Collapse by default on small screens; keep open on desktop.
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      setOpen(false);
+    }
+  }, []);
+
+  // Scroll the active match into view as the student navigates.
+  useEffect(() => {
+    if (q && matchRefs.current[activeMatch]) {
+      matchRefs.current[activeMatch]?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [activeMatch, q]);
+
+  const goPrev = () => setActiveMatch((i) => (totalMatches ? (i - 1 + totalMatches) % totalMatches : 0));
+  const goNext = () => setActiveMatch((i) => (totalMatches ? (i + 1) % totalMatches : 0));
+
+  // Rebuilt every render: assigns a global index + ref to each highlighted match.
+  matchRefs.current = [];
+  let matchCounter = 0;
+  const renderContent = (content: string): ReactNode => {
+    if (!q) return content;
+    const parts: ReactNode[] = [];
+    const lower = content.toLowerCase();
+    let start = 0;
+    let idx = lower.indexOf(q, start);
+    let key = 0;
+    while (idx !== -1) {
+      if (idx > start) parts.push(content.slice(start, idx));
+      const globalIdx = matchCounter++;
+      const isActive = globalIdx === activeMatch;
+      parts.push(
+        <mark
+          key={key++}
+          ref={(el) => { matchRefs.current[globalIdx] = el; }}
+          className={isActive ? "bg-amber-300 text-gray-900 rounded px-0.5" : "bg-amber-100 text-gray-900 rounded px-0.5"}
+        >
+          {content.slice(idx, idx + q.length)}
+        </mark>
+      );
+      start = idx + q.length;
+      idx = lower.indexOf(q, start);
+    }
+    if (start < content.length) parts.push(content.slice(start));
+    return parts;
+  };
+
+  return (
+    <aside className="lg:sticky lg:top-4 self-start bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+          <MessageSquare size={15} className="text-sidebar" />
+          La conversación
+        </span>
+        <ChevronDown size={16} className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="border-t border-gray-100">
+          {/* Word search */}
+          <div className="px-3 py-2 flex items-center gap-2 border-b border-gray-100">
+            <Search size={14} className="text-gray-400 flex-shrink-0" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar palabra…"
+              className="flex-1 min-w-0 text-xs bg-transparent focus:outline-none placeholder:text-gray-400"
+            />
+            {q && (
+              <div className="flex items-center gap-1 flex-shrink-0 text-[10px] text-gray-400">
+                <span className="tabular-nums">{totalMatches ? activeMatch + 1 : 0}/{totalMatches}</span>
+                <button onClick={goPrev} disabled={!totalMatches} className="px-1 text-sm leading-none hover:text-sidebar disabled:opacity-40 cursor-pointer">&lsaquo;</button>
+                <button onClick={goNext} disabled={!totalMatches} className="px-1 text-sm leading-none hover:text-sidebar disabled:opacity-40 cursor-pointer">&rsaquo;</button>
+              </div>
+            )}
+          </div>
+
+          {/* Transcript */}
+          <div className="p-3 space-y-2.5 max-h-[55vh] lg:max-h-[calc(100vh-230px)] overflow-y-auto">
+            {messages.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-6">No hay mensajes en esta sesión.</p>
+            ) : (
+              messages.map((m) => {
+                const isStudent = m.role === "user";
+                return (
+                  <div key={m.id} className={`flex ${isStudent ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${isStudent ? "bg-sidebar text-white rounded-br-md" : "bg-gray-100 text-gray-800 rounded-bl-md"}`}>
+                      <p className={`text-[9px] font-medium mb-0.5 ${isStudent ? "text-white/60" : "text-gray-400"}`}>
+                        {isStudent ? "Tú" : patientName}
+                      </p>
+                      <p className="text-xs leading-relaxed whitespace-pre-wrap">{renderContent(m.content)}</p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </aside>
+  );
+}
+
 export default function ReviewClient({
   conversationId,
   patient,
   sessionNumber,
   messageCount,
+  messages,
   existingEvaluation,
   feedbackStatus,
   tooShort,
@@ -58,6 +191,7 @@ export default function ReviewClient({
 }: Props) {
   const router = useRouter();
   const canSeeResults = feedbackStatus === "approved" || feedbackStatus === "evaluated";
+  const chatMessages = messages.filter((m) => m.role !== "system");
   const [showRadarModal, setShowRadarModal] = useState(false);
   const [actionItems, setActionItems] = useState<ActionItem[]>(initialActionItems);
   const [respondingId, setRespondingId] = useState<string | null>(null);
@@ -471,7 +605,8 @@ export default function ReviewClient({
                 to avoid the 1-2 frame flash before the auto-submit effect
                 runs. See useEffect on skipReflection above. */}
             {step === "reflect" && !skipReflection && (
-              <div className="space-y-4 animate-fade-in">
+              <div className="animate-fade-in grid lg:grid-cols-[1fr_minmax(320px,380px)] gap-4 items-start">
+              <div className="space-y-4 min-w-0">
                 {/* Header + Audio recorder */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
                   <div className="flex items-center justify-between">
@@ -518,7 +653,7 @@ export default function ReviewClient({
                 </div>
 
                 {/* Question cards */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3">
                 {([
                   {
                     num: "01",
@@ -618,6 +753,8 @@ export default function ReviewClient({
                     Enviar reflexi&oacute;n y evaluar
                   </button>
                 </div>
+              </div>
+              <ConversationPanel messages={chatMessages} patientName={patient.name} />
               </div>
             )}
 
