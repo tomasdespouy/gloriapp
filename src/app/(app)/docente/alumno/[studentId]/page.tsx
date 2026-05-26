@@ -7,6 +7,7 @@ import {
   Target, Clock, CheckCircle2, AlertTriangle,
 } from "lucide-react";
 import DownloadReportButton from "@/components/DownloadReportButton";
+import { getDocenteScope, canViewStudent } from "@/lib/section-scope";
 
 interface Props {
   params: Promise<{ studentId: string }>;
@@ -43,11 +44,27 @@ export default async function DocenteAlumnoPage({ params }: Props) {
 
   const { data: student } = await supabase
     .from("profiles")
-    .select("id, full_name, email, created_at")
+    .select("id, full_name, email, created_at, establishment_id, section_id, course_id")
     .eq("id", studentId)
     .single();
 
   if (!student) redirect("/docente/dashboard");
+
+  // Access scope: an instructor may only open a student of their own
+  // establishment AND section/course (unscoped instructors see the whole
+  // establishment). Admin/superadmin bypass.
+  const scope = await getDocenteScope();
+  if (scope?.role === "instructor") {
+    const sameEstablishment =
+      !!scope.establishmentId &&
+      !!student.establishment_id &&
+      scope.establishmentId === student.establishment_id;
+    const inSection = canViewStudent(scope, {
+      section_id: student.section_id,
+      course_id: student.course_id,
+    });
+    if (!sameEstablishment || !inSection) redirect("/docente/dashboard");
+  }
 
   const admin = createAdminClient();
 

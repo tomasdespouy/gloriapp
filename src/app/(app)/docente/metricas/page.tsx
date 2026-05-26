@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { getDocenteScope, getScopedStudentIds } from "@/lib/section-scope";
 import DocenteMetricsClient from "./DocenteMetricsClient";
 
 export default async function DocenteMetricsPage() {
@@ -7,29 +8,47 @@ export default async function DocenteMetricsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch all data in parallel
+  // Establishment + section scope. A superadmin with no establishment keeps the
+  // RLS-based unfiltered view (idFilter = null → no .in() narrowing).
+  const scope = await getDocenteScope();
+  let scopedIds: string[] | null = null;
+  if (scope && (scope.establishmentId || scope.sectionId || scope.courseId)) {
+    scopedIds = await getScopedStudentIds(scope);
+  }
+  // Sentinel so a "scoped but empty" list matches no rows (instead of all).
+  const idFilter = scopedIds && scopedIds.length === 0
+    ? ["00000000-0000-0000-0000-000000000000"]
+    : scopedIds;
+
+  // Build queries, narrowing by the caller's students when scoped.
+  let compQuery = supabase
+    .from("session_competencies")
+    .select("overall_score_v2, setting_terapeutico, motivo_consulta, datos_contextuales, objetivos, escucha_activa, actitud_no_valorativa, optimismo, presencia, conducta_no_verbal, contencion_afectos, created_at, eval_version")
+    .eq("eval_version", 2);
+  let sessionCountQuery = supabase
+    .from("conversations")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "completed");
+  let feedbackQuery = supabase
+    .from("session_feedback")
+    .select("id, teacher_comment");
+  if (idFilter) {
+    compQuery = compQuery.in("student_id", idFilter);
+    sessionCountQuery = sessionCountQuery.in("student_id", idFilter);
+    feedbackQuery = feedbackQuery.in("student_id", idFilter);
+  }
+
   const [
     { data: competencies },
-    { count: studentCount },
     { count: sessionCount },
     { data: feedbackRows },
-  ] = await Promise.all([
-    supabase
-      .from("session_competencies")
-      .select("overall_score_v2, setting_terapeutico, motivo_consulta, datos_contextuales, objetivos, escucha_activa, actitud_no_valorativa, optimismo, presencia, conducta_no_verbal, contencion_afectos, created_at, eval_version")
-      .eq("eval_version", 2),
-    supabase
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "student"),
-    supabase
-      .from("conversations")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "completed"),
-    supabase
-      .from("session_feedback")
-      .select("id, teacher_comment"),
-  ]);
+  ] = await Promise.all([compQuery, sessionCountQuery, feedbackQuery]);
+
+  // Student count: the scoped list length, or the establishment-wide count
+  // (via RLS) for an unscoped superadmin.
+  const studentCount = scopedIds !== null
+    ? scopedIds.length
+    : (await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student")).count || 0;
 
   const rows = competencies || [];
 

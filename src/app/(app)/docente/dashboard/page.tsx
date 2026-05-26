@@ -6,7 +6,7 @@ import {
   Users, ClipboardCheck, TrendingUp, AlertTriangle,
   ChevronRight, MessageSquare, Clock, Calendar,
 } from "lucide-react";
-import { getUserProfile } from "@/lib/supabase/user-profile";
+import { getDocenteScope } from "@/lib/section-scope";
 import DocenteStudentList, { type StudentData } from "./DocenteStudentList";
 
 export default async function DocenteDashboard({
@@ -19,23 +19,10 @@ export default async function DocenteDashboard({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const userProfile = await getUserProfile();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, establishment_id, role, course_id, section_id")
-    .eq("id", user.id)
-    .single();
-
-  // Use the impersonated establishment_id for proper scoping
-  const establishmentId = userProfile?.establishmentId || profile?.establishment_id;
-
-  // Section scoping: an instructor with a section (or course) assigned should
-  // only see the students of THAT section, not the whole establishment.
-  // Instructors without a section/course keep the establishment-wide view
-  // (backward compatible), and admins/superadmins are never narrowed.
-  const effectiveRole = userProfile?.role || profile?.role;
-  const sectionId = effectiveRole === "instructor" ? profile?.section_id : null;
-  const courseId = effectiveRole === "instructor" ? profile?.course_id : null;
+  // Establishment + section scope (impersonation-aware). Instructors are
+  // narrowed to their section/course; admins/superadmins see the establishment.
+  const scope = await getDocenteScope();
+  const establishmentId = scope?.establishmentId;
 
   // Students scoped to establishment, then narrowed by section/course
   let studentsQuery = supabase
@@ -47,10 +34,10 @@ export default async function DocenteDashboard({
   if (establishmentId) {
     studentsQuery = studentsQuery.eq("establishment_id", establishmentId);
   }
-  if (sectionId) {
-    studentsQuery = studentsQuery.eq("section_id", sectionId);
-  } else if (courseId) {
-    studentsQuery = studentsQuery.eq("course_id", courseId);
+  if (scope?.sectionId) {
+    studentsQuery = studentsQuery.eq("section_id", scope.sectionId);
+  } else if (scope?.courseId) {
+    studentsQuery = studentsQuery.eq("course_id", scope.courseId);
   }
 
   const { data: students } = await studentsQuery;
@@ -166,7 +153,7 @@ export default async function DocenteDashboard({
     return new Date(prog.last_session_date) < sevenDaysAgo;
   }) || [];
 
-  const firstName = profile?.full_name?.split(" ")[0] || "Docente";
+  const firstName = scope?.fullName?.split(" ")[0] || "Docente";
 
   return (
     <div className="min-h-screen">

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { canViewStudent } from "@/lib/section-scope";
 
 export type FeedbackAuthResult =
   | { ok: true; userId: string; role: string; studentId: string }
@@ -7,10 +8,11 @@ export type FeedbackAuthResult =
 
 /**
  * Authorizes an instructor/admin/superadmin to act on the feedback flow of a
- * given session, scoped by establishment. Mirrors the check in
+ * given session, scoped by establishment AND section. Mirrors the check in
  * /docente/sesion/[conversationId]/page.tsx: instructors may only touch
- * sessions of students in their OWN establishment; admin and superadmin
- * bypass the establishment scope.
+ * sessions of students in their OWN establishment and section/course
+ * (instructors without a section see the whole establishment); admin and
+ * superadmin bypass the scope.
  *
  * Why this lives here and not only in RLS: the mutating /api/docente routes
  * write with the service-role (admin) client, which bypasses RLS entirely.
@@ -34,7 +36,7 @@ export async function authorizeFeedbackAccess(opts: {
 
   const { data: caller } = await supabase
     .from("profiles")
-    .select("role, establishment_id")
+    .select("role, establishment_id, section_id, course_id")
     .eq("id", user.id)
     .single();
 
@@ -63,20 +65,27 @@ export async function authorizeFeedbackAccess(opts: {
     return { ok: false, status: 400, error: "conversation_id o student_id requerido" };
   }
 
-  // Instructor scope: the student must belong to the same establishment.
-  // Instructors without an establishment cannot act on any session.
+  // Instructor scope: the student must belong to the same establishment AND to
+  // the instructor's section/course (instructors without a section see the
+  // whole establishment — see canViewStudent). Instructors without an
+  // establishment cannot act on any session.
   if (role === "instructor") {
     const { data: student } = await admin
       .from("profiles")
-      .select("establishment_id")
+      .select("establishment_id, section_id, course_id")
       .eq("id", studentId)
       .single();
 
-    if (
-      !caller?.establishment_id ||
-      !student?.establishment_id ||
-      caller.establishment_id !== student.establishment_id
-    ) {
+    const sameEstablishment =
+      !!caller?.establishment_id &&
+      !!student?.establishment_id &&
+      caller.establishment_id === student.establishment_id;
+    const inSection = canViewStudent(
+      { role, sectionId: caller?.section_id ?? null, courseId: caller?.course_id ?? null },
+      { section_id: student?.section_id, course_id: student?.course_id },
+    );
+
+    if (!sameEstablishment || !inSection) {
       return { ok: false, status: 403, error: "No autorizado" };
     }
   }

@@ -6,7 +6,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { data: profile } = await supabase.from("profiles").select("role, establishment_id").eq("id", user.id).single();
+  const { data: profile } = await supabase.from("profiles").select("role, establishment_id, section_id, course_id").eq("id", user.id).single();
   if (profile?.role !== "instructor" && profile?.role !== "admin" && profile?.role !== "superadmin") {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
@@ -17,6 +17,13 @@ export async function GET() {
   // Instructors and admins only see their establishment; superadmins see all
   if (profile.role !== "superadmin" && profile.establishment_id) {
     studentsQuery = studentsQuery.eq("establishment_id", profile.establishment_id);
+  }
+
+  // Instructors are further narrowed to their section (or course). Instructors
+  // without a section/course keep the establishment-wide export.
+  if (profile.role === "instructor") {
+    if (profile.section_id) studentsQuery = studentsQuery.eq("section_id", profile.section_id);
+    else if (profile.course_id) studentsQuery = studentsQuery.eq("course_id", profile.course_id);
   }
 
   const [{ data: students }, { data: progress }] = await Promise.all([

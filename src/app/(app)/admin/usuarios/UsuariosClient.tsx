@@ -1253,7 +1253,9 @@ function CsvImportSection({ onClose }: { onClose: () => void }) {
 
 function CreateUserForm({ establishments, courses, sections, isSuperadmin, onClose }: { establishments: { id: string; name: string }[]; courses: CourseOption[]; sections: SectionOption[]; isSuperadmin: boolean; onClose: () => void }) {
   const [mode, setMode] = useState<"single" | "text" | "excel">("single");
-  const [role, setRole] = useState("student");
+  // No silent default: the admin must consciously pick a role. Defaulting to
+  // "student" caused docentes to be created as students by accident.
+  const [role, setRole] = useState("");
   const [estId, setEstId] = useState("");
   const [courseId, setCourseId] = useState("");
   const [sectionId, setSectionId] = useState("");
@@ -1314,6 +1316,9 @@ function CreateUserForm({ establishments, courses, sections, isSuperadmin, onClo
     setLoading(true);
     setError("");
     setResult(null);
+
+    // Require an explicit role for every mode — no silent default.
+    if (!role) { setError("Selecciona el rol del usuario (Alumno o Docente)"); setLoading(false); return; }
 
     try {
       if (mode === "single") {
@@ -1399,7 +1404,8 @@ function CreateUserForm({ establishments, courses, sections, isSuperadmin, onClo
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-medium text-gray-500 mb-1">Rol<HelpTip text="Estudiante: practica con pacientes. Docente: supervisa alumnos. Admin: gestiona institución" /></label>
-              <select value={role} onChange={(e) => setRole(e.target.value)} className={`${inputClass} hover:border-gray-300 cursor-pointer`}>
+              <select value={role} onChange={(e) => setRole(e.target.value)} className={`${inputClass} hover:border-gray-300 cursor-pointer ${!role ? "text-gray-400" : ""}`}>
+                <option value="" disabled>— Selecciona el rol —</option>
                 {roleOptions.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
               </select>
             </div>
