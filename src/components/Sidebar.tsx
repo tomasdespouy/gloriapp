@@ -4,7 +4,7 @@ import {
   Home, User, History, BarChart3, BookOpen, Info,
   Users, ClipboardCheck, LayoutDashboard, Building2,
   Accessibility, LifeBuoy, FlaskConical, DollarSign, Activity, FileText,
-  Briefcase, Rocket, Bell, Radio, ArrowLeft, ArrowRight,
+  Briefcase, Rocket, Bell, ArrowLeft, ArrowRight,
 } from "lucide-react";
 import { useSidebar } from "./SidebarContext";
 import Link from "next/link";
@@ -24,7 +24,6 @@ const studentNav: NavItem[] = [
   { icon: BarChart3, label: "Mi progreso", href: "/progreso" },
   { icon: BookOpen, label: "Aprendizaje", href: "/aprendizaje" },
   { icon: User, label: "Pacientes", href: "/pacientes" },
-  { icon: Radio, label: "Grabar en vivo", href: "/observacion" },
   { icon: History, label: "Mi historial", href: "/historial" },
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];
@@ -32,7 +31,6 @@ const studentNav: NavItem[] = [
 const instructorNav: NavItem[] = [
   { icon: LayoutDashboard, label: "Panel docente", href: "/docente/dashboard" },
   { icon: ClipboardCheck, label: "Revisiones", href: "/docente/revisiones" },
-  { icon: User, label: "Pacientes", href: "/perfiles" },
   { icon: BarChart3, label: "Métricas", href: "/docente/metricas" },
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];
