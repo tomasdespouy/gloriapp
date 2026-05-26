@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -56,6 +57,10 @@ export async function PATCH(request: Request) {
     }
     const { error } = await supabase.auth.updateUser({ password: body.new_password });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    // Setting a new password from the profile also satisfies the first-login
+    // forced change, so clear the flag.
+    const admin = createAdminClient();
+    await admin.from("profiles").update({ must_change_password: false }).eq("id", user.id);
   }
 
   return NextResponse.json({ success: true });

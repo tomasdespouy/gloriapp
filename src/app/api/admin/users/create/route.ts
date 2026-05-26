@@ -98,6 +98,9 @@ export async function POST(request: Request) {
   if (newUser?.user?.id) {
     const updates: Record<string, unknown> = {
       role: role || "student",
+      // Admin-created accounts get a temporary password → force a change on
+      // first login (gate in the app layout → /cambiar-clave).
+      must_change_password: true,
     };
     if (validatedEstablishmentId) updates.establishment_id = validatedEstablishmentId;
     if (course_id) updates.course_id = course_id;

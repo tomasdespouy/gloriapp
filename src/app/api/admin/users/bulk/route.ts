@@ -86,7 +86,8 @@ export async function POST(request: Request) {
       // The `handle_new_user()` trigger forces role='student'; apply the
       // intended role + establishment + course/section here explicitly.
       if (newUser?.user?.id) {
-        const updates: Record<string, unknown> = { role: rowRole };
+        // Temporary password → force a change on first login.
+        const updates: Record<string, unknown> = { role: rowRole, must_change_password: true };
         if (establishment_id) updates.establishment_id = establishment_id;
         if (course_id) updates.course_id = course_id;
         if (section_id) updates.section_id = section_id;
