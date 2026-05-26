@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { authorizeFeedbackAccess } from "@/lib/feedback-auth";
 import { NextResponse } from "next/server";
 
 // Save a DRAFT of the teacher's comment + score without approving or notifying.
@@ -7,29 +7,6 @@ import { NextResponse } from "next/server";
 // visible to the student: feedback_status stays as-is (pending), and the review
 // page only ships the teacher comment/score once status is approved/evaluated.
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (
-    profile?.role !== "instructor" &&
-    profile?.role !== "admin" &&
-    profile?.role !== "superadmin"
-  ) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  }
-
   const { conversation_id, teacher_comment, teacher_score } = await request.json();
 
   if (!conversation_id) {
@@ -38,6 +15,14 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  // Role + establishment scope: an instructor may only draft feedback for
+  // sessions of students in their own establishment.
+  const auth = await authorizeFeedbackAccess({ conversationId: conversation_id });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const user = { id: auth.userId };
 
   if (teacher_score != null && (teacher_score < 0 || teacher_score > 10)) {
     return NextResponse.json(

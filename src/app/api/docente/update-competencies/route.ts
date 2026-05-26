@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { authorizeFeedbackAccess } from "@/lib/feedback-auth";
 import { NextResponse } from "next/server";
 
 // Only these fields can be edited by instructors
@@ -13,18 +13,16 @@ const ALLOWED_FIELDS = new Set([
 ]);
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "instructor" && profile?.role !== "admin" && profile?.role !== "superadmin") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  }
-
   const { conversation_id, updates } = await request.json();
   if (!conversation_id || !updates) {
     return NextResponse.json({ error: "conversation_id y updates requeridos" }, { status: 400 });
+  }
+
+  // Role + establishment scope: an instructor may only edit the AI evaluation
+  // of sessions of students in their own establishment.
+  const auth = await authorizeFeedbackAccess({ conversationId: conversation_id });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   // Filter to only allowed fields
