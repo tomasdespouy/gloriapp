@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, ArrowLeft, LogOut, Mic, MicOff, Volume2, Square, Loader2, Clock, X, Phone, PhoneOff, FileText, CheckCircle2, MessageSquare } from "lucide-react";
+import { Send, ArrowLeft, LogOut, Mic, MicOff, Volume2, Square, Loader2, Clock, X, FileText, CheckCircle2, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SessionTimer, { useActiveSecondsRef } from "@/components/SessionTimer";
@@ -852,12 +852,6 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sendMessageRef = useRef<(text?: string) => Promise<void>>(null as any);
 
-  const requestVoiceMode = () => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert("Tu navegador no soporta reconocimiento de voz."); return; }
-    setShowVoiceConsent(true);
-  };
-
   const startVoiceMode = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
@@ -1272,20 +1266,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             <span className="hidden sm:inline">Notas</span>
           </button>
 
-          {patient.voice_id && (
-            <button
-              onClick={() => voiceMode ? stopVoiceMode() : requestVoiceMode()}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors cursor-pointer ${
-                voiceMode
-                  ? "bg-green-500 text-white animate-pulse"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-              }`}
-              title={voiceMode ? "Desactivar modo voz" : "Activar conversación por voz"}
-            >
-              {voiceMode ? <Phone size={13} /> : <Mic size={13} />}
-              <span className="hidden sm:inline">{voiceMode ? "Voz activa" : "Modo voz"}</span>
-            </button>
-          )}
+          {/* Botón "Modo voz" oculto a pedido del usuario. La lógica de voz
+              (startVoiceMode/stopVoiceMode + consentimiento) queda dormante. */}
 
           <SessionTimer
             sessionStarted={sessionStarted}
