@@ -5,7 +5,6 @@ import { getUserProfile } from "@/lib/supabase/user-profile";
 import Link from "next/link";
 import { LEVELS, getLevelInfo } from "@/lib/gamification";
 import SessionCarousel from "@/components/SessionCarousel";
-import { isPilotActive } from "@/lib/pilot-helpers";
 
 export default async function Dashboard() {
   const userProfile = await getUserProfile();
@@ -14,37 +13,14 @@ export default async function Dashboard() {
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  // Round 1: Tutor check + profile + establishment data in parallel
-  const [{ data: tutorProgress }, { data: studentProfile }] = await Promise.all([
-    userProfile.role === "student"
-      ? supabase.from("learning_progress").select("id").eq("student_id", userProfile.id).eq("competency", "tutor").limit(1)
-      : Promise.resolve({ data: [{ id: "skip" }] }),
-    supabase.from("profiles").select("establishment_id").eq("id", userProfile.id).single(),
-  ]);
-
-  if (userProfile.role === "student" && (!tutorProgress || tutorProgress.length === 0)) {
-    // Check if user is in a pilot that skips tutor onboarding
-    let skipTutor = false;
-    const { data: pp } = await admin
-      .from("pilot_participants")
-      .select("pilot_id")
-      .eq("user_id", userProfile.id)
-      .maybeSingle();
-    if (pp?.pilot_id) {
-      const { data: pilotRow } = await admin
-        .from("pilots")
-        .select("ui_config, status, scheduled_at, ended_at")
-        .eq("id", pp.pilot_id)
-        .single();
-      // Defensive: only honor flags when the pilot is still live. Layout
-      // already redirects dead pilots, but if that ever regresses the
-      // page must not accidentally apply stale pilot UX.
-      if (isPilotActive(pilotRow)) {
-        skipTutor = !!(pilotRow?.ui_config as Record<string, boolean> | null)?.skip_tutor_redirect;
-      }
-    }
-    if (!skipTutor) redirect("/aprendizaje/tutor");
-  }
+  // Profile (for establishment-based patient visibility). The first-time
+  // onboarding redirect to /aprendizaje/tutor was removed: new students now
+  // land here and see the welcome video (WelcomeVideoModal) on the dashboard.
+  const { data: studentProfile } = await supabase
+    .from("profiles")
+    .select("establishment_id")
+    .eq("id", userProfile.id)
+    .single();
 
   // Round 2: Establishment-based patient visibility (only if establishment exists)
   let visiblePatientIds: string[] | null = null;
