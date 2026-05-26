@@ -36,6 +36,10 @@ export default function ResetPasswordPage() {
       return;
     }
 
+    // Also clear the first-login flag, so a user who resets via email isn't
+    // sent back to /cambiar-clave after logging in.
+    await fetch("/api/profile/clear-password-flag", { method: "POST" }).catch(() => {});
+
     setSuccess(true);
     setLoading(false);
     setTimeout(() => router.push("/login"), 3000);

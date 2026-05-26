@@ -42,14 +42,16 @@ export default async function AppLayout({
   // — even across browsers, incognito, or shared machines.
   let welcomeVideoSeen = false;
   let a11yPrefs: { fontSize?: string; contrast?: string } = {};
+  let mustChangePassword = false;
   if (profile?.id) {
     const { data: prof } = await admin
       .from("profiles")
-      .select("welcome_video_seen_at, a11y_prefs")
+      .select("welcome_video_seen_at, a11y_prefs, must_change_password")
       .eq("id", profile.id)
       .single();
     welcomeVideoSeen = !!prof?.welcome_video_seen_at;
     a11yPrefs = (prof?.a11y_prefs as { fontSize?: string; contrast?: string }) || {};
+    mustChangePassword = !!prof?.must_change_password;
   }
 
   // ─── Pilot access window enforcement + logo capture ───────────────────
@@ -57,6 +59,7 @@ export default async function AppLayout({
   // ended_at set, block access outside that window. Superadmins bypass.
   // We also pick up pilots.logo_url here so the sidebar can show the
   // pilot's branding without an extra round trip.
+  let isPilot = false;
   if (profile?.id && !isTrulySuperadmin) {
     const { data: participation } = await admin
       .from("pilot_participants")
@@ -65,6 +68,7 @@ export default async function AppLayout({
       .maybeSingle();
 
     if (participation?.pilot_id) {
+      isPilot = true;
       const { data: pilot } = await admin
         .from("pilots")
         .select("scheduled_at, ended_at, status, logo_url, ui_config")
@@ -91,6 +95,13 @@ export default async function AppLayout({
     }
   }
   // ──────────────────────────────────────────────────────────────────────
+
+  // Force first-login password change. Admin-created accounts get a temporary
+  // password (must_change_password=true); they must set their own before using
+  // the platform. Pilots (one-time passwords) and superadmins are excluded.
+  if (mustChangePassword && !isPilot && !isTrulySuperadmin) {
+    redirect("/cambiar-clave");
+  }
 
   if (profile?.establishmentId) {
     const [{ data: est }, { data: disabledModules }] = await Promise.all([

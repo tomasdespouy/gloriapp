@@ -66,6 +66,10 @@ export async function POST(
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  // New temporary password → force a change on next login. (The layout gate
+  // skips pilot participants, so anonymous pilot users are never forced.)
+  await admin.from("profiles").update({ must_change_password: true }).eq("id", id);
+
   // Send email with credentials. The template differs depending on whether this
   // is the first delivery (welcome) or a password reset.
   const appUrl = getAppUrl();
