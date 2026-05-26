@@ -31,9 +31,14 @@ type User = {
   credentials_sent_at: string | null;
 };
 
+export type CourseOption = { id: string; name: string; establishment_id: string | null; is_active?: boolean };
+export type SectionOption = { id: string; name: string; course_id: string | null; is_active?: boolean };
+
 type Props = {
   users: User[];
   establishments: { id: string; name: string }[];
+  courses: CourseOption[];
+  sections: SectionOption[];
   isSuperadmin: boolean;
   totalCount: number;
   currentPage: number;
@@ -46,7 +51,7 @@ type Props = {
 type SortKey = "full_name" | "email" | "role" | "establishmentName" | "courseName" | "sectionName" | "sessionCount";
 type SortDir = "asc" | "desc";
 
-export default function UsuariosClient({ users, establishments, isSuperadmin, totalCount, currentPage, perPage, initialSearch, initialRole, initialEst }: Props) {
+export default function UsuariosClient({ users, establishments, courses, sections, isSuperadmin, totalCount, currentPage, perPage, initialSearch, initialRole, initialEst }: Props) {
   const router = useRouter();
   const searchParamsHook = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
@@ -329,7 +334,7 @@ export default function UsuariosClient({ users, establishments, isSuperadmin, to
       </header>
 
       <div className={`px-4 sm:px-8 pb-8 space-y-4 ${someSelected ? "pb-24" : ""}`}>
-        {showCreateForm && <CreateUserForm establishments={establishments} isSuperadmin={isSuperadmin} onClose={() => setShowCreateForm(false)} />}
+        {showCreateForm && <CreateUserForm establishments={establishments} courses={courses} sections={sections} isSuperadmin={isSuperadmin} onClose={() => setShowCreateForm(false)} />}
 
         {showCsvImport && <CsvImportSection onClose={() => setShowCsvImport(false)} />}
 
@@ -1246,10 +1251,17 @@ function CsvImportSection({ onClose }: { onClose: () => void }) {
   );
 }
 
-function CreateUserForm({ establishments, isSuperadmin, onClose }: { establishments: { id: string; name: string }[]; isSuperadmin: boolean; onClose: () => void }) {
+function CreateUserForm({ establishments, courses, sections, isSuperadmin, onClose }: { establishments: { id: string; name: string }[]; courses: CourseOption[]; sections: SectionOption[]; isSuperadmin: boolean; onClose: () => void }) {
   const [mode, setMode] = useState<"single" | "text" | "excel">("single");
   const [role, setRole] = useState("student");
   const [estId, setEstId] = useState("");
+  const [courseId, setCourseId] = useState("");
+  const [sectionId, setSectionId] = useState("");
+
+  // Cascading options: courses belong to the selected institution, sections
+  // belong to the selected course.
+  const estCourses = estId ? courses.filter((c) => c.establishment_id === estId) : [];
+  const courseSections = courseId ? sections.filter((s) => s.course_id === courseId) : [];
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ created: number; failed: number; results?: { email: string; success: boolean; error?: string }[] } | null>(null);
@@ -1313,6 +1325,8 @@ function CreateUserForm({ establishments, isSuperadmin, onClose }: { establishme
           send_credentials: sendCredentials,
         };
         if (estId) body.establishment_id = estId;
+        if (courseId) body.course_id = courseId;
+        if (sectionId) body.section_id = sectionId;
         const res = await fetch("/api/admin/users/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1327,6 +1341,8 @@ function CreateUserForm({ establishments, isSuperadmin, onClose }: { establishme
 
         const bulkBody: Record<string, unknown> = { users, role };
         if (estId) bulkBody.establishment_id = estId;
+        if (courseId) bulkBody.course_id = courseId;
+        if (sectionId) bulkBody.section_id = sectionId;
         const res = await fetch("/api/admin/users/bulk", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1389,9 +1405,27 @@ function CreateUserForm({ establishments, isSuperadmin, onClose }: { establishme
             </div>
             <div>
               <label className="block text-[10px] font-medium text-gray-500 mb-1">Institución</label>
-              <select value={estId} onChange={(e) => setEstId(e.target.value)} className={`${inputClass} hover:border-gray-300 cursor-pointer`}>
+              <select value={estId} onChange={(e) => { setEstId(e.target.value); setCourseId(""); setSectionId(""); }} className={`${inputClass} hover:border-gray-300 cursor-pointer`}>
                 <option value="">Sin asignar</option>
                 {establishments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Asignatura + Sección (en cascada desde la institución) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-medium text-gray-500 mb-1">Asignatura<HelpTip text="Define la sección que verá el docente. Selecciona primero una institución." /></label>
+              <select value={courseId} onChange={(e) => { setCourseId(e.target.value); setSectionId(""); }} disabled={!estId} className={`${inputClass} hover:border-gray-300 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed`}>
+                <option value="">Sin asignar</option>
+                {estCourses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-medium text-gray-500 mb-1">Sección</label>
+              <select value={sectionId} onChange={(e) => setSectionId(e.target.value)} disabled={!courseId} className={`${inputClass} hover:border-gray-300 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed`}>
+                <option value="">Sin asignar</option>
+                {courseSections.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
           </div>

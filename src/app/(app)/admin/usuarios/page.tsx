@@ -71,9 +71,10 @@ export default async function UsuariosPage({
         .in("id", ctx.establishmentIds.length > 0 ? ctx.establishmentIds : ["00000000-0000-0000-0000-000000000000"])
         .order("name");
 
-  // Fetch courses and sections for display names
-  const { data: allCourses } = await supabase.from("courses").select("id, name");
-  const { data: allSections } = await supabase.from("sections").select("id, name");
+  // Fetch courses and sections — for display names AND for the create form's
+  // cascading Asignatura/Sección selectors (need establishment_id / course_id).
+  const { data: allCourses } = await supabase.from("courses").select("id, name, establishment_id, is_active");
+  const { data: allSections } = await supabase.from("sections").select("id, name, course_id, is_active");
   const courseMap = new Map((allCourses || []).map((c) => [c.id, c.name]));
   const sectionMap = new Map((allSections || []).map((s) => [s.id, s.name]));
 
@@ -109,6 +110,8 @@ export default async function UsuariosPage({
     <UsuariosClient
       users={enrichedUsers}
       establishments={establishments || []}
+      courses={allCourses || []}
+      sections={allSections || []}
       isSuperadmin={ctx.isSuperadmin}
       totalCount={totalCount || 0}
       currentPage={currentPage}
