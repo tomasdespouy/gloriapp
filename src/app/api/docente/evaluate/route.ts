@@ -1,31 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { authorizeFeedbackAccess } from "@/lib/feedback-auth";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (
-    profile?.role !== "instructor" &&
-    profile?.role !== "admin" &&
-    profile?.role !== "superadmin"
-  ) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  }
-
   const body = await request.json();
   const { conversation_id, teacher_comment, teacher_score } = body;
 
@@ -35,6 +12,14 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  // Role + establishment scope: an instructor may only evaluate sessions of
+  // students in their own establishment.
+  const auth = await authorizeFeedbackAccess({ conversationId: conversation_id });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const user = { id: auth.userId };
 
   if (teacher_score != null && (teacher_score < 0 || teacher_score > 10)) {
     return NextResponse.json(

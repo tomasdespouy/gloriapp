@@ -1,21 +1,22 @@
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { authorizeFeedbackAccess } from "@/lib/feedback-auth";
 import { chat } from "@/lib/ai";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET: list action items for a conversation or student
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "instructor" && profile?.role !== "admin" && profile?.role !== "superadmin") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  }
-
   const conversationId = request.nextUrl.searchParams.get("conversation_id");
   const studentId = request.nextUrl.searchParams.get("student_id");
+
+  // Role + establishment scope: an instructor may only list action items of
+  // students in their own establishment (by conversation or by student).
+  const auth = await authorizeFeedbackAccess({
+    conversationId: conversationId ?? undefined,
+    studentId: studentId ?? undefined,
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
 
   const admin = createAdminClient();
   let query = admin.from("action_items").select("*").order("created_at", { ascending: false });
@@ -29,16 +30,19 @@ export async function GET(request: NextRequest) {
 
 // POST: create action items (manual or AI-suggested)
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "instructor" && profile?.role !== "admin" && profile?.role !== "superadmin") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  }
-
   const body = await request.json();
+
+  // Role + establishment scope: every branch targets a specific session, so
+  // authorize against its conversation (or student) before doing anything —
+  // including the AI-suggestion branches.
+  const auth = await authorizeFeedbackAccess({
+    conversationId: body.conversation_id ?? undefined,
+    studentId: body.student_id ?? undefined,
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const user = { id: auth.userId };
 
   // AI supervisor comment generation
   if (body.action === "suggest_comment") {
