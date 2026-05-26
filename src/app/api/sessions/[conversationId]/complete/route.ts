@@ -14,6 +14,7 @@ import {
   normalizeEvaluation,
   type NormalizedEvaluation,
 } from "@/lib/evaluation-prompt";
+import { canViewStudent } from "@/lib/section-scope";
 
 export async function POST(
   request: NextRequest,
@@ -257,38 +258,43 @@ export async function POST(
   // Notify instructors that a session is pending review
   const { data: student } = await admin
     .from("profiles")
-    .select("full_name, establishment_id")
+    .select("full_name, establishment_id, section_id, course_id")
     .eq("id", user.id)
     .single();
 
   if (student?.establishment_id) {
     const { data: instructors } = await admin
       .from("profiles")
-      .select("id")
+      .select("id, role, section_id, course_id")
       .eq("establishment_id", student.establishment_id)
       .in("role", ["instructor", "admin", "superadmin"]);
+
+    // Only notify instructors who can see this student (their section/course).
+    // Admin/superadmin and unscoped instructors keep establishment-wide reach.
+    const recipients = (instructors || [])
+      .filter((inst) => inst.id !== user.id)
+      .filter((inst) => canViewStudent(
+        { role: inst.role, sectionId: inst.section_id, courseId: inst.course_id },
+        { section_id: student.section_id, course_id: student.course_id },
+      ));
 
     const patientRow = await admin.from("ai_patients").select("name").eq("id", conversation.ai_patient_id).single();
     const patientName = patientRow.data?.name || "paciente";
 
-    const notifications = (instructors || [])
-      .filter((inst) => inst.id !== user.id) // Don't notify yourself
-      .map((inst) => ({
-        user_id: inst.id,
-        type: "pending_review",
-        title: "Sesión pendiente de revisión",
-        body: `${student.full_name || "Estudiante"} completó una sesión con ${patientName}`,
-        href: `/docente/sesion/${conversationId}`,
-        is_read: false,
-      }));
+    const notifications = recipients.map((inst) => ({
+      user_id: inst.id,
+      type: "pending_review",
+      title: "Sesión pendiente de revisión",
+      body: `${student.full_name || "Estudiante"} completó una sesión con ${patientName}`,
+      href: `/docente/sesion/${conversationId}`,
+      is_read: false,
+    }));
     if (notifications.length > 0) {
       await admin.from("notifications").insert(notifications);
     }
 
-    // Send email to instructors via Resend
-    const recipientIds = (instructors || [])
-      .filter((inst) => inst.id !== user.id)
-      .map((i) => i.id);
+    // Send email to the same recipients via Resend
+    const recipientIds = recipients.map((i) => i.id);
 
     if (process.env.RESEND_API_KEY && recipientIds.length > 0) {
       try {
@@ -541,29 +547,33 @@ async function evaluateAndPersist(ctx: {
 
   // Instructor notifications + email
   const { data: student } = await admin
-    .from("profiles").select("full_name, establishment_id").eq("id", userId).single();
+    .from("profiles").select("full_name, establishment_id, section_id, course_id").eq("id", userId).single();
   if (student?.establishment_id) {
     const { data: instructors } = await admin
-      .from("profiles").select("id")
+      .from("profiles").select("id, role, section_id, course_id")
       .eq("establishment_id", student.establishment_id)
       .in("role", ["instructor", "admin", "superadmin"]);
+    // Only notify instructors who can see this student (their section/course).
+    const recipients = (instructors || [])
+      .filter((inst) => inst.id !== userId)
+      .filter((inst) => canViewStudent(
+        { role: inst.role, sectionId: inst.section_id, courseId: inst.course_id },
+        { section_id: student.section_id, course_id: student.course_id },
+      ));
     const patientRow = await admin.from("ai_patients").select("name").eq("id", aiPatientId).single();
     const patientName = patientRow.data?.name || "paciente";
-    const notifications = (instructors || [])
-      .filter((inst) => inst.id !== userId)
-      .map((inst) => ({
-        user_id: inst.id,
-        type: "pending_review",
-        title: "Sesión pendiente de revisión",
-        body: `${student.full_name || "Estudiante"} completó una sesión con ${patientName}`,
-        href: `/docente/sesion/${conversationId}`,
-        is_read: false,
-      }));
+    const notifications = recipients.map((inst) => ({
+      user_id: inst.id,
+      type: "pending_review",
+      title: "Sesión pendiente de revisión",
+      body: `${student.full_name || "Estudiante"} completó una sesión con ${patientName}`,
+      href: `/docente/sesion/${conversationId}`,
+      is_read: false,
+    }));
     if (notifications.length > 0) {
       await admin.from("notifications").insert(notifications);
     }
-    const recipientIds = (instructors || [])
-      .filter((inst) => inst.id !== userId).map((i) => i.id);
+    const recipientIds = recipients.map((i) => i.id);
     if (process.env.RESEND_API_KEY && recipientIds.length > 0) {
       try {
         const { Resend } = await import("resend");

@@ -6,7 +6,7 @@ import {
   Users, ClipboardCheck, TrendingUp, AlertTriangle,
   ChevronRight, MessageSquare, Clock, Calendar,
 } from "lucide-react";
-import { getUserProfile } from "@/lib/supabase/user-profile";
+import { getDocenteScope } from "@/lib/section-scope";
 import DocenteStudentList, { type StudentData } from "./DocenteStudentList";
 
 export default async function DocenteDashboard({
@@ -19,17 +19,12 @@ export default async function DocenteDashboard({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const userProfile = await getUserProfile();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, establishment_id")
-    .eq("id", user.id)
-    .single();
+  // Establishment + section scope (impersonation-aware). Instructors are
+  // narrowed to their section/course; admins/superadmins see the establishment.
+  const scope = await getDocenteScope();
+  const establishmentId = scope?.establishmentId;
 
-  // Use the impersonated establishment_id for proper scoping
-  const establishmentId = userProfile?.establishmentId || profile?.establishment_id;
-
-  // Students scoped to establishment
+  // Students scoped to establishment, then narrowed by section/course
   let studentsQuery = supabase
     .from("profiles")
     .select("id, full_name, email, created_at")
@@ -38,6 +33,11 @@ export default async function DocenteDashboard({
 
   if (establishmentId) {
     studentsQuery = studentsQuery.eq("establishment_id", establishmentId);
+  }
+  if (scope?.sectionId) {
+    studentsQuery = studentsQuery.eq("section_id", scope.sectionId);
+  } else if (scope?.courseId) {
+    studentsQuery = studentsQuery.eq("course_id", scope.courseId);
   }
 
   const { data: students } = await studentsQuery;
@@ -153,7 +153,7 @@ export default async function DocenteDashboard({
     return new Date(prog.last_session_date) < sevenDaysAgo;
   }) || [];
 
-  const firstName = profile?.full_name?.split(" ")[0] || "Docente";
+  const firstName = scope?.fullName?.split(" ")[0] || "Docente";
 
   return (
     <div className="min-h-screen">

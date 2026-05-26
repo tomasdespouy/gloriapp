@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
-import { getUserProfile } from "@/lib/supabase/user-profile";
+import { getDocenteScope, getScopedStudentIds } from "@/lib/section-scope";
 import RevisionesClient from "./RevisionesClient";
 
 export const dynamic = "force-dynamic";
@@ -11,19 +11,13 @@ export default async function RevisionesPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const userProfile = await getUserProfile();
-  const establishmentId = userProfile?.establishmentId;
-
-  // Get student IDs scoped to establishment
+  // Establishment + section scope. A superadmin with no establishment keeps
+  // the unfiltered view (studentIdsInScope = null → no .in() filter).
+  const scope = await getDocenteScope();
   const admin = createAdminClient();
   let studentIdsInScope: string[] | null = null;
-  if (establishmentId) {
-    const { data: scopedStudents } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("role", "student")
-      .eq("establishment_id", establishmentId);
-    studentIdsInScope = scopedStudents?.map(s => s.id) || [];
+  if (scope && (scope.establishmentId || scope.sectionId || scope.courseId)) {
+    studentIdsInScope = await getScopedStudentIds(scope);
   }
 
   // Fetch completed sessions scoped to establishment students

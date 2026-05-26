@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { canViewStudent } from "@/lib/section-scope";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
   // Check role
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, full_name")
+    .select("role, full_name, establishment_id, section_id, course_id")
     .eq("id", user.id)
     .single();
 
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, full_name, email, created_at")
+      .select("id, full_name, email, created_at, establishment_id, section_id, course_id")
       .eq("id", studentId)
       .single(),
     supabase
@@ -60,6 +61,22 @@ export async function GET(request: Request) {
 
   if (!student) {
     return NextResponse.json({ error: "Estudiante no encontrado" }, { status: 404 });
+  }
+
+  // Section scope: an instructor may only download reports of students in their
+  // own establishment AND section/course. Admin/superadmin bypass.
+  if (profile.role === "instructor") {
+    const sameEstablishment =
+      !!profile.establishment_id &&
+      !!student.establishment_id &&
+      profile.establishment_id === student.establishment_id;
+    const inSection = canViewStudent(
+      { role: profile.role, sectionId: profile.section_id, courseId: profile.course_id },
+      { section_id: student.section_id, course_id: student.course_id },
+    );
+    if (!sameEstablishment || !inSection) {
+      return NextResponse.json({ error: "Sin permisos para este estudiante" }, { status: 403 });
+    }
   }
 
   return NextResponse.json({

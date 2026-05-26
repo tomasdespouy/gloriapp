@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
+import { canViewStudent } from "@/lib/section-scope";
 import TeacherReviewClient from "./TeacherReviewClient";
 
 interface Props {
@@ -19,7 +20,7 @@ export default async function DocenteSesionPage({ params }: Props) {
   // via admin_establishments).
   const { data: callerProfile } = await supabase
     .from("profiles")
-    .select("role, establishment_id")
+    .select("role, establishment_id, section_id, course_id")
     .eq("id", user.id)
     .single();
 
@@ -42,21 +43,26 @@ export default async function DocenteSesionPage({ params }: Props) {
     redirect("/docente/dashboard");
   }
 
-  // Get student profile (include establishment_id for scope check)
+  // Get student profile (include establishment + section/course for scope check)
   const { data: student } = await supabase
     .from("profiles")
-    .select("id, full_name, email, establishment_id")
+    .select("id, full_name, email, establishment_id, section_id, course_id")
     .eq("id", conversation.student_id)
     .single();
 
-  // Instructor scope: student must belong to the same establishment.
-  // Instructors without an establishment cannot see any session.
+  // Instructor scope: student must belong to the same establishment AND to the
+  // instructor's section/course (instructors without a section see the whole
+  // establishment — see canViewStudent). Admin/superadmin bypass.
   if (callerRole === "instructor") {
-    if (
-      !callerProfile?.establishment_id ||
-      !student?.establishment_id ||
-      callerProfile.establishment_id !== student.establishment_id
-    ) {
+    const sameEstablishment =
+      !!callerProfile?.establishment_id &&
+      !!student?.establishment_id &&
+      callerProfile.establishment_id === student.establishment_id;
+    const inSection = canViewStudent(
+      { role: callerRole, sectionId: callerProfile?.section_id ?? null, courseId: callerProfile?.course_id ?? null },
+      { section_id: student?.section_id, course_id: student?.course_id },
+    );
+    if (!sameEstablishment || !inSection) {
       redirect("/docente/dashboard");
     }
   }
