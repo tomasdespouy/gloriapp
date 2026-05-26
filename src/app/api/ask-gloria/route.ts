@@ -31,7 +31,6 @@ NAVEGACIÓN DE LA PLATAFORMA — Cuando el estudiante pregunte por algo que exis
 - Ver mi progreso y competencias: [Mi progreso](/progreso)
 - Practicar con un paciente: [Ir a pacientes](/pacientes)
 - Módulos de aprendizaje: [Aprendizaje](/aprendizaje)
-- Practicar con tutor guiado: [Sesión con tutor](/aprendizaje/tutor)
 - Nano curso de escucha activa: [Escucha activa](/aprendizaje/escucha_activa)
 - Nano curso de setting terapéutico: [Setting terapéutico](/aprendizaje/setting_terapeutico)
 - Nano curso de motivo de consulta: [Motivo de consulta](/aprendizaje/motivo_consulta)

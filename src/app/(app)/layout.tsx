@@ -8,7 +8,6 @@ import NavigationProgress from "@/components/NavigationProgress";
 import WelcomeVideoModal from "@/components/WelcomeVideoModal";
 import SurveyModal from "@/components/SurveyModal";
 import PlatformActivityTracker from "@/components/PlatformActivityTracker";
-import GloriaAssistant from "@/components/GloriaAssistant";
 import { Toaster } from "sonner";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -155,7 +154,6 @@ export default async function AppLayout({
             {children}
           </main>
         </ContentWrapper>
-        <GloriaAssistant userName={fullName} userRole={role} />
         <WelcomeVideoModal userId={profile?.id} userRole={role} alreadySeen={welcomeVideoSeen} />
         <SurveyModal welcomeVideoSeen={welcomeVideoSeen} />
         <PlatformActivityTracker />
