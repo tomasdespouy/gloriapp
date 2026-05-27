@@ -274,6 +274,14 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
               </div>
             );
           })()}
+          {(comp?.feedback_status === "approved" || comp?.feedback_status === "evaluated") && (
+            <button
+              onClick={() => router.push(`/review/${session.id}`)}
+              className="ml-2 inline-flex items-center gap-1.5 bg-sidebar text-white text-xs font-medium px-3 py-2 rounded-lg hover:bg-[#354080] transition-colors cursor-pointer"
+            >
+              Ver retroalimentación
+            </button>
+          )}
         </div>
 
         {/* 2 column layout */}
@@ -434,9 +442,12 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
     const slug = getSlug(patient?.name || "");
 
     return (
-      <button
+      <div
         key={session.id}
+        role="button"
+        tabIndex={0}
         onClick={() => handleSessionClick(session)}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSessionClick(session); } }}
         className={`w-full text-left bg-white rounded-xl border overflow-hidden hover:shadow-md transition-all cursor-pointer ${
           !isCompleted ? "border-gray-100" : isEvaluated ? "border-green-200" : isApproved ? "border-gray-200" : "border-amber-200"
         }`}
@@ -494,10 +505,18 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
             ) : (
               <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">En curso</span>
             )}
+            {isApproved && (
+              <button
+                onClick={(e) => { e.stopPropagation(); router.push(`/review/${session.id}`); }}
+                className="text-[10px] font-medium text-sidebar bg-sidebar/5 border border-sidebar/20 px-2 py-1 rounded-lg hover:bg-sidebar/10 transition-colors cursor-pointer flex items-center gap-1"
+              >
+                Ver retroalimentación
+              </button>
+            )}
             <ChevronRight size={14} className="text-gray-300" />
           </div>
         </div>
-      </button>
+      </div>
     );
   };
 
