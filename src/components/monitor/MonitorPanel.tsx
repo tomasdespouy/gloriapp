@@ -36,6 +36,7 @@ type RosterStudent = {
   last_activity_at: string | null;
   sessions_count: number;
   has_active_session: boolean;
+  activity: string;
   credentials_sent_at: string | null;
 };
 
@@ -71,7 +72,17 @@ function formatDateTime(iso: string | null): string {
 
 const ROLE_LABEL: Record<string, string> = { student: "Estudiante", instructor: "Docente", admin: "Admin" };
 
-type SortKey = "name" | "role" | "establishment" | "course" | "section" | "status" | "activity" | "conversations" | "credentials";
+const ACTIVITY_STYLE: Record<string, string> = {
+  "En sesión": "bg-blue-100 text-blue-700",
+  "En plataforma": "bg-gray-100 text-gray-600",
+  "Cerró sesión": "bg-violet-100 text-violet-700",
+  "Autorreflexión enviada": "bg-emerald-100 text-emerald-700",
+  "Encuesta enviada": "bg-teal-100 text-teal-700",
+  "Paciente IA abandonó": "bg-red-100 text-red-700",
+  "Sin actividad": "bg-gray-50 text-gray-400",
+};
+
+type SortKey = "name" | "role" | "establishment" | "course" | "section" | "status" | "stage" | "activity" | "conversations" | "credentials";
 
 function sortValue(s: RosterStudent, key: SortKey): string | number {
   switch (key) {
@@ -80,7 +91,8 @@ function sortValue(s: RosterStudent, key: SortKey): string | number {
     case "establishment": return (s.establishment_name || "").toLowerCase();
     case "course": return (s.course_name || "").toLowerCase();
     case "section": return (s.section_name || "").toLowerCase();
-    case "status": return s.has_active_session ? 2 : s.online ? 1 : 0;
+    case "status": return s.online ? 1 : 0;
+    case "stage": return s.activity || "";
     case "activity": return s.last_activity_at ? Date.parse(s.last_activity_at) : 0;
     case "conversations": return s.sessions_count;
     case "credentials": return s.credentials_sent_at ? Date.parse(s.credentials_sent_at) : 0;
@@ -288,6 +300,7 @@ export default function MonitorPanel({
                   {showFilters && renderTh("Asignatura", "course")}
                   {showFilters && renderTh("Sección", "section")}
                   {renderTh("Estado", "status")}
+                  {renderTh("Actividad", "stage")}
                   {renderTh("Última actividad", "activity")}
                   {renderTh("Conversaciones", "conversations", "right")}
                   {showFilters && renderTh("Credenciales", "credentials")}
@@ -329,11 +342,7 @@ export default function MonitorPanel({
                       <td className="px-3 py-2.5 text-xs text-gray-500 truncate max-w-[130px]">{s.section_name || "—"}</td>
                     )}
                     <td className="px-3 py-2.5">
-                      {s.has_active_session ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-sidebar bg-sidebar/10 px-2 py-0.5 rounded">
-                          <span className="w-1.5 h-1.5 rounded-full bg-sidebar animate-pulse" /> En sesión
-                        </span>
-                      ) : s.online ? (
+                      {s.online ? (
                         <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700">
                           <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> En línea
                         </span>
@@ -342,6 +351,12 @@ export default function MonitorPanel({
                           <span className="w-1.5 h-1.5 rounded-full bg-gray-300" /> Desconectado
                         </span>
                       )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded ${ACTIVITY_STYLE[s.activity] || "bg-gray-100 text-gray-600"}`}>
+                        {s.activity === "En sesión" && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />}
+                        {s.activity}
+                      </span>
                     </td>
                     <td className="px-3 py-2.5 text-xs text-gray-500">{formatRelativeTime(s.last_activity_at)}</td>
                     <td className="px-3 py-2.5 text-right font-semibold text-gray-700">{s.sessions_count}</td>
