@@ -390,6 +390,7 @@ export default function MonitorPanel({
           listUrl={`/api/monitor/students/${selected.id}/conversations`}
           buildTranscriptUrl={(c) => `/api/monitor/students/${selected.id}/conversations/${c}/transcript`}
           onClose={() => setSelected(null)}
+          allowReeval={data?.scope.isSuperadmin ?? false}
         />
       )}
     </div>
