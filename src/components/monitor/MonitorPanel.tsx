@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Users, Search, MessageSquare, ClipboardCheck,
-  ChevronRight, RefreshCw, AlertCircle,
+  ChevronRight, RefreshCw, AlertCircle, CheckCircle2,
 } from "lucide-react";
 import type { RequestedScope } from "@/lib/monitor/scope";
 import ConversationsDrawer from "./ConversationsDrawer";
@@ -25,13 +25,17 @@ type RosterStudent = {
   avatar_url: string | null;
   establishment_id: string | null;
   establishment_name: string | null;
+  course_id: string | null;
+  course_name: string | null;
   section_id: string | null;
+  section_name: string | null;
   online: boolean;
   last_seen_at: string | null;
   last_activity_at: string | null;
   sessions_count: number;
   has_active_session: boolean;
   pending_reviews: number;
+  credentials_sent_at: string | null;
 };
 
 type RosterResponse = {
@@ -53,6 +57,14 @@ function formatRelativeTime(iso: string | null): string {
   const d = new Date(iso);
   const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
   return `${d.getDate()} ${months[d.getMonth()]}`;
+}
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("es-CL", {
+    timeZone: "America/Santiago",
+    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+  });
 }
 
 export default function MonitorPanel({
@@ -136,12 +148,12 @@ export default function MonitorPanel({
 
       {/* Controles */}
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[180px]">
+        <div className="relative w-full sm:w-72">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por nombre o correo…"
+            placeholder="Buscar nombre o correo…"
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sidebar/30"
           />
         </div>
@@ -182,22 +194,27 @@ export default function MonitorPanel({
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                  <th className="px-3 py-2.5 font-semibold text-right w-10">#</th>
                   <th className="px-4 py-2.5 font-semibold">Persona</th>
                   {showEstColumn && <th className="px-3 py-2.5 font-semibold">Establecimiento</th>}
+                  {showFilters && <th className="px-3 py-2.5 font-semibold">Asignatura</th>}
+                  {showFilters && <th className="px-3 py-2.5 font-semibold">Sección</th>}
                   <th className="px-3 py-2.5 font-semibold">Estado</th>
                   <th className="px-3 py-2.5 font-semibold">Última actividad</th>
                   <th className="px-3 py-2.5 font-semibold text-right">Sesiones</th>
                   <th className="px-3 py-2.5 font-semibold text-right">Pendientes</th>
+                  {showFilters && <th className="px-3 py-2.5 font-semibold">Credenciales</th>}
                   <th className="px-3 py-2.5"></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((s) => (
+                {filtered.map((s, idx) => (
                   <tr
                     key={s.id}
                     onClick={() => setSelected(s)}
                     className="border-b border-gray-50 last:border-0 hover:bg-gray-50 cursor-pointer"
                   >
+                    <td className="px-3 py-2.5 text-right text-xs text-gray-400 tabular-nums">{idx + 1}</td>
                     <td className="px-4 py-2.5">
                       <div className="min-w-0">
                         <p className="font-medium text-gray-900 truncate">{s.full_name || "—"}</p>
@@ -206,6 +223,12 @@ export default function MonitorPanel({
                     </td>
                     {showEstColumn && (
                       <td className="px-3 py-2.5 text-xs text-gray-500 truncate max-w-[160px]">{s.establishment_name || "—"}</td>
+                    )}
+                    {showFilters && (
+                      <td className="px-3 py-2.5 text-xs text-gray-500 truncate max-w-[150px]">{s.course_name || "—"}</td>
+                    )}
+                    {showFilters && (
+                      <td className="px-3 py-2.5 text-xs text-gray-500 truncate max-w-[130px]">{s.section_name || "—"}</td>
                     )}
                     <td className="px-3 py-2.5">
                       {s.has_active_session ? (
@@ -233,6 +256,17 @@ export default function MonitorPanel({
                         <span className="text-gray-300">—</span>
                       )}
                     </td>
+                    {showFilters && (
+                      <td className="px-3 py-2.5 text-[11px]">
+                        {s.credentials_sent_at ? (
+                          <span className="inline-flex items-center gap-1 text-green-700" title={`Credenciales enviadas — ${formatDateTime(s.credentials_sent_at)}`}>
+                            <CheckCircle2 size={12} /> {formatDateTime(s.credentials_sent_at)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">Sin enviar</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-3 py-2.5 text-right">
                       <ChevronRight size={14} className="text-gray-300 inline" />
                     </td>
