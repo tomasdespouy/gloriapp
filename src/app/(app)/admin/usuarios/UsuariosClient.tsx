@@ -107,6 +107,8 @@ export default function UsuariosClient({ users, establishments, courses, section
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const [bulkResetConfirm, setBulkResetConfirm] = useState(false);
+  // Bulk send credentials (resets temp password + emails each selected user).
+  const [bulkSendCredsConfirm, setBulkSendCredsConfirm] = useState(false);
   // Bulk hard delete — requires typing a confirmation word.
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [bulkDeleteText, setBulkDeleteText] = useState("");
@@ -213,6 +215,35 @@ export default function UsuariosClient({ users, establishments, courses, section
     } else {
       toast.warning(`${successes} exitosos, ${errors} con errores`);
     }
+    router.refresh();
+  };
+
+  // Bulk send credentials: resets the temp password and emails it to each
+  // selected user (loops the per-user reset-password endpoint).
+  const bulkSendCredentials = async () => {
+    const ids = Array.from(bulkSelectedIds);
+    setBulkSendCredsConfirm(false);
+    setBulkProcessing(true);
+    setBulkProgress({ current: 0, total: ids.length });
+    let successes = 0;
+    let errors = 0;
+
+    for (let i = 0; i < ids.length; i++) {
+      setBulkProgress({ current: i + 1, total: ids.length });
+      try {
+        const res = await fetch(`/api/admin/users/${ids[i]}/reset-password`, { method: "POST" });
+        if (!res.ok) throw new Error();
+        successes++;
+      } catch {
+        errors++;
+      }
+    }
+
+    setBulkProcessing(false);
+    setBulkProgress(null);
+    setBulkSelectedIds(new Set());
+    if (errors === 0) toast.success(`Credenciales enviadas a ${successes} usuarios`);
+    else toast.warning(`${successes} enviadas, ${errors} con errores`);
     router.refresh();
   };
 
@@ -762,6 +793,12 @@ export default function UsuariosClient({ users, establishments, courses, section
                   <Pencil size={16} /> Reasignar
                 </button>
                 <button
+                  onClick={() => setBulkSendCredsConfirm(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors cursor-pointer"
+                >
+                  <KeyRound size={16} /> Enviar credenciales
+                </button>
+                <button
                   onClick={() => { setBulkDeleteText(""); setBulkDeleteConfirm(true); }}
                   className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors cursor-pointer"
                 >
@@ -769,6 +806,36 @@ export default function UsuariosClient({ users, establishments, courses, section
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Bulk send credentials confirmation modal */}
+      {bulkSendCredsConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setBulkSendCredsConfirm(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4 animate-pop" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center">
+                <KeyRound size={22} className="text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Enviar credenciales a {bulkSelectedIds.size} usuario(s)</h3>
+                <p className="text-xs text-gray-400">Se enviará un correo a cada uno</p>
+              </div>
+            </div>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-800">
+              A cada usuario seleccionado se le generará una <strong>contraseña temporal nueva</strong> y se le enviará por correo. En su primer ingreso deberá crear su propia contraseña.
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={bulkSendCredentials}
+                className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-semibold cursor-pointer hover:bg-emerald-700 transition-colors">
+                Enviar a {bulkSelectedIds.size}
+              </button>
+              <button onClick={() => setBulkSendCredsConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
