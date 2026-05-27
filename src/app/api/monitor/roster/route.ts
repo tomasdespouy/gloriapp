@@ -31,8 +31,8 @@ export async function GET(request: Request) {
   // 1) Perfiles de los alumnos en alcance.
   let profilesQuery = admin
     .from("profiles")
-    .select("id, full_name, email, avatar_url, establishment_id, course_id, section_id, last_seen_at, credentials_sent_at")
-    .eq("role", "student");
+    .select("id, full_name, email, role, avatar_url, establishment_id, course_id, section_id, last_seen_at, credentials_sent_at")
+    .neq("role", "superadmin");
   if (resolved.mode === "ids") {
     if (resolved.studentIds.length === 0) {
       return NextResponse.json({ students: [], scope: scopeInfo(auth, requested), generatedAt: new Date().toISOString() });
@@ -106,6 +106,7 @@ export async function GET(request: Request) {
         id: s.id,
         full_name: s.full_name,
         email: s.email,
+        role: s.role,
         avatar_url: s.avatar_url,
         establishment_id: s.establishment_id,
         establishment_name: s.establishment_id ? estName.get(s.establishment_id) || null : null,

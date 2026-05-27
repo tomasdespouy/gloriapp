@@ -12,6 +12,7 @@ import { getMonitorAuthority } from "@/lib/monitor/scope";
 type SectionNode = { id: string; name: string };
 type CourseNode = { id: string; name: string; code: string | null; sections: SectionNode[] };
 type EstablishmentNode = { id: string; name: string; courses: CourseNode[] };
+type CountryNode = { country: string; establishments: EstablishmentNode[] };
 
 export async function GET() {
   const auth = await getMonitorAuthority();
@@ -34,7 +35,7 @@ export async function GET() {
     }
   }
 
-  const estQuery = admin.from("establishments").select("id, name").order("name");
+  const estQuery = admin.from("establishments").select("id, name, country").order("name");
   const { data: establishments } = estIds
     ? await estQuery.in("id", estIds)
     : await estQuery;
@@ -74,11 +75,18 @@ export async function GET() {
     });
   }
 
-  const tree: EstablishmentNode[] = estList.map((e) => ({
-    id: e.id,
-    name: e.name,
-    courses: coursesByEst.get(e.id) || [],
-  }));
+  // Agrupado por país para el primer nivel del filtro en cascada.
+  const byCountry = new Map<string, EstablishmentNode[]>();
+  for (const e of estList) {
+    const country = (e as { country?: string | null }).country || "Sin país";
+    const node: EstablishmentNode = { id: e.id, name: e.name, courses: coursesByEst.get(e.id) || [] };
+    if (!byCountry.has(country)) byCountry.set(country, []);
+    byCountry.get(country)!.push(node);
+  }
 
-  return NextResponse.json({ establishments: tree });
+  const countries: CountryNode[] = [...byCountry.entries()]
+    .map(([country, establishments]) => ({ country, establishments }))
+    .sort((a, b) => a.country.localeCompare(b.country));
+
+  return NextResponse.json({ countries });
 }

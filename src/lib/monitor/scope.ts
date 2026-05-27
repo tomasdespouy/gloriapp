@@ -32,8 +32,8 @@ export type RequestedScope =
   | { kind: "section"; ids: string[] }
   | { kind: "pilot"; id: string }
   // Compuesto: unión de lo seleccionado en el filtro en cascada
-  // (universidades + asignaturas + secciones, en cualquier combinación).
-  | { kind: "filter"; establishmentIds?: string[]; courseIds?: string[]; sectionIds?: string[] };
+  // (países + universidades + asignaturas + secciones, en cualquier combinación).
+  | { kind: "filter"; countries?: string[]; establishmentIds?: string[]; courseIds?: string[]; sectionIds?: string[] };
 
 export type MonitorAuthority =
   | {
@@ -137,87 +137,97 @@ export async function getMonitorAuthority(): Promise<MonitorAuthority> {
   return { ok: false, status: 403, error: "No autorizado" };
 }
 
-// ── Helpers de materialización de alumnos ───────────────────────────────
+// ── Helpers de materialización de PERSONAS ───────────────────────────────
+// El monitor lista estudiantes, docentes y admins; solo se excluye superadmin.
 
-async function studentsByEstablishment(estIds: string[]): Promise<string[]> {
+async function peopleByEstablishment(estIds: string[]): Promise<string[]> {
   if (estIds.length === 0) return [];
   const admin = createAdminClient();
   const { data } = await admin
     .from("profiles")
     .select("id")
-    .eq("role", "student")
+    .neq("role", "superadmin")
     .in("establishment_id", estIds);
   return (data || []).map((p) => p.id);
 }
 
-async function studentsBySection(secIds: string[]): Promise<string[]> {
+async function peopleBySection(secIds: string[]): Promise<string[]> {
   if (secIds.length === 0) return [];
   const admin = createAdminClient();
   const { data } = await admin
     .from("profiles")
     .select("id")
-    .eq("role", "student")
+    .neq("role", "superadmin")
     .in("section_id", secIds);
   return (data || []).map((p) => p.id);
 }
 
-async function studentsByCourse(courseIds: string[]): Promise<string[]> {
+async function peopleByCourse(courseIds: string[]): Promise<string[]> {
   if (courseIds.length === 0) return [];
   const admin = createAdminClient();
   const { data } = await admin
     .from("profiles")
     .select("id")
-    .eq("role", "student")
+    .neq("role", "superadmin")
     .in("course_id", courseIds);
   return (data || []).map((p) => p.id);
 }
 
-async function studentsByPilot(pilotId: string): Promise<string[]> {
+async function peopleByCountry(countries: string[]): Promise<string[]> {
+  if (countries.length === 0) return [];
+  const admin = createAdminClient();
+  const { data: ests } = await admin.from("establishments").select("id").in("country", countries);
+  return peopleByEstablishment((ests || []).map((e) => e.id));
+}
+
+async function peopleByPilot(pilotId: string): Promise<string[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("pilot_participants")
     .select("user_id")
     .eq("pilot_id", pilotId)
-    .eq("role", "student");
+    .in("role", ["student", "instructor"]);
   return (data || []).map((p) => p.user_id).filter((x): x is string => !!x);
 }
 
-/** Materializa la lista de alumnos del alcance pedido (sin intersectar aún). */
+/** Materializa la lista de personas del alcance pedido (sin intersectar aún). */
 async function materializeRequested(requested: RequestedScope): Promise<{ all: boolean; ids: string[] }> {
   switch (requested.kind) {
     case "all":
       return { all: true, ids: [] };
     case "establishment":
-      return { all: false, ids: await studentsByEstablishment(requested.ids) };
+      return { all: false, ids: await peopleByEstablishment(requested.ids) };
     case "section":
-      return { all: false, ids: await studentsBySection(requested.ids) };
+      return { all: false, ids: await peopleBySection(requested.ids) };
     case "pilot":
-      return { all: false, ids: await studentsByPilot(requested.id) };
+      return { all: false, ids: await peopleByPilot(requested.id) };
     case "filter": {
-      // Unión de los alumnos de cada nivel seleccionado. Si no hay nada
-      // marcado, equivale a "todo" (el filtro vacío no acota).
+      // Unión de las personas de cada nivel seleccionado (país/universidad/
+      // asignatura/sección). Si no hay nada marcado, equivale a "todo".
+      const ctry = requested.countries || [];
       const est = requested.establishmentIds || [];
       const cou = requested.courseIds || [];
       const sec = requested.sectionIds || [];
-      if (est.length === 0 && cou.length === 0 && sec.length === 0) {
+      if (!ctry.length && !est.length && !cou.length && !sec.length) {
         return { all: true, ids: [] };
       }
-      const [a, b, c] = await Promise.all([
-        studentsByEstablishment(est),
-        studentsByCourse(cou),
-        studentsBySection(sec),
+      const [a, b, c, d] = await Promise.all([
+        peopleByCountry(ctry),
+        peopleByEstablishment(est),
+        peopleByCourse(cou),
+        peopleBySection(sec),
       ]);
-      return { all: false, ids: [...new Set([...a, ...b, ...c])] };
+      return { all: false, ids: [...new Set([...a, ...b, ...c, ...d])] };
     }
   }
 }
 
-/** Materializa la lista de alumnos de la autoridad del usuario. */
+/** Materializa la lista de personas de la autoridad del usuario. */
 async function materializeAuthority(auth: Extract<MonitorAuthority, { ok: true }>): Promise<{ all: boolean; ids: string[] }> {
   if (auth.mode === "all") return { all: true, ids: [] };
-  if (auth.mode === "section") return { all: false, ids: await studentsBySection(auth.sectionIds) };
-  if (auth.mode === "course") return { all: false, ids: await studentsByCourse(auth.courseIds) };
-  return { all: false, ids: await studentsByEstablishment(auth.establishmentIds) };
+  if (auth.mode === "section") return { all: false, ids: await peopleBySection(auth.sectionIds) };
+  if (auth.mode === "course") return { all: false, ids: await peopleByCourse(auth.courseIds) };
+  return { all: false, ids: await peopleByEstablishment(auth.establishmentIds) };
 }
 
 /**
@@ -261,7 +271,9 @@ export async function canAccessStudent(
     .eq("id", studentId)
     .maybeSingle();
 
-  if (!student || student.role !== "student") return false;
+  // El monitor cubre personas (no superadmin); las conversaciones solo
+  // existen para estudiantes, pero el chequeo de alcance aplica a cualquiera.
+  if (!student || student.role === "superadmin") return false;
 
   if (auth.mode === "section") {
     return !!student.section_id && auth.sectionIds.includes(student.section_id);
@@ -293,6 +305,7 @@ export function parseRequestedScope(raw: string | null): RequestedScope {
         Array.isArray(v) ? v.filter((x: unknown): x is string => typeof x === "string") : [];
       return {
         kind: "filter",
+        countries: arr(parsed.countries),
         establishmentIds: arr(parsed.establishmentIds),
         courseIds: arr(parsed.courseIds),
         sectionIds: arr(parsed.sectionIds),

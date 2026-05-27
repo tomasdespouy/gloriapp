@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  Users, Search, MessageSquare, ClipboardCheck,
+  Users, Search, MessageSquare,
   ChevronRight, RefreshCw, AlertCircle, CheckCircle2,
 } from "lucide-react";
 import type { RequestedScope } from "@/lib/monitor/scope";
@@ -22,6 +22,7 @@ type RosterStudent = {
   id: string;
   full_name: string | null;
   email: string | null;
+  role: string;
   avatar_url: string | null;
   establishment_id: string | null;
   establishment_name: string | null;
@@ -67,6 +68,24 @@ function formatDateTime(iso: string | null): string {
   });
 }
 
+const ROLE_LABEL: Record<string, string> = { student: "Estudiante", instructor: "Docente", admin: "Admin" };
+
+type SortKey = "name" | "role" | "establishment" | "course" | "section" | "status" | "activity" | "conversations" | "credentials";
+
+function sortValue(s: RosterStudent, key: SortKey): string | number {
+  switch (key) {
+    case "name": return (s.full_name || s.email || "").toLowerCase();
+    case "role": return s.role || "";
+    case "establishment": return (s.establishment_name || "").toLowerCase();
+    case "course": return (s.course_name || "").toLowerCase();
+    case "section": return (s.section_name || "").toLowerCase();
+    case "status": return s.has_active_session ? 2 : s.online ? 1 : 0;
+    case "activity": return s.last_activity_at ? Date.parse(s.last_activity_at) : 0;
+    case "conversations": return s.sessions_count;
+    case "credentials": return s.credentials_sent_at ? Date.parse(s.credentials_sent_at) : 0;
+  }
+}
+
 export default function MonitorPanel({
   scope,
   showEstablishment = true,
@@ -84,9 +103,16 @@ export default function MonitorPanel({
   const [query, setQuery] = useState("");
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [selected, setSelected] = useState<RosterStudent | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   // El filtro en cascada sobreescribe el scope base; el servidor igual lo
   // intersecta con la autoridad, así que nunca amplía el alcance.
   const [filterScope, setFilterScope] = useState<RequestedScope | null>(null);
+
+  const sortBy = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  };
 
   const effectiveScope = filterScope ?? scope;
   const scopeParam = JSON.stringify(effectiveScope);
@@ -128,7 +154,30 @@ export default function MonitorPanel({
     return (s.full_name || "").toLowerCase().includes(q) || (s.email || "").toLowerCase().includes(q);
   });
 
+  const displayed = sortKey
+    ? [...filtered].sort((a, b) => {
+        const va = sortValue(a, sortKey);
+        const vb = sortValue(b, sortKey);
+        const cmp = typeof va === "number" && typeof vb === "number"
+          ? va - vb
+          : String(va).localeCompare(String(vb));
+        return sortDir === "asc" ? cmp : -cmp;
+      })
+    : filtered;
+
   const showEstColumn = showEstablishment && (data?.scope.isSuperadmin ?? false);
+
+  const renderTh = (label: string, k: SortKey, align: "left" | "right" = "left") => (
+    <th
+      onClick={() => sortBy(k)}
+      className={`px-3 py-2.5 font-semibold cursor-pointer select-none hover:text-gray-600 ${align === "right" ? "text-right" : ""}`}
+    >
+      <span className={`inline-flex items-center gap-1 ${align === "right" ? "flex-row-reverse" : ""}`}>
+        {label}
+        <span className="text-sidebar w-2">{sortKey === k ? (sortDir === "asc" ? "▲" : "▼") : ""}</span>
+      </span>
+    </th>
+  );
 
   return (
     <div className="space-y-4">
@@ -146,7 +195,7 @@ export default function MonitorPanel({
         </p>
       )}
 
-      {/* Controles */}
+      {/* Controles — fila 1: búsqueda + filtro por grupos */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative w-full sm:w-72">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -154,13 +203,17 @@ export default function MonitorPanel({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar nombre o correo…"
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sidebar/30"
+            className="w-full h-9 pl-9 pr-3 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sidebar/30"
           />
         </div>
         {showFilters && <MonitorFilter onScopeChange={setFilterScope} />}
+      </div>
+
+      {/* Controles — fila 2: acciones de vista */}
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setOnlineOnly((v) => !v)}
-          className={`text-xs px-3 py-2 rounded-lg border cursor-pointer ${
+          className={`text-xs h-9 px-3 rounded-lg border cursor-pointer ${
             onlineOnly ? "bg-green-50 border-green-300 text-green-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"
           }`}
         >
@@ -168,7 +221,7 @@ export default function MonitorPanel({
         </button>
         <button
           onClick={() => load()}
-          className="text-xs px-2.5 py-2 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-700 hover:bg-gray-50 cursor-pointer"
+          className="text-xs h-9 px-2.5 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-700 hover:bg-gray-50 cursor-pointer flex items-center"
           aria-label="Actualizar"
           title="Actualizar"
         >
@@ -195,20 +248,20 @@ export default function MonitorPanel({
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
                   <th className="px-3 py-2.5 font-semibold text-right w-10">#</th>
-                  <th className="px-4 py-2.5 font-semibold">Persona</th>
-                  {showEstColumn && <th className="px-3 py-2.5 font-semibold">Establecimiento</th>}
-                  {showFilters && <th className="px-3 py-2.5 font-semibold">Asignatura</th>}
-                  {showFilters && <th className="px-3 py-2.5 font-semibold">Sección</th>}
-                  <th className="px-3 py-2.5 font-semibold">Estado</th>
-                  <th className="px-3 py-2.5 font-semibold">Última actividad</th>
-                  <th className="px-3 py-2.5 font-semibold text-right">Sesiones</th>
-                  <th className="px-3 py-2.5 font-semibold text-right">Pendientes</th>
-                  {showFilters && <th className="px-3 py-2.5 font-semibold">Credenciales</th>}
+                  {renderTh("Persona", "name")}
+                  {showFilters && renderTh("Rol", "role")}
+                  {showEstColumn && renderTh("Establecimiento", "establishment")}
+                  {showFilters && renderTh("Asignatura", "course")}
+                  {showFilters && renderTh("Sección", "section")}
+                  {renderTh("Estado", "status")}
+                  {renderTh("Última actividad", "activity")}
+                  {renderTh("Conversaciones", "conversations", "right")}
+                  {showFilters && renderTh("Credenciales", "credentials")}
                   <th className="px-3 py-2.5"></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((s, idx) => (
+                {displayed.map((s, idx) => (
                   <tr
                     key={s.id}
                     onClick={() => setSelected(s)}
@@ -221,6 +274,17 @@ export default function MonitorPanel({
                         {s.email && <p className="text-[11px] text-gray-400 truncate">{s.email}</p>}
                       </div>
                     </td>
+                    {showFilters && (
+                      <td className="px-3 py-2.5">
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                          s.role === "admin" ? "bg-amber-100 text-amber-700"
+                          : s.role === "instructor" ? "bg-purple-100 text-purple-700"
+                          : "bg-blue-100 text-blue-700"
+                        }`}>
+                          {ROLE_LABEL[s.role] || s.role}
+                        </span>
+                      </td>
+                    )}
                     {showEstColumn && (
                       <td className="px-3 py-2.5 text-xs text-gray-500 truncate max-w-[160px]">{s.establishment_name || "—"}</td>
                     )}
@@ -247,15 +311,6 @@ export default function MonitorPanel({
                     </td>
                     <td className="px-3 py-2.5 text-xs text-gray-500">{formatRelativeTime(s.last_activity_at)}</td>
                     <td className="px-3 py-2.5 text-right font-semibold text-gray-700">{s.sessions_count}</td>
-                    <td className="px-3 py-2.5 text-right">
-                      {s.pending_reviews > 0 ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
-                          <ClipboardCheck size={11} /> {s.pending_reviews}
-                        </span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
-                    </td>
                     {showFilters && (
                       <td className="px-3 py-2.5 text-[11px]">
                         {s.credentials_sent_at ? (
