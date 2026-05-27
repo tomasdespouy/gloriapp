@@ -7,7 +7,7 @@ import {
   ToggleLeft, ToggleRight, Trash2, RotateCcw, Pencil,
   ChevronLeft, ChevronRight,
   Upload, FileText, AlertCircle, CheckCircle,
-  CheckSquare, X, Loader2, KeyRound,
+  CheckSquare, X, Loader2, KeyRound, Download,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -52,6 +52,9 @@ type Props = {
 
 type SortKey = "full_name" | "email" | "role" | "establishmentName" | "courseName" | "sectionName" | "sessionCount";
 type SortDir = "asc" | "desc";
+
+// Resultado por persona del envío masivo de credenciales (para el reporte).
+type CredResult = { id: string; name: string; email: string; status: "sent" | "failed"; reason?: string };
 
 export default function UsuariosClient({ users, establishments, courses, sections, isSuperadmin, totalCount, currentPage, perPage, initialSearch, initialRole, initialEst, initialCourse, initialSection }: Props) {
   const router = useRouter();
@@ -113,6 +116,7 @@ export default function UsuariosClient({ users, establishments, courses, section
   const [bulkResetConfirm, setBulkResetConfirm] = useState(false);
   // Bulk send credentials (resets temp password + emails each selected user).
   const [bulkSendCredsConfirm, setBulkSendCredsConfirm] = useState(false);
+  const [credsReport, setCredsReport] = useState<CredResult[] | null>(null);
   // Bulk hard delete — requires typing a confirmation word.
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [bulkDeleteText, setBulkDeleteText] = useState("");
@@ -222,33 +226,78 @@ export default function UsuariosClient({ users, establishments, courses, section
     router.refresh();
   };
 
-  // Bulk send credentials: resets the temp password and emails it to each
-  // selected user (loops the per-user reset-password endpoint).
+  // Envío de credenciales: por cada id, resetea la clave temporal y manda el
+  // correo (endpoint per-usuario). El éxito se mide por `emailSent` real, no
+  // por HTTP 200 — un 200 con emailSent:false (p. ej. Resend cayó) cuenta como
+  // fallido. Devuelve el detalle por persona para el reporte.
+  const sendCredentialsToIds = async (ids: string[]): Promise<CredResult[]> => {
+    const out: CredResult[] = [];
+    for (let i = 0; i < ids.length; i++) {
+      setBulkProgress({ current: i + 1, total: ids.length });
+      const u = users.find((x) => x.id === ids[i]);
+      const name = u?.full_name || "—";
+      const email = u?.email || ids[i];
+      try {
+        const res = await fetch(`/api/admin/users/${ids[i]}/reset-password`, { method: "POST" });
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.emailSent) {
+          out.push({ id: ids[i], name, email, status: "sent" });
+        } else {
+          const reason = data?.emailError || data?.error || `HTTP ${res.status}`;
+          out.push({ id: ids[i], name, email, status: "failed", reason });
+        }
+      } catch {
+        out.push({ id: ids[i], name, email, status: "failed", reason: "Error de red" });
+      }
+    }
+    return out;
+  };
+
   const bulkSendCredentials = async () => {
     const ids = Array.from(bulkSelectedIds);
     setBulkSendCredsConfirm(false);
     setBulkProcessing(true);
     setBulkProgress({ current: 0, total: ids.length });
-    let successes = 0;
-    let errors = 0;
-
-    for (let i = 0; i < ids.length; i++) {
-      setBulkProgress({ current: i + 1, total: ids.length });
-      try {
-        const res = await fetch(`/api/admin/users/${ids[i]}/reset-password`, { method: "POST" });
-        if (!res.ok) throw new Error();
-        successes++;
-      } catch {
-        errors++;
-      }
-    }
-
+    const results = await sendCredentialsToIds(ids);
     setBulkProcessing(false);
     setBulkProgress(null);
     setBulkSelectedIds(new Set());
-    if (errors === 0) toast.success(`Credenciales enviadas a ${successes} usuarios`);
-    else toast.warning(`${successes} enviadas, ${errors} con errores`);
+    setCredsReport(results);
+    const ok = results.filter((r) => r.status === "sent").length;
+    const bad = results.length - ok;
+    if (bad === 0) toast.success(`Credenciales enviadas a ${ok} usuario(s)`);
+    else toast.warning(`${ok} enviada(s), ${bad} con error`);
     router.refresh();
+  };
+
+  const retryFailedCredentials = async () => {
+    if (!credsReport) return;
+    const failedIds = credsReport.filter((r) => r.status === "failed").map((r) => r.id);
+    if (failedIds.length === 0) return;
+    setBulkProcessing(true);
+    setBulkProgress({ current: 0, total: failedIds.length });
+    const retry = await sendCredentialsToIds(failedIds);
+    setBulkProcessing(false);
+    setBulkProgress(null);
+    const retryMap = new Map(retry.map((r) => [r.id, r]));
+    setCredsReport(credsReport.map((r) => retryMap.get(r.id) || r));
+    router.refresh();
+  };
+
+  const downloadCredsReport = () => {
+    if (!credsReport) return;
+    const header = ["Nombre", "Email", "Estado", "Motivo"];
+    const rows = credsReport.map((r) => [r.name, r.email, r.status === "sent" ? "Enviado" : "Fallido", r.reason || ""]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `credenciales-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Bulk HARD delete — irreversible. Loops DELETE per user.
@@ -854,6 +903,96 @@ export default function UsuariosClient({ users, establishments, courses, section
           </div>
         </div>
       )}
+
+      {/* Reporte de envío de credenciales */}
+      {credsReport && (() => {
+        const sent = credsReport.filter((r) => r.status === "sent");
+        const failed = credsReport.filter((r) => r.status === "failed");
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => !bulkProcessing && setCredsReport(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 space-y-4 animate-pop" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center">
+                  <KeyRound size={22} className="text-emerald-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-bold text-gray-900">Reporte de envío de credenciales</h3>
+                  <p className="text-xs text-gray-400">
+                    {sent.length} enviada(s){failed.length > 0 ? ` · ${failed.length} con error` : ""} de {credsReport.length}
+                  </p>
+                </div>
+                {!bulkProcessing && (
+                  <button onClick={() => setCredsReport(null)} className="text-gray-400 hover:text-gray-700 cursor-pointer" aria-label="Cerrar">
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+
+              {/* Resumen */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 flex items-center gap-2">
+                  <CheckCircle size={18} className="text-emerald-600" />
+                  <div>
+                    <p className="text-lg font-bold text-emerald-800 leading-none">{sent.length}</p>
+                    <p className="text-[11px] text-emerald-700">Enviadas</p>
+                  </div>
+                </div>
+                <div className={`rounded-xl border p-3 flex items-center gap-2 ${failed.length > 0 ? "border-red-200 bg-red-50" : "border-gray-200 bg-gray-50"}`}>
+                  <AlertCircle size={18} className={failed.length > 0 ? "text-red-500" : "text-gray-300"} />
+                  <div>
+                    <p className={`text-lg font-bold leading-none ${failed.length > 0 ? "text-red-700" : "text-gray-400"}`}>{failed.length}</p>
+                    <p className={`text-[11px] ${failed.length > 0 ? "text-red-600" : "text-gray-400"}`}>Con error</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detalle: fallidos primero (accionables) */}
+              <div className="max-h-[260px] overflow-y-auto border border-gray-100 rounded-xl divide-y divide-gray-50">
+                {[...failed, ...sent].map((r) => (
+                  <div key={r.id} className="flex items-start gap-2 px-3 py-2">
+                    {r.status === "sent"
+                      ? <CheckCircle size={15} className="text-emerald-500 mt-0.5 flex-shrink-0" />
+                      : <AlertCircle size={15} className="text-red-500 mt-0.5 flex-shrink-0" />}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-gray-900 truncate">{r.name}</p>
+                      <p className="text-[11px] text-gray-500 truncate">{r.email}</p>
+                      {r.status === "failed" && r.reason && (
+                        <p className="text-[11px] text-red-600 mt-0.5">{r.reason}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {bulkProcessing && (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 size={16} className="animate-spin text-sidebar" />
+                  <span>Reintentando {bulkProgress?.current ?? 0} de {bulkProgress?.total ?? 0}...</span>
+                </div>
+              )}
+
+              {!bulkProcessing && (
+                <div className="flex items-center gap-2">
+                  {failed.length > 0 && (
+                    <button onClick={retryFailedCredentials}
+                      className="inline-flex items-center justify-center gap-1.5 flex-1 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors cursor-pointer">
+                      <RotateCcw size={15} /> Reintentar fallidos ({failed.length})
+                    </button>
+                  )}
+                  <button onClick={downloadCredsReport}
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer">
+                    <Download size={15} /> Exportar CSV
+                  </button>
+                  <button onClick={() => setCredsReport(null)}
+                    className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer">
+                    Cerrar
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Bulk reset confirmation modal */}
       {bulkResetConfirm && (
