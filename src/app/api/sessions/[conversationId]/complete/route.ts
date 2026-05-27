@@ -311,22 +311,26 @@ export async function POST(
           .filter((p) => p.email)
           .map((p) => p.email as string);
 
-        if (emails.length > 0) {
-          await resend.emails.send({
-            from: "GlorIA <noreply@glor-ia.com>",
-            to: emails[0],
-            ...(emails.length > 1 ? { bcc: emails.slice(1) } : {}),
-            subject: `Sesión pendiente de revisión — ${student.full_name || "Estudiante"}`,
-            html: `
+        // Un correo individual por destinatario (su dirección en `to`). Antes
+        // se usaba to:emails[0] + bcc, pero algunos servidores institucionales
+        // (p. ej. @academico.ugm.cl) filtran el BCC y el docente de la sección
+        // no recibía, mientras la coordinadora (en `to`) sí.
+        const subject = `Sesión pendiente de revisión — ${student.full_name || "Estudiante"}`;
+        const html = `
               <div style="font-family: sans-serif; max-width: 500px;">
                 <h2 style="color: #4A55A2;">Nueva sesión por revisar</h2>
                 <p><strong>${student.full_name || "Un estudiante"}</strong> completó una sesión con <strong>${patientName}</strong> y está pendiente de tu revisión.</p>
                 <p>Ingresa a GlorIA para revisar la evaluación de la IA, la autorreflexión del estudiante, y enviar tu retroalimentación.</p>
                 <p style="color: #999; font-size: 12px; margin-top: 24px;">GlorIA — Plataforma de entrenamiento clínico</p>
               </div>
-            `,
-          });
-          await logEmail("pending_review", emails[0], true);
+            `;
+        for (const email of emails) {
+          try {
+            await resend.emails.send({ from: "GlorIA <noreply@glor-ia.com>", to: email, subject, html });
+            await logEmail("pending_review", email, true);
+          } catch {
+            await logEmail("pending_review", email, false);
+          }
         }
       } catch {
         // Email is optional — don't fail the request
@@ -584,21 +588,23 @@ async function evaluateAndPersist(ctx: {
           .from("profiles").select("email, full_name").in("id", recipientIds);
         const emails = (instructorProfiles || [])
           .filter((p) => p.email).map((p) => p.email as string);
-        if (emails.length > 0) {
-          await resend.emails.send({
-            from: "GlorIA <noreply@glor-ia.com>",
-            to: emails[0],
-            ...(emails.length > 1 ? { bcc: emails.slice(1) } : {}),
-            subject: `Sesión pendiente de revisión — ${student.full_name || "Estudiante"}`,
-            html: `
+        // Individual por destinatario (ver nota en el flujo síncrono): evita
+        // que el BCC se pierda en servidores institucionales.
+        const subject = `Sesión pendiente de revisión — ${student.full_name || "Estudiante"}`;
+        const html = `
               <div style="font-family: sans-serif; max-width: 500px;">
                 <h2 style="color: #4A55A2;">Nueva sesión por revisar</h2>
                 <p><strong>${student.full_name || "Un estudiante"}</strong> completó una sesión con <strong>${patientName}</strong> y está pendiente de tu revisión.</p>
                 <p>Ingresa a GlorIA para revisar la evaluación de la IA, la autorreflexión del estudiante, y enviar tu retroalimentación.</p>
               </div>
-            `,
-          });
-          await logEmail("pending_review", emails[0], true);
+            `;
+        for (const email of emails) {
+          try {
+            await resend.emails.send({ from: "GlorIA <noreply@glor-ia.com>", to: email, subject, html });
+            await logEmail("pending_review", email, true);
+          } catch {
+            await logEmail("pending_review", email, false);
+          }
         }
       } catch { /* email best-effort */ }
     }
