@@ -1308,7 +1308,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           />
 
           <button
-            onClick={() => router.push("/dashboard")}
+            onClick={() => sessionLocked ? setNavGuardOpen(true) : router.push("/dashboard")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer"
             title="Esto te permite volver en otro momento sin afectar la relación con el paciente"
           >
