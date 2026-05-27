@@ -231,8 +231,16 @@ export default function MonitorPanel({
 
       {/* Tabla */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {error && (
+        {/* Error fuerte solo si nunca cargó. Si ya hay datos y un sondeo falla
+            (p. ej. cambio de red), mantenemos la tabla y avisamos sutil; el
+            próximo sondeo (15s) se recupera solo. */}
+        {error && !data && (
           <p className="text-xs text-red-600 bg-red-50 px-4 py-3">{error}</p>
+        )}
+        {error && data && (
+          <p className="text-[11px] text-amber-600 bg-amber-50 px-4 py-2 flex items-center gap-1.5">
+            <AlertCircle size={12} /> Conexión interrumpida; reintentando…
+          </p>
         )}
         {loading && !data && (
           <p className="text-sm text-gray-400 text-center py-12">Cargando…</p>
