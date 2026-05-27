@@ -17,6 +17,7 @@ import {
 // filtro de UI que nunca amplía la autoridad del usuario.
 
 const ONLINE_WINDOW_MS = 2 * 60 * 1000; // "conectado ahora": last_seen_at < 2 min
+const NIL = "00000000-0000-0000-0000-000000000000";
 
 export async function GET(request: Request) {
   const auth = await getMonitorAuthority();
@@ -130,8 +131,45 @@ export async function GET(request: Request) {
       return ly - lx;
     });
 
+  // Totales globales de la AUTORIDAD (toda tu área: superadmin = todo GlorIA;
+  // admin = su establecimiento), ignorando el filtro de UI. Para las cápsulas
+  // "global" que no se contaminan con lo filtrado.
+  const authCol =
+    auth.mode === "section" ? "section_id"
+    : auth.mode === "course" ? "course_id"
+    : auth.mode === "establishment" ? "establishment_id"
+    : null;
+  const authVals =
+    auth.mode === "section" ? auth.sectionIds
+    : auth.mode === "course" ? auth.courseIds
+    : auth.mode === "establishment" ? auth.establishmentIds
+    : [];
+  const safeVals = authVals.length ? authVals : [NIL];
+  const twoMinAgo = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
+
+  let peopleQ = admin.from("profiles").select("id", { count: "exact", head: true }).neq("role", "superadmin");
+  if (authCol) peopleQ = peopleQ.in(authCol, safeVals);
+  let onlineQ = admin.from("profiles").select("id", { count: "exact", head: true }).neq("role", "superadmin").gte("last_seen_at", twoMinAgo);
+  if (authCol) onlineQ = onlineQ.in(authCol, safeVals);
+
+  const [{ count: peopleTotal }, { count: onlineTotal }, { data: activeConvs }] = await Promise.all([
+    peopleQ,
+    onlineQ,
+    admin.from("conversations").select("student_id").eq("status", "active"),
+  ]);
+
+  let inSessionTotal = 0;
+  const activeStudentIds = [...new Set((activeConvs || []).map((c) => c.student_id).filter(Boolean))];
+  if (activeStudentIds.length) {
+    let q = admin.from("profiles").select("id", { count: "exact", head: true }).neq("role", "superadmin").in("id", activeStudentIds);
+    if (authCol) q = q.in(authCol, safeVals);
+    const { count } = await q;
+    inSessionTotal = count || 0;
+  }
+
   return NextResponse.json({
     students: roster,
+    totals: { people: peopleTotal || 0, online: onlineTotal || 0, inSession: inSessionTotal },
     scope: scopeInfo(auth, requested),
     generatedAt: new Date().toISOString(),
   });
