@@ -5,6 +5,7 @@ import { Resend } from "resend";
 import { logAdminAction } from "@/lib/audit";
 import { createUserSchema, parseBody } from "@/lib/validation/schemas";
 import { getAppUrl } from "@/lib/app-url";
+import { logEmail } from "@/lib/email-log";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -186,6 +187,8 @@ export async function POST(request: Request) {
       emailError = e;
     }
   }
+
+  if (send_credentials) await logEmail("credentials", email, emailSent);
 
   // Only mark credentials_sent_at when the email was actually sent.
   // This lets the admin retry from the UI if the initial send failed or was skipped.

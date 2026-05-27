@@ -72,12 +72,19 @@ export async function GET() {
       ) / 60
     );
 
+    // Correos enviados hoy (Resend) — para llevar la cuenta del consumo.
+    const { count: emailsToday } = await admin
+      .from("email_log")
+      .select("id", { count: "exact", head: true })
+      .gte("sent_at", todayDate);
+
     return NextResponse.json({
       ts: Date.now(),
       latencyMs,
       onlineNow,
       inSession,
       platformMinutesToday,
+      emailsToday: emailsToday || 0,
     });
   } catch {
     return NextResponse.json(

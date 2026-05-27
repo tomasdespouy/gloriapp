@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { authorizeFeedbackAccess } from "@/lib/feedback-auth";
+import { logEmail } from "@/lib/email-log";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -170,6 +171,7 @@ export async function POST(request: Request) {
           </div>
         `,
       });
+      await logEmail("feedback", studentProfile.email, true);
     } catch {
       // Email is optional
     }

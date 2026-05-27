@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logEmail } from "@/lib/email-log";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -107,6 +108,7 @@ export async function POST(
               </div>
             `,
           });
+          await logEmail("feedback_acknowledged", teacherProfile.email, true);
         }
       } catch {
         // Email is optional

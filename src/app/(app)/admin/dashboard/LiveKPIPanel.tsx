@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Wifi, MessageCircle, Timer, Zap, Info } from "lucide-react";
+import { Wifi, MessageCircle, Timer, Zap, Info, Mail } from "lucide-react";
 
 const POLL_INTERVAL = 300_000; // 5 minutes
 const MAX_POINTS = 12; // 12 points × 5min = 1 hour of history
@@ -12,6 +12,7 @@ type LiveSnapshot = {
   onlineNow: number;
   inSession: number;
   platformMinutesToday: number;
+  emailsToday: number;
 };
 
 type MetricConfig = {
@@ -65,6 +66,16 @@ const METRICS: MetricConfig[] = [
     tooltip:
       "Minutos totales acumulados en la plataforma hoy por todos los usuarios.",
   },
+  {
+    key: "emailsToday",
+    label: "Correos hoy",
+    icon: Mail,
+    color: "purple",
+    format: (v) => `${v}`,
+    unit: "",
+    tooltip:
+      "Correos enviados hoy vía Resend (credenciales, retroalimentación, avisos de revisión). Útil para llevar la cuenta del consumo.",
+  },
 ];
 
 const SPARK_COLORS: Record<
@@ -75,6 +86,7 @@ const SPARK_COLORS: Record<
   green: { stroke: "#22c55e", fill: "rgba(34,197,94,0.15)", dot: "#22c55e", bg: "bg-green-50", text: "text-green-500", aliveBg: "bg-green-400" },
   blue: { stroke: "#3b82f6", fill: "rgba(59,130,246,0.15)", dot: "#3b82f6", bg: "bg-blue-50", text: "text-blue-500", aliveBg: "bg-blue-400" },
   cyan: { stroke: "#06b6d4", fill: "rgba(6,182,212,0.15)", dot: "#06b6d4", bg: "bg-cyan-50", text: "text-cyan-500", aliveBg: "bg-cyan-400" },
+  purple: { stroke: "#8b5cf6", fill: "rgba(139,92,246,0.15)", dot: "#8b5cf6", bg: "bg-purple-50", text: "text-purple-500", aliveBg: "bg-purple-400" },
 };
 
 /* ─── Sparkline SVG ─── */
