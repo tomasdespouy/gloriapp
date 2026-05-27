@@ -107,6 +107,14 @@ export default function UsuariosClient({ users, establishments, courses, section
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const [bulkResetConfirm, setBulkResetConfirm] = useState(false);
+  // Bulk hard delete — requires typing a confirmation word.
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkDeleteText, setBulkDeleteText] = useState("");
+  // Bulk reassign asignatura/sección (one institution at a time).
+  const [bulkReassignOpen, setBulkReassignOpen] = useState(false);
+  const [reassignEstId, setReassignEstId] = useState("");
+  const [reassignCourseId, setReassignCourseId] = useState("");
+  const [reassignSectionId, setReassignSectionId] = useState("");
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -205,6 +213,76 @@ export default function UsuariosClient({ users, establishments, courses, section
     } else {
       toast.warning(`${successes} exitosos, ${errors} con errores`);
     }
+    router.refresh();
+  };
+
+  // Bulk HARD delete — irreversible. Loops DELETE per user.
+  const bulkDelete = async () => {
+    const ids = Array.from(bulkSelectedIds);
+    setBulkDeleteConfirm(false);
+    setBulkDeleteText("");
+    setBulkProcessing(true);
+    setBulkProgress({ current: 0, total: ids.length });
+    let successes = 0;
+    let errors = 0;
+
+    for (let i = 0; i < ids.length; i++) {
+      setBulkProgress({ current: i + 1, total: ids.length });
+      try {
+        const res = await fetch(`/api/admin/users/${ids[i]}`, { method: "DELETE" });
+        if (!res.ok) throw new Error();
+        successes++;
+      } catch {
+        errors++;
+      }
+    }
+
+    setBulkProcessing(false);
+    setBulkProgress(null);
+    setBulkSelectedIds(new Set());
+    if (errors === 0) toast.success(`${successes} usuarios eliminados`);
+    else toast.warning(`${successes} eliminados, ${errors} con errores`);
+    router.refresh();
+  };
+
+  // Bulk reassign establishment + asignatura + sección. Applies the chosen
+  // institution/course/section to every selected user (one institution at a
+  // time), keeping establishment_id consistent with the course.
+  const bulkReassign = async () => {
+    const ids = Array.from(bulkSelectedIds);
+    setBulkReassignOpen(false);
+    setBulkProcessing(true);
+    setBulkProgress({ current: 0, total: ids.length });
+    let successes = 0;
+    let errors = 0;
+
+    const payload = {
+      establishment_id: reassignEstId,
+      course_id: reassignCourseId || null,
+      section_id: reassignSectionId || null,
+    };
+
+    for (let i = 0; i < ids.length; i++) {
+      setBulkProgress({ current: i + 1, total: ids.length });
+      try {
+        const res = await fetch(`/api/admin/users/${ids[i]}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error();
+        successes++;
+      } catch {
+        errors++;
+      }
+    }
+
+    setBulkProcessing(false);
+    setBulkProgress(null);
+    setBulkSelectedIds(new Set());
+    setReassignEstId(""); setReassignCourseId(""); setReassignSectionId("");
+    if (errors === 0) toast.success(`${successes} usuarios reasignados`);
+    else toast.warning(`${successes} reasignados, ${errors} con errores`);
     router.refresh();
   };
 
@@ -673,9 +751,21 @@ export default function UsuariosClient({ users, establishments, courses, section
                 </button>
                 <button
                   onClick={() => setBulkResetConfirm(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
                 >
                   <RotateCcw size={16} /> Restablecer datos
+                </button>
+                <button
+                  onClick={() => { setReassignEstId(""); setReassignCourseId(""); setReassignSectionId(""); setBulkReassignOpen(true); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-sidebar/30 text-sidebar bg-sidebar/5 hover:bg-sidebar/10 transition-colors cursor-pointer"
+                >
+                  <Pencil size={16} /> Reasignar
+                </button>
+                <button
+                  onClick={() => { setBulkDeleteText(""); setBulkDeleteConfirm(true); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors cursor-pointer"
+                >
+                  <Trash2 size={16} /> Borrar
                 </button>
               </div>
             )}
@@ -714,6 +804,116 @@ export default function UsuariosClient({ users, establishments, courses, section
                 Sí, restablecer {bulkSelectedIds.size} usuarios
               </button>
               <button onClick={() => setBulkResetConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk reassign asignatura/sección modal */}
+      {bulkReassignOpen && (() => {
+        const reassignCourses = reassignEstId ? courses.filter((c) => c.establishment_id === reassignEstId) : [];
+        const reassignSections = reassignCourseId ? sections.filter((s) => s.course_id === reassignCourseId) : [];
+        const selectedUsers = users.filter((u) => bulkSelectedIds.has(u.id));
+        const multiEst = new Set(selectedUsers.map((u) => u.establishment_id)).size > 1;
+        const selectClass = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/20 hover:border-gray-300 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setBulkReassignOpen(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4 animate-pop" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-sidebar/10 flex items-center justify-center">
+                  <Pencil size={22} className="text-sidebar" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Reasignar {bulkSelectedIds.size} usuario(s)</h3>
+                  <p className="text-xs text-gray-400">Institución · Asignatura · Sección</p>
+                </div>
+              </div>
+
+              {multiEst && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
+                  Los seleccionados son de distintas instituciones. Al reasignar, <strong>todos</strong> quedarán en la institución que elijas abajo.
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-500 mb-1">Institución</label>
+                  <select value={reassignEstId} onChange={(e) => { setReassignEstId(e.target.value); setReassignCourseId(""); setReassignSectionId(""); }} className={selectClass}>
+                    <option value="">Selecciona una institución</option>
+                    {establishments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-500 mb-1">Asignatura</label>
+                  <select value={reassignCourseId} onChange={(e) => { setReassignCourseId(e.target.value); setReassignSectionId(""); }} disabled={!reassignEstId} className={selectClass}>
+                    <option value="">Sin asignar</option>
+                    {reassignCourses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-500 mb-1">Sección</label>
+                  <select value={reassignSectionId} onChange={(e) => setReassignSectionId(e.target.value)} disabled={!reassignCourseId} className={selectClass}>
+                    <option value="">Sin asignar</option>
+                    {reassignSections.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button onClick={bulkReassign} disabled={!reassignEstId}
+                  className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold cursor-pointer hover:bg-[#354080] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  Reasignar {bulkSelectedIds.size}
+                </button>
+                <button onClick={() => setBulkReassignOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Bulk hard delete confirmation modal — requires typing BORRAR */}
+      {bulkDeleteConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setBulkDeleteConfirm(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4 animate-pop" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+                <Trash2 size={22} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Borrar {bulkSelectedIds.size} usuario(s)</h3>
+                <p className="text-xs text-red-500 font-medium">Borrado definitivo e irreversible</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+              Se eliminarán las cuentas y todos sus datos (sesiones, progreso, evaluaciones). <strong>No se puede deshacer.</strong>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                Escribe <span className="font-bold">BORRAR</span> para confirmar
+              </label>
+              <input
+                value={bulkDeleteText}
+                onChange={(e) => setBulkDeleteText(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                placeholder="BORRAR"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button onClick={bulkDelete} disabled={bulkDeleteText !== "BORRAR"}
+                className="flex-1 bg-red-600 text-white py-2.5 rounded-xl text-sm font-semibold cursor-pointer hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                Borrar {bulkSelectedIds.size} definitivamente
+              </button>
+              <button onClick={() => setBulkDeleteConfirm(false)}
                 className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">
                 Cancelar
               </button>
