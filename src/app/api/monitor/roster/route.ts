@@ -51,12 +51,8 @@ export async function GET(request: Request) {
   const courseIds = [...new Set(students.map((s) => s.course_id).filter((x): x is string => !!x))];
   const sectionIds = [...new Set(students.map((s) => s.section_id).filter((x): x is string => !!x))];
 
-  // 2) Conversaciones + estado de revisión, en paralelo con catálogos de nombres.
-  const [{ data: conversations }, { data: establishments }, { data: courses }, { data: sections }] = await Promise.all([
-    admin
-      .from("conversations")
-      .select("id, student_id, status, created_at, started_at, active_seconds, session_competencies(feedback_status)")
-      .in("student_id", studentIds),
+  // Catálogos de nombres (tablas chicas).
+  const [{ data: establishments }, { data: courses }, { data: sections }] = await Promise.all([
     admin.from("establishments").select("id, name"),
     courseIds.length ? admin.from("courses").select("id, name").in("id", courseIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
     sectionIds.length ? admin.from("sections").select("id, name").in("id", sectionIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
@@ -66,33 +62,37 @@ export async function GET(request: Request) {
   const courseName = new Map((courses || []).map((c) => [c.id, c.name]));
   const sectionName = new Map((sections || []).map((s) => [s.id, s.name]));
 
-  type Agg = {
-    sessions: number;
-    activeSession: boolean;
-    lastActivity: number | null; // epoch ms
-    pendingReviews: number;
-  };
-  const agg = new Map<string, Agg>();
-  for (const id of studentIds) {
-    agg.set(id, { sessions: 0, activeSession: false, lastActivity: null, pendingReviews: 0 });
+  // Conversaciones: paginadas. Evita (1) el cap de 1000 filas de PostgREST y
+  // (2) que un `.in` con cientos de student_id reviente la URL (devolvía 0 →
+  // todos contaban 0 conversaciones en la vista supradmin). Con listas chicas
+  // filtramos por `.in`; con listas grandes/"all" traemos todo y agregamos en
+  // memoria contra un Set.
+  const idSet = new Set(studentIds);
+  const useIn = resolved.mode === "ids" && studentIds.length <= 100;
+  type ConvRow = { student_id: string; status: string; created_at: string; started_at: string | null };
+  const convRows: ConvRow[] = [];
+  const PAGE = 1000;
+  for (let from = 0; from < 200_000; from += PAGE) {
+    let cq = admin.from("conversations").select("student_id, status, created_at, started_at").range(from, from + PAGE - 1);
+    if (useIn) cq = cq.in("student_id", studentIds);
+    const { data: page } = await cq;
+    const rows = (page || []) as ConvRow[];
+    for (const r of rows) if (idSet.has(r.student_id)) convRows.push(r);
+    if (rows.length < PAGE) break;
   }
 
-  for (const c of conversations || []) {
+  type Agg = { sessions: number; activeSession: boolean; lastActivity: number | null };
+  const agg = new Map<string, Agg>();
+  for (const id of studentIds) agg.set(id, { sessions: 0, activeSession: false, lastActivity: null });
+
+  for (const c of convRows) {
     const a = agg.get(c.student_id);
     if (!a) continue;
     a.sessions += 1;
     if (c.status === "active") a.activeSession = true;
-
     const ts = new Date(c.started_at || c.created_at).getTime();
     if (!Number.isNaN(ts) && (a.lastActivity === null || ts > a.lastActivity)) {
       a.lastActivity = ts;
-    }
-
-    // Pendiente de revisión: sesión completada cuyo feedback no fue resuelto.
-    if (c.status === "completed") {
-      const sc = c.session_competencies as { feedback_status?: string }[] | { feedback_status?: string } | null;
-      const fs = Array.isArray(sc) ? sc[0]?.feedback_status : sc?.feedback_status;
-      if (!fs || fs === "pending") a.pendingReviews += 1;
     }
   }
 
@@ -119,7 +119,6 @@ export async function GET(request: Request) {
         last_activity_at: a.lastActivity ? new Date(a.lastActivity).toISOString() : null,
         sessions_count: a.sessions,
         has_active_session: a.activeSession,
-        pending_reviews: a.pendingReviews,
         credentials_sent_at: s.credentials_sent_at,
       };
     })

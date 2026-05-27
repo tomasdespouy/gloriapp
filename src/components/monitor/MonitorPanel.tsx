@@ -8,6 +8,7 @@ import {
 import type { RequestedScope } from "@/lib/monitor/scope";
 import ConversationsDrawer from "./ConversationsDrawer";
 import MonitorFilter from "./MonitorFilter";
+import RoleFilter from "./RoleFilter";
 
 // Panel operacional reutilizable: una tabla de personas (conectado, última
 // actividad, sesiones, pendientes) con un visor lateral para entrar a las
@@ -35,7 +36,6 @@ type RosterStudent = {
   last_activity_at: string | null;
   sessions_count: number;
   has_active_session: boolean;
-  pending_reviews: number;
   credentials_sent_at: string | null;
 };
 
@@ -102,6 +102,7 @@ export default function MonitorPanel({
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [onlineOnly, setOnlineOnly] = useState(false);
+  const [roleFilter, setRoleFilter] = useState<string[]>([]);
   const [selected, setSelected] = useState<RosterStudent | null>(null);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -150,6 +151,7 @@ export default function MonitorPanel({
   const q = query.trim().toLowerCase();
   const filtered = students.filter((s) => {
     if (onlineOnly && !s.online) return false;
+    if (roleFilter.length > 0 && !roleFilter.includes(s.role)) return false;
     if (!q) return true;
     return (s.full_name || "").toLowerCase().includes(q) || (s.email || "").toLowerCase().includes(q);
   });
@@ -206,6 +208,7 @@ export default function MonitorPanel({
             className="w-full h-9 pl-9 pr-3 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sidebar/30"
           />
         </div>
+        {showFilters && <RoleFilter value={roleFilter} onChange={setRoleFilter} />}
         {showFilters && <MonitorFilter onScopeChange={setFilterScope} />}
       </div>
 
