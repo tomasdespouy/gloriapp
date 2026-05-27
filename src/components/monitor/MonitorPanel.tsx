@@ -78,7 +78,7 @@ const ACTIVITY_STYLE: Record<string, string> = {
   "Cerró sesión": "bg-violet-100 text-violet-700",
   "Autorreflexión enviada": "bg-emerald-100 text-emerald-700",
   "Encuesta enviada": "bg-teal-100 text-teal-700",
-  "Paciente IA abandonó": "bg-red-100 text-red-700",
+  "Cerró navegador": "bg-orange-100 text-orange-700",
   "Sin actividad": "bg-gray-50 text-gray-400",
 };
 
@@ -390,6 +390,7 @@ export default function MonitorPanel({
           listUrl={`/api/monitor/students/${selected.id}/conversations`}
           buildTranscriptUrl={(c) => `/api/monitor/students/${selected.id}/conversations/${c}/transcript`}
           onClose={() => setSelected(null)}
+          allowReeval={data?.scope.isSuperadmin ?? false}
         />
       )}
     </div>

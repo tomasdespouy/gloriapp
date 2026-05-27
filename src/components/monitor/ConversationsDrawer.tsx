@@ -27,6 +27,7 @@ export default function ConversationsDrawer({
   listUrl,
   buildTranscriptUrl,
   onClose,
+  allowReeval = false,
 }: {
   name: string;
   subtitle?: string | null;
@@ -35,6 +36,8 @@ export default function ConversationsDrawer({
   /** Construye la URL de transcripción para una conversación. */
   buildTranscriptUrl: (conversationId: string) => string;
   onClose: () => void;
+  /** Muestra "Reenviar evaluación IA" por conversación (solo superadmin). */
+  allowReeval?: boolean;
 }) {
   const [conversations, setConversations] = useState<DrawerConversation[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,6 +45,21 @@ export default function ConversationsDrawer({
   const [openConvoId, setOpenConvoId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptMessage[] | null>(null);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
+  const [reeval, setReeval] = useState<Record<string, "loading" | "done" | "error">>({});
+
+  const reevalSession = async (conversationId: string) => {
+    setReeval((p) => ({ ...p, [conversationId]: "loading" }));
+    try {
+      const r = await fetch("/api/admin/reeval-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId }),
+      });
+      setReeval((p) => ({ ...p, [conversationId]: r.ok ? "done" : "error" }));
+    } catch {
+      setReeval((p) => ({ ...p, [conversationId]: "error" }));
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -175,6 +193,19 @@ export default function ConversationsDrawer({
                       >
                         Ficha completa ↗
                       </a>
+                      {allowReeval && c.message_count >= 2 && (
+                        reeval[c.id] === "done" ? (
+                          <span className="text-[11px] text-emerald-600">✓ Evaluación enviada al docente</span>
+                        ) : (
+                          <button
+                            onClick={() => reevalSession(c.id)}
+                            disabled={reeval[c.id] === "loading"}
+                            className="text-[11px] text-sidebar hover:underline cursor-pointer disabled:opacity-50"
+                          >
+                            {reeval[c.id] === "loading" ? "Evaluando…" : reeval[c.id] === "error" ? "Error, reintentar" : "Reenviar evaluación IA"}
+                          </button>
+                        )
+                      )}
                     </div>
                   </div>
                 );

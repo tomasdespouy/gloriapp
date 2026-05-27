@@ -65,7 +65,17 @@ export default async function DocenteDashboard({
       .order("created_at", { ascending: false }),
   ]);
 
-  const allSessions = allConversations?.filter(s => s.status === "completed") || [];
+  // Revisables = completadas + las "Cerró navegador" (abandoned) que YA fueron
+  // evaluadas por IA (tienen session_competencies). Las abandonadas vacías
+  // (sin evaluación) quedan fuera de la cola.
+  const allSessions = (allConversations || []).filter((s) => {
+    if (s.status === "completed") return true;
+    if (s.status === "abandoned") {
+      const raw = s.session_competencies;
+      return Array.isArray(raw) ? raw.length > 0 : !!raw;
+    }
+    return false;
+  });
   const allSessionsIncludingActive = allConversations || [];
 
   // Build progress map
