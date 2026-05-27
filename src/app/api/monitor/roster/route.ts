@@ -133,7 +133,7 @@ export async function GET(request: Request) {
   // Deriva la etiqueta de actividad (estado actual o último estado si offline).
   const activityFor = (a: Agg, online: boolean, studentId: string): string => {
     if (a.activeSession) return "En sesión";
-    if (a.latestStatus === "abandoned") return "Paciente IA abandonó";
+    if (a.latestStatus === "abandoned") return "Cerró navegador";
     if (a.latestStatus === "completed") {
       if (surveyUsers.has(studentId)) return "Encuesta enviada";
       if (a.latestConvId && reflConvIds.has(a.latestConvId)) return "Autorreflexión enviada";
