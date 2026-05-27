@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { logAdminAction } from "@/lib/audit";
 import { getAppUrl } from "@/lib/app-url";
+import { logEmail } from "@/lib/email-log";
 
 export async function POST(
   _request: Request,
@@ -145,6 +146,8 @@ export async function POST(
     console.error("[users/reset-password] resend threw", { email: target.email, error: e });
     emailError = e;
   }
+
+  await logEmail("credentials", target.email, emailSent);
 
   // Record the fact that credentials were delivered. Only set when email
   // actually went out — if email failed, the admin can retry.

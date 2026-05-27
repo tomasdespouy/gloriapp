@@ -15,6 +15,7 @@ import {
   type NormalizedEvaluation,
 } from "@/lib/evaluation-prompt";
 import { canViewStudent } from "@/lib/section-scope";
+import { logEmail } from "@/lib/email-log";
 
 export async function POST(
   request: NextRequest,
@@ -325,6 +326,7 @@ export async function POST(
               </div>
             `,
           });
+          await logEmail("pending_review", emails[0], true);
         }
       } catch {
         // Email is optional — don't fail the request
@@ -596,6 +598,7 @@ async function evaluateAndPersist(ctx: {
               </div>
             `,
           });
+          await logEmail("pending_review", emails[0], true);
         }
       } catch { /* email best-effort */ }
     }
