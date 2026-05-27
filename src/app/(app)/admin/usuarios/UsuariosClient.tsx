@@ -46,17 +46,21 @@ type Props = {
   initialSearch: string;
   initialRole: string;
   initialEst: string;
+  initialCourse: string;
+  initialSection: string;
 };
 
 type SortKey = "full_name" | "email" | "role" | "establishmentName" | "courseName" | "sectionName" | "sessionCount";
 type SortDir = "asc" | "desc";
 
-export default function UsuariosClient({ users, establishments, courses, sections, isSuperadmin, totalCount, currentPage, perPage, initialSearch, initialRole, initialEst }: Props) {
+export default function UsuariosClient({ users, establishments, courses, sections, isSuperadmin, totalCount, currentPage, perPage, initialSearch, initialRole, initialEst, initialCourse, initialSection }: Props) {
   const router = useRouter();
   const searchParamsHook = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
   const [roleFilter, setRoleFilter] = useState(initialRole);
   const [estFilter, setEstFilter] = useState(initialEst);
+  const [courseFilter, setCourseFilter] = useState(initialCourse);
+  const [sectionFilter, setSectionFilter] = useState(initialSection);
   const [isPending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -466,10 +470,21 @@ export default function UsuariosClient({ users, establishments, courses, section
             <option value="admin">Admin</option>
             {isSuperadmin && <option value="superadmin">Superadmin</option>}
           </select>
-          <select value={estFilter} onChange={(e) => { setEstFilter(e.target.value); navigate({ est: e.target.value }); }}
+          <select value={estFilter} onChange={(e) => { setEstFilter(e.target.value); setCourseFilter(""); setSectionFilter(""); navigate({ est: e.target.value, course: "", section: "" }); }}
             className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm shadow-sm hover:border-gray-300 cursor-pointer">
             <option value="">Todas las instituciones</option>
             {establishments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+          <select value={courseFilter} onChange={(e) => { setCourseFilter(e.target.value); setSectionFilter(""); navigate({ course: e.target.value, section: "" }); }}
+            className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm shadow-sm hover:border-gray-300 cursor-pointer">
+            <option value="">Todas las asignaturas</option>
+            {(estFilter ? courses.filter((c) => c.establishment_id === estFilter) : courses).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select value={sectionFilter} onChange={(e) => { setSectionFilter(e.target.value); navigate({ section: e.target.value }); }}
+            disabled={!courseFilter}
+            className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm shadow-sm hover:border-gray-300 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+            <option value="">Todas las secciones</option>
+            {sections.filter((s) => s.course_id === courseFilter).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
 

@@ -5,7 +5,7 @@ import UsuariosClient from "./UsuariosClient";
 export default async function UsuariosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; per_page?: string; q?: string; role?: string; est?: string }>;
+  searchParams: Promise<{ page?: string; per_page?: string; q?: string; role?: string; est?: string; course?: string; section?: string }>;
 }) {
   const params = await searchParams;
   const currentPage = Math.max(1, parseInt(params.page || "1", 10));
@@ -15,6 +15,8 @@ export default async function UsuariosPage({
   const searchQuery = (params.q || "").trim().slice(0, 100).replace(/[,()]/g, " ");
   const roleFilter = params.role || "";
   const rawEstFilter = params.est || "";
+  const courseFilter = params.course || "";
+  const sectionFilter = params.section || "";
 
   const ctx = await getAdminContext();
   const supabase = await createClient();
@@ -41,6 +43,8 @@ export default async function UsuariosPage({
   if (scopeFilter) countQuery = countQuery.in("establishment_id", scopeFilter);
   if (roleFilter) countQuery = countQuery.eq("role", roleFilter);
   if (estFilter) countQuery = countQuery.eq("establishment_id", estFilter);
+  if (courseFilter) countQuery = countQuery.eq("course_id", courseFilter);
+  if (sectionFilter) countQuery = countQuery.eq("section_id", sectionFilter);
   // nosemgrep: postgrest-or-template-literal -- searchQuery sanitized above
   if (searchQuery) countQuery = countQuery.or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
   const { count: totalCount } = await countQuery;
@@ -57,6 +61,8 @@ export default async function UsuariosPage({
   if (scopeFilter) usersQuery = usersQuery.in("establishment_id", scopeFilter);
   if (roleFilter) usersQuery = usersQuery.eq("role", roleFilter);
   if (estFilter) usersQuery = usersQuery.eq("establishment_id", estFilter);
+  if (courseFilter) usersQuery = usersQuery.eq("course_id", courseFilter);
+  if (sectionFilter) usersQuery = usersQuery.eq("section_id", sectionFilter);
   // nosemgrep: postgrest-or-template-literal -- searchQuery sanitized above
   if (searchQuery) usersQuery = usersQuery.or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
 
@@ -119,6 +125,8 @@ export default async function UsuariosPage({
       initialSearch={searchQuery}
       initialRole={roleFilter}
       initialEst={estFilter}
+      initialCourse={courseFilter}
+      initialSection={sectionFilter}
     />
   );
 }
