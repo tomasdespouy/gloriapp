@@ -167,14 +167,6 @@ export default function LoginPage() {
           Recuperar contraseña
         </Link>
       </div>
-
-      {/* Signup link */}
-      <p className="text-center text-sm text-gray-500 mt-4">
-        No tienes cuenta?{" "}
-        <Link href="/signup" className="text-blue-600 font-medium hover:underline">
-          Regístrate
-        </Link>
-      </p>
     </>
   );
 }
