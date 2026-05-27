@@ -12,6 +12,7 @@ import {
   ClipboardCheck, LayoutGrid, List as ListIcon, Pencil, Save,
 } from "lucide-react";
 import PilotConsentPanel from "./PilotConsentPanel";
+import ConversationsDrawer from "@/components/monitor/ConversationsDrawer";
 import { getAppUrl } from "@/lib/app-url";
 import {
   utcIsoToChileLocal,
@@ -2480,17 +2481,22 @@ function Step4Dashboard({
 
       <SurveyInsights pilotId={pilot.id} />
 
-      {/* Participant detail drawer — lazy loaded, only when open */}
-      {openParticipantId && (
-        <ParticipantDetailDrawer
-          pilotId={pilot.id}
-          participantId={openParticipantId}
-          onClose={() => setOpenParticipantId(null)}
-          fallbackName={
-            participants.find((p) => p.id === openParticipantId)?.full_name || ""
-          }
-        />
-      )}
+      {/* Visor de conversaciones — drawer compartido con el monitor.
+          Conserva los endpoints del piloto (autorización por pertenencia y
+          manejo de participantes que nunca ingresaron). */}
+      {openParticipantId && (() => {
+        const p = participants.find((x) => x.id === openParticipantId);
+        return (
+          <ConversationsDrawer
+            key={openParticipantId}
+            name={p?.full_name || p?.email || "Participante"}
+            subtitle={p?.email || null}
+            listUrl={`/api/admin/pilots/${pilot.id}/participants/${openParticipantId}/conversations`}
+            buildTranscriptUrl={(c) => `/api/admin/pilots/${pilot.id}/participants/${openParticipantId}/conversations/${c}/transcript`}
+            onClose={() => setOpenParticipantId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -3757,266 +3763,6 @@ function OpenAnswersSection({ data, pilotId }: { data: SurveyData; pilotId: stri
           </table>
         </div>
       )}
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════
-// Participant detail drawer (conversations + patients)
-// ════════════════════════════════════════════
-
-type ConvoRow = {
-  id: string;
-  patient_name: string;
-  status: string;
-  session_number: number | null;
-  started_at: string | null;
-  ended_at: string | null;
-  created_at: string;
-  active_seconds: number;
-  message_count: number;
-  overall_score: number | null;
-  ai_commentary: string | null;
-};
-
-type DrawerData = {
-  participant: {
-    id: string;
-    full_name: string;
-    email: string;
-    role: string;
-  };
-  conversations: ConvoRow[];
-};
-
-function ParticipantDetailDrawer({
-  pilotId,
-  participantId,
-  onClose,
-  fallbackName,
-}: {
-  pilotId: string;
-  participantId: string;
-  onClose: () => void;
-  fallbackName: string;
-}) {
-  const [data, setData] = useState<DrawerData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [openConvoId, setOpenConvoId] = useState<string | null>(null);
-  const [transcript, setTranscript] = useState<Array<{ role: string; content: string; created_at: string }> | null>(null);
-  const [transcriptLoading, setTranscriptLoading] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    fetch(`/api/admin/pilots/${pilotId}/participants/${participantId}/conversations`)
-      .then(async (r) => {
-        if (!r.ok) {
-          const d = await r.json().catch(() => null);
-          throw new Error(d?.error || `Error ${r.status}`);
-        }
-        return r.json();
-      })
-      .then((d: DrawerData) => { if (!cancelled) setData(d); })
-      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "Error al cargar"); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [pilotId, participantId]);
-
-  // Close on Escape.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  // Lazy-fetch transcript when a conversation is opened inline.
-  useEffect(() => {
-    if (!openConvoId) {
-      setTranscript(null);
-      return;
-    }
-    let cancelled = false;
-    setTranscriptLoading(true);
-    fetch(`/api/admin/pilots/${pilotId}/participants/${participantId}/conversations/${openConvoId}/transcript`)
-      .then(async (r) => {
-        if (!r.ok) {
-          const d = await r.json().catch(() => null);
-          throw new Error(d?.error || `Error ${r.status}`);
-        }
-        return r.json();
-      })
-      .then((d: { messages: Array<{ role: string; content: string; created_at: string }> }) => {
-        if (!cancelled) setTranscript(d.messages || []);
-      })
-      .catch(() => { if (!cancelled) setTranscript([]); })
-      .finally(() => { if (!cancelled) setTranscriptLoading(false); });
-    return () => { cancelled = true; };
-  }, [openConvoId, pilotId, participantId]);
-
-  const displayName = data?.participant.full_name || fallbackName || "Participante";
-  const totalSessions = data?.conversations.length || 0;
-
-  return (
-    <div className="fixed inset-0 z-[90]">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/30 animate-fade-in"
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <aside
-        className="absolute right-0 top-0 bottom-0 w-full sm:w-[440px] bg-white shadow-2xl flex flex-col"
-      >
-        <header className="px-5 py-4 border-b border-gray-100 flex-shrink-0">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Participante</p>
-              <h3 className="text-sm font-semibold text-gray-900 truncate">{displayName}</h3>
-              {data?.participant.email && (
-                <p className="text-xs text-gray-500 truncate">{data.participant.email}</p>
-              )}
-              <p className="text-[11px] text-gray-400 mt-1">
-                {loading ? "Cargando…" : `${totalSessions} sesion${totalSessions === 1 ? "" : "es"}`}
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="flex-shrink-0 w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700 cursor-pointer"
-              aria-label="Cerrar"
-            >
-              <XCircle size={18} />
-            </button>
-          </div>
-        </header>
-
-        <div className="flex-1 overflow-y-auto">
-          {error && (
-            <div className="p-4">
-              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>
-            </div>
-          )}
-
-          {!error && !loading && !openConvoId && (
-            <div className="p-4 space-y-2">
-              {totalSessions === 0 && (
-                <p className="text-xs text-gray-400 italic text-center py-8">
-                  Este participante aún no ha tenido sesiones con pacientes.
-                </p>
-              )}
-              {data?.conversations.map((c) => {
-                const when = new Date(c.created_at).toLocaleString("es-CL", {
-                  timeZone: "America/Santiago",
-                  day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
-                });
-                const statusBadge =
-                  c.status === "completed" ? "bg-green-100 text-green-700"
-                  : c.status === "active" ? "bg-blue-100 text-blue-700"
-                  : "bg-gray-100 text-gray-600";
-                const minutes = Math.round((c.active_seconds || 0) / 60);
-                return (
-                  <div key={c.id} className="border border-gray-100 rounded-lg p-3">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{c.patient_name}</p>
-                        <p className="text-[11px] text-gray-500">{when}</p>
-                      </div>
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${statusBadge}`}>
-                        {c.status === "completed" ? "Completada" : c.status === "active" ? "En curso" : c.status === "abandoned" ? "Abandonada" : c.status}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 text-[11px] text-gray-500 mt-1">
-                      <span>{c.message_count} msgs</span>
-                      <span>·</span>
-                      <span>{minutes} min</span>
-                      {typeof c.overall_score === "number" && c.overall_score > 0 && (
-                        <>
-                          <span>·</span>
-                          <span className="text-sidebar font-medium">{c.overall_score.toFixed(1)}/4</span>
-                        </>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <button
-                        onClick={() => setOpenConvoId(c.id)}
-                        className="text-[11px] text-sidebar hover:underline cursor-pointer"
-                      >
-                        Ver conversación →
-                      </button>
-                      <a
-                        href={`/docente/sesion/${c.id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] text-gray-400 hover:text-gray-700 hover:underline cursor-pointer"
-                      >
-                        Ficha completa ↗
-                      </a>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Inline transcript view */}
-          {openConvoId && (
-            <div className="p-4 space-y-3">
-              <button
-                onClick={() => setOpenConvoId(null)}
-                className="text-[11px] text-sidebar hover:underline cursor-pointer"
-              >
-                ← Volver al listado
-              </button>
-
-              {(() => {
-                const convo = data?.conversations.find((c) => c.id === openConvoId);
-                if (!convo) return null;
-                return (
-                  <div className="border-b border-gray-100 pb-2 mb-2">
-                    <p className="text-sm font-medium text-gray-900">{convo.patient_name}</p>
-                    <p className="text-[11px] text-gray-500">
-                      {new Date(convo.created_at).toLocaleString("es-CL", { timeZone: "America/Santiago", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                      {" · "}
-                      {convo.message_count} msgs
-                    </p>
-                  </div>
-                );
-              })()}
-
-              {transcriptLoading && (
-                <p className="text-xs text-gray-400 italic text-center py-6">Cargando transcripción…</p>
-              )}
-
-              {!transcriptLoading && transcript && transcript.length === 0 && (
-                <p className="text-xs text-gray-400 italic text-center py-6">Sin mensajes registrados.</p>
-              )}
-
-              {!transcriptLoading && transcript && transcript.length > 0 && (
-                <div className="space-y-2">
-                  {transcript.map((m, i) => (
-                    <div
-                      key={i}
-                      className={`rounded-lg px-3 py-2 text-xs ${
-                        m.role === "user"
-                          ? "bg-sidebar/10 text-gray-900"
-                          : "bg-gray-50 text-gray-700"
-                      }`}
-                    >
-                      <p className="text-[9px] uppercase tracking-wide font-semibold text-gray-400 mb-0.5">
-                        {m.role === "user" ? "Terapeuta" : "Paciente"}
-                      </p>
-                      <p className="whitespace-pre-wrap">{m.content}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </aside>
     </div>
   );
 }
