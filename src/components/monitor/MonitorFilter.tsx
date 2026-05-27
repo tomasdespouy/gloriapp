@@ -41,16 +41,17 @@ export default function MonitorFilter({ onScopeChange }: { onScopeChange: (scope
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
 
-  // Etiquetas id→nombre para las chips.
-  const labels = useMemo(() => {
-    const m: Record<Level, Map<string, string>> = { country: new Map(), est: new Map(), course: new Map(), section: new Map() };
+  // Ruta completa (ancestros + self) de cada nodo, para mostrar el contexto en
+  // las chips: País › Universidad › Asignatura › Sección. Clave: `${level}:${id}`.
+  const pathOf = useMemo(() => {
+    const m = new Map<string, string[]>();
     for (const c of tree || []) {
-      m.country.set(c.country, c.country);
+      m.set(`country:${c.country}`, [c.country]);
       for (const e of c.establishments) {
-        m.est.set(e.id, e.name);
+        m.set(`est:${e.id}`, [c.country, e.name]);
         for (const co of e.courses) {
-          m.course.set(co.id, co.name);
-          for (const s of co.sections) m.section.set(s.id, s.name);
+          m.set(`course:${co.id}`, [c.country, e.name, co.name]);
+          for (const s of co.sections) m.set(`section:${s.id}`, [c.country, e.name, co.name, s.name]);
         }
       }
     }
@@ -83,8 +84,8 @@ export default function MonitorFilter({ onScopeChange }: { onScopeChange: (scope
     (tree.length > 1 || tree.some((c) => c.establishments.length > 1 || c.establishments.some((e) => e.courses.length > 0)));
   if (tree === null || !hasSomethingToFilter) return null;
 
-  const chips: { level: Level; id: string; label: string }[] = (["country", "est", "course", "section"] as Level[])
-    .flatMap((lvl) => sel[lvl].map((id) => ({ level: lvl, id, label: labels[lvl].get(id) || id })));
+  const chips: { level: Level; id: string; path: string[] }[] = (["country", "est", "course", "section"] as Level[])
+    .flatMap((lvl) => sel[lvl].map((id) => ({ level: lvl, id, path: pathOf.get(`${lvl}:${id}`) || [id] })));
 
   const Check = ({ level, id }: { level: Level; id: string }) => (
     <input type="checkbox" checked={sel[level].includes(id)} onChange={() => toggle(level, id)} className="accent-sidebar" />
@@ -156,9 +157,9 @@ export default function MonitorFilter({ onScopeChange }: { onScopeChange: (scope
 
       {/* Etiquetas de filtros elegidos, removibles */}
       {chips.map((chip) => (
-        <span key={`${chip.level}:${chip.id}`} className="inline-flex items-center gap-1 text-[11px] bg-sidebar/10 text-sidebar border border-sidebar/30 rounded-full pl-2 pr-1 py-0.5">
-          <span className="truncate max-w-[120px]">{chip.label}</span>
-          <button onClick={() => toggle(chip.level, chip.id)} className="hover:bg-sidebar/20 rounded-full p-0.5 cursor-pointer" aria-label={`Quitar ${chip.label}`}>
+        <span key={`${chip.level}:${chip.id}`} title={chip.path.join(" › ")} className="inline-flex items-center gap-1 text-[11px] bg-sidebar/10 text-sidebar border border-sidebar/30 rounded-full pl-2 pr-1 py-0.5">
+          <span className="truncate max-w-[260px]">{chip.path.join(" › ")}</span>
+          <button onClick={() => toggle(chip.level, chip.id)} className="hover:bg-sidebar/20 rounded-full p-0.5 cursor-pointer" aria-label={`Quitar ${chip.path.join(" › ")}`}>
             <X size={11} />
           </button>
         </span>
