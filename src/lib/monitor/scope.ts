@@ -30,7 +30,10 @@ export type RequestedScope =
   | { kind: "all" }
   | { kind: "establishment"; ids: string[] }
   | { kind: "section"; ids: string[] }
-  | { kind: "pilot"; id: string };
+  | { kind: "pilot"; id: string }
+  // Compuesto: unión de lo seleccionado en el filtro en cascada
+  // (universidades + asignaturas + secciones, en cualquier combinación).
+  | { kind: "filter"; establishmentIds?: string[]; courseIds?: string[]; sectionIds?: string[] };
 
 export type MonitorAuthority =
   | {
@@ -190,6 +193,22 @@ async function materializeRequested(requested: RequestedScope): Promise<{ all: b
       return { all: false, ids: await studentsBySection(requested.ids) };
     case "pilot":
       return { all: false, ids: await studentsByPilot(requested.id) };
+    case "filter": {
+      // Unión de los alumnos de cada nivel seleccionado. Si no hay nada
+      // marcado, equivale a "todo" (el filtro vacío no acota).
+      const est = requested.establishmentIds || [];
+      const cou = requested.courseIds || [];
+      const sec = requested.sectionIds || [];
+      if (est.length === 0 && cou.length === 0 && sec.length === 0) {
+        return { all: true, ids: [] };
+      }
+      const [a, b, c] = await Promise.all([
+        studentsByEstablishment(est),
+        studentsByCourse(cou),
+        studentsBySection(sec),
+      ]);
+      return { all: false, ids: [...new Set([...a, ...b, ...c])] };
+    }
   }
 }
 
@@ -268,6 +287,16 @@ export function parseRequestedScope(raw: string | null): RequestedScope {
     }
     if (parsed?.kind === "pilot" && typeof parsed.id === "string") {
       return { kind: "pilot", id: parsed.id };
+    }
+    if (parsed?.kind === "filter") {
+      const arr = (v: unknown): string[] =>
+        Array.isArray(v) ? v.filter((x: unknown): x is string => typeof x === "string") : [];
+      return {
+        kind: "filter",
+        establishmentIds: arr(parsed.establishmentIds),
+        courseIds: arr(parsed.courseIds),
+        sectionIds: arr(parsed.sectionIds),
+      };
     }
   } catch { /* ignore */ }
   return { kind: "all" };

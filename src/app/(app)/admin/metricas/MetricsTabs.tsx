@@ -58,7 +58,7 @@ export default function MetricsTabs({ children }: { children: React.ReactNode })
       )}
       {tab === "personas" && (
         <div className="px-4 sm:px-8 pb-8">
-          <MonitorPanel scope={{ kind: "all" }} />
+          <MonitorPanel scope={{ kind: "all" }} showFilters />
         </div>
       )}
       {tab === "historic" && children}
