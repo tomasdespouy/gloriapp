@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import type { RequestedScope } from "@/lib/monitor/scope";
 import ConversationsDrawer from "./ConversationsDrawer";
+import MonitorFilter from "./MonitorFilter";
 
 // Panel operacional reutilizable: una tabla de personas (conectado, última
 // actividad, sesiones, pendientes) con un visor lateral para entrar a las
@@ -57,10 +58,13 @@ function formatRelativeTime(iso: string | null): string {
 export default function MonitorPanel({
   scope,
   showEstablishment = true,
+  showFilters = false,
 }: {
   scope: RequestedScope;
   /** Oculta la columna establecimiento (p. ej. en la vista de un piloto). */
   showEstablishment?: boolean;
+  /** Muestra el filtro Universidad→Asignatura→Sección (supradmin/admin). */
+  showFilters?: boolean;
 }) {
   const [data, setData] = useState<RosterResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,8 +72,12 @@ export default function MonitorPanel({
   const [query, setQuery] = useState("");
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [selected, setSelected] = useState<RosterStudent | null>(null);
+  // El filtro en cascada sobreescribe el scope base; el servidor igual lo
+  // intersecta con la autoridad, así que nunca amplía el alcance.
+  const [filterScope, setFilterScope] = useState<RequestedScope | null>(null);
 
-  const scopeParam = JSON.stringify(scope);
+  const effectiveScope = filterScope ?? scope;
+  const scopeParam = JSON.stringify(effectiveScope);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -137,6 +145,7 @@ export default function MonitorPanel({
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sidebar/30"
           />
         </div>
+        {showFilters && <MonitorFilter onScopeChange={setFilterScope} />}
         <button
           onClick={() => setOnlineOnly((v) => !v)}
           className={`text-xs px-3 py-2 rounded-lg border cursor-pointer ${
