@@ -52,6 +52,8 @@ export async function updateSession(request: NextRequest) {
     // The endpoints verify the secret themselves, so the middleware
     // must let the request through without redirecting to /login.
     !pathname.startsWith("/api/cron/") &&
+    // Se auto-autoriza con Bearer CRON_SECRET o sesión superadmin (para lotes).
+    !pathname.startsWith("/api/admin/reeval-session") &&
     !pathname.startsWith("/piloto/") &&
     !pathname.startsWith("/ANGLO") &&
     !pathname.startsWith("/paulina")
