@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { getDocenteScope, getScopedStudentIds } from "@/lib/section-scope";
 import DocenteMetricsClient from "./DocenteMetricsClient";
+import DocenteMetricsTabs from "./DocenteMetricsTabs";
 
 export default async function DocenteMetricsPage() {
   const supabase = await createClient();
@@ -167,18 +168,20 @@ export default async function DocenteMetricsPage() {
   ).length;
 
   return (
-    <DocenteMetricsClient
-      scoreDistribution={scoreDistribution}
-      competencyAverages={competencyAverages}
-      weeklyProgression={weeklyProgression}
-      summary={{
-        totalStudents: studentCount || 0,
-        totalSessions,
-        avgScore,
-        reviewCompletionRate,
-        sessionsThisWeek,
-      }}
-    />
+    <DocenteMetricsTabs>
+      <DocenteMetricsClient
+        scoreDistribution={scoreDistribution}
+        competencyAverages={competencyAverages}
+        weeklyProgression={weeklyProgression}
+        summary={{
+          totalStudents: studentCount || 0,
+          totalSessions,
+          avgScore,
+          reviewCompletionRate,
+          sessionsThisWeek,
+        }}
+      />
+    </DocenteMetricsTabs>
   );
 }
 
