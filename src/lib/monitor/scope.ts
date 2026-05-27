@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserProfile } from "@/lib/supabase/user-profile";
+import { getDocenteScope } from "@/lib/section-scope";
 
 /**
  * Monitor operacional — resolución de alcance.
@@ -36,11 +37,12 @@ export type MonitorAuthority =
       ok: true;
       profileId: string;
       isSuperadmin: boolean;
-      /** "all": sin restricción. "establishment"/"section": acotado a los ids. */
-      mode: "all" | "establishment" | "section";
+      /** "all": sin restricción. Resto: acotado a los ids del modo. */
+      mode: "all" | "establishment" | "section" | "course";
       establishmentIds: string[];
       sectionIds: string[];
-      /** true cuando un instructor sin sección cayó al fallback de establecimiento. */
+      courseIds: string[];
+      /** true cuando un instructor sin sección/curso cayó al fallback de establecimiento. */
       sectionFallback: boolean;
     }
   | { ok: false; status: number; error: string };
@@ -71,6 +73,7 @@ export async function getMonitorAuthority(): Promise<MonitorAuthority> {
       mode: "all",
       establishmentIds: [],
       sectionIds: [],
+      courseIds: [],
       sectionFallback: false,
     };
   }
@@ -94,38 +97,36 @@ export async function getMonitorAuthority(): Promise<MonitorAuthority> {
       mode: "establishment",
       establishmentIds,
       sectionIds: [],
+      courseIds: [],
       sectionFallback: false,
     };
   }
 
-  // Instructor → su sección. Fallback acordado: si no tiene section_id,
-  // cae a su establecimiento (no rompe el panel docente actual).
+  // Instructor → su sección, luego su curso, luego su establecimiento.
+  // Delega en getDocenteScope (sección→curso→establecimiento, ya usado por
+  // las vistas docentes) para no divergir del scoping existente.
   if (role === "instructor") {
-    const { data: me } = await admin
-      .from("profiles")
-      .select("section_id, establishment_id")
-      .eq("id", profile.id)
-      .maybeSingle();
-
-    if (me?.section_id) {
-      return {
-        ok: true,
-        profileId: profile.id,
-        isSuperadmin: false,
-        mode: "section",
-        establishmentIds: [],
-        sectionIds: [me.section_id],
-        sectionFallback: false,
-      };
-    }
-    const estId = me?.establishment_id || profile.establishmentId;
-    return {
-      ok: true,
+    const ds = await getDocenteScope();
+    const base = {
+      ok: true as const,
       profileId: profile.id,
       isSuperadmin: false,
+      establishmentIds: [] as string[],
+      sectionIds: [] as string[],
+      courseIds: [] as string[],
+      sectionFallback: false,
+    };
+    if (ds?.sectionId) {
+      return { ...base, mode: "section", sectionIds: [ds.sectionId] };
+    }
+    if (ds?.courseId) {
+      return { ...base, mode: "course", courseIds: [ds.courseId] };
+    }
+    const estId = ds?.establishmentId || profile.establishmentId;
+    return {
+      ...base,
       mode: "establishment",
       establishmentIds: estId ? [estId] : [],
-      sectionIds: [],
       sectionFallback: true,
     };
   }
@@ -157,6 +158,17 @@ async function studentsBySection(secIds: string[]): Promise<string[]> {
   return (data || []).map((p) => p.id);
 }
 
+async function studentsByCourse(courseIds: string[]): Promise<string[]> {
+  if (courseIds.length === 0) return [];
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("role", "student")
+    .in("course_id", courseIds);
+  return (data || []).map((p) => p.id);
+}
+
 async function studentsByPilot(pilotId: string): Promise<string[]> {
   const admin = createAdminClient();
   const { data } = await admin
@@ -185,6 +197,7 @@ async function materializeRequested(requested: RequestedScope): Promise<{ all: b
 async function materializeAuthority(auth: Extract<MonitorAuthority, { ok: true }>): Promise<{ all: boolean; ids: string[] }> {
   if (auth.mode === "all") return { all: true, ids: [] };
   if (auth.mode === "section") return { all: false, ids: await studentsBySection(auth.sectionIds) };
+  if (auth.mode === "course") return { all: false, ids: await studentsByCourse(auth.courseIds) };
   return { all: false, ids: await studentsByEstablishment(auth.establishmentIds) };
 }
 
@@ -225,7 +238,7 @@ export async function canAccessStudent(
   const admin = createAdminClient();
   const { data: student } = await admin
     .from("profiles")
-    .select("establishment_id, section_id, role")
+    .select("establishment_id, section_id, course_id, role")
     .eq("id", studentId)
     .maybeSingle();
 
@@ -233,6 +246,9 @@ export async function canAccessStudent(
 
   if (auth.mode === "section") {
     return !!student.section_id && auth.sectionIds.includes(student.section_id);
+  }
+  if (auth.mode === "course") {
+    return !!student.course_id && auth.courseIds.includes(student.course_id);
   }
   // establishment
   return !!student.establishment_id && auth.establishmentIds.includes(student.establishment_id);
