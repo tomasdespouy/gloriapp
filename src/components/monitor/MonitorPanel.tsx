@@ -41,6 +41,7 @@ type RosterStudent = {
 
 type RosterResponse = {
   students: RosterStudent[];
+  totals: { people: number; online: number; inSession: number };
   scope: { authority: string; isSuperadmin: boolean; sectionFallback: boolean; requestedKind: string };
   generatedAt: string;
 };
@@ -145,16 +146,22 @@ export default function MonitorPanel({
   }, [load]);
 
   const students = data?.students || [];
-  const onlineCount = students.filter((s) => s.online).length;
-  const inSessionCount = students.filter((s) => s.has_active_session).length;
 
+  // `matched`: aplica rol + búsqueda (NO el toggle "solo conectados"), para que
+  // las cápsulas reflejen el filtro elegido sin que el toggle las distorsione.
   const q = query.trim().toLowerCase();
-  const filtered = students.filter((s) => {
-    if (onlineOnly && !s.online) return false;
+  const matched = students.filter((s) => {
     if (roleFilter.length > 0 && !roleFilter.includes(s.role)) return false;
     if (!q) return true;
     return (s.full_name || "").toLowerCase().includes(q) || (s.email || "").toLowerCase().includes(q);
   });
+  const matchedOnline = matched.filter((s) => s.online).length;
+  const matchedInSession = matched.filter((s) => s.has_active_session).length;
+
+  // `filtered`: lo que ve la tabla (añade el toggle "solo conectados").
+  const filtered = onlineOnly ? matched.filter((s) => s.online) : matched;
+
+  const totals = data?.totals;
 
   const displayed = sortKey
     ? [...filtered].sort((a, b) => {
@@ -183,12 +190,28 @@ export default function MonitorPanel({
 
   return (
     <div className="space-y-4">
-      {/* Resumen */}
+      {/* Resumen del filtro actual */}
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <SummaryChip icon={<Users size={18} className="text-blue-500" />} value={students.length} label="Personas" tone="blue" />
-        <SummaryChip icon={<span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />} value={onlineCount} label="Conectados" tone="green" />
-        <SummaryChip icon={<MessageSquare size={18} className="text-sidebar" />} value={inSessionCount} label="En sesión" tone="indigo" />
+        <SummaryChip icon={<Users size={18} className="text-blue-500" />} value={matched.length} label="Personas" />
+        <SummaryChip icon={<span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />} value={matchedOnline} label="Conectados" />
+        <SummaryChip icon={<MessageSquare size={18} className="text-sidebar" />} value={matchedInSession} label="En sesión" />
       </div>
+
+      {/* Totales globales de GlorIA (no se contaminan con el filtro) */}
+      {totals && (
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+          <span className="uppercase tracking-wide font-semibold text-gray-400">Total GlorIA</span>
+          <span className="inline-flex items-center gap-1 bg-gray-100 rounded-full px-2.5 py-1">
+            <Users size={12} className="text-gray-400" /> {totals.people} personas
+          </span>
+          <span className="inline-flex items-center gap-1 bg-gray-100 rounded-full px-2.5 py-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> {totals.online} conectados
+          </span>
+          <span className="inline-flex items-center gap-1 bg-gray-100 rounded-full px-2.5 py-1">
+            <MessageSquare size={12} className="text-sidebar" /> {totals.inSession} en sesión
+          </span>
+        </div>
+      )}
 
       {data?.scope.sectionFallback && (
         <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-1.5 flex items-center gap-1.5">

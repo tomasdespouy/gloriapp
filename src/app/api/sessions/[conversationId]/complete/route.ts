@@ -294,8 +294,10 @@ export async function POST(
       await admin.from("notifications").insert(notifications);
     }
 
-    // Send email to the same recipients via Resend
-    const recipientIds = recipients.map((i) => i.id);
+    // Email SOLO a los docentes de la sección (no admin/coordinador/superadmin):
+    // ahorra cuota de Resend (~100/día) y es lo pedido. Las notificaciones
+    // in-app de arriba sí van a todos los recipients (gratis).
+    const recipientIds = recipients.filter((i) => i.role === "instructor").map((i) => i.id);
 
     if (process.env.RESEND_API_KEY && recipientIds.length > 0) {
       try {
@@ -579,7 +581,8 @@ async function evaluateAndPersist(ctx: {
     if (notifications.length > 0) {
       await admin.from("notifications").insert(notifications);
     }
-    const recipientIds = recipients.map((i) => i.id);
+    // Email solo a docentes de la sección (no admin/superadmin) — ver nota en sync.
+    const recipientIds = recipients.filter((i) => i.role === "instructor").map((i) => i.id);
     if (process.env.RESEND_API_KEY && recipientIds.length > 0) {
       try {
         const { Resend } = await import("resend");

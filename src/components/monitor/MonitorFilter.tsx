@@ -4,10 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Filter, X } from "lucide-react";
 import type { RequestedScope } from "@/lib/monitor/scope";
 
-// Filtro en cascada País → Universidad → Asignatura → Sección, con checkbox en
-// cada nivel y multi-selección. Semántica de unión. Emite un RequestedScope
-// compuesto; el servidor lo intersecta con la autoridad. Muestra los filtros
-// elegidos como etiquetas removibles (X) junto al botón.
+// Filtro en cascada País → Universidad → Asignatura → Sección. Cada nivel es un
+// checkbox; al marcar un nodo se marcan también sus ancestros, y cada uno
+// aparece como una cápsula independiente removible. El alcance efectivo es el
+// nodo MÁS ESPECÍFICO seleccionado por rama (un nodo cuenta solo si no tiene un
+// descendiente también seleccionado): así, si quitas la sección pero dejas la
+// asignatura, ves todas las secciones de esa asignatura.
 
 type SectionNode = { id: string; name: string };
 type CourseNode = { id: string; name: string; code: string | null; sections: SectionNode[] };
@@ -15,12 +17,12 @@ type EstablishmentNode = { id: string; name: string; courses: CourseNode[] };
 type CountryNode = { country: string; establishments: EstablishmentNode[] };
 
 type Level = "country" | "est" | "course" | "section";
-type Selection = Record<Level, string[]>;
-const EMPTY: Selection = { country: [], est: [], course: [], section: [] };
+const PREFIX: Record<Level, string> = { country: "country:", est: "est:", course: "course:", section: "section:" };
+const key = (level: Level, id: string) => `${PREFIX[level]}${id}`;
 
 export default function MonitorFilter({ onScopeChange }: { onScopeChange: (scope: RequestedScope) => void }) {
   const [tree, setTree] = useState<CountryNode[] | null>(null);
-  const [sel, setSel] = useState<Selection>(EMPTY);
+  const [sel, setSel] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const ref = useRef<HTMLDivElement>(null);
@@ -41,36 +43,66 @@ export default function MonitorFilter({ onScopeChange }: { onScopeChange: (scope
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
 
-  // Ruta completa (ancestros + self) de cada nodo, para mostrar el contexto en
-  // las chips: País › Universidad › Asignatura › Sección. Clave: `${level}:${id}`.
-  const pathOf = useMemo(() => {
-    const m = new Map<string, string[]>();
+  // nombre y padre de cada nodo (clave `level:id`).
+  const { nodeName, parentKey } = useMemo(() => {
+    const nodeName = new Map<string, string>();
+    const parentKey = new Map<string, string | undefined>();
     for (const c of tree || []) {
-      m.set(`country:${c.country}`, [c.country]);
+      const ck = key("country", c.country);
+      nodeName.set(ck, c.country); parentKey.set(ck, undefined);
       for (const e of c.establishments) {
-        m.set(`est:${e.id}`, [c.country, e.name]);
+        const ek = key("est", e.id);
+        nodeName.set(ek, e.name); parentKey.set(ek, ck);
         for (const co of e.courses) {
-          m.set(`course:${co.id}`, [c.country, e.name, co.name]);
-          for (const s of co.sections) m.set(`section:${s.id}`, [c.country, e.name, co.name, s.name]);
+          const cok = key("course", co.id);
+          nodeName.set(cok, co.name); parentKey.set(cok, ek);
+          for (const s of co.sections) {
+            const sk = key("section", s.id);
+            nodeName.set(sk, s.name); parentKey.set(sk, cok);
+          }
         }
       }
     }
-    return m;
+    return { nodeName, parentKey };
   }, [tree]);
 
-  const apply = (next: Selection) => {
+  const ancestorsOf = (k: string): string[] => {
+    const out: string[] = [];
+    let p = parentKey.get(k);
+    while (p) { out.push(p); p = parentKey.get(p); }
+    return out;
+  };
+
+  // Nodos efectivos: los que no tienen un descendiente también seleccionado.
+  const effectiveKeys = (set: Set<string>): string[] =>
+    [...set].filter((k) => ![...set].some((j) => j !== k && ancestorsOf(j).includes(k)));
+
+  const apply = (next: Set<string>) => {
     setSel(next);
-    const empty = !next.country.length && !next.est.length && !next.course.length && !next.section.length;
-    onScopeChange(
-      empty
-        ? { kind: "all" }
-        : { kind: "filter", countries: next.country, establishmentIds: next.est, courseIds: next.course, sectionIds: next.section },
-    );
+    if (next.size === 0) { onScopeChange({ kind: "all" }); return; }
+    const eff = effectiveKeys(next);
+    const strip = (lvl: Level) => eff.filter((k) => k.startsWith(PREFIX[lvl])).map((k) => k.slice(PREFIX[lvl].length));
+    onScopeChange({
+      kind: "filter",
+      countries: strip("country"),
+      establishmentIds: strip("est"),
+      courseIds: strip("course"),
+      sectionIds: strip("section"),
+    });
   };
-  const toggle = (level: Level, id: string) => {
-    const cur = sel[level];
-    apply({ ...sel, [level]: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] });
+
+  // Marcar añade el nodo + sus ancestros; desmarcar quita solo ese nodo.
+  const toggleKey = (k: string) => {
+    const next = new Set(sel);
+    if (next.has(k)) {
+      next.delete(k);
+    } else {
+      next.add(k);
+      for (const a of ancestorsOf(k)) next.add(a);
+    }
+    apply(next);
   };
+
   const toggleExpand = (id: string) =>
     setExpanded((prev) => {
       const n = new Set(prev);
@@ -78,18 +110,22 @@ export default function MonitorFilter({ onScopeChange }: { onScopeChange: (scope
       return n;
     });
 
-  const total = sel.country.length + sel.est.length + sel.course.length + sel.section.length;
+  const total = sel.size;
 
   const hasSomethingToFilter = !!tree && tree.length > 0 &&
     (tree.length > 1 || tree.some((c) => c.establishments.length > 1 || c.establishments.some((e) => e.courses.length > 0)));
   if (tree === null || !hasSomethingToFilter) return null;
 
-  const chips: { level: Level; id: string; path: string[] }[] = (["country", "est", "course", "section"] as Level[])
-    .flatMap((lvl) => sel[lvl].map((id) => ({ level: lvl, id, path: pathOf.get(`${lvl}:${id}`) || [id] })));
-
-  const Check = ({ level, id }: { level: Level; id: string }) => (
-    <input type="checkbox" checked={sel[level].includes(id)} onChange={() => toggle(level, id)} className="accent-sidebar" />
+  // Cápsulas, ordenadas país → universidad → asignatura → sección.
+  const order: Level[] = ["country", "est", "course", "section"];
+  const chips = [...sel].sort(
+    (a, b) => order.findIndex((l) => a.startsWith(PREFIX[l])) - order.findIndex((l) => b.startsWith(PREFIX[l])),
   );
+
+  const Check = ({ level, id }: { level: Level; id: string }) => {
+    const k = key(level, id);
+    return <input type="checkbox" checked={sel.has(k)} onChange={() => toggleKey(k)} className="accent-sidebar" />;
+  };
   const Caret = ({ id }: { id: string }) => (
     <button onClick={() => toggleExpand(id)} className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700 cursor-pointer" aria-label="Expandir">
       {expanded.has(id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -155,17 +191,17 @@ export default function MonitorFilter({ onScopeChange }: { onScopeChange: (scope
         )}
       </div>
 
-      {/* Etiquetas de filtros elegidos, removibles */}
-      {chips.map((chip) => (
-        <span key={`${chip.level}:${chip.id}`} title={chip.path.join(" › ")} className="inline-flex items-center gap-1 text-[11px] bg-sidebar/10 text-sidebar border border-sidebar/30 rounded-full pl-2 pr-1 py-0.5">
-          <span className="truncate max-w-[260px]">{chip.path.join(" › ")}</span>
-          <button onClick={() => toggle(chip.level, chip.id)} className="hover:bg-sidebar/20 rounded-full p-0.5 cursor-pointer" aria-label={`Quitar ${chip.path.join(" › ")}`}>
+      {/* Cápsulas independientes (País · Universidad · Asignatura · Sección) */}
+      {chips.map((k) => (
+        <span key={k} className="inline-flex items-center gap-1 text-[11px] bg-sidebar/10 text-sidebar border border-sidebar/30 rounded-full pl-2 pr-1 py-0.5">
+          <span className="truncate max-w-[160px]">{nodeName.get(k) || k}</span>
+          <button onClick={() => toggleKey(k)} className="hover:bg-sidebar/20 rounded-full p-0.5 cursor-pointer" aria-label={`Quitar ${nodeName.get(k) || ""}`}>
             <X size={11} />
           </button>
         </span>
       ))}
       {total > 1 && (
-        <button onClick={() => apply(EMPTY)} className="text-[11px] text-gray-400 hover:text-gray-700 cursor-pointer">
+        <button onClick={() => apply(new Set())} className="text-[11px] text-gray-400 hover:text-gray-700 cursor-pointer">
           Limpiar todo
         </button>
       )}
