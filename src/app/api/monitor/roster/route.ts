@@ -70,11 +70,11 @@ export async function GET(request: Request) {
   // memoria contra un Set.
   const idSet = new Set(studentIds);
   const useIn = resolved.mode === "ids" && studentIds.length <= 100;
-  type ConvRow = { student_id: string; status: string; created_at: string; started_at: string | null };
+  type ConvRow = { id: string; student_id: string; status: string; created_at: string; started_at: string | null };
   const convRows: ConvRow[] = [];
   const PAGE = 1000;
   for (let from = 0; from < 200_000; from += PAGE) {
-    let cq = admin.from("conversations").select("student_id, status, created_at, started_at").range(from, from + PAGE - 1);
+    let cq = admin.from("conversations").select("id, student_id, status, created_at, started_at").range(from, from + PAGE - 1);
     if (useIn) cq = cq.in("student_id", studentIds);
     const { data: page } = await cq;
     const rows = (page || []) as ConvRow[];
@@ -82,9 +82,35 @@ export async function GET(request: Request) {
     if (rows.length < PAGE) break;
   }
 
-  type Agg = { sessions: number; activeSession: boolean; lastActivity: number | null };
+  // Reflexiones del alumno (autorreflexión) por conversación, y encuestas por
+  // alumno — para distinguir las etapas de actividad. Paginadas por el mismo
+  // motivo (cap de 1000 / .in gigante).
+  const REFL = ["discomfort_moment", "would_redo", "clinical_note", "alliance_framing", "rupture_moment", "nonverbal_cues", "intervention_types", "clinical_hypothesis"];
+  const reflConvIds = new Set<string>();
+  for (let from = 0; from < 200_000; from += PAGE) {
+    const { data: page } = await admin
+      .from("session_feedback")
+      .select(`conversation_id, ${REFL.join(", ")}`)
+      .range(from, from + PAGE - 1);
+    const rows = (page || []) as unknown as Record<string, unknown>[];
+    for (const r of rows) {
+      if (REFL.some((f) => { const v = r[f]; return typeof v === "string" && v.trim().length > 0; })) {
+        reflConvIds.add(r.conversation_id as string);
+      }
+    }
+    if (rows.length < PAGE) break;
+  }
+  const surveyUsers = new Set<string>();
+  for (let from = 0; from < 200_000; from += PAGE) {
+    const { data: page } = await admin.from("survey_responses").select("user_id").range(from, from + PAGE - 1);
+    const rows = page || [];
+    for (const r of rows) if (r.user_id) surveyUsers.add(r.user_id);
+    if (rows.length < PAGE) break;
+  }
+
+  type Agg = { sessions: number; activeSession: boolean; lastActivity: number | null; latestTs: number; latestStatus: string | null; latestConvId: string | null };
   const agg = new Map<string, Agg>();
-  for (const id of studentIds) agg.set(id, { sessions: 0, activeSession: false, lastActivity: null });
+  for (const id of studentIds) agg.set(id, { sessions: 0, activeSession: false, lastActivity: null, latestTs: 0, latestStatus: null, latestConvId: null });
 
   for (const c of convRows) {
     const a = agg.get(c.student_id);
@@ -95,7 +121,26 @@ export async function GET(request: Request) {
     if (!Number.isNaN(ts) && (a.lastActivity === null || ts > a.lastActivity)) {
       a.lastActivity = ts;
     }
+    // Conversación más reciente (por created_at) para derivar la actividad.
+    const cts = new Date(c.created_at).getTime();
+    if (!Number.isNaN(cts) && cts >= a.latestTs) {
+      a.latestTs = cts;
+      a.latestStatus = c.status;
+      a.latestConvId = c.id;
+    }
   }
+
+  // Deriva la etiqueta de actividad (estado actual o último estado si offline).
+  const activityFor = (a: Agg, online: boolean, studentId: string): string => {
+    if (a.activeSession) return "En sesión";
+    if (a.latestStatus === "abandoned") return "Paciente IA abandonó";
+    if (a.latestStatus === "completed") {
+      if (surveyUsers.has(studentId)) return "Encuesta enviada";
+      if (a.latestConvId && reflConvIds.has(a.latestConvId)) return "Autorreflexión enviada";
+      return "Cerró sesión";
+    }
+    return online ? "En plataforma" : "Sin actividad";
+  };
 
   const now = Date.now();
   const roster = students
@@ -120,6 +165,7 @@ export async function GET(request: Request) {
         last_activity_at: a.lastActivity ? new Date(a.lastActivity).toISOString() : null,
         sessions_count: a.sessions,
         has_active_session: a.activeSession,
+        activity: activityFor(a, online, s.id),
         credentials_sent_at: s.credentials_sent_at,
       };
     })
