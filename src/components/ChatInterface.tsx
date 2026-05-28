@@ -58,6 +58,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [displaySeconds, setDisplaySeconds] = useState(initialActiveSeconds);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(initialMessages.length > 0);
+  const [navGuardOpen, setNavGuardOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [tourStep, setTourStep] = useState(0);
   const [voiceMode, setVoiceMode] = useState(false);
@@ -1183,6 +1184,36 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     router.push(`/review/${conversationId}`);
   };
 
+  // Bloqueo de navegación durante la sesión: intercepta clics en enlaces
+  // internos (sidebar, etc.) y el botón "atrás", y abre un modal para cerrar
+  // o continuar. Recargar/cambiar de pestaña no navega → la sesión se mantiene.
+  const sessionLocked = sessionStarted && !!conversationId;
+  useEffect(() => {
+    if (!sessionLocked) return;
+    const onClick = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!a) return;
+      const href = a.getAttribute("href") || "";
+      if (!href.startsWith("/")) return;       // externo o ancla → permitir
+      if (href.startsWith("/chat/")) return;    // dentro del propio chat → permitir
+      e.preventDefault();
+      e.stopPropagation();
+      setNavGuardOpen(true);
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [sessionLocked]);
+  useEffect(() => {
+    if (!sessionLocked) return;
+    window.history.pushState(null, "", window.location.href);
+    const onPop = () => {
+      window.history.pushState(null, "", window.location.href);
+      setNavGuardOpen(true);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [sessionLocked]);
+
   const renderContent = (content: string) => {
     const html = content
       // Bold: **text**
@@ -1277,7 +1308,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           />
 
           <button
-            onClick={() => router.push("/dashboard")}
+            onClick={() => sessionLocked ? setNavGuardOpen(true) : router.push("/dashboard")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer"
             title="Esto te permite volver en otro momento sin afectar la relación con el paciente"
           >
@@ -1945,6 +1976,32 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           )}
         </div>
       </div>{/* end Main content flex */}
+
+      {navGuardOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4 animate-pop">
+            <h3 className="text-base font-bold text-gray-900">Estás en sesión</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Para concluir, debes apretar <strong>Cerrar sesión</strong>. Mientras la sesión esté
+              abierta no puedes navegar a otras secciones del sitio.
+            </p>
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                onClick={() => { setNavGuardOpen(false); handleEndSession(); }}
+                className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 cursor-pointer transition-opacity"
+              >
+                Cerrar sesión
+              </button>
+              <button
+                onClick={() => setNavGuardOpen(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+              >
+                Continuar con la sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
