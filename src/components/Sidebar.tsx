@@ -6,6 +6,7 @@ import {
   Accessibility, LifeBuoy, FlaskConical, DollarSign, Activity, FileText,
   Briefcase, Rocket, Bell, ArrowLeft, ArrowRight,
 } from "lucide-react";
+import { TILE_ICON_BY_HREF } from "./SidebarTileIcons";
 import { useSidebar } from "./SidebarContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -91,6 +92,7 @@ const MODULE_NAV_MAP: Record<string, string> = {
   progreso: "/progreso",
 };
 
+
 export default function Sidebar({
   role = "student",
   establishmentLogoUrl,
@@ -123,6 +125,9 @@ export default function Sidebar({
         return [{ items: filtered }];
       })();
 
+  const isStudent = !isAdmin && !isInstructor;
+  const useTileLayout = isStudent || isInstructor;
+
   const { collapsed, toggleSidebar, ready } = useSidebar();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [drawerIn, setDrawerIn] = useState(false);
@@ -147,17 +152,22 @@ export default function Sidebar({
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Logo + badge */}
-      <div className="px-6 pt-6 mb-6 flex-shrink-0">
-        <Link href={isAdmin ? "/admin/dashboard" : isInstructor ? "/docente/dashboard" : "/dashboard"} onClick={closeSidebar}>
+      <div className={`flex-shrink-0 ${useTileLayout ? "pt-10 pb-5 mb-3 px-4 flex flex-col items-center gap-2 border-b border-white/10" : "px-6 pt-6 mb-6"}`}>
+        <Link href={isAdmin ? "/admin/dashboard" : isInstructor ? "/docente/dashboard" : "/dashboard"} onClick={closeSidebar} className={useTileLayout ? "inline-flex px-4 py-2 rounded-xl bg-white/5" : ""}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/branding/gloria-side-logo.png" alt="GlorIA" className="h-9 w-auto" />
         </Link>
+        {useTileLayout && isInstructor && (
+          <span className="text-[10px] uppercase tracking-widest font-semibold text-white/50 bg-white/10 px-3 py-1 rounded-full">
+            Docente
+          </span>
+        )}
       </div>
 
-      {(isAdmin || isInstructor) && (
+      {isAdmin && (
         <div className="px-6 mb-4 flex-shrink-0">
           <span className="text-[10px] uppercase tracking-widest font-semibold text-white/50 bg-white/10 px-3 py-1 rounded-full">
-            {role === "superadmin" ? "Superadmin" : role === "admin" ? "Admin" : "Docente"}
+            {role === "superadmin" ? "Superadmin" : "Admin"}
           </span>
         </div>
       )}
@@ -165,10 +175,13 @@ export default function Sidebar({
       {/* Navigation — only this area scrolls */}
       <nav className="flex flex-col px-4 flex-1 min-h-0 overflow-y-auto gap-0.5">
         {navSections.map((section, si) => {
-          // Admin/superadmin keeps dense grouping. Student/instructor get
-          // a slightly larger, more breathable layout.
-          const iconSize = isAdmin ? 16 : 18;
-          const linkCls = isAdmin
+          // Admin/superadmin keeps dense grouping. Instructor uses the
+          // breathable layout. Student gets the new icon-pill layout (24px
+          // icons in a 40x40 rounded pill; the pill carries the active state).
+          const iconSize = isStudent ? 24 : isAdmin ? 16 : 18;
+          const linkCls = isStudent
+            ? "text-[15px] px-2 py-1.5 gap-3.5"
+            : isAdmin
             ? "text-[13px] px-4 py-2.5 gap-3"
             : "text-sm px-4 py-3 gap-3.5";
           return (
@@ -180,6 +193,24 @@ export default function Sidebar({
               )}
               {section.items.map((item) => {
                 const isActive = currentPath === item.href || currentPath.startsWith(item.href + "/");
+                if (useTileLayout) {
+                  const TileIcon = TILE_ICON_BY_HREF[item.href];
+                  return (
+                    <Link
+                      key={item.label}
+                      href={item.href}
+                      onClick={closeSidebar}
+                      className={`sidebar-tile-student flex flex-col items-center justify-center gap-1.5 h-[72px] w-[168px] mx-auto rounded-xl font-medium mb-2.5 transition-colors ${
+                        isActive ? "active text-white" : "text-white/75"
+                      }`}
+                    >
+                      <span className="sidebar-tile-icon flex items-center justify-center">
+                        {TileIcon ? <TileIcon size={28} /> : <item.icon size={26} />}
+                      </span>
+                      <span className="text-[12.5px] leading-none">{item.label}</span>
+                    </Link>
+                  );
+                }
                 return (
                   <Link
                     key={item.label}
