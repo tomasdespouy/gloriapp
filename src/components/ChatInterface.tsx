@@ -46,6 +46,14 @@ const DEFAULT_CHAR_DELAY_MS = 28;
 // "pacing" event. Length of the array == number of nudge stages.
 const DEFAULT_SILENCE_THRESHOLDS_MS = [60_000, 120_000, 210_000, 300_000];
 
+// Multi-message debounce — after the user hits Send, wait this long
+// before calling the AI. Each new Send during the window resets the
+// timer, so the user can fire off several short messages and the
+// patient only responds when the user pauses. INDICATOR_DELAY_MS is
+// how long we wait before showing the "esperando si terminas" hint.
+const SEND_DEBOUNCE_MS = 4000;
+const SEND_INDICATOR_DELAY_MS = 1500;
+
 export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "" }: ChatInterfaceProps) {
   console.log("[ChatInterface] Mount:", { patient: patient.name, patientId: patient.id, conversationId: initialConvId, initialMessagesCount: initialMessages.length, voiceId: patient.voice_id });
   const userInitials = userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
@@ -93,6 +101,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const router = useRouter();
   const { collapsed: sidebarCollapsed, setCollapsed: setSidebarCollapsed } = useSidebar();
   const sidebarWasOpenRef = useRef<boolean | null>(null);
+
+  // Multi-message buffer — see SEND_DEBOUNCE_MS. Pending user texts
+  // accumulate here until the debounce fires.
+  const pendingUserMessagesRef = useRef<string[]>([]);
+  const triggerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const indicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const aiAbortControllerRef = useRef<AbortController | null>(null);
+  const [waitingForUser, setWaitingForUser] = useState(false);
 
   // In-chat message text size — scales only `.chat-bubble` text. Persisted.
   const [msgScale, setMsgScale] = useState<number>(1);
@@ -291,6 +307,12 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       }
       ttsQueueRef.current = [];
       ttsPlayingRef.current = false;
+      // Multi-message buffer cleanup: cancel any pending AI trigger and
+      // abort an in-flight stream so the patient doesn't keep talking
+      // after the chat unmounts.
+      if (triggerTimerRef.current) clearTimeout(triggerTimerRef.current);
+      if (indicatorTimerRef.current) clearTimeout(indicatorTimerRef.current);
+      aiAbortControllerRef.current?.abort();
     };
   }, []);
 
@@ -978,39 +1000,85 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     }
   };
 
-  const sendMessage = async (overrideText?: string) => {
-    const trimmed = (overrideText || input).trim();
-    if (!trimmed || isStreaming) return;
+  // Debounced multi-message flow (text mode only). The user can fire
+  // off several messages; the AI call is deferred until SEND_DEBOUNCE_MS
+  // pass with no new send. cancelPendingTrigger clears both the timer
+  // that fires the AI and the timer that shows the "esperando..." hint.
+  const cancelPendingTrigger = () => {
+    if (triggerTimerRef.current) { clearTimeout(triggerTimerRef.current); triggerTimerRef.current = null; }
+    if (indicatorTimerRef.current) { clearTimeout(indicatorTimerRef.current); indicatorTimerRef.current = null; }
+    setWaitingForUser(false);
+  };
+  const schedulePendingTrigger = () => {
+    cancelPendingTrigger();
+    indicatorTimerRef.current = setTimeout(() => setWaitingForUser(true), SEND_INDICATOR_DELAY_MS);
+    triggerTimerRef.current = setTimeout(() => {
+      cancelPendingTrigger();
+      void triggerAIResponse();
+    }, SEND_DEBOUNCE_MS);
+  };
 
-    // Pause voice recognition during streaming
-    if (voiceMode) {
-      voiceRecognitionRef.current?.stop();
-      setIsRecording(false);
-    }
-
-    const now = new Date().toISOString();
-
+  // Push a user message into the local transcript + reset typing state.
+  // Used by both modes (voice fires immediately, text buffers).
+  const _addUserMessageLocally = (trimmed: string) => {
     setInput("");
-    // Reset textarea height immediately after clearing; otherwise the
-    // auto-resized height persists until the next keystroke.
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    const now = new Date().toISOString();
     setMessages((prev) => [...prev, { role: "user", content: trimmed, created_at: now }]);
-    setIsStreaming(true);
-    setPhase("thinking");
-    // Typing no longer suppresses silence — we just cleared the input.
     isTypingPausedRef.current = false;
-    // "Enviado" → "leído" ticks for the just-sent user message. Gets
-    // cleared when the next assistant content starts rendering.
     lastSentAtRef.current = Date.now();
     setUserTickStage(1);
-    setTimeout(() => {
-      setUserTickStage((prev) => (prev === 1 ? 2 : prev));
-    }, 500);
+    setTimeout(() => setUserTickStage((prev) => (prev === 1 ? 2 : prev)), 500);
+  };
+
+  const sendMessage = async (overrideText?: string) => {
+    const trimmed = (overrideText || input).trim();
+    if (!trimmed) return;
+
+    // Voice mode keeps the original behavior — turn-taking there is
+    // driven by TTS + silence detection, not by a text debounce.
+    if (voiceMode) {
+      if (isStreaming) return;
+      voiceRecognitionRef.current?.stop();
+      setIsRecording(false);
+      _addUserMessageLocally(trimmed);
+      pendingUserMessagesRef.current.push(trimmed);
+      await triggerAIResponse();
+      return;
+    }
+
+    // Text mode: if the AI already started streaming, abort it. The
+    // half-typed assistant message is dropped — a fresh response with
+    // the extra user input fires once the debounce elapses again.
+    if (isStreaming) {
+      aiAbortControllerRef.current?.abort();
+      aiAbortControllerRef.current = null;
+      setIsStreaming(false);
+      setPhase("idle");
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && (last.content?.length || 0) < 500) return prev.slice(0, -1);
+        return prev;
+      });
+      tokenBufferRef.current = "";
+      lastAssistantMsgRef.current = "";
+      if (drainTimerRef.current) { clearTimeout(drainTimerRef.current); drainTimerRef.current = null; }
+    }
+
+    _addUserMessageLocally(trimmed);
+    pendingUserMessagesRef.current.push(trimmed);
+    schedulePendingTrigger();
+  };
+
+  const triggerAIResponse = async () => {
+    if (pendingUserMessagesRef.current.length === 0) return;
+    const burst = pendingUserMessagesRef.current.slice();
+    pendingUserMessagesRef.current = [];
+    const lastMessage = burst[burst.length - 1];
+
+    setIsStreaming(true);
+    setPhase("thinking");
     streamDoneRef.current = false;
-    // Reset interrupt flags on new message — trigger new silence countdown
-    // In voice mode, silence timers start AFTER TTS finishes (walkie-talkie)
     if (!voiceModeRef.current) {
       setSilenceTrigger((c) => c + 1);
     } else {
@@ -1019,29 +1087,33 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     tokenBufferRef.current = "";
     lastAssistantMsgRef.current = "";
 
-    // Reset streaming TTS state
     ttsQueueRef.current = [];
     ttsSentenceBufferRef.current = "";
     ttsStreamDoneRef.current = false;
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     ttsPlayingRef.current = false;
 
-    // Add empty assistant message with timestamp
     setMessages((prev) => [...prev, { role: "assistant", content: "", created_at: new Date().toISOString() }]);
 
-    // Start draining buffer
     drainTimerRef.current = setTimeout(drainBuffer, charDelayRef.current);
 
+    const controller = new AbortController();
+    aiAbortControllerRef.current = controller;
+
     try {
-      console.log("[Chat] Sending message:", { patientId: patient.id, conversationId, messageLength: trimmed.length });
+      console.log("[Chat] Sending burst:", { patientId: patient.id, conversationId, count: burst.length, lastLength: lastMessage.length });
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // Send as `messages` array so the backend inserts each as its
+        // own user-role row; the LLM then sees them as separate turns
+        // and considers the full context instead of just the last.
         body: JSON.stringify({
           patientId: patient.id,
           conversationId,
-          message: trimmed,
+          messages: burst,
         }),
+        signal: controller.signal,
       });
 
       console.log("[Chat] Response status:", response.status, response.statusText);
@@ -1140,6 +1212,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         }
       }
     } catch (err) {
+      // User sent a new message mid-stream — silent abort, sendMessage()
+      // already dropped the half-typed assistant bubble and re-armed the
+      // debounce for the next AI call.
+      if (controller.signal.aborted) {
+        streamDoneRef.current = true;
+        return;
+      }
       console.error("[Chat] Fetch/stream error:", err);
       tokenBufferRef.current = "";
       setMessages((prev) => {
@@ -1816,6 +1895,18 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             </div>
           );
         })}
+
+        {/* Waiting-for-user hint — shown when the user just sent a message
+            but the AI debounce hasn't elapsed yet. Communicates that the
+            patient is intentionally waiting to see if more is coming. */}
+        {waitingForUser && (
+          <div className="flex justify-end animate-fade-in mt-1">
+            <div className="flex items-center gap-1.5 text-[11px] text-gray-400 italic pr-10">
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse" />
+              esperando si terminas de escribir…
+            </div>
+          </div>
+        )}
 
         {/* Thinking bubble — shown before first token */}
         {showThinkingBubble && (

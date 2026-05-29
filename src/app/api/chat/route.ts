@@ -21,7 +21,14 @@ import { polishAndLog } from "@/lib/text-polish";
 const chatRequestSchema = z.object({
   patientId: z.string().uuid(),
   conversationId: z.string().uuid().optional(),
-  message: z.string().min(1).max(5000),
+  // Either a single `message` (legacy) or `messages[]` (multi-message
+  // burst from the text-mode debounce). When `messages` is sent, each
+  // string becomes its own user-role row in history, so the LLM sees
+  // them as separate turns from the same speaker.
+  message: z.string().min(1).max(5000).optional(),
+  messages: z.array(z.string().min(1).max(5000)).min(1).max(8).optional(),
+}).refine((d) => Boolean(d.message) || Boolean(d.messages?.length), {
+  message: "Provide `message` or `messages`",
 });
 
 const MAX_HISTORY = 50;
@@ -49,7 +56,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const { patientId, message } = body;
+  const { patientId } = body;
+  // Normalize: always work with an array of user messages. `message`
+  // (single string) is treated as a one-element array. Downstream code
+  // that needs a single "current" string uses the last element.
+  const userMessages: string[] = body.messages?.length ? body.messages : [body.message!];
+  const message = userMessages[userMessages.length - 1];
   let conversationId = body.conversationId;
 
   // 3. Fetch patient (cached 10 min — prompts rarely change)
@@ -181,9 +193,16 @@ Reglas de oro:
     }
   }
 
-  // 6. Save message + load history + await memory + load prompt snapshot — all in parallel
+  // 6. Save message(s) + load history + await memory + load prompt snapshot — all in parallel.
+  // Multi-message bursts (text-mode debounce) insert each text as its own
+  // user-role row so the LLM sees them as separate turns from the same speaker.
+  const userRowsToInsert = userMessages.map((content) => ({
+    conversation_id: conversationId!,
+    role: "user" as const,
+    content,
+  }));
   const [, { data: history }, memoryContext, { data: convRow }] = await Promise.all([
-    supabase.from("messages").insert({ conversation_id: conversationId, role: "user", content: message }),
+    supabase.from("messages").insert(userRowsToInsert),
     supabase
       .from("messages")
       .select("role, content")
@@ -196,11 +215,12 @@ Reglas de oro:
 
   let chronological = (history || []).reverse();
 
-  // Guard: ensure the user message is always present (race condition: insert may not
-  // be visible to the parallel SELECT on the first message of a conversation)
-  const hasUserMsg = chronological.some((m) => m.role === "user" && m.content === message);
-  if (!hasUserMsg) {
-    chronological = [...chronological, { role: "user", content: message }];
+  // Guard: ensure every just-inserted user message is present in history
+  // (race: the parallel SELECT can miss rows on the very first message of
+  // a conversation). Append missing ones to the end in original order.
+  for (const m of userMessages) {
+    const present = chronological.some((h) => h.role === "user" && h.content === m);
+    if (!present) chronological = [...chronological, { role: "user", content: m }];
   }
 
   // 7. MOTOR ADAPTATIVO: classify intervention + update state
