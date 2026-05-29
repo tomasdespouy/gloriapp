@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import CompetencyRadar from "@/components/CompetencyRadar";
 import LevelBadge from "@/components/LevelBadge";
-import AchievementCard from "@/components/AchievementCard";
 import ProgresoClient from "./ProgresoClient";
 import StudentDashboardClient from "../dashboard/StudentDashboardClient";
 import { EMPTY_SCORES_V2, COMPETENCY_LABELS_V2, COMPETENCY_KEYS_V2, type CompetencyScoresV2 } from "@/lib/gamification";
@@ -66,15 +65,11 @@ export default async function ProgresoPage() {
   const [
     { data: progress },
     { data: recentScores },
-    { data: allAchievements },
-    { data: earnedAchievements },
     { data: learningProgress },
     { data: competencyHistory },
   ] = await Promise.all([
     supabase.from("student_progress").select("*").eq("student_id", userProfile.id).single(),
     recentScoresQuery.order("created_at", { ascending: false }).limit(10),
-    supabase.from("achievements").select("*").order("xp_reward"),
-    supabase.from("student_achievements").select("achievement_id, earned_at").eq("student_id", userProfile.id),
     supabase.from("learning_progress").select("competency, example_id").eq("student_id", userProfile.id),
     historyQuery.order("created_at", { ascending: true }).limit(15),
   ]);
@@ -122,16 +117,6 @@ export default async function ProgresoPage() {
     }
   }
 
-  const earnedMap = new Map(
-    earnedAchievements?.map((a) => [a.achievement_id, a.earned_at]) || []
-  );
-  const earnedCount = earnedAchievements?.length || 0;
-  const totalCount = allAchievements?.length || 0;
-
-  // "Sesiones evaluadas" must reflect the number of real session_competencies
-  // rows, NOT the number of achievements earned. Previously the KPI label
-  // said "Sesiones evaluadas" but the value was earnedCount, which made
-  // brand-new accounts look like they had data.
   const evaluatedSessionsCount = recentScores?.length || 0;
 
   const hasData = (progress?.sessions_completed || 0) > 0;
@@ -254,25 +239,6 @@ export default async function ProgresoPage() {
           );
         })()}
 
-        {/* Achievements */}
-        <div className="animate-slide-up">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-gray-900">Logros</h3>
-            <span className="text-sm text-gray-400">{earnedCount} de {totalCount}</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 animate-stagger">
-            {allAchievements?.map((a) => (
-              <AchievementCard
-                key={a.id}
-                name={a.name}
-                description={a.description}
-                icon={a.icon}
-                earned={earnedMap.has(a.id)}
-                earnedAt={earnedMap.get(a.id) || undefined}
-              />
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
