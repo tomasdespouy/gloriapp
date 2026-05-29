@@ -3,7 +3,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import CompetencyRadar from "@/components/CompetencyRadar";
-import LevelBadge from "@/components/LevelBadge";
 import ProgresoClient from "./ProgresoClient";
 import StudentDashboardClient from "../dashboard/StudentDashboardClient";
 import { EMPTY_SCORES_V2, COMPETENCY_LABELS_V2, COMPETENCY_KEYS_V2, type CompetencyScoresV2 } from "@/lib/gamification";
