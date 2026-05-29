@@ -6,6 +6,7 @@ import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, FileText } from "lucide-r
 import ExportFichaButton from "./ExportFichaButton";
 import PatientImageModal from "./PatientImageModal";
 import TeacherNotesEditor from "./TeacherNotesEditor";
+import { getPatientImageUrl, getPatientVideoUrl } from "@/lib/patient-assets";
 
 export default async function PatientDetailPage({
   params,
@@ -106,8 +107,8 @@ export default async function PatientDetailPage({
         <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
           <div className="flex items-start gap-5">
             <PatientImageModal
-              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${slug}.png?v=${new Date(patient.updated_at).getTime()}`}
-              videoSrc={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${slug}.mp4?v=${new Date(patient.updated_at).getTime()}`}
+              src={`${getPatientImageUrl(slug)}?v=${new Date(patient.updated_at).getTime()}`}
+              videoSrc={`${getPatientVideoUrl(slug)}?v=${new Date(patient.updated_at).getTime()}`}
               alt={patient.name}
             />
             <div className="flex-1">

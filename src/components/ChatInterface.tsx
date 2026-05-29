@@ -5,6 +5,8 @@ import { Send, ArrowLeft, LogOut, Mic, MicOff, Volume2, Square, Loader2, Clock, 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SessionTimer, { useActiveSecondsRef } from "@/components/SessionTimer";
+import { useSidebar } from "@/components/SidebarContext";
+import { getPatientImageUrl, getPatientVideoUrl } from "@/lib/patient-assets";
 import { sanitizeHTML } from "@/lib/sanitize";
 
 interface Patient {
@@ -89,6 +91,24 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const wrapperRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const router = useRouter();
+  const { collapsed: sidebarCollapsed, setCollapsed: setSidebarCollapsed } = useSidebar();
+  const sidebarWasOpenRef = useRef<boolean | null>(null);
+
+  // In-chat message text size — scales only `.chat-bubble` text. Persisted.
+  const [msgScale, setMsgScale] = useState<number>(1);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("gloria_chat_msg_scale");
+      if (saved) setMsgScale(Number(saved) || 1);
+    } catch {}
+  }, []);
+  const adjustMsgScale = (delta: number) => {
+    setMsgScale((cur) => {
+      const next = Math.max(0.8, Math.min(1.75, +(cur + delta).toFixed(2)));
+      try { localStorage.setItem("gloria_chat_msg_scale", String(next)); } catch {}
+      return next;
+    });
+  };
 
   // TTS (ElevenLabs)
   const [playingIdx, setPlayingIdx] = useState<number | null>(null);
@@ -274,6 +294,19 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     };
   }, []);
 
+  // Auto-collapse sidebar while inside the chat so the conversation fills
+  // the screen. Restore the previous state on unmount. Ephemeral — does
+  // not touch localStorage so the user's saved preference is preserved.
+  useEffect(() => {
+    sidebarWasOpenRef.current = !sidebarCollapsed;
+    if (!sidebarCollapsed) setSidebarCollapsed(true, false);
+    return () => {
+      if (sidebarWasOpenRef.current) setSidebarCollapsed(false, false);
+    };
+    // Mount-once: capture sidebar state at entry; ignore user toggles while in chat.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Sync refs
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
@@ -398,8 +431,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, "-");
-  const videoSrc = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${avatarSlug}.mp4`;
-  const imageSrc = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${avatarSlug}.png`;
+  const videoSrc = getPatientVideoUrl(avatarSlug);
+  const imageSrc = getPatientImageUrl(avatarSlug);
   const initials = patient.name.split(" ").map((n) => n[0]).join("").slice(0, 2);
 
   useEffect(() => {
@@ -720,31 +753,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     setIsRecording(true);
   };
 
-  const [correcting, setCorrecting] = useState(false);
-
   const stopRecording = () => {
     recognitionRef.current?.stop();
     setIsRecording(false);
-  };
-
-  const correctText = async () => {
-    const currentText = input.trim();
-    if (!currentText) return;
-    setCorrecting(true);
-    try {
-      const res = await fetch("/api/chat/correct", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: currentText }),
-      });
-      if (res.ok) {
-        const { corrected } = await res.json();
-        if (corrected && corrected !== currentText) {
-          setInput(corrected);
-        }
-      }
-    } catch { /* keep original */ }
-    setCorrecting(false);
   };
 
   const toggleRecording = () => {
@@ -1278,6 +1289,25 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
         {/* Voice mode toggle + Session timer + End session button — hidden until session starts */}
         <div className={`flex items-center gap-2 sm:gap-3 flex-shrink-0 ${!sessionStarted ? "invisible" : ""}`}>
+          {/* Text-size controls — scale only the message bubbles */}
+          <div className="hidden sm:inline-flex items-center bg-gray-100 rounded-lg overflow-hidden" title="Tamaño del texto del chat">
+            <button
+              onClick={() => adjustMsgScale(-0.15)}
+              disabled={msgScale <= 0.8}
+              className="w-7 h-7 flex items-center justify-center text-[11px] font-bold text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              aria-label="Reducir tamaño del texto"
+            >
+              A−
+            </button>
+            <button
+              onClick={() => adjustMsgScale(0.15)}
+              disabled={msgScale >= 1.75}
+              className="w-7 h-7 flex items-center justify-center text-[13px] font-bold text-gray-700 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors border-l border-gray-200"
+              aria-label="Aumentar tamaño del texto"
+            >
+              A+
+            </button>
+          </div>
           {/* Notes toggle */}
           <button
             onClick={() => setNotesOpen(!notesOpen)}
@@ -1635,7 +1665,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         {/* Chat column */}
         <div className={`flex flex-col flex-1 min-w-0 transition-all duration-300`}>
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-3 dashboard-pattern">
+      <div
+        className="chat-msg-wrapper flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-3 dashboard-pattern"
+        style={{ ["--chat-msg-scale" as string]: String(msgScale) }}
+      >
         {!sessionStarted && messages.length === 0 && (
           <div className="flex flex-col items-center justify-center mt-10 sm:mt-16 animate-fade-in px-4">
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 max-w-md w-full">
@@ -1831,72 +1864,48 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             </span>
           </div>
         )}
-        {correcting && (
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-2 h-2 rounded-full bg-sidebar animate-pulse" />
-            <span className="text-xs text-sidebar font-medium">Corrigiendo ortografía...</span>
-          </div>
-        )}
-        <div className="flex items-end gap-2">
-          <div className="flex-1 relative">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                const next = e.target.value;
-                setInput(next);
-                handleTypingActivity();
-                applyTypingPause(next.length > 0);
-                const el = e.target;
-                el.style.height = "auto";
-                if (next.length > 0) {
-                  el.style.height = Math.min(el.scrollHeight, voiceMode ? 300 : 160) + "px";
-                }
-              }}
-              onFocus={(e) => {
-                // Mobile-only safeguard: when the virtual keyboard opens
-                // on devices without hover, scroll the input into view so
-                // it isn't hidden behind the keyboard. `block:"nearest"`
-                // is a no-op on desktop (already visible).
-                if (window.matchMedia("(hover: none)").matches) {
-                  const el = e.currentTarget;
-                  setTimeout(() => {
-                    el.scrollIntoView({ block: "nearest", behavior: "smooth" });
-                  }, 300);
-                }
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder={sessionStarted ? "Dirige la sesión como terapeuta…" : "Presiona \"Iniciar sesión\" para comenzar"}
-              rows={1}
-              className={`w-full resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar disabled:bg-gray-100 disabled:text-gray-400 ${voiceMode ? "overflow-y-auto" : "overflow-hidden"}`}
-              disabled={!sessionStarted}
-            />
-          </div>
+        {/* Unified "pill" input — single bordered container that owns the
+            visual frame. The textarea is borderless and transparent so the
+            container becomes the field; mic and send sit inside, anchored
+            to the bottom-right. Alignment is intrinsic — no per-element
+            height math needed. focus-within ring lights up the whole pill. */}
+        <div className="flex items-end gap-1 border border-gray-300 rounded-xl bg-white pl-3 pr-2 py-1.5 focus-within:border-sidebar focus-within:ring-2 focus-within:ring-sidebar/20 transition-shadow">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => {
+              const next = e.target.value;
+              setInput(next);
+              handleTypingActivity();
+              applyTypingPause(next.length > 0);
+              const el = e.target;
+              el.style.height = "auto";
+              if (next.length > 0) {
+                el.style.height = Math.min(el.scrollHeight, voiceMode ? 300 : 160) + "px";
+              }
+            }}
+            onFocus={(e) => {
+              if (window.matchMedia("(hover: none)").matches) {
+                const el = e.currentTarget;
+                setTimeout(() => {
+                  el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+                }, 300);
+              }
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder={sessionStarted ? "Dirige la sesión como terapeuta…" : "Presiona \"Iniciar sesión\" para comenzar"}
+            rows={1}
+            className={`flex-1 min-w-0 resize-none bg-transparent border-0 outline-none focus:outline-none focus:ring-0 px-1 py-[7px] text-sm leading-[22px] min-h-[36px] disabled:text-gray-400 placeholder:text-gray-400 ${voiceMode ? "overflow-y-auto" : "overflow-hidden"}`}
+            disabled={!sessionStarted}
+          />
 
-          {/* Autocorrect button (next to mic) */}
-          {input.trim().length > 10 && !correcting && !isStreaming && sessionStarted && (
-            <button
-              onClick={correctText}
-              className="p-3 min-w-[44px] min-h-[44px] rounded-xl border border-gray-300 text-gray-400 hover:text-sidebar hover:border-sidebar/30 transition-colors flex-shrink-0 text-xs font-semibold cursor-pointer"
-              title={"Corregir ortografía"}
-            >
-              Abc
-            </button>
-          )}
-          {correcting && (
-            <div className="p-3 min-w-[44px] min-h-[44px] rounded-xl border border-sidebar/30 flex items-center justify-center flex-shrink-0">
-              <span className="text-xs text-sidebar animate-pulse font-semibold">Abc</span>
-            </div>
-          )}
-
-          {/* Mic button */}
           <button
             onClick={toggleRecording}
             disabled={isStreaming}
-            className={`p-3 min-w-[44px] min-h-[44px] rounded-xl transition-colors flex-shrink-0 cursor-pointer ${
+            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 cursor-pointer ${
               isRecording
                 ? "bg-red-500 hover:bg-red-600 text-white"
-                : "border border-gray-300 text-gray-500 hover:text-sidebar hover:border-sidebar/30"
+                : "text-gray-500 hover:text-sidebar hover:bg-gray-100"
             } disabled:opacity-50 disabled:cursor-not-allowed`}
             title={isRecording ? (micLocked ? "Anclado \u2014 Ctrl+Alt para detener" : "Ctrl+Alt para detener") : "Presiona ALT + CTRL para comenzar a grabar audio"}
           >
@@ -1907,9 +1916,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             data-send-btn
             onClick={() => sendMessage()}
             disabled={isStreaming || !input.trim()}
-            className="bg-sidebar hover:bg-[#354080] text-white p-3 rounded-xl transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            className="bg-sidebar hover:bg-[#354080] text-white h-9 px-3 sm:px-4 rounded-lg flex items-center justify-center gap-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:hover:bg-sidebar cursor-pointer disabled:cursor-not-allowed flex-shrink-0"
           >
-            <Send size={18} />
+            <Send size={16} />
+            <span className="hidden sm:inline">Enviar</span>
           </button>
         </div>
       </div>

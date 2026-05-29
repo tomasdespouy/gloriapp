@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Download } from "lucide-react";
 import ExportFichaButton from "../ExportFichaButton";
+import { getPatientImageUrl } from "@/lib/patient-assets";
 
 export default async function FichaClinicaPage({
   params,
@@ -68,7 +69,7 @@ export default async function FichaClinicaPage({
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/ /g, "-");
 
-  const imgSrc = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${slug}.png?v=${new Date(patient.updated_at).getTime()}`;
+  const imgSrc = `${getPatientImageUrl(slug)}?v=${new Date(patient.updated_at).getTime()}`;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 print:px-0 print:py-0">

@@ -5,6 +5,7 @@ import { getUserProfile } from "@/lib/supabase/user-profile";
 import Link from "next/link";
 import { LEVELS, getLevelInfo } from "@/lib/gamification";
 import SessionCarousel from "@/components/SessionCarousel";
+import { getPatientImageUrl } from "@/lib/patient-assets";
 
 export default async function Dashboard() {
   const userProfile = await getUserProfile();
@@ -141,7 +142,6 @@ export default async function Dashboard() {
     id: p.id, name: p.name, age: p.age, occupation: p.occupation, difficulty: p.difficulty_level,
   }));
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const slug = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
 
   return (
@@ -263,7 +263,6 @@ export default async function Dashboard() {
                 activeSeconds: s.activeSeconds,
                 status: s.status,
               }))}
-              supabaseUrl={supabaseUrl || ""}
             />
           </div>
         )}
@@ -290,7 +289,7 @@ export default async function Dashboard() {
                   <div className="aspect-square overflow-hidden bg-gray-100 relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={`${supabaseUrl}/storage/v1/object/public/patients/${pSlug}.png`}
+                      src={getPatientImageUrl(pSlug)}
                       alt={p.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />

@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getPatientImageUrl } from "@/lib/patient-assets";
 import {
   Search, ChevronRight, Brain, Clock, CheckCircle2,
   MessageSquare, List, LayoutGrid, TrendingUp, Save, ArrowLeft,
@@ -215,7 +216,6 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
     setSavingNotes(null);
   };
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const getSlug = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
 
   const handleSessionClick = (session: Session) => {
@@ -251,7 +251,7 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex items-center gap-4">
           <div className="w-11 h-11 rounded-full bg-sidebar overflow-hidden flex-shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`${supabaseUrl}/storage/v1/object/public/patients/${slug}.png`} alt="" className="w-full h-full object-cover" />
+            <img src={getPatientImageUrl(slug)} alt="" className="w-full h-full object-cover" />
           </div>
           <div className="flex-1">
             <p className="text-base font-bold text-gray-900">Sesión #{session.session_number} con {patient?.name}</p>
@@ -455,7 +455,7 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
         <div className="flex items-start gap-3 p-4">
           <div className="w-10 h-10 rounded-full bg-sidebar overflow-hidden flex-shrink-0 mt-0.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`${supabaseUrl}/storage/v1/object/public/patients/${slug}.png`} alt="" className="w-full h-full object-cover" />
+            <img src={getPatientImageUrl(slug)} alt="" className="w-full h-full object-cover" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-gray-900">Sesión #{session.session_number} &middot; {patient?.name}</p>
@@ -700,7 +700,7 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
                     <div className="flex items-center gap-4 p-4 border-b border-gray-100">
                       <div className="w-10 h-10 rounded-full bg-sidebar overflow-hidden flex-shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={`${supabaseUrl}/storage/v1/object/public/patients/${slug}.png`} alt="" className="w-full h-full object-cover" />
+                        <img src={getPatientImageUrl(slug)} alt="" className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-bold text-gray-900">{patient?.name}</p>

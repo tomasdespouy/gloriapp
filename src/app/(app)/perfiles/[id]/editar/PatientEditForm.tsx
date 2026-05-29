@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Save, ToggleLeft, ToggleRight, ImageIcon, Video, RefreshCw, Upload, Loader2, Sparkles } from "lucide-react";
 import EnrichmentEditor, { type EnrichmentBlock } from "./EnrichmentEditor";
+import { getPatientImageUrl, getPatientVideoUrl } from "@/lib/patient-assets";
 
 interface FamilyMember {
   name: string;
@@ -72,9 +73,8 @@ export default function PatientEditForm({ patient }: { patient: Patient }) {
 
   // Media state
   const slug = patient.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const [imageUrl, setImageUrl] = useState(`${supabaseUrl}/storage/v1/object/public/patients/${slug}.png`);
-  const [videoUrl, setVideoUrl] = useState(`${supabaseUrl}/storage/v1/object/public/patients/${slug}.mp4`);
+  const [imageUrl, setImageUrl] = useState(getPatientImageUrl(slug));
+  const [videoUrl, setVideoUrl] = useState(getPatientVideoUrl(slug));
   const [imageLoading, setImageLoading] = useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
   const [showImagePrompt, setShowImagePrompt] = useState(false);
@@ -107,7 +107,7 @@ export default function PatientEditForm({ patient }: { patient: Patient }) {
       });
       if (!uploadRes.ok) throw new Error("Error al subir imagen a storage");
 
-      setImageUrl(`${supabaseUrl}/storage/v1/object/public/patients/${slug}.png?t=${Date.now()}`);
+      setImageUrl(`${getPatientImageUrl(slug)}?t=${Date.now()}`);
       setImageError(false);
       setMediaMessage("Imagen generada correctamente");
     } catch (e) {
@@ -129,7 +129,7 @@ export default function PatientEditForm({ patient }: { patient: Patient }) {
         const data = await res.json();
         throw new Error(data.error || "Error al subir");
       }
-      setVideoUrl(`${supabaseUrl}/storage/v1/object/public/patients/${slug}.mp4?t=${Date.now()}`);
+      setVideoUrl(`${getPatientVideoUrl(slug)}?t=${Date.now()}`);
       setVideoError(false);
       setMediaMessage("Video subido correctamente");
     } catch (e) {
@@ -183,7 +183,7 @@ export default function PatientEditForm({ patient }: { patient: Patient }) {
       });
       if (!uploadRes.ok) throw new Error("Error al subir video a storage");
 
-      setVideoUrl(`${supabaseUrl}/storage/v1/object/public/patients/${slug}.mp4?t=${Date.now()}`);
+      setVideoUrl(`${getPatientVideoUrl(slug)}?t=${Date.now()}`);
       setVideoError(false);
       setMediaMessage("Video generado y guardado correctamente");
     } catch (e) {

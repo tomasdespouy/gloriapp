@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Send, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { sanitizeHTML } from "@/lib/sanitize";
+import { getPatientAssetUrl } from "@/lib/patient-assets";
 
 type Message = {
   role: "user" | "assistant";
@@ -109,7 +110,7 @@ export default function AskGloriaClient({ studentName }: { studentName: string }
           <ArrowLeft size={18} className="text-gray-500" />
         </Link>
         <div className="flex items-center gap-3 flex-1">
-          <img src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/gloria-avatar.jpg`} alt="GlorIA" className="w-9 h-9 rounded-full object-cover" />
+          <img src={getPatientAssetUrl("gloria-avatar.jpg")} alt="GlorIA" className="w-9 h-9 rounded-full object-cover" />
           <div>
             <h1 className="text-base font-bold text-gray-900">Pregúntale a GlorIA</h1>
             <p className="text-[11px] text-gray-500">Tutora pedagógica de competencias clínicas</p>
@@ -133,7 +134,7 @@ export default function AskGloriaClient({ studentName }: { studentName: string }
           {messages.length === 0 ? (
             /* Welcome + suggestions */
             <div className="text-center py-12">
-              <img src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/gloria-avatar.jpg`} alt="GlorIA" className="w-16 h-16 rounded-full object-cover mx-auto mb-4" />
+              <img src={getPatientAssetUrl("gloria-avatar.jpg")} alt="GlorIA" className="w-16 h-16 rounded-full object-cover mx-auto mb-4" />
               <h2 className="text-xl font-bold text-gray-900 mb-2">
                 Hola {studentName.split(" ")[0]}, soy GlorIA
               </h2>
@@ -160,7 +161,7 @@ export default function AskGloriaClient({ studentName }: { studentName: string }
                 <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[85%] ${msg.role === "user" ? "" : "flex gap-3"}`}>
                     {msg.role === "assistant" && (
-                      <img src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/gloria-avatar.jpg`} alt="GlorIA" className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5" />
+                      <img src={getPatientAssetUrl("gloria-avatar.jpg")} alt="GlorIA" className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5" />
                     )}
                     <div className={`rounded-2xl px-4 py-3 ${
                       msg.role === "user"

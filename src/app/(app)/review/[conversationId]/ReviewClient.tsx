@@ -10,6 +10,7 @@ import CompetencyTooltip from "@/components/CompetencyTooltip";
 import { COMPETENCY_INFO } from "@/lib/competency-definitions";
 import type { CompetencyScores, CompetencyScoresV2 } from "@/lib/gamification";
 import { getEvidenceList } from "@/lib/evaluation-prompt";
+import { getPatientImageUrl } from "@/lib/patient-assets";
 
 type ActionItem = {
   id: string;
@@ -251,7 +252,7 @@ export default function ReviewClient({
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, "-");
-  const supabaseImageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${avatarSlug}.png`;
+  const supabaseImageUrl = getPatientImageUrl(avatarSlug);
   const [imgSrc, setImgSrc] = useState(supabaseImageUrl);
   const [imgError, setImgError] = useState(false);
 

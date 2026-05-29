@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ScrollReveal from "./ScrollReveal";
+import { getPatientImageUrl, getPatientVideoUrl } from "@/lib/patient-assets";
 
 interface Patient {
   name: string;
@@ -19,7 +20,7 @@ interface PatientShowcaseProps {
   patients: Patient[];
 }
 
-function PatientVideoCard({ patient, supabaseUrl }: { patient: Patient; supabaseUrl: string | undefined }) {
+function PatientVideoCard({ patient }: { patient: Patient }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -46,8 +47,8 @@ function PatientVideoCard({ patient, supabaseUrl }: { patient: Patient; supabase
 
   const slug = slugify(patient.name);
   const country = patient.country_origin || patient.country_residence || "";
-  const videoSrc = `${supabaseUrl}/storage/v1/object/public/patients/${slug}.mp4`;
-  const posterSrc = `${supabaseUrl}/storage/v1/object/public/patients/${slug}.png`;
+  const videoSrc = getPatientVideoUrl(slug);
+  const posterSrc = getPatientImageUrl(slug);
 
   return (
     <div
@@ -153,7 +154,6 @@ export default function PatientShowcase({ patients }: PatientShowcaseProps) {
   if (patients.length === 0) return null;
 
   const displayed = [...patients, ...patients];
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   return (
     <section id="pacientes" className="bg-[#F5F5F5] py-14 lg:py-20">
@@ -203,7 +203,6 @@ export default function PatientShowcase({ patients }: PatientShowcaseProps) {
               <PatientVideoCard
                 key={`${patient.name}-${i}`}
                 patient={patient}
-                supabaseUrl={supabaseUrl}
               />
             ))}
           </div>

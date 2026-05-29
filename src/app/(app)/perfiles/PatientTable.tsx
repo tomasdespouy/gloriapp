@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, ToggleLeft, ToggleRight, Pencil, Eye, ChevronUp, ChevronDown } from "lucide-react";
 import Link from "next/link";
+import { getPatientImageUrl } from "@/lib/patient-assets";
 
 interface Patient {
   id: string;
@@ -158,7 +159,7 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
                     <Link href={`/perfiles/${p.id}`} className="flex items-center gap-3 group">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${slug}.png?v=${new Date(p.updated_at || p.created_at).getTime()}`}
+                        src={`${getPatientImageUrl(slug)}?v=${new Date(p.updated_at || p.created_at).getTime()}`}
                         alt={p.name}
                         className="w-9 h-9 rounded-full object-cover bg-gray-100 group-hover:ring-2 group-hover:ring-sidebar/30 transition-all"
                         onError={(e) => {

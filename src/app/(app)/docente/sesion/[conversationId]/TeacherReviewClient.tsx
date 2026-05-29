@@ -8,6 +8,7 @@ import {
   MessageSquare, Clock, User as UserIcon, Sparkles, Loader2, Eye,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getPatientImageUrl } from "@/lib/patient-assets";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import CompetencyTooltip from "@/components/CompetencyTooltip";
 import { getEvidenceList } from "@/lib/evaluation-prompt";
@@ -312,7 +313,7 @@ export default function TeacherReviewClient({
             <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
               {(() => {
                 const patientSlug = patient.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
-                const imgUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${patientSlug}.png`;
+                const imgUrl = getPatientImageUrl(patientSlug);
                 return (
                   <div className="w-10 h-10 rounded-full bg-sidebar flex items-center justify-center overflow-hidden flex-shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}

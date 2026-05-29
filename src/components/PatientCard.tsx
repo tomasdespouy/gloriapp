@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { MessageSquare, Play, X, Volume2 } from "lucide-react";
+import { getPatientImageUrl, getPatientVideoUrl } from "@/lib/patient-assets";
 
 interface PatientCardProps {
   id: string;
@@ -75,8 +76,8 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
   }, []);
   const videoSlug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
   const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2);
-  const videoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${videoSlug}.mp4`;
-  const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${videoSlug}.png`;
+  const videoUrl = getPatientVideoUrl(videoSlug);
+  const imageUrl = getPatientImageUrl(videoSlug);
 
   const hasActiveSession = !!activeConversationId;
   const chatHref = hasActiveSession

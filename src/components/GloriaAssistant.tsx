@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Send, X, VolumeX, Loader2, Mic, MicOff } from "lucide-react";
+import { getPatientAssetUrl } from "@/lib/patient-assets";
 
 interface Message {
   role: "user" | "assistant";
@@ -10,7 +11,7 @@ interface Message {
 }
 
 const HIDDEN_PATHS = ["/chat/", "/observacion/live/"];
-const GLORIA_AVATAR = "https://ndwmnxlwbfqfwwtekjun.supabase.co/storage/v1/object/public/patients/gloria-avatar.jpg";
+const GLORIA_AVATAR = getPatientAssetUrl("gloria-avatar.jpg");
 
 const PAGE_LABELS: Record<string, string> = {
   "/dashboard": "Inicio",

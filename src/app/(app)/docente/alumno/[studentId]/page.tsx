@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import DownloadReportButton from "@/components/DownloadReportButton";
 import { getDocenteScope, canViewStudent } from "@/lib/section-scope";
+import { getPatientImageUrl } from "@/lib/patient-assets";
 
 interface Props {
   params: Promise<{ studentId: string }>;
@@ -321,7 +322,7 @@ export default async function DocenteAlumnoPage({ params }: Props) {
                       <div className="w-9 h-9 rounded-full bg-sidebar overflow-hidden flex-shrink-0 flex items-center justify-center">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/${patientSlug}.png`}
+                          src={getPatientImageUrl(patientSlug)}
                           alt={patient?.name || ""}
                           className="w-full h-full object-cover"
                         />

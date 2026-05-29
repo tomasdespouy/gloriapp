@@ -734,6 +734,16 @@ p a:hover, span a:hover, li a:hover {
   85%, 100% { stroke-dashoffset: -1;  }
 }
 
+/* Chat message text scaling — only the bubble text reacts to the
+   in-chat A-/A+ controls. Header, input and buttons keep their CSS
+   pixel sizes, so the layout stays compact regardless of the level.
+   `!important` is required to beat Tailwind v4 utility layer (text-sm
+   and leading-relaxed both target the same element). */
+.chat-msg-wrapper .chat-bubble {
+  font-size: calc(0.875rem * var(--chat-msg-scale, 1)) !important;
+  line-height: 1.55 !important;
+}
+
 /* Sidebar footer buttons — !important to override @layer base */
 .sidebar-btn {
   transition: all 0.2s ease !important;

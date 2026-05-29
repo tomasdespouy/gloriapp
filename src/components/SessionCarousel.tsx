@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { getPatientImageUrl } from "@/lib/patient-assets";
 
 interface ActiveSession {
   id: string;
@@ -17,10 +18,8 @@ const slug = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0
 
 export default function SessionCarousel({
   sessions,
-  supabaseUrl,
 }: {
   sessions: ActiveSession[];
-  supabaseUrl: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -70,7 +69,7 @@ export default function SessionCarousel({
               <div className="aspect-square relative overflow-hidden bg-gray-100">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`${supabaseUrl}/storage/v1/object/public/patients/${patientSlug}.png`}
+                  src={getPatientImageUrl(patientSlug)}
                   alt={s.patientName}
                   className="w-full h-full object-cover"
                 />

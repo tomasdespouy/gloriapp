@@ -5,6 +5,7 @@ import { Sparkles, Send, X, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import Portal from "@/components/Portal";
 import { sanitizeHTML } from "@/lib/sanitize";
+import { getPatientAssetUrl } from "@/lib/patient-assets";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -115,7 +116,7 @@ export default function AskGloriaBubble() {
           onClick={() => setOpen(true)}
           className="fixed bottom-6 right-6 z-[9999] flex items-center gap-2.5 bg-gradient-to-r from-[#4A55A2] to-[#354080] text-white pl-4 pr-5 py-3 rounded-full shadow-lg shadow-[#4A55A2]/25 hover:shadow-xl hover:scale-105 transition-all"
         >
-          <img src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/gloria-avatar.jpg`} alt="GlorIA" className="w-7 h-7 rounded-full object-cover" />
+          <img src={getPatientAssetUrl("gloria-avatar.jpg")} alt="GlorIA" className="w-7 h-7 rounded-full object-cover" />
           <span className="text-sm font-medium">Pregúntale a GlorIA</span>
         </button>
       )}
@@ -125,7 +126,7 @@ export default function AskGloriaBubble() {
         <div className="fixed bottom-6 right-6 z-[9999] w-[380px] max-h-[520px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden animate-pop">
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-[#4A55A2] to-[#354080] text-white flex-shrink-0">
-            <img src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/gloria-avatar.jpg`} alt="GlorIA" className="w-7 h-7 rounded-full object-cover" />
+            <img src={getPatientAssetUrl("gloria-avatar.jpg")} alt="GlorIA" className="w-7 h-7 rounded-full object-cover" />
             <div className="flex-1">
               <p className="text-sm font-semibold">GlorIA</p>
               <p className="text-[10px] text-white/60">Tutora pedagógica</p>
@@ -148,7 +149,7 @@ export default function AskGloriaBubble() {
           <div className="flex-1 overflow-y-auto p-4 min-h-0">
             {messages.length === 0 ? (
               <div className="text-center py-4">
-                <img src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/gloria-avatar.jpg`} alt="GlorIA" className="w-11 h-11 rounded-full object-cover mx-auto mb-3" />
+                <img src={getPatientAssetUrl("gloria-avatar.jpg")} alt="GlorIA" className="w-11 h-11 rounded-full object-cover mx-auto mb-3" />
                 <p className="text-sm font-medium text-gray-800 mb-1">Hola, soy GlorIA</p>
                 <p className="text-[11px] text-gray-400 mb-4">¿En qué puedo ayudarte?</p>
                 <div className="flex flex-col gap-1.5">
@@ -168,7 +169,7 @@ export default function AskGloriaBubble() {
                 {messages.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "gap-2"}`}>
                     {msg.role === "assistant" && (
-                      <img src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/patients/gloria-avatar.jpg`} alt="GlorIA" className="w-6 h-6 rounded-full object-cover flex-shrink-0 mt-0.5" />
+                      <img src={getPatientAssetUrl("gloria-avatar.jpg")} alt="GlorIA" className="w-6 h-6 rounded-full object-cover flex-shrink-0 mt-0.5" />
                     )}
                     <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${
                       msg.role === "user"
