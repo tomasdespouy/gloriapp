@@ -720,6 +720,32 @@ p a:hover, span a:hover, li a:hover {
   50%      { transform: scale(0.88); opacity: 0.5; }
 }
 
+/* SETTINGS (configuración) — cuarto-de-giro suelto: rota 90° en hover y
+   vuelve a 0° al salir. Sin loop, ease-out elegante. */
+.sidebar-tile-student .icon-settings .gear-cog {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+.sidebar-tile-student:hover:not(.active) .icon-settings .gear-cog {
+  transform: rotate(90deg);
+}
+
+/* SOBRE GLORIA (ampolleta) — el filamento se enciende suavemente en hover.
+   Pasa de tenue (opacidad baja, color base) a brillante (amarillo cálido +
+   glow). No loopea — es un encendido directo. */
+.sidebar-tile-student .icon-lightbulb .bulb-filament {
+  opacity: 0.45;
+  transition: opacity 0.4s ease, stroke 0.4s ease, filter 0.4s ease;
+}
+.sidebar-tile-student:hover:not(.active) .icon-lightbulb .bulb-filament,
+.sidebar-tile-student.active .icon-lightbulb .bulb-filament {
+  opacity: 1;
+  stroke: #fbbf24;
+  filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.75));
+}
+
 /* CLIPBOARD (revisiones) — checkmark draws from start to end */
 .sidebar-tile-student .icon-clipboard .clip-check {
   stroke-dasharray: 1;
@@ -761,34 +787,87 @@ p a:hover, span a:hover, li a:hover {
   transform: translateX(4px) !important;
 }
 
-/* Accessibility contrast themes */
-.contrast-high {
-  filter: contrast(1.5);
-  background: #000 !important;
+/* ─────────────────────────────────────────────────────────────────
+   Accessibility themes — token-based, NOT filter()-based.
+
+   Por qué no usamos `filter:`:
+   - distorsiona fotos de pacientes y el banner del hero
+   - colorea todo (incluido sidebar y modales) en bloque, sin matiz
+
+   En su lugar definimos tokens semánticos por tema y sobreescribimos
+   las utilidades de Tailwind más usadas (bg-white, text-gray-*,
+   border-gray-*, bg-bg-main, bg-gray-50/100). El sidebar y las imágenes
+   se dejan intactos a propósito.
+
+   Solo se aplican cuando la clase del tema está en <html>.
+   ───────────────────────────────────────────────────────────────── */
+
+/* ── HIGH CONTRAST — fondo casi negro, texto blanco, acento ámbar ── */
+html.contrast-high {
+  --a11y-bg: #0a0a0a;
+  --a11y-surface: #1a1a1a;
+  --a11y-surface-soft: #262626;
+  --a11y-text: #ffffff;
+  --a11y-text-soft: #e5e7eb;
+  --a11y-text-muted: #cbd5e1;
+  --a11y-border: #facc15; /* yellow-400 — solo en bordes y focus */
 }
-.contrast-high body {
-  background: #000 !important;
-  color: #FFD700 !important;
-}
-.contrast-high * {
-  border-color: #FFD700 !important;
+html.contrast-high body { background: var(--a11y-bg) !important; color: var(--a11y-text) !important; }
+html.contrast-high .bg-bg-main,
+html.contrast-high .dashboard-pattern { background: var(--a11y-bg) !important; }
+html.contrast-high .bg-white { background: var(--a11y-surface) !important; }
+html.contrast-high .bg-gray-50 { background: var(--a11y-surface-soft) !important; }
+html.contrast-high .bg-gray-100 { background: var(--a11y-surface-soft) !important; }
+html.contrast-high .text-gray-900,
+html.contrast-high .text-gray-800,
+html.contrast-high .text-gray-700 { color: var(--a11y-text) !important; }
+html.contrast-high .text-gray-600,
+html.contrast-high .text-gray-500 { color: var(--a11y-text-soft) !important; }
+html.contrast-high .text-gray-400,
+html.contrast-high .text-gray-300 { color: var(--a11y-text-muted) !important; }
+html.contrast-high .border-gray-100,
+html.contrast-high .border-gray-200,
+html.contrast-high .border-gray-300 { border-color: var(--a11y-border) !important; }
+/* Inputs: fondo oscuro con borde ámbar para contraste claro */
+html.contrast-high input,
+html.contrast-high textarea,
+html.contrast-high select {
+  background: var(--a11y-surface-soft) !important;
+  color: var(--a11y-text) !important;
+  border-color: var(--a11y-border) !important;
 }
 
-.contrast-inverted {
-  filter: invert(1) hue-rotate(180deg);
+/* ── SEPIA — fondo crema cálido, texto cacao, lectura prolongada ── */
+html.contrast-sepia {
+  --a11y-bg: #f5efe0;
+  --a11y-surface: #faf6ea;
+  --a11y-surface-soft: #efe8d4;
+  --a11y-text: #3a2e1f;
+  --a11y-text-soft: #6b5c47;
+  --a11y-text-muted: #8a7a63;
+  --a11y-border: #d6c9a8;
 }
-.contrast-inverted img,
-.contrast-inverted video {
-  filter: invert(1) hue-rotate(180deg);
-}
-
-.contrast-warm {
-  filter: sepia(0.35) saturate(1.2);
-}
-
-.contrast-cool {
-  filter: saturate(0.8) hue-rotate(10deg) brightness(1.05);
-  background: #f0f4ff !important;
+html.contrast-sepia body { background: var(--a11y-bg) !important; color: var(--a11y-text) !important; }
+html.contrast-sepia .bg-bg-main,
+html.contrast-sepia .dashboard-pattern { background: var(--a11y-bg) !important; }
+html.contrast-sepia .bg-white { background: var(--a11y-surface) !important; }
+html.contrast-sepia .bg-gray-50 { background: var(--a11y-surface-soft) !important; }
+html.contrast-sepia .bg-gray-100 { background: var(--a11y-surface-soft) !important; }
+html.contrast-sepia .text-gray-900,
+html.contrast-sepia .text-gray-800,
+html.contrast-sepia .text-gray-700 { color: var(--a11y-text) !important; }
+html.contrast-sepia .text-gray-600,
+html.contrast-sepia .text-gray-500 { color: var(--a11y-text-soft) !important; }
+html.contrast-sepia .text-gray-400,
+html.contrast-sepia .text-gray-300 { color: var(--a11y-text-muted) !important; }
+html.contrast-sepia .border-gray-100,
+html.contrast-sepia .border-gray-200,
+html.contrast-sepia .border-gray-300 { border-color: var(--a11y-border) !important; }
+html.contrast-sepia input,
+html.contrast-sepia textarea,
+html.contrast-sepia select {
+  background: var(--a11y-surface) !important;
+  color: var(--a11y-text) !important;
 }
 
 /* Accessibility font-size classes — applied to <html> via

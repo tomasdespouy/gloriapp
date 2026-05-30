@@ -3,7 +3,7 @@
 import {
   Home, User, History, BarChart3, BookOpen, Info,
   Users, ClipboardCheck, LayoutDashboard, Building2,
-  Accessibility, LifeBuoy, FlaskConical, DollarSign, Activity, FileText,
+  FlaskConical, DollarSign, Activity, FileText,
   Briefcase, Rocket, Bell, ArrowLeft, ArrowRight,
 } from "lucide-react";
 import { TILE_ICON_BY_HREF } from "./SidebarTileIcons";
@@ -12,6 +12,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import Portal from "@/components/Portal";
+import { tryGuardedNavigation } from "@/lib/navigation-guard";
 
 type NavItem = {
   icon: React.ComponentType<{ size?: number }>;
@@ -149,6 +150,15 @@ export default function Sidebar({
     setDrawerIn(false);
   }, [currentPath]);
 
+  // Sidebar link click: chequea el navigation-guard antes de cerrar el
+  // drawer y permitir la navegación. Si una página tiene un guard
+  // registrado (ej: reflexión post-sesión sin enviar), el guard
+  // intercepta y maneja la confirmación.
+  const handleNavClick = (href: string, e: React.MouseEvent) => {
+    if (tryGuardedNavigation(href, e)) return;
+    closeSidebar();
+  };
+
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Logo + badge */}
@@ -199,7 +209,7 @@ export default function Sidebar({
                     <Link
                       key={item.label}
                       href={item.href}
-                      onClick={closeSidebar}
+                      onClick={(e) => handleNavClick(item.href, e)}
                       className={`sidebar-tile-student flex flex-col items-center justify-center gap-1.5 h-[72px] w-[168px] mx-auto rounded-xl font-medium mb-2.5 transition-colors ${
                         isActive ? "active text-white" : "text-white/75"
                       }`}
@@ -215,7 +225,7 @@ export default function Sidebar({
                   <Link
                     key={item.label}
                     href={item.href}
-                    onClick={closeSidebar}
+                    onClick={(e) => handleNavClick(item.href, e)}
                     className={`sidebar-link flex items-center ${linkCls} rounded-lg font-medium w-full text-left ${
                       isActive ? "active text-white" : "text-white/70"
                     }`}
@@ -229,6 +239,33 @@ export default function Sidebar({
           );
         })}
       </nav>
+
+      {/* Secondary nav — Configuración tile (student + instructor only).
+          Sits between the main nav and the institution logo with a sutil
+          divider. Admin/superadmin use the dense profile menu in the header. */}
+      {useTileLayout && (
+        <div className="px-4 pt-2 pb-1 flex-shrink-0">
+          <div className="border-t border-white/10 mb-2" />
+          {(() => {
+            const isActive = currentPath === "/mi-perfil" || currentPath.startsWith("/mi-perfil/");
+            const TileIcon = TILE_ICON_BY_HREF["/mi-perfil"];
+            return (
+              <Link
+                href="/mi-perfil"
+                onClick={(e) => handleNavClick("/mi-perfil", e)}
+                className={`sidebar-tile-student flex flex-col items-center justify-center gap-1.5 h-[72px] w-[168px] mx-auto rounded-xl font-medium transition-colors ${
+                  isActive ? "active text-white" : "text-white/75"
+                }`}
+              >
+                <span className="sidebar-tile-icon flex items-center justify-center">
+                  <TileIcon size={28} />
+                </span>
+                <span className="text-[12.5px] leading-none">Configuración</span>
+              </Link>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Footer — institution logo, always pinned to bottom */}
       <div className="px-6 pb-5 pt-3 flex-shrink-0">
@@ -318,236 +355,5 @@ export default function Sidebar({
       </button>
 
     </>
-  );
-}
-
-// ——— Contrast theme definitions ———
-const CONTRAST_THEMES = [
-  { id: "none", label: "Sin filtro", className: "", preview: "bg-white border-gray-200 text-gray-800" },
-  { id: "high", label: "Alto contraste", className: "contrast-high", preview: "bg-black text-yellow-300 border-yellow-400" },
-  { id: "inverted", label: "Colores invertidos", className: "contrast-inverted", preview: "bg-gray-900 text-white border-gray-400" },
-  { id: "warm", label: "C\u00e1lido (sepia)", className: "contrast-warm", preview: "bg-amber-50 text-amber-900 border-amber-300" },
-  { id: "cool", label: "Fr\u00edo (azul)", className: "contrast-cool", preview: "bg-blue-50 text-blue-900 border-blue-300" },
-];
-
-function AccessibilityModal({ onClose }: { onClose: () => void }) {
-  const [fontSize, setFontSize] = useState(() => {
-    if (typeof document !== "undefined") {
-      const current = document.documentElement.style.fontSize;
-      return current ? parseInt(current) : 100;
-    }
-    return 100;
-  });
-
-  const [activeTheme, setActiveTheme] = useState(() => {
-    if (typeof document === "undefined") return "none";
-    for (const t of CONTRAST_THEMES) {
-      if (t.className && document.documentElement.classList.contains(t.className)) return t.id;
-    }
-    return "none";
-  });
-
-  const applyFontSize = (size: number) => {
-    setFontSize(size);
-    document.documentElement.style.fontSize = `${size}%`;
-  };
-
-  const applyTheme = (themeId: string) => {
-    // Remove all contrast classes
-    CONTRAST_THEMES.forEach((t) => {
-      if (t.className) document.documentElement.classList.remove(t.className);
-    });
-    // Apply selected
-    const theme = CONTRAST_THEMES.find((t) => t.id === themeId);
-    if (theme?.className) {
-      document.documentElement.classList.add(theme.className);
-    }
-    setActiveTheme(themeId);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4" onClick={onClose}>
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 max-h-[calc(100dvh-1.5rem)] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-sidebar/10 flex items-center justify-center">
-              <Accessibility size={22} className="text-sidebar" />
-            </div>
-            <h2 className="text-lg font-bold text-gray-900">Accesibilidad</h2>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none cursor-pointer">&times;</button>
-        </div>
-
-        {/* Font size */}
-        <div>
-          <p className="text-sm font-medium text-gray-700 mb-2">Tama&ntilde;o de texto</p>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => applyFontSize(Math.max(75, fontSize - 10))}
-              className="w-10 h-10 rounded-lg bg-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer"
-            >
-              A-
-            </button>
-            <div className="flex-1 bg-gray-100 rounded-full h-2 relative">
-              <div
-                className="bg-sidebar h-2 rounded-full transition-all"
-                style={{ width: `${((fontSize - 75) / 75) * 100}%` }}
-              />
-            </div>
-            <button
-              onClick={() => applyFontSize(Math.min(150, fontSize + 10))}
-              className="w-10 h-10 rounded-lg bg-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer"
-            >
-              A+
-            </button>
-            <span className="text-sm text-gray-500 w-12 text-center">{fontSize}%</span>
-            <button
-              onClick={() => applyFontSize(100)}
-              className="text-xs text-sidebar hover:underline cursor-pointer"
-            >
-              Reset
-            </button>
-          </div>
-        </div>
-
-        {/* Contrast themes */}
-        <div>
-          <p className="text-sm font-medium text-gray-700 mb-3">Modo de contraste</p>
-          <div className="grid grid-cols-2 gap-2">
-            {CONTRAST_THEMES.map((theme) => (
-              <button
-                key={theme.id}
-                onClick={() => applyTheme(theme.id)}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 transition-all text-left cursor-pointer ${
-                  activeTheme === theme.id
-                    ? "border-sidebar ring-2 ring-sidebar/20"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                <div className={`w-6 h-6 rounded border flex-shrink-0 ${theme.preview}`} />
-                <span className="text-xs font-medium text-gray-700">{theme.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button
-          onClick={onClose}
-          className="w-full bg-sidebar text-white py-2.5 rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
-        >
-          Listo
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function SupportModal({ onClose }: { onClose: () => void }) {
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleSend = async () => {
-    if (!subject.trim() || !body.trim()) return;
-    setSending(true);
-    setError("");
-
-    const res = await fetch("/api/support", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject: subject.trim(), body: body.trim() }),
-    });
-
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "Error al enviar. Intenta de nuevo.");
-      setSending(false);
-      return;
-    }
-
-    setSent(true);
-    setSending(false);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4" onClick={onClose}>
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5 max-h-[calc(100dvh-1.5rem)] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
-              <LifeBuoy size={22} className="text-amber-500" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Soporte t&eacute;cnico</h2>
-              <p className="text-xs text-gray-500">Tu mensaje llegar&aacute; a idea@ugm.cl</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none cursor-pointer">&times;</button>
-        </div>
-
-        {sent ? (
-          <div className="text-center py-6">
-            <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-3 animate-pop">
-              <span className="text-green-500 text-2xl">&#10003;</span>
-            </div>
-            <p className="text-sm font-medium text-gray-900">¡Mensaje enviado!</p>
-            <p className="text-xs text-gray-500 mt-1">Te responderemos a la brevedad a tu correo.</p>
-            <button
-              onClick={onClose}
-              className="mt-4 bg-sidebar text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer"
-            >
-              Cerrar
-            </button>
-          </div>
-        ) : (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Asunto</label>
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Describe brevemente el problema"
-                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Descripci&oacute;n</label>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Describe tu problema o solicitud con el mayor detalle posible..."
-                rows={5}
-                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-sidebar"
-              />
-            </div>
-            {error && <p className="text-xs text-red-500">{error}</p>}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSend}
-                disabled={!subject.trim() || !body.trim() || sending}
-                className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-medium hover:bg-sidebar-hover transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-              >
-                {sending ? "Enviando..." : "Enviar mensaje"}
-              </button>
-              <button
-                onClick={onClose}
-                className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
   );
 }

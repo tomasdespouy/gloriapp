@@ -3,9 +3,35 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import Link from "next/link";
-import { LEVELS, getLevelInfo } from "@/lib/gamification";
-import SessionCarousel from "@/components/SessionCarousel";
+import { LEARNING_DATA } from "@/lib/learning-data";
 import { getPatientImageUrl } from "@/lib/patient-assets";
+import HomeHero from "@/components/HomeHero";
+import HomeNextSteps, { type NextStep } from "@/components/HomeNextSteps";
+import HomeRecentActivity, { type ActivityItem } from "@/components/HomeRecentActivity";
+
+// Cap por sesión para no inflar el total con sesiones que dejaron el
+// timer corriendo sin visibility (bug conocido: SessionTimer no respeta
+// pestaña en background). 90 min cubre incluso las más largas reales.
+const ACTIVE_SECONDS_CAP_PER_SESSION = 90 * 60;
+
+function rateToBadge(score: number | null | undefined): ActivityItem["badge"] {
+  if (score == null) return null;
+  if (score >= 9) return { label: "Excelente", tone: "good" };
+  if (score >= 7) return { label: "Muy buena", tone: "good" };
+  if (score >= 5) return { label: "Buena", tone: "neutral" };
+  return { label: "En mejora", tone: "neutral" };
+}
+
+function relativeDate(iso: string): string {
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return "Hoy";
+  if (days === 1) return "Hace 1 día";
+  if (days < 7) return `Hace ${days} días`;
+  if (days < 30) return `Hace ${Math.floor(days / 7)} sem`;
+  return d.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
+}
 
 export default async function Dashboard() {
   const userProfile = await getUserProfile();
@@ -14,16 +40,14 @@ export default async function Dashboard() {
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  // Profile (for establishment-based patient visibility). The first-time
-  // onboarding redirect to /aprendizaje/tutor was removed: new students now
-  // land here and see the welcome video (WelcomeVideoModal) on the dashboard.
+  // Profile (for establishment-based patient visibility)
   const { data: studentProfile } = await supabase
     .from("profiles")
     .select("establishment_id")
     .eq("id", userProfile.id)
     .single();
 
-  // Round 2: Establishment-based patient visibility (only if establishment exists)
+  // Establishment-based patient visibility
   let visiblePatientIds: string[] | null = null;
   if (studentProfile?.establishment_id) {
     const { data: est } = await admin
@@ -49,84 +73,174 @@ export default async function Dashboard() {
     visiblePatientIds = Array.from(ids);
   }
 
-  // Round 3: All main data in parallel (single batch)
+  // Today + week boundaries for metric calculations
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfWeek = new Date();
+  const dayOfWeek = startOfWeek.getDay(); // 0=Dom .. 6=Sáb
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  startOfWeek.setDate(startOfWeek.getDate() + mondayOffset);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  // All main data in parallel
   const [
-    { data: progress },
     { data: recentSessions },
     { data: patientsWithBirthday },
     { data: learningRows },
-    { data: achievementsEarned },
     { data: suggestedPatients },
     { data: allConversations },
+    { data: previousVisit },
   ] = await Promise.all([
-    supabase.from("student_progress").select("*").eq("student_id", userProfile.id).single(),
     supabase
       .from("conversations")
-      .select("id, ai_patient_id, session_number, status, created_at, active_seconds")
+      .select(`
+        id, ai_patient_id, session_number, status, created_at, active_seconds,
+        session_feedback(teacher_score)
+      `)
       .eq("student_id", userProfile.id)
       .order("created_at", { ascending: false })
       .limit(8),
     admin.from("ai_patients").select("id, name, birthday, age").eq("is_active", true).not("birthday", "is", null),
     supabase.from("learning_progress").select("competency").eq("student_id", userProfile.id).neq("competency", "tutor"),
-    supabase.from("student_achievements").select("id").eq("student_id", userProfile.id),
     admin.from("ai_patients").select("id, name, age, occupation, difficulty_level").eq("is_active", true),
-    supabase.from("conversations").select("active_seconds").eq("student_id", userProfile.id),
+    supabase.from("conversations").select("status, active_seconds, created_at").eq("student_id", userProfile.id),
+    supabase
+      .from("conversations")
+      .select("created_at")
+      .eq("student_id", userProfile.id)
+      .lt("created_at", startOfToday.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
-  // Birthday
+  // ── Birthday ──
   const today = new Date();
   const birthdayPatients = (patientsWithBirthday || []).filter((p) => {
     const bd = new Date(p.birthday + "T12:00:00");
     return bd.getMonth() === today.getMonth() && bd.getDate() === today.getDate();
   });
 
-  // Level
-  const totalXp = progress?.total_xp || 0;
-  const levelInfo = getLevelInfo(totalXp);
-  const sessionsCompleted = progress?.sessions_completed || 0;
-  const streak = progress?.current_streak || 0;
-  const modulesCompleted = new Set((learningRows || []).map((r) => r.competency)).size;
-  const totalActiveMinutes = Math.round((allConversations || []).reduce((sum, c) => sum + (c.active_seconds || 0), 0) / 60);
+  // ── Hero metrics ──
+  const daysSinceLastVisit = previousVisit?.created_at
+    ? Math.max(
+        1,
+        Math.floor((Date.now() - new Date(previousVisit.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+      )
+    : null;
 
-  const firstName = userProfile.fullName.split(" ")[0] || "Estudiante";
-  const avatarUrl = userProfile.avatarUrl;
-  const initials = userProfile.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+  const sessionsCount = (allConversations || []).filter((c) => c.status === "completed").length;
 
-  // Fetch patient names for recent sessions (admin bypasses RLS)
+  const totalMinutes = Math.round(
+    (allConversations || []).reduce(
+      (sum, c) => sum + Math.min(c.active_seconds || 0, ACTIVE_SECONDS_CAP_PER_SESSION),
+      0,
+    ) / 60,
+  );
+
+  // Cápsulas listas = total examples en LEARNING_DATA - cuántos ya leyó
+  const totalExamples = LEARNING_DATA.reduce((sum, c) => sum + c.examples.length, 0);
+  const readExamples = (learningRows || []).length;
+  const capsulesReady = Math.max(0, totalExamples - readExamples);
+
+  // ── Patient name map (admin bypasses RLS for shown sessions) ──
   const sessionPatientIds = [...new Set((recentSessions || []).map((s) => s.ai_patient_id))];
   const { data: sessionPatients } = sessionPatientIds.length > 0
     ? await admin.from("ai_patients").select("id, name").in("id", sessionPatientIds)
     : { data: [] as { id: string; name: string }[] };
   const patientNameMap = new Map((sessionPatients || []).map((p) => [p.id, p.name]));
 
-  // Sessions
-  const sessions = (recentSessions || []).map((s) => {
-    return {
-      id: s.id, patientId: s.ai_patient_id, patientName: patientNameMap.get(s.ai_patient_id) || "",
-      sessionNumber: s.session_number, status: s.status,
-      createdAt: s.created_at, activeSeconds: s.active_seconds || 0,
-    };
-  });
-  const activeSessions = sessions.filter((s) =>
-    (s.status === "active" || s.status === "abandoned") &&
-    (!visiblePatientIds || visiblePatientIds.includes(s.patientId))
+  // ── Active session (más reciente sin terminar) ──
+  type RawSession = {
+    id: string;
+    ai_patient_id: string;
+    session_number: number;
+    status: string;
+    created_at: string;
+    active_seconds: number | null;
+    session_feedback: { teacher_score: number | null }[] | { teacher_score: number | null } | null;
+  };
+  const sessions = (recentSessions || []) as RawSession[];
+  const activeSession = sessions.find(
+    (s) =>
+      (s.status === "active" || s.status === "abandoned") &&
+      (!visiblePatientIds || visiblePatientIds.includes(s.ai_patient_id)),
   );
 
-  // Smart patient suggestions: prioritize un-practiced, then least-recent, with difficulty variety
+  // ── Build next steps ──
+  const nextSteps: NextStep[] = [];
+
+  if (activeSession) {
+    const name = patientNameMap.get(activeSession.ai_patient_id) || "tu paciente";
+    nextSteps.push({
+      kind: "active_session",
+      subtitle: "Continúa tu práctica",
+      title: `Sesión con ${name}`,
+      href: `/chat/${activeSession.ai_patient_id}`,
+    });
+  }
+
+  // Next capsule: primera competencia con ejemplos sin leer
+  const readByComp = new Map<string, number>();
+  (learningRows || []).forEach((r) => {
+    readByComp.set(r.competency, (readByComp.get(r.competency) || 0) + 1);
+  });
+  const nextCompetency = LEARNING_DATA.find(
+    (c) => (readByComp.get(c.key) || 0) < c.examples.length,
+  );
+  if (nextCompetency) {
+    const read = readByComp.get(nextCompetency.key) || 0;
+    const remaining = nextCompetency.examples.length - read;
+    nextSteps.push({
+      kind: "next_capsule",
+      subtitle: "Sigue aprendiendo",
+      title: nextCompetency.name,
+      href: `/aprendizaje/${nextCompetency.key}`,
+    });
+    // Guarda remaining para descriptor más rico (lo embebemos en subtitle como punto extra)
+    nextSteps[nextSteps.length - 1].subtitle = `Sigue aprendiendo · ${remaining} ejemplo${remaining === 1 ? "" : "s"} restante${remaining === 1 ? "" : "s"}`;
+  }
+
+  // Objetivo semanal: 3 sesiones por semana (Lun-Dom)
+  const WEEKLY_GOAL = 3;
+  const thisWeekDone = (allConversations || []).filter(
+    (c) => c.status === "completed" && new Date(c.created_at) >= startOfWeek,
+  ).length;
+  if (thisWeekDone < WEEKLY_GOAL) {
+    nextSteps.push({
+      kind: "weekly_goal",
+      subtitle: `Objetivo semanal · ${thisWeekDone}/${WEEKLY_GOAL} completadas`,
+      title: `Practica ${WEEKLY_GOAL} entrevistas clínicas`,
+      href: "/pacientes",
+    });
+  }
+
+  // ── Recent activity (últimas 3 sesiones completadas) ──
+  const recentActivity: ActivityItem[] = sessions
+    .filter((s) => s.status === "completed")
+    .slice(0, 3)
+    .map((s) => {
+      const fb = Array.isArray(s.session_feedback) ? s.session_feedback[0] : s.session_feedback;
+      const name = patientNameMap.get(s.ai_patient_id) || "Paciente";
+      return {
+        kind: "session_completed" as const,
+        title: `Entrevista con ${name}`,
+        subtitle: `Práctica completada · ${relativeDate(s.created_at)}`,
+        badge: rateToBadge(fb?.teacher_score),
+      };
+    });
+
+  // ── Patient suggestions (idéntica lógica que antes) ──
   const practicedPatientIds = new Set((recentSessions || []).map((s) => s.ai_patient_id));
   const visibleSuggestions = (suggestedPatients || [])
     .filter((p) => !visiblePatientIds || visiblePatientIds.includes(p.id));
 
-  // Split into never-practiced vs already-practiced
   const neverPracticed = visibleSuggestions.filter((p) => !practicedPatientIds.has(p.id));
   const alreadyPracticed = visibleSuggestions.filter((p) => practicedPatientIds.has(p.id));
-
-  // Shuffle never-practiced for variety, then append already-practiced
   const shuffled = [...neverPracticed].sort(() => Math.random() - 0.5);
   const fallback = [...alreadyPracticed].sort(() => Math.random() - 0.5);
   const candidatePool = [...shuffled, ...fallback];
 
-  // Pick 4 with difficulty variety: try to get at least 1 of each level
   const picked: typeof candidatePool = [];
   const diffLevels = ["beginner", "intermediate", "advanced"];
   for (const level of diffLevels) {
@@ -142,172 +256,106 @@ export default async function Dashboard() {
     id: p.id, name: p.name, age: p.age, occupation: p.occupation, difficulty: p.difficulty_level,
   }));
 
-  const slug = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
+  const slug = (name: string) =>
+    name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-");
+
+  const firstName = userProfile.fullName.split(" ")[0] || "Estudiante";
+
+  // Primary CTA: continuar sesión activa o empezar nueva
+  const primaryCta = activeSession
+    ? { href: `/chat/${activeSession.ai_patient_id}`, label: "Continuar práctica" }
+    : { href: "/pacientes", label: "Empezar práctica" };
 
   return (
     <div className="min-h-screen">
-      <div className="px-4 sm:px-8 py-6 pb-8 space-y-6 max-w-4xl mx-auto">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 pb-10 space-y-6 max-w-7xl mx-auto">
 
         {/* Birthday banner */}
         {birthdayPatients.length > 0 && (
-          <div className="animate-fade-in bg-sidebar/5 border border-sidebar/15 rounded-xl px-5 py-4 flex items-center gap-3">
-            <span className="text-lg" role="img" aria-label="cumplea\u00f1os">🎂</span>
+          <div className="animate-fade-in bg-sidebar/5 border border-sidebar/15 rounded-xl px-5 py-3 flex items-center gap-3">
+            <span className="text-lg" role="img" aria-label="cumpleaños">🎂</span>
             <p className="text-sm text-gray-700">
-              {"Hoy es el cumplea\u00f1os de "}
+              {"Hoy es el cumpleaños de "}
               <strong className="text-gray-900">{birthdayPatients.map((p) => p.name).join(", ")}</strong>
               {birthdayPatients.length === 1
-                ? `. Cumple ${today.getFullYear() - new Date(birthdayPatients[0].birthday + "T12:00:00").getFullYear()} a\u00f1os.`
+                ? `. Cumple ${today.getFullYear() - new Date(birthdayPatients[0].birthday + "T12:00:00").getFullYear()} años.`
                 : "."}
             </p>
           </div>
         )}
 
-        {/* ═══ PROFILE CARD ═══ */}
-        <div className="animate-fade-in bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
-          <div className="flex items-center gap-4">
-            {/* Avatar */}
-            <Link href="/mi-perfil" className="relative group flex-shrink-0" title="Editar mi perfil">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-sidebar/20 group-hover:border-sidebar transition-colors">
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-sidebar flex items-center justify-center">
-                    <span className="text-white text-xl font-bold">{initials}</span>
-                  </div>
-                )}
-              </div>
-              {!avatarUrl && (
-                <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 text-[9px] text-sidebar font-medium bg-white border border-sidebar/20 shadow-sm px-2 py-0.5 rounded-full whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  Sube tu foto
-                </span>
-              )}
-            </Link>
-
-            {/* Name + stats inline */}
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900">&iexcl;Hola {firstName}!</h1>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {sessionsCompleted} {sessionsCompleted === 1 ? "sesi\u00f3n" : "sesiones"} &middot; {modulesCompleted}/10 m&oacute;dulos &middot; {totalActiveMinutes} min
-              </p>
-            </div>
-
-            {/* Quick actions — 1x4 row */}
-            <div className="hidden sm:flex items-center gap-2">
-              <Link href="/pacientes" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[80px]">
-                <div className="w-8 h-8 rounded-lg bg-sidebar/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-sidebar/20 transition-colors">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A55A2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-                </div>
-                <p className="text-[10px] font-semibold text-gray-700">Practicar</p>
-              </Link>
-              <Link href="/aprendizaje" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[80px]">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-emerald-500/20 transition-colors">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                </div>
-                <p className="text-[10px] font-semibold text-gray-700">Aprender</p>
-              </Link>
-              <Link href="/progreso" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[80px]">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-amber-500/20 transition-colors">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                </div>
-                <p className="text-[10px] font-semibold text-gray-700">Progreso</p>
-              </Link>
-              <Link href="/historial" className="bg-gray-50 rounded-xl border border-gray-200 p-3 hover:border-sidebar/30 hover:shadow-md transition-all group text-center w-[80px]">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-purple-500/20 transition-colors">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                </div>
-                <p className="text-[10px] font-semibold text-gray-700">Historial</p>
-              </Link>
-            </div>
-          </div>
-
-          {/* Mobile: quick actions below */}
-          <div className="sm:hidden grid grid-cols-4 gap-1.5 mt-3 pt-3 border-t border-gray-100">
-            <Link href="/pacientes" className="bg-gray-50 rounded-xl border border-gray-200 p-2 hover:border-sidebar/30 transition-all group text-center">
-              <div className="w-7 h-7 rounded-lg bg-sidebar/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-sidebar/20 transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A55A2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-              </div>
-              <p className="text-[9px] font-semibold text-gray-700">Practicar</p>
-            </Link>
-            <Link href="/aprendizaje" className="bg-gray-50 rounded-xl border border-gray-200 p-2 hover:border-sidebar/30 transition-all group text-center">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-emerald-500/20 transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-              </div>
-              <p className="text-[9px] font-semibold text-gray-700">Aprender</p>
-            </Link>
-            <Link href="/progreso" className="bg-gray-50 rounded-xl border border-gray-200 p-2 hover:border-sidebar/30 transition-all group text-center">
-              <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-amber-500/20 transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-              </div>
-              <p className="text-[9px] font-semibold text-gray-700">Progreso</p>
-            </Link>
-            <Link href="/historial" className="bg-gray-50 rounded-xl border border-gray-200 p-2 hover:border-sidebar/30 transition-all group text-center">
-              <div className="w-7 h-7 rounded-lg bg-purple-500/10 flex items-center justify-center mx-auto mb-1 group-hover:bg-purple-500/20 transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              </div>
-              <p className="text-[9px] font-semibold text-gray-700">Historial</p>
-            </Link>
-          </div>
+        {/* Hero cinematográfico */}
+        <div className="animate-fade-in">
+          <HomeHero
+            firstName={firstName}
+            daysSinceLastVisit={daysSinceLastVisit}
+            sessionsCount={sessionsCount}
+            totalMinutes={totalMinutes}
+            capsulesReady={capsulesReady}
+            primaryCta={primaryCta}
+          />
         </div>
 
-        {/* ═══ ACTIVE SESSIONS — HORIZONTAL CARDS / CAROUSEL ═══ */}
-        {activeSessions.length > 0 && (
-          <div className="animate-slide-up">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">{"Continúa donde lo dejaste"}</h2>
-            <SessionCarousel
-              sessions={activeSessions.map((s) => ({
-                id: s.id,
-                patientId: s.patientId,
-                patientName: s.patientName,
-                sessionNumber: s.sessionNumber,
-                activeSeconds: s.activeSeconds,
-                status: s.status,
-              }))}
-            />
-          </div>
-        )}
-
-        {/* Quick actions moved into profile card above */}
-
-        {/* ═══ PATIENT SUGGESTIONS ═══ */}
-        <div className="animate-slide-up">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-900">&iquest;Con qui&eacute;n quieres practicar?</h2>
-            <Link href="/pacientes" className="text-xs text-sidebar hover:underline">Ver todos</Link>
-          </div>
-          <div className="flex gap-3 overflow-x-auto scroll-smooth scrollbar-hide pb-1">
-            {patientSuggestions.map((p) => {
-              const pSlug = slug(p.name);
-              const diffColor = p.difficulty === "beginner" ? "text-emerald-600 bg-emerald-50" : p.difficulty === "intermediate" ? "text-amber-600 bg-amber-50" : "text-red-600 bg-red-50";
-              const diffLabel = p.difficulty === "beginner" ? "Principiante" : p.difficulty === "intermediate" ? "Intermedio" : "Avanzado";
-              return (
-                <Link
-                  key={p.id}
-                  href={`/chat/${p.id}`}
-                  className="flex-shrink-0 w-[160px] sm:w-[180px] bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all group"
-                >
-                  <div className="aspect-square overflow-hidden bg-gray-100 relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={getPatientImageUrl(pSlug)}
-                      alt={p.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                    <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 bg-sidebar text-white font-semibold text-[10px] px-2.5 py-1 rounded-lg opacity-90 group-hover:opacity-100 transition-opacity">
-                      Practicar →
-                    </span>
-                  </div>
-                  <div className="p-2.5">
-                    <p className="text-xs font-bold text-gray-900">{p.name}</p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">{p.age} a&ntilde;os &middot; {p.occupation}</p>
-                    <span className={`inline-block mt-1 text-[9px] font-medium px-2 py-0.5 rounded-full ${diffColor}`}>
-                      {diffLabel}
-                    </span>
-                  </div>
+        {/* Grid 2/3 + 1/3 */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Columna izquierda */}
+          <div className="lg:col-span-2 space-y-6 animate-slide-up">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-gray-900">¿Con quién quieres practicar?</h2>
+                <Link href="/pacientes" className="text-xs text-sidebar hover:underline">Ver todos</Link>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {patientSuggestions.map((p) => {
+                  const pSlug = slug(p.name);
+                  const diffColor =
+                    p.difficulty === "beginner" ? "text-emerald-600 bg-emerald-50"
+                    : p.difficulty === "intermediate" ? "text-amber-600 bg-amber-50"
+                    : "text-red-600 bg-red-50";
+                  const diffLabel =
+                    p.difficulty === "beginner" ? "Principiante"
+                    : p.difficulty === "intermediate" ? "Intermedio" : "Avanzado";
+                  return (
+                    <Link
+                      key={p.id}
+                      href={`/chat/${p.id}`}
+                      className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all group"
+                    >
+                      <div className="aspect-square overflow-hidden bg-gray-100 relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={getPatientImageUrl(pSlug)}
+                          alt={p.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                        <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 bg-sidebar text-white font-semibold text-[10px] px-2.5 py-1 rounded-lg opacity-90 group-hover:opacity-100 transition-opacity">
+                          Practicar →
+                        </span>
+                      </div>
+                      <div className="p-2.5">
+                        <p className="text-xs font-bold text-gray-900">{p.name}</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">{p.age} años · {p.occupation}</p>
+                        <span className={`inline-block mt-1 text-[9px] font-medium px-2 py-0.5 rounded-full ${diffColor}`}>
+                          {diffLabel}
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+              <div className="text-center mt-4">
+                <Link href="/pacientes" className="text-xs text-sidebar hover:underline">
+                  Ver todos los pacientes →
                 </Link>
-              );
-            })}
+              </div>
+            </div>
+          </div>
+
+          {/* Columna derecha */}
+          <div className="space-y-6 animate-slide-up">
+            <HomeNextSteps steps={nextSteps} />
+            <HomeRecentActivity items={recentActivity} />
           </div>
         </div>
       </div>

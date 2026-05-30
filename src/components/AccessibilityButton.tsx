@@ -5,7 +5,7 @@ import { Accessibility, Check } from "lucide-react";
 
 export type A11yPrefs = {
   fontSize?: "m" | "l" | "xl";
-  contrast?: "default" | "high";
+  contrast?: "default" | "high" | "sepia";
 };
 
 const FONT_OPTIONS: { key: NonNullable<A11yPrefs["fontSize"]>; label: string; sample: string }[] = [
@@ -14,9 +14,10 @@ const FONT_OPTIONS: { key: NonNullable<A11yPrefs["fontSize"]>; label: string; sa
   { key: "xl", label: "Extra grande", sample: "Aa" },
 ];
 
-const CONTRAST_OPTIONS: { key: NonNullable<A11yPrefs["contrast"]>; label: string }[] = [
-  { key: "default", label: "Estándar" },
-  { key: "high", label: "Alto contraste" },
+const CONTRAST_OPTIONS: { key: NonNullable<A11yPrefs["contrast"]>; label: string; swatchClass: string }[] = [
+  { key: "default", label: "Estándar", swatchClass: "bg-white border-gray-300" },
+  { key: "high", label: "Alto contraste", swatchClass: "bg-neutral-900 border-yellow-400" },
+  { key: "sepia", label: "Sepia", swatchClass: "bg-[#f5efe0] border-[#d6c9a8]" },
 ];
 
 function applyPrefsToDom(prefs: A11yPrefs) {
@@ -25,9 +26,10 @@ function applyPrefsToDom(prefs: A11yPrefs) {
   // Font size classes are mutually exclusive
   root.classList.remove("a11y-font-m", "a11y-font-l", "a11y-font-xl");
   root.classList.add(`a11y-font-${prefs.fontSize || "m"}`);
-  // Contrast
-  root.classList.remove("contrast-high");
+  // Contrast — los 3 temas son mutuamente exclusivos
+  root.classList.remove("contrast-high", "contrast-sepia");
   if (prefs.contrast === "high") root.classList.add("contrast-high");
+  if (prefs.contrast === "sepia") root.classList.add("contrast-sepia");
 }
 
 export default function AccessibilityButton({ initialPrefs }: { initialPrefs: A11yPrefs }) {
@@ -115,28 +117,31 @@ export default function AccessibilityButton({ initialPrefs }: { initialPrefs: A1
           </div>
 
           <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400 mb-1.5">
-            Contraste
+            Tema
           </p>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             {CONTRAST_OPTIONS.map((opt) => {
               const active = (prefs.contrast || "default") === opt.key;
               return (
                 <button
                   key={opt.key}
                   onClick={() => save({ ...prefs, contrast: opt.key })}
-                  className={`flex items-center justify-center gap-1 py-2 text-xs rounded-lg border cursor-pointer transition-colors ${
+                  className={`flex flex-col items-center gap-1 py-2 px-1 rounded-lg border cursor-pointer transition-colors ${
                     active ? "border-sidebar bg-sidebar/10 text-sidebar font-semibold" : "border-gray-200 hover:bg-gray-50"
                   }`}
+                  title={opt.label}
                 >
-                  {active && <Check size={12} />}
-                  {opt.label}
+                  <span className={`w-7 h-7 rounded-full border-2 flex items-center justify-center ${opt.swatchClass}`}>
+                    {active && <Check size={11} className={opt.key === "high" ? "text-yellow-400" : "text-sidebar"} />}
+                  </span>
+                  <span className="text-[10px] leading-tight text-center">{opt.label}</span>
                 </button>
               );
             })}
           </div>
 
           <p className="text-[10px] text-gray-400 mt-3">
-            Afecta principalmente el chat, los mensajes y los formularios.
+            Cambia fondo, texto y bordes. Las imágenes se mantienen igual.
           </p>
         </div>
       )}

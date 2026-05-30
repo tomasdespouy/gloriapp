@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import ProfileClient from "./ProfileClient";
 
+type A11yPrefs = { fontSize?: "m" | "l" | "xl"; contrast?: "default" | "high" | "sepia" };
+
 export default async function MiPerfilPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -10,7 +12,7 @@ export default async function MiPerfilPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, email, role, avatar_url, establishment_id")
+    .select("full_name, email, role, avatar_url, establishment_id, a11y_prefs")
     .eq("id", user.id)
     .single();
 
@@ -32,7 +34,7 @@ export default async function MiPerfilPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Mi perfil</h1>
       <ProfileClient
         userId={user.id}
@@ -41,6 +43,7 @@ export default async function MiPerfilPage() {
         role={profile?.role || "student"}
         avatarUrl={profile?.avatar_url || null}
         establishmentName={establishmentName}
+        a11yPrefs={(profile?.a11y_prefs as A11yPrefs) || {}}
       />
     </div>
   );

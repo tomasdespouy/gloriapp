@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Bell, User, LogOut, ChevronDown, LifeBuoy, BarChart3, Info, Eye, X } from "lucide-react";
+import { Bell, LogOut, ChevronDown, LifeBuoy, Eye, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { setImpersonation, clearImpersonation } from "@/lib/actions/impersonate";
@@ -102,13 +102,6 @@ export default function TopHeader({ userName, userEmail, userRole, realRole, ava
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
-  };
-
-  const roleLabel: Record<string, string> = {
-    student: "Estudiante",
-    instructor: "Docente",
-    admin: "Administrador",
-    superadmin: "Superadmin",
   };
 
   // Impersonation state
@@ -305,53 +298,20 @@ export default function TopHeader({ userName, userEmail, userRole, realRole, ava
         </button>
 
         {profileOpen && (
-          <div className="absolute right-0 top-full mt-2 w-[min(calc(100vw-1.5rem),14rem)] sm:w-56 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
-            {/* User info */}
+          <div className="absolute right-0 top-full mt-2 w-[min(calc(100vw-1.5rem),16rem)] sm:w-60 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+            {/* Email */}
             <div className="px-4 py-3 border-b border-gray-100">
-              <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
-              <p className="text-[11px] text-gray-400 truncate">{userEmail}</p>
-              <span className="inline-block mt-1 text-[9px] font-semibold uppercase tracking-wide text-sidebar bg-sidebar/10 px-2 py-0.5 rounded-full">
-                {roleLabel[userRole] || userRole}
-              </span>
-            </div>
-
-            {/* Actions */}
-            <div className="py-1">
-              <button
-                onClick={() => { setProfileOpen(false); router.push("/mi-perfil"); }}
-                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                <User size={15} className="text-gray-400" />
-                Mi perfil
-              </button>
-              {userRole !== "instructor" && (
-                <button
-                  onClick={() => { setProfileOpen(false); router.push("/progreso"); }}
-                  className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <BarChart3 size={15} className="text-gray-400" />
-                  Mi progreso
-                </button>
-              )}
-              <button
-                onClick={() => { setProfileOpen(false); router.push("/sobre"); }}
-                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                <Info size={15} className="text-gray-400" />
-                Sobre GlorIA
-              </button>
+              <p className="text-sm text-gray-700 truncate">{userEmail}</p>
             </div>
 
             {/* Logout */}
-            <div className="border-t border-gray-100 py-1">
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-              >
-                <LogOut size={15} />
-                Cerrar sesión
-              </button>
-            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+            >
+              <LogOut size={15} />
+              Cerrar sesión
+            </button>
           </div>
         )}
       </div>

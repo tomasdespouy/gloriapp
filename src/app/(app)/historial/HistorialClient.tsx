@@ -221,10 +221,18 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
   const handleSessionClick = (session: Session) => {
     if (session.status === "active" || session.status === "abandoned") {
       setShowResumeModal(session);
-    } else {
-      setDetailId(session.id);
-      loadMessages(session.id);
+      return;
     }
+    // Sesión completada pero sin evaluación: el estudiante salió de la
+    // reflexión sin enviarla. Lo mandamos directo a /review para que la
+    // complete (vuelve a step="reflect" porque existingEvaluation es null).
+    const comp = getComp(session) ?? null;
+    if (session.status === "completed" && !comp) {
+      router.push(`/review/${session.id}`);
+      return;
+    }
+    setDetailId(session.id);
+    loadMessages(session.id);
   };
 
   // ══════════════════════════════════════
@@ -498,6 +506,8 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
               <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full flex items-center gap-1">
                 <CheckCircle2 size={9} /> Retroalimentación enviada
               </span>
+            ) : isCompleted && !comp ? (
+              <span className="text-[10px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full font-medium">Reflexión pendiente</span>
             ) : isCompleted ? (
               <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Pendiente de revisión</span>
             ) : session.status === "abandoned" ? (

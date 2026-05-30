@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 // the known keys (fontSize, contrast); silently ignores anything else.
 
 const VALID_FONT = new Set(["m", "l", "xl"]);
-const VALID_CONTRAST = new Set(["default", "high"]);
+const VALID_CONTRAST = new Set(["default", "high", "sepia"]);
 
 export async function PATCH(request: Request) {
   const supabase = await createClient();

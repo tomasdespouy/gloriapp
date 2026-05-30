@@ -159,7 +159,7 @@ export default async function AppLayout({
             isImpersonating={profile?.isImpersonating || false}
             impersonationLabel={profile?.impersonationLabel}
             establishments={isTrulySuperadmin ? allEstablishments : undefined}
-            a11yPrefs={a11yPrefs as { fontSize?: "m" | "l" | "xl"; contrast?: "default" | "high" }}
+            a11yPrefs={a11yPrefs as { fontSize?: "m" | "l" | "xl"; contrast?: "default" | "high" | "sepia" }}
           />
           <main id="main-content" className="flex-1 bg-bg-main min-h-0 overflow-auto dashboard-pattern">
             {children}

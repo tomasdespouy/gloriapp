@@ -11,6 +11,7 @@ import { COMPETENCY_INFO } from "@/lib/competency-definitions";
 import type { CompetencyScores, CompetencyScoresV2 } from "@/lib/gamification";
 import { getEvidenceList } from "@/lib/evaluation-prompt";
 import { getPatientImageUrl } from "@/lib/patient-assets";
+import { setNavigationGuard } from "@/lib/navigation-guard";
 
 type ActionItem = {
   id: string;
@@ -216,6 +217,11 @@ export default function ReviewClient({
   const [clinicalHypothesis, setClinicalHypothesis] = useState("");
   const [sessionNotes, setSessionNotes] = useState(initialSessionNotes);
   const [showEmptyConfirm, setShowEmptyConfirm] = useState(false);
+  // Navigation guard: si el estudiante intenta navegar fuera (sidebar)
+  // mientras está en step="reflect", interceptamos y mostramos
+  // confirmación. Si confirma "Salir", navegamos a la URL pendiente
+  // SIN enviar — la reflexión queda pendiente y se retoma desde historial.
+  const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, unknown> | null>(
     existingEvaluation
       ? {
@@ -236,6 +242,19 @@ export default function ReviewClient({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skipReflection]);
+
+  // Navigation guard. Activo solo mientras el usuario está realmente
+  // reflexionando: step==="reflect" y no estamos en modo piloto (que
+  // auto-submitea). Al desmontarse o cambiar de paso, se libera.
+  const guardOn = step === "reflect" && !skipReflection;
+  useEffect(() => {
+    if (!guardOn) {
+      setNavigationGuard(false);
+      return;
+    }
+    setNavigationGuard(true, (href) => setPendingNavHref(href));
+    return () => setNavigationGuard(false);
+  }, [guardOn]);
 
   // Audio recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -1174,6 +1193,51 @@ export default function ReviewClient({
                 className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
               >
                 Omitir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation-guard modal: intento de salir de /review con reflexión
+          pendiente. "Continuar reflexión" cancela. "Salir igual" libera el
+          guard y navega — la reflexión queda como pendiente en historial. */}
+      {pendingNavHref && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setPendingNavHref(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4 animate-pop" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
+                <GraduationCap size={20} className="text-amber-500" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900">¿Salir de la reflexión?</h3>
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Si sales ahora tu reflexión queda pendiente. Podrás retomarla cuando quieras desde tu historial.
+            </p>
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                onClick={() => setPendingNavHref(null)}
+                className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-[#354080] transition-colors cursor-pointer"
+              >
+                Continuar reflexión
+              </button>
+              <button
+                onClick={async () => {
+                  const href = pendingNavHref;
+                  setNavigationGuard(false);
+                  setPendingNavHref(null);
+                  // Marca la conversación como completed (chat terminado, sin
+                  // evaluación). Si falla, navegamos igual — el peor caso es
+                  // que aparezca como activa en historial y el cron de cleanup
+                  // la pase a abandoned después.
+                  try {
+                    await fetch(`/api/sessions/${conversationId}/leave-reflection`, { method: "POST" });
+                  } catch { /* navigate anyway */ }
+                  router.push(href);
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                Salir igual
               </button>
             </div>
           </div>

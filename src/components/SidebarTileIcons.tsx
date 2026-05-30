@@ -87,6 +87,37 @@ export function InfoIcon({ size = 28 }: IconProps) {
   );
 }
 
+// Ampolleta para "Sobre GlorIA". El filamento (.bulb-filament) se
+// enciende con un glow amarillo cálido en hover — ver globals.css.
+export function LightbulbIcon({ size = 28 }: IconProps) {
+  return (
+    <svg {...baseSvg(size)} className="icon-lightbulb">
+      {/* Cristal de la ampolleta */}
+      <path
+        d="M12 2.5 C 8 2.5 5 5.5 5 9.5 C 5 11.8 6.3 13.8 8 15 L 8 17 C 8 17.6 8.4 18 9 18 L 15 18 C 15.6 18 16 17.6 16 17 L 16 15 C 17.7 13.8 19 11.8 19 9.5 C 19 5.5 16 2.5 12 2.5 Z"
+        fill={DUO_FILL}
+        fillOpacity={DUO_OPACITY}
+        stroke={STROKE}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      {/* Filamento — el que se enciende */}
+      <path
+        className="bulb-filament"
+        d="M10 11 Q 11 8.5 12 11 Q 13 8.5 14 11"
+        fill="none"
+        stroke={STROKE}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Base / rosca */}
+      <line x1="9.5" y1="20" x2="14.5" y2="20" stroke={STROKE} strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="10.5" y1="21.5" x2="13.5" y2="21.5" stroke={STROKE} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // ── Instructor-only ───────────────────────────────────────────────
 
 export function PanelIcon({ size = 28 }: IconProps) {
@@ -110,6 +141,33 @@ export function ClipboardCheckIcon({ size = 28 }: IconProps) {
   );
 }
 
+// ── Configuración (student + instructor) ─────────────────────────
+// Engranaje duotone con dientes. La animación (.gear-cog → rotación lenta)
+// vive en globals.css. El círculo central queda fijo para que la rotación
+// se sienta sutil, no mareadora.
+
+export function SettingsIcon({ size = 28 }: IconProps) {
+  // Engranaje regular de 8 dientes, generado por math (no a ojo):
+  //   16 vértices alternando radio exterior (R=8.5) e interior (r=6)
+  //   en pasos de 22.5°, comenzando desde el top (12, 3.5).
+  // Esto garantiza simetría radial — al rotar no se ve deformado.
+  return (
+    <svg {...baseSvg(size)} className="icon-settings">
+      <g className="gear-cog">
+        <path
+          d="M 12 3.5 L 14.30 6.46 L 18.01 5.99 L 17.54 9.70 L 20.5 12 L 17.54 14.30 L 18.01 18.01 L 14.30 17.54 L 12 20.5 L 9.70 17.54 L 5.99 18.01 L 6.46 14.30 L 3.5 12 L 6.46 9.70 L 5.99 5.99 L 9.70 6.46 Z"
+          fill={DUO_FILL}
+          fillOpacity={DUO_OPACITY}
+          stroke={STROKE}
+          strokeWidth="1.4"
+          strokeLinejoin="round"
+        />
+      </g>
+      <circle cx="12" cy="12" r="3" fill="none" stroke={STROKE} strokeWidth="1.4" />
+    </svg>
+  );
+}
+
 // ── Routing ───────────────────────────────────────────────────────
 
 export const TILE_ICON_BY_HREF: Record<string, React.ComponentType<IconProps>> = {
@@ -119,9 +177,11 @@ export const TILE_ICON_BY_HREF: Record<string, React.ComponentType<IconProps>> =
   "/aprendizaje": BookOpenIcon,
   "/pacientes": UserIcon,
   "/historial": ClockIcon,
-  "/sobre": InfoIcon,
+  "/sobre": LightbulbIcon,
   // Instructor
   "/docente/dashboard": PanelIcon,
   "/docente/revisiones": ClipboardCheckIcon,
   "/docente/metricas": ChartBarIcon,
+  // Shared (config tile en student + instructor)
+  "/mi-perfil": SettingsIcon,
 };
