@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { MessageSquare, Play, X, Volume2 } from "lucide-react";
 import { getPatientImageUrl, getPatientVideoUrl } from "@/lib/patient-assets";
+import { getVoiceAgent } from "@/lib/voice-agents";
 
 interface PatientCardProps {
   id: string;
@@ -83,6 +84,7 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
   const chatHref = hasActiveSession
     ? `/chat/${id}?conversationId=${activeConversationId}`
     : `/chat/${id}`;
+  const hasVoiceAgent = !!getVoiceAgent(id);
 
   return (
     <>
@@ -161,6 +163,17 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
           {hasActiveSession ? <Play size={16} /> : <MessageSquare size={16} />}
           {hasActiveSession ? "Retomar conversación" : "Iniciar conversación"}
         </Link>
+
+        {/* Voice mode (beta) — only for patients with a configured agent */}
+        {hasVoiceAgent && (
+          <Link
+            href={`/voz/${id}`}
+            className="mt-2 flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium border border-sidebar/40 text-sidebar hover:bg-sidebar/5 transition-colors"
+          >
+            <Volume2 size={16} />
+            Modo voz (beta)
+          </Link>
+        )}
       </div>
 
       {/* Video modal */}

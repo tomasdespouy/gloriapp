@@ -52,6 +52,11 @@ export async function updateSession(request: NextRequest) {
     // The endpoints verify the secret themselves, so the middleware
     // must let the request through without redirecting to /login.
     !pathname.startsWith("/api/cron/") &&
+    // ElevenLabs voice agent (Custom LLM) hits this with Authorization:
+    // Bearer $VOICE_LLM_SECRET. The endpoint verifies the secret itself.
+    // Note: only /api/voice/llm is public; /api/voice/signed-url stays
+    // cookie-protected (it's called by the logged-in browser).
+    !pathname.startsWith("/api/voice/llm") &&
     // Se auto-autoriza con Bearer CRON_SECRET o sesión superadmin (para lotes).
     !pathname.startsWith("/api/admin/reeval-session") &&
     !pathname.startsWith("/piloto/") &&
