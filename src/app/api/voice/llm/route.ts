@@ -117,7 +117,18 @@ export async function POST(req: NextRequest) {
     .eq("id", patientId)
     .single();
 
-  if (!patient) return new Response("Patient not found", { status: 404 });
+  if (!patient) {
+    return new Response(JSON.stringify({
+      error: "Patient not found",
+      debug: {
+        dedicated: !!(process.env.VOICE_SUPABASE_URL && process.env.VOICE_SUPABASE_SERVICE_KEY),
+        hasUrl: !!process.env.VOICE_SUPABASE_URL,
+        hasKey: !!process.env.VOICE_SUPABASE_SERVICE_KEY,
+        dbHost: (process.env.VOICE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "?").replace("https://", "").slice(0, 24),
+        patientId,
+      },
+    }), { status: 404, headers: { "Content-Type": "application/json" } });
+  }
 
   // 5. MOTOR ADAPTATIVO: load last state → classify → update.
   let currentState: ClinicalState = INITIAL_STATE;
