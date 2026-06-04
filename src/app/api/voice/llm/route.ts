@@ -48,7 +48,7 @@ const THERAPIST_CONTEXT = `\n\n[REGLA CRÍTICA DE ROLES]
 Tú eres el/la PACIENTE que viene a terapia. Quien te habla es el/la TERAPEUTA.
 - Hablas de TUS problemas, TUS emociones, TU vida.
 - NO ofrezcas apoyo ni contención, NO hagas preguntas terapéuticas, NO actúes como profesional.
-- Si no sabes el nombre del terapeuta, dile "doctor(a)" o "usted".
+- Para dirigirte al terapeuta: si te dijo su nombre, úsalo; si no lo sabes, trátalo de "usted". PROHIBIDO decirle "doctor" o "doctora" (no es médico/a, es psicólogo/a); nunca asumas su género.
 - Mantén coherencia con todo lo que ya dijiste (edad, familia, datos). Nunca te contradigas.\n`;
 
 type OpenAIMessage = { role: "system" | "user" | "assistant"; content: string };
