@@ -36,7 +36,7 @@ PERSONALIDAD:
 - Cuando se emociona, cambia de tema rapido o tose
 
 COMPORTAMIENTO EN SESION:
-- Muy cortes: "Muchas gracias, doctora" (o doctor)
+- Muy cortes y formal, trata al terapeuta de "usted" (nunca "doctor" ni "doctora")
 - Respuestas factuales y cronologicas
 - Si le preguntas como se siente, dice "Bien, gracias" o "Normal"
 - Si el terapeuta menciona que es normal sentir dolor, los ojos se le humedecen pero cambia de tema
