@@ -114,7 +114,12 @@ export async function POST(request: Request) {
   const antiRepeat = prevSilenceMsgs
     ? `\n\n[ANTI-REPETICI\u00d3N] Ya dijiste esto antes: "${prevSilenceMsgs}". NO repitas estas frases. Usa palabras y estructura COMPLETAMENTE diferentes.`
     : "";
-  const silencePrompt = `${patient.system_prompt}\n\n${stagePrompt}${antiRepeat}`;
+  // Grounding de coherencia: sin esto, el nudge se genera solo con el
+  // system_prompt base y puede contradecir lo dicho en la conversaci\u00f3n
+  // (ej. "la semana pasada" tras haber dicho "hace minutos"). El historial
+  // ya va en `history`; aqu\u00ed reforzamos que NO se contradiga.
+  const coherencia = `\n\n[COHERENCIA \u2014 PRIORIDAD]\nMant\u00e9n TOTAL coherencia con lo que YA dijiste en esta conversaci\u00f3n (ver el historial reciente): NO te contradigas sobre cu\u00e1ndo fue la \u00faltima sesi\u00f3n, fechas, ni datos personales. Respeta el tiempo real: si la \u00faltima sesi\u00f3n fue hace minutos u horas, NO digas "la semana pasada". Este es un mensaje por el silencio, NO repitas un recuento de la sesi\u00f3n anterior.`;
+  const silencePrompt = `${patient.system_prompt}${coherencia}\n\n${stagePrompt}${antiRepeat}`;
 
   // Try the LLM, but never let a failure leave the patient mute. Falls
   // back to a hardcoded line for the current stage if the model errors,
