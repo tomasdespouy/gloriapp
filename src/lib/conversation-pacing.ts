@@ -216,6 +216,52 @@ export function hasStudentIntroducedName(messages: string[]): boolean {
   return false;
 }
 
+// Palabras que NO son nombres aunque aparezcan capitalizadas tras "Soy"
+// (nacionalidades, roles, estados). Se comparan sin tildes y en minuscula
+// para no pinear "Soy Chilena" o "Soy Estudiante" como si fueran el nombre.
+const NOT_A_NAME = new Set([
+  "chileno", "chilena", "peruano", "peruana", "argentino", "argentina",
+  "colombiano", "colombiana", "mexicano", "mexicana", "boliviano", "boliviana",
+  "espanol", "espanola", "uruguayo", "uruguaya", "venezolano", "venezolana",
+  "ecuatoriano", "ecuatoriana", "paraguayo", "paraguaya",
+  "estudiante", "psicologo", "psicologa", "terapeuta", "doctor", "doctora",
+  "alumno", "alumna", "practicante", "interno", "interna", "profesional",
+  "supervisor", "supervisora", "nuevo", "nueva", "yo",
+]);
+
+function stripAccents(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+function capitalizeName(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+/**
+ * Extrae el nombre con el que el estudiante se presento, si lo hizo. Usa
+ * los mismos patrones que hasStudentIntroducedName pero con grupo de
+ * captura. Devuelve el primer nombre encontrado (capitalizado) o null.
+ *
+ * Conservador a proposito: para "Soy X" descarta nacionalidades/roles
+ * (NOT_A_NAME) para no fijar un "nombre" equivocado. Los patrones "me
+ * llamo X" / "mi nombre es X" son de alta confianza.
+ */
+export function extractStudentName(messages: string[]): string | null {
+  const NAME = "([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)";
+  for (const msg of messages) {
+    let m: RegExpMatchArray | null;
+    if ((m = msg.match(new RegExp(`\\bme\\s+llamo\\s+${NAME}`, "i")))) return capitalizeName(m[1]);
+    if ((m = msg.match(new RegExp(`\\bmi\\s+nombre\\s+es\\s+${NAME}`, "i")))) return capitalizeName(m[1]);
+    if ((m = msg.match(new RegExp(`\\baqu[ií]\\s+(?:le\\s+)?habla\\s+${NAME}`, "i")))) return capitalizeName(m[1]);
+    // "Soy (el/la doctor/psicologo/terapeuta) X" — el nombre DEBE estar
+    // capitalizado (case-sensitive) y no ser una nacionalidad/rol.
+    if ((m = msg.match(new RegExp(`\\b[Ss]oy\\s+(?:el\\s+|la\\s+)?(?:doctor[ae]?\\s+|psic[oó]log[ao]\\s+|terapeuta\\s+)?${NAME}`)))) {
+      if (!NOT_A_NAME.has(stripAccents(m[1]))) return capitalizeName(m[1]);
+    }
+  }
+  return null;
+}
+
 /**
  * Construye el bloque [PROTOCOLO DE IDENTIFICACION] que se inyecta en
  * el system prompt del paciente justo antes del turno indicado por el

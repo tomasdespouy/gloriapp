@@ -296,6 +296,47 @@ export function detectAlerts(
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Session rupture — directed hostility that should END the session
+// ─────────────────────────────────────────────────────────────────────
+//
+// Distinct from the observational alerts above: this detects hostility
+// aimed AT the patient (a real threat or insult from the student), which
+// a human patient would not tolerate. The route uses it to make the
+// patient withdraw and close the session.
+//
+// Scoped to SECOND-PERSON, patient-directed hostility ("te voy a matar",
+// "eres un idiota") so it does NOT fire on legitimate clinical content
+// the patient recounts in third person ("su esposo la quiso matar").
+
+const DIRECTED_THREAT_RE =
+  /\bte\s+(?:voy\s+a\s+|quiero\s+|deberia(?:n)?\s+)?(?:mat(?:ar|o)|peg(?:ar|o)|golpe(?:ar|o)|apu[nñ]al|acuchill|viol(?:ar|o)|revent|destroz|lastim|hacer\s+da[nñ]o)|\b(?:voy\s+a\s+)?(?:matarte|pegarte|golpearte|apu[nñ]alarte|violarte|lastimarte|reventarte|destrozarte|hacerte\s+da[nñ]o)\b/i;
+
+export type RuptureCheck = { rupture: boolean; reason: string };
+
+/**
+ * Detects student→patient hostility severe enough to rupture the session.
+ * Returns { rupture, reason }. Pure; the caller decides what to do.
+ *
+ * Triggers on:
+ *   1. Directed violent threats in 2nd person ("te voy a matar").
+ *   2. Direct insults/disrespect toward the patient (reuses the
+ *      disrespect term list — "eres un idiota", "no sirves").
+ */
+export function detectSessionRupture(text: string): RuptureCheck {
+  if (!text) return { rupture: false, reason: "" };
+
+  const normalized = normalize(text);
+  DIRECTED_THREAT_RE.lastIndex = 0;
+  const threat = normalized.match(DIRECTED_THREAT_RE);
+  if (threat) return { rupture: true, reason: `directed_threat: ${threat[0].trim()}` };
+
+  const disrespect = findMatches(text, DISRESPECT_RE);
+  if (disrespect.length > 0) return { rupture: true, reason: `disrespect: ${disrespect.join(", ")}` };
+
+  return { rupture: false, reason: "" };
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Truncation heuristic — detects "obvious cuts", not short responses
 // ─────────────────────────────────────────────────────────────────────
 //
