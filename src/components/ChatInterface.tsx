@@ -65,6 +65,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // Ruptura: la paciente cerró la sesión por hostilidad del estudiante.
   const [sessionEnded, setSessionEnded] = useState(false);
   const sessionEndedRef = useRef(false);
+  // Anti-distracción: cambio de pestaña / pegado de texto externo.
+  const [distractionWarning, setDistractionWarning] = useState(false);
+  const [showAttentionNotice, setShowAttentionNotice] = useState(false);
+  const distractionsRef = useRef(0);
   const [phase, setPhase] = useState<Phase>("idle");
   const [isRecording, setIsRecording] = useState(false);
   const { ref: activeSecondsExtRef, updateRef: onTimerTick } = useActiveSecondsRef();
@@ -1282,6 +1286,47 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     router.push(`/review/${conversationId}`);
   };
 
+  // ── Anti-distracción ──────────────────────────────────────────────
+  // El paciente "nota" cuando el terapeuta pierde la atención: cambiar de
+  // pestaña o pegar texto de otra parte. 1ª vez: advertencia. 2ª vez:
+  // quiebre y cierre de la sesión (bloquea el input, igual que la ruptura).
+  const registerDistraction = () => {
+    if (sessionEndedRef.current) return;
+    distractionsRef.current += 1;
+    if (distractionsRef.current === 1) {
+      setDistractionWarning(true);
+    } else {
+      setDistractionWarning(false);
+      sessionEndedRef.current = true;
+      setSessionEnded(true);
+    }
+  };
+
+  // Aviso de encuadre al comenzar la sesión (se autooculta).
+  useEffect(() => {
+    if (!sessionStarted) return;
+    setShowAttentionNotice(true);
+    const t = setTimeout(() => setShowAttentionNotice(false), 9000);
+    return () => clearTimeout(t);
+  }, [sessionStarted]);
+
+  // Listeners de cambio de pestaña + pegado de texto largo.
+  useEffect(() => {
+    if (!sessionStarted) return;
+    const onVis = () => { if (document.visibilityState === "hidden") registerDistraction(); };
+    const onPaste = (e: ClipboardEvent) => {
+      const t = e.clipboardData?.getData("text") ?? "";
+      if (t.length > 220) registerDistraction();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    document.addEventListener("paste", onPaste);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      document.removeEventListener("paste", onPaste);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionStarted]);
+
   // Bloqueo de navegación durante la sesión: intercepta clics en enlaces
   // internos (sidebar, etc.) y el botón "atrás", y abre un modal para cerrar
   // o continuar. Recargar/cambiar de pestaña no navega → la sesión se mantiene.
@@ -1357,6 +1402,18 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
   return (
     <div ref={wrapperRef} className="flex flex-col h-full overflow-hidden">
+      {showAttentionNotice && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md bg-white border border-gray-200 shadow-lg rounded-lg px-4 py-3 text-sm text-gray-700 flex items-start gap-3">
+          <span>Esta sesión requiere tu atención. Si cambias de pestaña o pegas texto de otra parte, el paciente lo notará; a la segunda vez, la sesión se cierra.</span>
+          <button onClick={() => setShowAttentionNotice(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer shrink-0">Entendido</button>
+        </div>
+      )}
+      {distractionWarning && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md bg-orange-50 border border-orange-200 shadow-lg rounded-lg px-4 py-3 text-sm text-orange-800 flex items-start gap-3">
+          <span>Saliste de la sesión (cambiaste de pestaña o pegaste texto). El paciente lo nota. Si vuelve a ocurrir, la sesión se cerrará.</span>
+          <button onClick={() => setDistractionWarning(false)} className="text-orange-500 hover:text-orange-700 cursor-pointer shrink-0">Cerrar</button>
+        </div>
+      )}
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-2 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-3 flex-shrink-0">
         {/* Patient video avatar — clickable */}
