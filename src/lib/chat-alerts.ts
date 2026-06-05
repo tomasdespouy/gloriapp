@@ -134,7 +134,10 @@ const SELF_HARM_TERMS = [
   "suicidio", "suicidarme", "suicidarse", "suicida",
   "matarme", "matarnos",
   "morirme", "quiero morir", "quisiera morir",
-  "no quiero vivir", "no tiene sentido vivir", "no quiero seguir",
+  "no quiero vivir", "no tiene sentido vivir",
+  // "no quiero seguir" a secas daba falsos positivos ("no quiero seguir
+  // con esto/la sesión"). Exigimos contexto vital.
+  "no quiero seguir viviendo", "no quiero seguir vivo", "no quiero seguir aca",
   "cortarme", "cortarse", "hacerme dano", "hacerme daño",
   "lastimarme", "lastimarse",
   "acabar con mi vida", "acabar con todo",

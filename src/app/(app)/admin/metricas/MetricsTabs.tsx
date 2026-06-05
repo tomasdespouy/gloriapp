@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Activity, BarChart3, Server, Users } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, Server, Users } from "lucide-react";
 import LiveMetrics from "./LiveMetrics";
 import SystemMetrics from "./SystemMetrics";
+import AlertsPanel from "./AlertsPanel";
 import MonitorPanel from "@/components/monitor/MonitorPanel";
 
 export default function MetricsTabs({ children }: { children: React.ReactNode }) {
-  const [tab, setTab] = useState<"live" | "personas" | "historic" | "system">("live");
+  const [tab, setTab] = useState<"live" | "personas" | "alertas" | "historic" | "system">("live");
 
   return (
     <div>
@@ -30,6 +31,15 @@ export default function MetricsTabs({ children }: { children: React.ReactNode })
         >
           <Users size={16} />
           Personas
+        </button>
+        <button
+          onClick={() => setTab("alertas")}
+          className={`tab-btn flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
+            tab === "alertas" ? "border-orange-500 text-orange-600" : "border-transparent text-gray-400"
+          }`}
+        >
+          <AlertTriangle size={16} />
+          Alertas
         </button>
         <button
           onClick={() => setTab("historic")}
@@ -59,6 +69,11 @@ export default function MetricsTabs({ children }: { children: React.ReactNode })
       {tab === "personas" && (
         <div className="px-4 sm:px-8 pb-8">
           <MonitorPanel scope={{ kind: "all" }} showFilters />
+        </div>
+      )}
+      {tab === "alertas" && (
+        <div className="px-4 sm:px-8 pb-8">
+          <AlertsPanel />
         </div>
       )}
       {tab === "historic" && children}
