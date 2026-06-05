@@ -35,6 +35,10 @@ export default function AlertsPanel() {
   const [highOnly, setHighOnly] = useState(true);
   const [unreviewedOnly, setUnreviewedOnly] = useState(false);
   const [unreviewed, setUnreviewed] = useState(0);
+  // Visor de conversación al hacer click en una alerta.
+  const [openConv, setOpenConv] = useState<Alert | null>(null);
+  const [transcript, setTranscript] = useState<{ role: string; content: string; created_at: string }[] | null>(null);
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,6 +58,29 @@ export default function AlertsPanel() {
   }, [highOnly, unreviewedOnly]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Carga la transcripción completa de la conversación de la alerta abierta.
+  // Reutiliza el endpoint del monitor (alcance por rol + conversación↔alumno).
+  useEffect(() => {
+    if (!openConv?.conversation_id || !openConv.student_id) return;
+    let cancelled = false;
+    setTranscript(null);
+    setTranscriptLoading(true);
+    fetch(`/api/monitor/students/${openConv.student_id}/conversations/${openConv.conversation_id}/transcript`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d: { messages?: { role: string; content: string; created_at: string }[] }) => { if (!cancelled) setTranscript(d.messages || []); })
+      .catch(() => { if (!cancelled) setTranscript([]); })
+      .finally(() => { if (!cancelled) setTranscriptLoading(false); });
+    return () => { cancelled = true; };
+  }, [openConv]);
+
+  // Cerrar el visor con Escape.
+  useEffect(() => {
+    if (!openConv) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpenConv(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openConv]);
 
   const markReviewed = async (id: string, reviewed: boolean) => {
     setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, reviewed_at: reviewed ? new Date().toISOString() : null } : a)));
@@ -131,7 +158,11 @@ export default function AlertsPanel() {
                   </td>
                   <td className="px-3 py-2 text-gray-600">{a.patient_name ?? "—"}</td>
                   <td className="px-3 py-2 text-gray-600 max-w-xs">
-                    <span className="line-clamp-2" title={a.sample ?? ""}>{a.sample ?? "—"}</span>
+                    <button
+                      onClick={() => setOpenConv(a)}
+                      className="text-left line-clamp-2 hover:text-sidebar hover:underline cursor-pointer"
+                      title="Ver conversación completa"
+                    >{a.sample ?? "(ver conversación)"}</button>
                     {a.matched_terms && <div className="text-xs text-gray-400 mt-0.5">[{a.matched_terms}]</div>}
                   </td>
                   <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{fmt(a.created_at)}</td>
@@ -148,6 +179,46 @@ export default function AlertsPanel() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {openConv && (
+        <div className="fixed inset-0 z-[90]" onClick={() => setOpenConv(null)}>
+          <div className="absolute inset-0 bg-black/30" />
+          <div className="absolute right-0 top-0 bottom-0 w-full sm:w-[460px] bg-white shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <header className="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-3 flex-shrink-0">
+              <div className="min-w-0">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Conversación</p>
+                <h3 className="text-sm font-semibold text-gray-900 truncate">{openConv.patient_name ?? "Paciente"}</h3>
+                <p className="text-xs text-gray-500 truncate">{openConv.student_name ?? openConv.student_email ?? "—"}</p>
+                <p className="mt-1">
+                  <span className={`text-[11px] font-semibold rounded px-1.5 py-0.5 border ${SEV_STYLES[openConv.severity]}`}>
+                    {ALERT_SEVERITY_LABELS[openConv.severity]} · {ALERT_KIND_LABELS[openConv.kind] ?? openConv.kind}
+                  </span>
+                </p>
+              </div>
+              <button onClick={() => setOpenConv(null)} className="shrink-0 text-gray-400 hover:text-gray-700 cursor-pointer text-lg leading-none" aria-label="Cerrar">×</button>
+            </header>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {transcriptLoading && <p className="text-xs text-gray-400 italic text-center py-6">Cargando conversación…</p>}
+              {!transcriptLoading && transcript && transcript.length === 0 && (
+                <p className="text-xs text-gray-400 italic text-center py-6">Sin mensajes o sin acceso a esta conversación.</p>
+              )}
+              {!transcriptLoading && transcript && transcript.map((m, i) => {
+                const core = (openConv.sample ?? "").replace(/…$/, "").slice(0, 40).trim();
+                const isAlertMsg = core.length > 0 && m.content.includes(core);
+                return (
+                  <div key={i} className={`rounded-lg px-3 py-2 text-xs ${m.role === "user" ? "bg-sidebar/10 text-gray-900" : "bg-gray-50 text-gray-700"} ${isAlertMsg ? "ring-2 ring-orange-300" : ""}`}>
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <span className="text-[9px] uppercase tracking-wide font-semibold text-gray-400">{m.role === "user" ? "Terapeuta" : "Paciente"}</span>
+                      <span className="text-[9px] text-gray-400 tabular-nums">{new Date(m.created_at).toLocaleTimeString("es-CL", { timeZone: "America/Santiago", hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <p className="whitespace-pre-wrap">{m.content}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>
