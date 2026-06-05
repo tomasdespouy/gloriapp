@@ -61,7 +61,7 @@ Responde SOLO con JSON válido:
 {
   "summary": "Resumen narrativo de 80-120 palabras en tercera persona neutral. Qué temas se abordaron, cómo reaccionó el paciente, qué intervenciones realizó el terapeuta. Incluir datos concretos mencionados (nombres, lugares, eventos).",
   "key_revelations": ["Dato o información clínicamente relevante que surgió", "Otro dato relevante"],
-  "commitments": ["Acuerdo o tarea concreta definida para la próxima sesión, si la hubo (ej: 'el paciente registrará cuándo aparece la ansiedad', 'retomar el tema del padre'). Lista vacía si no se acordó nada."],
+  "commitments": ["Acuerdos concretos para la próxima sesión, INCLUYENDO la próxima cita acordada si la hubo, con día y hora (ej: 'próxima cita: jueves a las 12:00', 'el paciente registrará cuándo aparece la ansiedad'). Lista vacía si no se acordó nada."],
   "therapeutic_progress": "Una oración describiendo el estado de la relación terapéutica al final de esta sesión."
 }` }],
     "Eres un asistente que genera resúmenes compactos de sesiones terapéuticas desde una perspectiva observacional neutral. Solo JSON."

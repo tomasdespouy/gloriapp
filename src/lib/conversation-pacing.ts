@@ -300,5 +300,91 @@ Reglas:
 - Pregunta solo UNA vez. Si la respuesta natural seria muy corta, esta pregunta puede ser tu mensaje completo.
 - No insistas en turnos siguientes — esta es tu unica oportunidad de preguntar el nombre con esta intencionalidad.
 - Manten tu personalidad al pie: si eres timido(a), preguntalo con vacilacion; si eres ansioso(a), con urgencia.
+- Aprovecha para ofrecer TAMBIEN tu propio nombre (el del paciente) en el mismo intercambio, de forma natural y breve (ej: "...y usted, ¿como se llama? Yo soy [tu nombre]."). Sobrio, acorde a tu reserva inicial.
 - Si el terapeuta ya dijo su nombre y no lo notaste, mejor di "perdon, no le entendi bien" en vez de inventar uno.\n`;
+}
+
+/**
+ * Caso A de reciprocidad de presentacion: si el terapeuta se presento por
+ * su nombre al inicio, el paciente devuelve el gesto dando el suyo,
+ * MODULADO por su personalidad. Conservador por defecto: sobrio o timido,
+ * no efusivo. Solo en la primera sesion y en los primeros turnos.
+ *
+ * Es excluyente con buildIntroductionRule (ese solo dispara cuando el
+ * terapeuta NO se presento).
+ */
+export function buildSelfIntroductionRule(
+  turnNumber: number,
+  sessionNumber: number | null | undefined,
+  therapistIntroducedThisTurn: boolean,
+): string {
+  if (!therapistIntroducedThisTurn) return "";
+  if (turnNumber > 2) return "";
+  if (sessionNumber != null && sessionNumber !== 1) return "";
+
+  return `\n\n[RECIPROCIDAD DE PRESENTACION]
+El terapeuta se presento por su nombre. Es natural devolver el gesto: en esta respuesta, di TU nombre (el del paciente) de forma BREVE, junto a tu saludo.
+- Hazlo en coherencia con tu reserva inicial: por defecto es un "...soy [tu nombre]" sobrio o timido, NO un saludo efusivo.
+- Solo si tu personalidad es marcadamente calida o ansiosa por agradar, puedes sonar un poco mas amable.
+- No te extiendas, no expliques por que viniste, no hagas preguntas. Solo tu nombre + un saludo breve.\n`;
+}
+
+const INSIST_GRACE = 2; // turnos de insistencia tras el ask antes del quiebre
+
+/**
+ * Escalada cuando el terapeuta NO entrega su nombre tras habérselo
+ * preguntado: el paciente INSISTE (no acepta "usted"/"doctor"/evasiva), y
+ * si sigue sin darlo, se produce un QUIEBRE de la relacion (cierra sesion).
+ *
+ * Devuelve { rule, rupture }. rupture=true => la ruta cierra la sesion.
+ * Solo primera sesion y solo si el terapeuta nunca dio un nombre.
+ */
+export function buildNameEscalation(
+  profile: PacingProfile,
+  turnNumber: number,
+  sessionNumber: number | null | undefined,
+  studentMessages: string[],
+): { rule: string; rupture: boolean } {
+  const intro = profile.introductionProtocol;
+  if (!intro) return { rule: "", rupture: false };
+  if (sessionNumber != null && sessionNumber !== 1) return { rule: "", rupture: false };
+  if (hasStudentIntroducedName(studentMessages)) return { rule: "", rupture: false };
+
+  const ask = intro.askNameAtTurn;
+  if (turnNumber <= ask) return { rule: "", rupture: false }; // el ask inicial lo maneja buildIntroductionRule
+
+  if (turnNumber <= ask + INSIST_GRACE) {
+    return {
+      rule: `\n\n[INSISTENCIA POR EL NOMBRE]
+Ya preguntaste el nombre del terapeuta y aun no te lo da, o te respondio con evasivas / "usted" / "doctor" / "doctora". Te incomoda cada vez mas hablar de algo intimo sin saber con quien. En ESTA respuesta INSISTE, mas directo(a) pero en personaje: deja claro que necesitas saber su nombre para sentirte en confianza. NO aceptes "doctor", "doctora", "usted" ni una evasiva como respuesta valida.\n`,
+      rupture: false,
+    };
+  }
+
+  return {
+    rule: `\n\n[QUIEBRE POR FALTA DE NOMBRE — PRIORIDAD MAXIMA]
+Preguntaste varias veces el nombre del terapeuta y sigue sin dartelo o te evade. No te sientes capaz de seguir abriendote con alguien que ni siquiera te dice su nombre. CIERRA la conversacion en personaje: di, breve (1-2 frases) y sin insultar, que asi no te sientes en confianza y que prefieres dejarlo aca.\n`,
+    rupture: true,
+  };
+}
+
+// Intencion de cierre del terapeuta (despedida) y deteccion de fecha/dia.
+const CLOSING_RE = /\b(nos vemos|hasta (la proxima|luego|pronto|el)|me despido|eso ser[ií]a (todo|por hoy)|terminemos|cerremos|seguimos (la proxima|el)|gracias por (hoy|la sesion|venir)|nos vemos la proxima|que (tenga|tengas) (buen|buena)|chao|cha[uo]|adi[oó]s|hasta el)\b/i;
+// Solo fechas CONCRETAS (dia de semana, mañana, hora, fecha numerica).
+// "la proxima (semana)" es vago a proposito → el paciente debe pedir el dia.
+const DATE_RE = /\b(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|ma[ñn]ana|pasado ma[ñn]ana|\d{1,2}\s*(de|\/|-)\s*\w+|a las\s*\d|\d{1,2}\s*(am|pm|hrs|hr|h\b))\b/i;
+
+/**
+ * Si el terapeuta esta cerrando la sesion (se despide) pero NO menciona
+ * cuando es la proxima cita, el paciente pregunta directamente por la
+ * fecha/dia. Da realismo y deja registrada la proxima cita.
+ */
+export function buildClosingAppointmentRule(userMessages: string[]): string {
+  const closing = userMessages.some((m) => CLOSING_RE.test(stripAccents(m)));
+  if (!closing) return "";
+  const hasDate = userMessages.some((m) => DATE_RE.test(stripAccents(m)));
+  if (hasDate) return "";
+
+  return `\n\n[CIERRE SIN FECHA — PREGUNTA POR LA PROXIMA CITA]
+El terapeuta esta cerrando la sesion pero no dijo cuando es la proxima vez. ANTES de despedirte, preguntale de forma natural para cuando quedan, en tu estilo y breve: "¿Y para cuando quedamos?", "¿que dia nos vemos?", "¿la proxima semana a la misma hora?", "¿que dia me dijo?". No te despidas sin preguntarlo.\n`;
 }
