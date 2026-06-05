@@ -62,6 +62,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [isStreaming, setIsStreaming] = useState(false);
   const [conversationId, setConversationId] = useState<string | undefined>(initialConvId);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  // Ruptura: la paciente cerró la sesión por hostilidad del estudiante.
+  const [sessionEnded, setSessionEnded] = useState(false);
+  const sessionEndedRef = useRef(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [isRecording, setIsRecording] = useState(false);
   const { ref: activeSecondsExtRef, updateRef: onTimerTick } = useActiveSecondsRef();
@@ -515,8 +518,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
   const fireSilenceStage = async (stage: number) => {
     console.log(`[silence] fire stage ${stage}, isStreaming=${isStreamingRef.current}, voiceMode=${voiceModeRef.current}, ttsPlaying=${ttsPlayingRef.current}`);
-    if (!conversationId || isStreamingRef.current) {
-      console.log(`[silence] aborted: ${!conversationId ? "no conversationId" : "streaming"}`);
+    if (!conversationId || isStreamingRef.current || sessionEndedRef.current) {
+      console.log(`[silence] aborted: ${!conversationId ? "no conversationId" : sessionEndedRef.current ? "session ended" : "streaming"}`);
       return;
     }
     // Don't fire silence while TTS is playing (voice mode walkie-talkie)
@@ -1032,6 +1035,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   };
 
   const sendMessage = async (overrideText?: string) => {
+    if (sessionEndedRef.current) return; // sesión cerrada por ruptura
     const trimmed = (overrideText || input).trim();
     if (!trimmed) return;
 
@@ -1208,6 +1212,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               };
               return updated;
             });
+          } else if (data.type === "session_ended") {
+            // Ruptura: la paciente cerró la sesión. Bloqueamos el input.
+            sessionEndedRef.current = true;
+            setSessionEnded(true);
           }
         }
       }
@@ -1984,15 +1992,15 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               }
             }}
             onKeyDown={handleKeyDown}
-            placeholder={sessionStarted ? "Dirige la sesión como terapeuta…" : "Presiona \"Iniciar sesión\" para comenzar"}
+            placeholder={sessionEnded ? "La sesión terminó. Ve a la revisión para ver el resumen." : sessionStarted ? "Dirige la sesión como terapeuta…" : "Presiona \"Iniciar sesión\" para comenzar"}
             rows={1}
             className={`flex-1 min-w-0 resize-none bg-transparent border-0 outline-none focus:outline-none focus:ring-0 px-1 py-[7px] text-sm leading-[22px] min-h-[36px] disabled:text-gray-400 placeholder:text-gray-400 ${voiceMode ? "overflow-y-auto" : "overflow-hidden"}`}
-            disabled={!sessionStarted}
+            disabled={!sessionStarted || sessionEnded}
           />
 
           <button
             onClick={toggleRecording}
-            disabled={isStreaming}
+            disabled={isStreaming || sessionEnded}
             className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 cursor-pointer ${
               isRecording
                 ? "bg-red-500 hover:bg-red-600 text-white"
@@ -2006,7 +2014,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           <button
             data-send-btn
             onClick={() => sendMessage()}
-            disabled={isStreaming || !input.trim()}
+            disabled={isStreaming || !input.trim() || sessionEnded}
             className="bg-sidebar hover:bg-[#354080] text-white h-9 px-3 sm:px-4 rounded-lg flex items-center justify-center gap-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:hover:bg-sidebar cursor-pointer disabled:cursor-not-allowed flex-shrink-0"
           >
             <Send size={16} />
