@@ -32,6 +32,7 @@ interface ChatInterfaceProps {
   initialActiveSeconds?: number;
   userAvatarUrl?: string | null;
   userName?: string;
+  nextAppointment?: string | null;
 }
 
 type Phase = "idle" | "thinking" | "writing";
@@ -54,7 +55,7 @@ const DEFAULT_SILENCE_THRESHOLDS_MS = [60_000, 120_000, 210_000, 300_000];
 const SEND_DEBOUNCE_MS = 4000;
 const SEND_INDICATOR_DELAY_MS = 1500;
 
-export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "" }: ChatInterfaceProps) {
+export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "", nextAppointment = null }: ChatInterfaceProps) {
   console.log("[ChatInterface] Mount:", { patient: patient.name, patientId: patient.id, conversationId: initialConvId, initialMessagesCount: initialMessages.length, voiceId: patient.voice_id });
   const userInitials = userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -69,6 +70,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [distractionWarning, setDistractionWarning] = useState(false);
   const [showAttentionNotice, setShowAttentionNotice] = useState(false);
   const distractionsRef = useRef(0);
+  // Bloqueo suave: aviso de la próxima cita acordada al re-entrar.
+  const [showAppointmentNotice, setShowAppointmentNotice] = useState(Boolean(nextAppointment) && initialMessages.length === 0);
   const [phase, setPhase] = useState<Phase>("idle");
   const [isRecording, setIsRecording] = useState(false);
   const { ref: activeSecondsExtRef, updateRef: onTimerTick } = useActiveSecondsRef();
@@ -1402,6 +1405,12 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
   return (
     <div ref={wrapperRef} className="flex flex-col h-full overflow-hidden">
+      {showAppointmentNotice && !sessionStarted && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md bg-white border border-sidebar/30 shadow-lg rounded-lg px-4 py-3 text-sm text-gray-700 flex items-start gap-3">
+          <span>En tu última sesión con {patient.name} quedaron en: <strong>{nextAppointment}</strong>. ¿Comenzar igual ahora?</span>
+          <button onClick={() => setShowAppointmentNotice(false)} className="text-sidebar hover:underline cursor-pointer shrink-0 font-medium">Comenzar igual</button>
+        </div>
+      )}
       {showAttentionNotice && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md bg-white border border-gray-200 shadow-lg rounded-lg px-4 py-3 text-sm text-gray-700 flex items-start gap-3">
           <span>Esta sesión requiere tu atención. Si cambias de pestaña o pegas texto de otra parte, el paciente lo notará; a la segunda vez, la sesión se cierra.</span>
