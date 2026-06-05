@@ -391,7 +391,7 @@ Responde SOLO con JSON v\u00e1lido:
 {
   "summary": "Resumen narrativo de 80-120 palabras en tercera persona neutral. Qu\u00e9 temas se abordaron, c\u00f3mo reaccion\u00f3 el paciente, qu\u00e9 intervenciones realiz\u00f3 el terapeuta. Incluir datos concretos mencionados (nombres, lugares, eventos).",
   "key_revelations": ["Dato o informaci\u00f3n cl\u00ednicamente relevante que surgi\u00f3", "Otro dato relevante"],
-  "commitments": ["Acuerdo o tarea concreta definida para la pr\u00f3xima sesi\u00f3n, si la hubo (ej: 'el paciente registrar\u00e1 cu\u00e1ndo aparece la ansiedad'). Lista vac\u00eda si no se acord\u00f3 nada."],
+  "commitments": ["Acuerdos concretos para la pr\u00f3xima sesi\u00f3n, INCLUYENDO la pr\u00f3xima cita acordada si la hubo, con d\u00eda y hora (ej: 'pr\u00f3xima cita: jueves a las 12:00', 'el paciente registrar\u00e1 cu\u00e1ndo aparece la ansiedad'). Lista vac\u00eda si no se acord\u00f3 nada."],
   "therapeutic_progress": "Una oraci\u00f3n describiendo el estado de la relaci\u00f3n terap\u00e9utica al final de esta sesi\u00f3n."
 }` }],
     "Eres un asistente que genera res\u00famenes compactos de sesiones terap\u00e9uticas desde una perspectiva observacional neutral. Solo JSON."
