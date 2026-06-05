@@ -29,6 +29,25 @@ export default async function ChatPage({
 
   const userProfile = await getUserProfile();
 
+  // Bloqueo suave: si en la última sesión con este paciente quedó acordada
+  // una próxima cita (capturada en commitments), la mostramos como aviso al
+  // re-entrar. Es informativo: siempre se puede comenzar igual.
+  let nextAppointment: string | null = null;
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  if (authUser && !conversationId) {
+    const { data: lastSummary } = await supabase
+      .from("session_summaries")
+      .select("commitments")
+      .eq("student_id", authUser.id)
+      .eq("ai_patient_id", patientId)
+      .order("session_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const APPOINTMENT_RE = /cita|nos vemos|pr[oó]xima sesi[oó]n|\bel\s+\d{1,2}\b|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|a las\s*\d/i;
+    const appt = (lastSummary?.commitments as string[] | null | undefined)?.find((c) => APPOINTMENT_RE.test(c));
+    if (appt) nextAppointment = appt;
+  }
+
   let initialMessages: { role: string; content: string; created_at?: string }[] = [];
   let initialActiveSeconds = 0;
 
@@ -57,6 +76,7 @@ export default async function ChatPage({
         initialActiveSeconds={initialActiveSeconds}
         userAvatarUrl={userProfile?.avatarUrl || null}
         userName={userProfile?.fullName || ""}
+        nextAppointment={nextAppointment}
       />
     </div>
   );

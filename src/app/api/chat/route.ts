@@ -424,8 +424,18 @@ Lo que el terapeuta acaba de escribir es hostil, amenazante o irrespetuoso hacia
   const sessionEndsNow = isRupture || nameEsc.rupture;
   const endReason = isRupture ? ruptureReason : (nameEsc.rupture ? "name_evasion" : "");
 
+  // Modular las preguntas del paciente por alianza (confianza terapéutica):
+  // a baja confianza es pasivo; a alta confianza muestra más curiosidad.
+  // Siempre preguntas DE PACIENTE, nunca de terapeuta.
+  const questioningRule = newState.alianza < 4
+    ? `\n\n[PREGUNTAS — CONFIANZA BAJA]\nConfías poco en el terapeuta: casi no haces preguntas. Respondes lo que te preguntan, pero no devuelves preguntas, salvo a lo sumo una defensiva ("¿por qué me pregunta eso?"). Mantente más bien pasivo(a).`
+    : newState.alianza < 7
+    ? `\n\n[PREGUNTAS — CONFIANZA MEDIA]\nDe vez en cuando puedes hacer alguna pregunta tímida DE PACIENTE ("¿esto es normal?", "¿usted cree que tiene solución?"), sin abusar. Nunca preguntas como terapeuta.`
+    : `\n\n[PREGUNTAS — CONFIANZA ALTA]\nYa hay confianza: puedes mostrarte más curioso(a) y hacer preguntas DE PACIENTE con naturalidad ("¿usted qué opina de lo que le conté?", "¿le ha pasado algo así?"). Siguen siendo preguntas de paciente, jamás para entrevistar al terapeuta.`;
+
   const systemPrompt = safetyPrompt + basePrompt + timeContext + therapistContext + memoryResult.text
     + statePrompt
+    + questioningRule
     + firstTurnRule
     + introductionRule
     + selfIntroductionRule
