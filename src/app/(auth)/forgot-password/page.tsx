@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 
 export default function ForgotPasswordPage() {
@@ -19,17 +18,27 @@ export default function ForgotPasswordPage() {
     setError("");
     setLoading(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-    });
-
-    if (error) {
-      setError(error.message);
+    // Enviamos el correo de recuperación por Resend (vía API), no por el email
+    // nativo de Supabase, que en producción no entrega de forma confiable.
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "No se pudo procesar la solicitud. Inténtalo de nuevo.");
+        setLoading(false);
+        return;
+      }
+    } catch {
+      setError("No se pudo conectar. Revisa tu conexión e inténtalo de nuevo.");
       setLoading(false);
       return;
     }
 
+    // Respuesta genérica: por seguridad no revelamos si el email existe.
     setSuccess(true);
     setLoading(false);
   };
