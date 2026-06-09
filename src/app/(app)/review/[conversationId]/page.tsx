@@ -95,12 +95,25 @@ export default async function ReviewPage({
       : { feedback_status: existingEval.feedback_status }
     : null;
 
-  // Get teacher feedback (comment + score)
+  // Get teacher feedback (comment + score) + whether the student already
+  // saved a self-reflection. `hasReflection` lets the client decide if the
+  // reflection form should still be offered when an AI evaluation already
+  // exists (e.g. the session was re-evaluated in batch before the student
+  // got to reflect).
   const { data: teacherFeedback } = await supabase
     .from("session_feedback")
-    .select("teacher_comment, teacher_score")
+    .select(
+      "teacher_comment, teacher_score, alliance_framing, rupture_moment, nonverbal_cues, intervention_types, clinical_hypothesis, discomfort_moment, would_redo, clinical_note"
+    )
     .eq("conversation_id", conversationId)
     .single();
+
+  const hasReflection = !!teacherFeedback && [
+    teacherFeedback.alliance_framing, teacherFeedback.rupture_moment,
+    teacherFeedback.nonverbal_cues, teacherFeedback.intervention_types,
+    teacherFeedback.clinical_hypothesis, teacherFeedback.discomfort_moment,
+    teacherFeedback.would_redo, teacherFeedback.clinical_note,
+  ].some((v) => v != null && String(v).trim() !== "");
 
   // Get action items for this conversation
   const { data: actionItems } = await supabase
@@ -151,6 +164,7 @@ export default async function ReviewPage({
       actionItems={actionItems || []}
       initialSessionNotes={conversation.student_notes_v2 || ""}
       skipReflection={skipReflection}
+      hasReflection={hasReflection}
     />
   );
 }

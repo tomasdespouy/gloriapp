@@ -40,6 +40,11 @@ interface Props {
   actionItems: ActionItem[];
   initialSessionNotes: string;
   skipReflection?: boolean;
+  /** Whether the student already saved a self-reflection for this session.
+      When false but an AI evaluation already exists (pending), the reflection
+      form is still offered so the student can complete it late (it saves via
+      the reflect-only endpoint, without re-evaluating). */
+  hasReflection?: boolean;
 }
 
 // Collapsible side panel that shows the just-finished conversation as study
@@ -190,9 +195,13 @@ export default function ReviewClient({
   actionItems: initialActionItems,
   initialSessionNotes,
   skipReflection = false,
+  hasReflection = false,
 }: Props) {
   const router = useRouter();
   const canSeeResults = feedbackStatus === "approved" || feedbackStatus === "evaluated";
+  // Late reflection: an AI evaluation exists (pending) but the student never
+  // saved a reflection — offer the form anyway and save it without re-evaluating.
+  const lateReflection = !!existingEvaluation && !canSeeResults && !hasReflection;
   const chatMessages = messages.filter((m) => m.role !== "system");
   const [showRadarModal, setShowRadarModal] = useState(false);
   const [actionItems, setActionItems] = useState<ActionItem[]>(initialActionItems);
@@ -202,7 +211,7 @@ export default function ReviewClient({
   const [acknowledging, setAcknowledging] = useState(false);
   const [step, setStep] = useState<"reflect" | "loading" | "results" | "pending">(
     existingEvaluation
-      ? canSeeResults ? "results" : "pending"
+      ? canSeeResults ? "results" : lateReflection ? "reflect" : "pending"
       : "reflect"
   );
   // Legacy fields (kept for old data compatibility)
@@ -431,24 +440,40 @@ export default function ReviewClient({
     // in the response payload (preserves the existing experience).
     setStep("pending");
 
-    const fastParam = skipReflection ? "?fast=true" : "";
+    const reflectionBody = JSON.stringify({
+      discomfort_moment: discomfortMoment,
+      would_redo: wouldRedo,
+      clinical_note: clinicalNote,
+      alliance_framing: allianceFraming,
+      rupture_moment: ruptureMoment,
+      nonverbal_cues: nonverbalCues,
+      intervention_types: interventionTypes,
+      clinical_hypothesis: clinicalHypothesis,
+    });
 
     try {
+      // Late reflection: the AI evaluation already exists. Only persist the
+      // reflection (no re-evaluation, no XP/notification side effects).
+      if (lateReflection) {
+        const res = await fetch(`/api/sessions/${conversationId}/reflect`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: reflectionBody,
+        });
+        if (!res.ok) throw new Error("Error");
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("gloria:reflection-submitted"));
+        }
+        return; // Stays on the "pending" screen.
+      }
+
+      const fastParam = skipReflection ? "?fast=true" : "";
       const res = await fetch(
         `/api/sessions/${conversationId}/complete${fastParam}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            discomfort_moment: discomfortMoment,
-            would_redo: wouldRedo,
-            clinical_note: clinicalNote,
-            alliance_framing: allianceFraming,
-            rupture_moment: ruptureMoment,
-            nonverbal_cues: nonverbalCues,
-            intervention_types: interventionTypes,
-            clinical_hypothesis: clinicalHypothesis,
-          }),
+          body: reflectionBody,
         },
       );
 
