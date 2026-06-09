@@ -327,7 +327,7 @@ export default function TopHeader({ userName, userEmail, userRole, realRole, ava
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">Soporte t&eacute;cnico</h2>
-                  <p className="text-xs text-gray-500">Tu mensaje llegar&aacute; a idea@ugm.cl</p>
+                  <p className="text-xs text-gray-500">Te responderemos a la brevedad a tu correo</p>
                 </div>
               </div>
               <button onClick={() => setShowSupport(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>

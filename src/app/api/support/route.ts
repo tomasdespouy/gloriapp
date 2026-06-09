@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   const resend = getResend();
   const { error } = await resend.emails.send({
     from: "GlorIA Soporte <noreply@glor-ia.com>",
-    to: process.env.SUPPORT_EMAIL || "tomasdespouy@gmail.com",
+    to: "info@glor-ia.com",
     replyTo: userEmail,
     subject: `[GlorIA Soporte] ${subject.trim()}`,
     html: `
