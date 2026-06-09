@@ -21,6 +21,22 @@ export type DrawerConversation = {
 
 type TranscriptMessage = { role: string; content: string; created_at: string };
 
+const TZ = "America/Santiago";
+// Clave de día estable (YYYY-MM-DD en hora de Chile) para detectar cambios de día.
+const dayKey = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ });
+// Etiqueta de día legible para el separador, p. ej. "miércoles, 27 de mayo de 2026".
+const dayLabel = (iso: string) =>
+  new Date(iso).toLocaleDateString("es-CL", { timeZone: TZ, weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const timeLabel = (iso: string) =>
+  new Date(iso).toLocaleTimeString("es-CL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+// Brecha legible entre dos mensajes ("3 h", "2 días", "45 min").
+const formatGap = (ms: number) => {
+  const min = Math.round(ms / 60000);
+  if (min >= 1440) return `${Math.round(min / 1440)} día${Math.round(min / 1440) === 1 ? "" : "s"}`;
+  if (min >= 60) return `${Math.round(min / 60)} h`;
+  return `${min} min`;
+};
+
 export default function ConversationsDrawer({
   name,
   subtitle,
@@ -236,6 +252,18 @@ export default function ConversationsDrawer({
                 );
               })()}
 
+              {/* Aviso: la conversación abarca varios días → probablemente se
+                  reanudó sin cerrar la sesión, uniendo varias sesiones en una. */}
+              {!transcriptLoading && transcript && transcript.length > 0 && (() => {
+                const days = new Set(transcript.map((m) => dayKey(m.created_at)));
+                if (days.size <= 1) return null;
+                return (
+                  <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-1">
+                    Esta conversación abarca <strong>{days.size} días distintos</strong>. Probablemente se reanudó sin cerrar la sesión anterior, por lo que varias sesiones quedaron unidas en este mismo registro.
+                  </div>
+                );
+              })()}
+
               {transcriptLoading && (
                 <p className="text-xs text-gray-400 italic text-center py-6">Cargando transcripción…</p>
               )}
@@ -244,19 +272,44 @@ export default function ConversationsDrawer({
               )}
               {!transcriptLoading && transcript && transcript.length > 0 && (
                 <div className="space-y-2">
-                  {transcript.map((m, i) => (
-                    <div
-                      key={i}
-                      className={`rounded-lg px-3 py-2 text-xs ${
-                        m.role === "user" ? "bg-sidebar/10 text-gray-900" : "bg-gray-50 text-gray-700"
-                      }`}
-                    >
-                      <p className="text-[9px] uppercase tracking-wide font-semibold text-gray-400 mb-0.5">
-                        {m.role === "user" ? "Terapeuta" : "Paciente"}
-                      </p>
-                      <p className="whitespace-pre-wrap">{m.content}</p>
-                    </div>
-                  ))}
+                  {transcript.map((m, i) => {
+                    const prev = i > 0 ? transcript[i - 1] : null;
+                    const showDay = !prev || dayKey(m.created_at) !== dayKey(prev.created_at);
+                    const gapMs = prev ? Date.parse(m.created_at) - Date.parse(prev.created_at) : 0;
+                    // Salto grande dentro del mismo día (p. ej. pausa de horas).
+                    const showGap = !showDay && gapMs >= 2 * 3600 * 1000;
+                    return (
+                      <div key={i}>
+                        {showDay && (
+                          <div className={`flex items-center gap-2 ${i === 0 ? "mb-3" : "my-3"}`}>
+                            <div className="flex-1 h-px bg-gray-200" />
+                            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                              {dayLabel(m.created_at)}
+                            </span>
+                            <div className="flex-1 h-px bg-gray-200" />
+                          </div>
+                        )}
+                        {showGap && (
+                          <p className="text-[10px] text-amber-600 text-center my-1.5">
+                            ··· reanudada {formatGap(gapMs)} después ···
+                          </p>
+                        )}
+                        <div
+                          className={`rounded-lg px-3 py-2 text-xs ${
+                            m.role === "user" ? "bg-sidebar/10 text-gray-900" : "bg-gray-50 text-gray-700"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-0.5">
+                            <span className="text-[9px] uppercase tracking-wide font-semibold text-gray-400">
+                              {m.role === "user" ? "Terapeuta" : "Paciente"}
+                            </span>
+                            <span className="text-[9px] text-gray-400 tabular-nums">{timeLabel(m.created_at)}</span>
+                          </div>
+                          <p className="whitespace-pre-wrap">{m.content}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
