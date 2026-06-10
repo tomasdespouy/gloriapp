@@ -40,15 +40,6 @@ export default function HeroSection() {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/signup"
-              className="inline-flex items-center justify-center font-semibold text-white bg-[#4A55A2] px-8 py-3.5 rounded-xl hover:bg-[#5C6BB5] transition-colors text-base shadow-lg shadow-black/20 border border-white/15"
-            >
-              Comienza tu Pr&aacute;ctica
-              <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-            </Link>
             <a
               href="#contacto"
               onClick={(e) => {
@@ -56,10 +47,19 @@ export default function HeroSection() {
                 const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
                 document.getElementById("contacto")?.scrollIntoView({ behavior: prefersReduced ? "instant" : "smooth" });
               }}
+              className="inline-flex items-center justify-center font-semibold text-white bg-[#4A55A2] px-8 py-3.5 rounded-xl hover:bg-[#5C6BB5] transition-colors text-base shadow-lg shadow-black/20 border border-white/15"
+            >
+              {"Solicitar una demostración"}
+              <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </a>
+            <Link
+              href="/login"
               className="inline-flex items-center justify-center font-medium text-white/90 border border-white/30 px-8 py-3.5 rounded-xl hover:bg-white/10 transition-colors text-base"
             >
-              Solicitar demo
-            </a>
+              {"Iniciar sesión"}
+            </Link>
           </div>
         </ScrollReveal>
       </div>

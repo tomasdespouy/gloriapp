@@ -148,7 +148,7 @@ export default function AskGloriaDemo() {
           {/* Fake input */}
           <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-2">
             <div className="flex-1 px-3.5 py-2 bg-gray-50 rounded-xl text-[11px] text-gray-300">
-              Regístrate para conversar con GlorIA...
+              Inicia sesión para conversar con GlorIA...
             </div>
             <div className="w-8 h-8 rounded-lg bg-[#4A55A2]/15 flex items-center justify-center">
               <Send size={13} className="text-[#4A55A2]/40" />

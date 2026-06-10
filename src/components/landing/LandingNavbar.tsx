@@ -74,12 +74,13 @@ export default function LandingNavbar() {
             >
               Iniciar Sesi&oacute;n
             </Link>
-            <Link
-              href="/signup"
-              className="text-sm font-medium text-white bg-[#4A55A2] px-4 py-2 rounded-lg hover:bg-[#3D4890] transition-colors"
+            <a
+              href="#contacto"
+              onClick={(e) => handleSmoothScroll(e, "#contacto")}
+              className="text-sm font-medium text-white bg-[#4A55A2] px-4 py-2 rounded-lg hover:bg-[#3D4890] transition-colors cursor-pointer"
             >
-              Comenzar
-            </Link>
+              Solicitar demo
+            </a>
           </div>
 
           {/* Mobile hamburger */}
@@ -113,13 +114,13 @@ export default function LandingNavbar() {
                     >
                       Iniciar Sesi&oacute;n
                     </Link>
-                    <Link
-                      href="/signup"
-                      className="text-center font-medium text-white bg-[#4A55A2] px-4 py-3 rounded-lg hover:bg-[#3D4890] transition-colors"
-                      onClick={() => setOpen(false)}
+                    <a
+                      href="#contacto"
+                      onClick={(e) => handleSmoothScroll(e, "#contacto")}
+                      className="text-center font-medium text-white bg-[#4A55A2] px-4 py-3 rounded-lg hover:bg-[#3D4890] transition-colors cursor-pointer"
                     >
-                      Comenzar
-                    </Link>
+                      Solicitar demo
+                    </a>
                   </div>
                 </div>
               </SheetContent>

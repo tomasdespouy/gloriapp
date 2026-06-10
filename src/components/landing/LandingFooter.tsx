@@ -20,12 +20,12 @@ export default function LandingFooter() {
               Plataforma
             </h4>
             <nav className="flex flex-col gap-1.5">
-              <Link
-                href="/signup"
+              <a
+                href="#contacto"
                 className="text-gray-300 hover:text-white text-sm transition-colors"
               >
-                Crear cuenta
-              </Link>
+                {"Solicitar demostración"}
+              </a>
               <Link
                 href="/login"
                 className="text-gray-300 hover:text-white text-sm transition-colors"
