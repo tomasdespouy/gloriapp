@@ -17,11 +17,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "GlorIA — Pacientes IA para Psicología",
   description: "Practica terapia con pacientes simulados por inteligencia artificial. Plataforma de formación clínica para estudiantes de psicología.",
-  metadataBase: new URL("https://glor-ia.com"),
+  metadataBase: new URL("https://www.glor-ia.com"),
   openGraph: {
     title: "GlorIA — Pacientes IA para Psicología",
     description: "Practica terapia con pacientes simulados por inteligencia artificial. Plataforma de formación clínica para estudiantes de psicología.",
-    url: "https://glor-ia.com",
+    url: "https://www.glor-ia.com",
     siteName: "GlorIA",
     locale: "es_CL",
     type: "website",
