@@ -58,17 +58,13 @@ export async function POST(
     .eq("pilot_id", pilotId)
     .eq("email", participant.email);
 
-  // 2. Delete the auth user (cascade deletes profile via FK if configured)
-  if (participant.user_id) {
-    const { error: delErr } = await admin.auth.admin.deleteUser(participant.user_id);
-    if (delErr) {
-      // Log but continue — the auth user may already be gone, in which
-      // case we still want to reset the participant row below.
-      console.warn("auth.admin.deleteUser error:", delErr.message);
-    }
-  }
-
-  // 3. Reset the participant row
+  // 2. Clear the participant's user_id BEFORE deleting the auth user.
+  // pilot_participants.user_id REFERENCES auth.users(id) with no ON DELETE
+  // rule (NO ACTION); deleting the auth user while this row still references
+  // it raises a foreign-key violation. Detaching the row first lets the
+  // deletion below actually succeed — otherwise the auth user lingered as a
+  // ghost that could still log in (the FK error was swallowed). The old
+  // user_id is still held in `participant.user_id` for the delete below.
   const { error: updErr } = await admin
     .from("pilot_participants")
     .update({
@@ -83,6 +79,23 @@ export async function POST(
 
   if (updErr) {
     return NextResponse.json({ error: updErr.message }, { status: 500 });
+  }
+
+  // 3. Delete the auth user LAST (cascades to the profile via FK). Block on
+  // the error instead of swallowing it: a failure means the old account can
+  // still log in, which defeats the purpose of the reset.
+  if (participant.user_id) {
+    const { error: delErr } = await admin.auth.admin.deleteUser(participant.user_id);
+    if (delErr) {
+      return NextResponse.json(
+        {
+          error:
+            "El participante se reinició, pero la cuenta anterior no se pudo eliminar: " +
+            delErr.message,
+        },
+        { status: 500 },
+      );
+    }
   }
 
   return NextResponse.json({ ok: true });

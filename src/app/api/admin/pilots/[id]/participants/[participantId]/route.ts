@@ -76,13 +76,13 @@ export async function DELETE(
     .eq("email", participant.email);
   if (conErr) console.warn("[pilot/participant DELETE] pilot_consents:", conErr.message);
 
-  // 4. Auth user (cascades to profile via auth.users FK)
-  if (participant.user_id) {
-    const { error: delErr } = await admin.auth.admin.deleteUser(participant.user_id);
-    if (delErr) console.warn("[pilot/participant DELETE] auth.admin.deleteUser:", delErr.message);
-  }
-
-  // 5. Participant row — the real goal; block on this one
+  // 4. Participant row — MUST be deleted BEFORE the auth user.
+  // pilot_participants.user_id REFERENCES auth.users(id) with no ON DELETE
+  // rule (defaults to NO ACTION), so deleting the auth user while this row
+  // still points at it raises a foreign-key violation. This used to run
+  // AFTER auth.admin.deleteUser with the FK error swallowed by a console
+  // warning, which left a "ghost" account: gone from the dashboard but still
+  // able to log in and run sessions. Drop the referencing row first.
   const { error: rowErr } = await admin
     .from("pilot_participants")
     .delete()
@@ -90,6 +90,25 @@ export async function DELETE(
 
   if (rowErr) {
     return NextResponse.json({ error: rowErr.message }, { status: 500 });
+  }
+
+  // 5. Auth user LAST (cascades to the profile via the auth.users FK). With
+  // the participant + consent rows already gone the FK no longer blocks. We
+  // BLOCK on this error instead of swallowing it — a failure here means the
+  // person can still log in, so we surface it rather than report a false
+  // success.
+  if (participant.user_id) {
+    const { error: delErr } = await admin.auth.admin.deleteUser(participant.user_id);
+    if (delErr) {
+      return NextResponse.json(
+        {
+          error:
+            "El participante se quitó del piloto, pero su cuenta de acceso no se pudo eliminar: " +
+            delErr.message,
+        },
+        { status: 500 },
+      );
+    }
   }
 
   return NextResponse.json({ ok: true });
