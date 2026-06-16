@@ -1,0 +1,2063 @@
+[
+  {
+    "name": "Carlos Paredes",
+    "runsA": [
+      [
+        {
+          "role": "user",
+          "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+        },
+        {
+          "role": "assistant",
+          "content": "Buenas, doctor. [se sienta con un poco de rigidez] La verdad, ando medio jato últimamente, pero no sé bien por qué. He estado más cansado y de mal genio sin mucho motivo."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho. Suena agotador todo lo que me describe."
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, pe. [se frota la nuca] El trabajo es pesado, y cuando llego a la casa estoy hecho polvo. La cosa es que uno tiene que aguantar, por los hijos y la jefa. No hay otra."
+        },
+        {
+          "role": "user",
+          "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+        },
+        {
+          "role": "assistant",
+          "content": "El sueño no es tan bueno, ando despierto a veces a la madrugada. [se cruza de brazos] Pero el estómago está normal, no he dejado de comer. Ya fue, uno aguanta."
+        },
+        {
+          "role": "user",
+          "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, vivo con la jefa y los dos ‘wawa’. [mira al suelo] Trabajo de taxista, de día y de noche, pa' sacar la pela. No tomo mucho, solo a veces con los amigos, pero no es de todos los días."
+        },
+        {
+          "role": "user",
+          "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+        },
+        {
+          "role": "assistant",
+          "content": "[Suspira] Ojalá pudiera, pero con la pela apretada, tomarme días no es fácil. El tiempo es oro, y a veces ni para descansar hay. Ya fue, seguimos en la lucha, siempre por la familia."
+        },
+        {
+          "role": "user",
+          "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+        },
+        {
+          "role": "assistant",
+          "content": "No se preocupe, doctor. [mira hacia adelante con seriedad] El día arranca temprano, a veces antes que amanezca, y termino tarde en la noche. Entre el tráfico, los clientes y la casa, no queda mucho tiempo pa’ uno mismo. Pero así es la vida, ¿no? Hay que darle duro."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+        },
+        {
+          "role": "assistant",
+          "content": "[Se queda callado un momento, baja la mirada] Sí, pe. A veces la bronca y el peso se sienten fuertes, pero trato de no mostrar mucho. No soy bueno para hablar de esto, pero es jato llevarlo solo."
+        },
+        {
+          "role": "user",
+          "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Se le quiebra un poco la voz] No recuerdo un momento exacto, pero creo que todo se fue acumulando con el tiempo. El cansancio, las responsabilidades, los problemas en la casa… Ya no puedo con todo igual que antes."
+        },
+        {
+          "role": "user",
+          "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+        },
+        {
+          "role": "assistant",
+          "content": "[Levanta la mirada y suspira profundo] Gracias, doctor. A veces nomás, hablar ayuda un poco, aunque uno no suelte todo. Uno quiere ser fuerte pa’ la familia, pero a veces pesa harto."
+        },
+        {
+          "role": "user",
+          "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Se frota el cuello, mira al suelo] Lo que más me pesa es pensar si con todo lo que hago, realmente estoy dando lo mejor pa' mis hijos y la jefa. A veces siento que no basta, y eso jode mucho."
+        },
+        {
+          "role": "user",
+          "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Se queda en silencio un momento, luego suspira] Sí, a veces en las noches, cuando todo está callado y solo estoy yo, se me cruzan esos pensamientos. Pero uno se acuerda de la familia y eso frena. Siempre hay que seguir pa’lante, aunque sea difícil."
+        },
+        {
+          "role": "user",
+          "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+        },
+        {
+          "role": "assistant",
+          "content": "Gracias a usted, doctor. [asiente con la cabeza] Creo que esto me ha servido pa’ desahogar un poco. Ahí vamos, paso a paso, pero con ganas de salir adelante."
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+        },
+        {
+          "role": "assistant",
+          "content": "Buenas, doctor. [se sienta un poco encorvado] Pues, la verdad, este último tiempo me siento más cansado de lo normal, y a veces me duele la espalda. [suspira] Creo que es el trabajo, las horas largas en el taxi."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho. Suena agotador todo lo que me describe."
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, causa, la chamba es pesada y el tráfico no ayuda nada. [se rasca la nuca] Hay días que termino molido, y ni hablar de llegar a la casa con ganas de algo. [mira al techo] Pero uno sigue porque la familia importa, ¿ves?"
+        },
+        {
+          "role": "user",
+          "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+        },
+        {
+          "role": "assistant",
+          "content": "Pues, doctor, el sueño anda medio raro, a veces me cuesta pegar el ojo rápido. [juega con sus manos] El hambre igual anda medio raro, a veces no tengo ganas de comer tanto, pero intento comer bien por los chicos."
+        },
+        {
+          "role": "user",
+          "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, vivo con mi esposa y mis dos hijos, uno de 10 y otro de 8. [sonríe leve] Trabajo todos los días como taxista, más de 20 años ya. De tomar, poquito nada, nomás en fiestas. No me gusta andar haciendo problemas."
+        },
+        {
+          "role": "user",
+          "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+        },
+        {
+          "role": "assistant",
+          "content": "[frunce un poco el ceño] Sí, profesor, suena bien, pero el día a día no me deja mucho tiempo pa’ eso. [mira al suelo] Uno quisiera hacer más, pero el trabajo aprieta. Ya fue."
+        },
+        {
+          "role": "user",
+          "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+        },
+        {
+          "role": "assistant",
+          "content": "No, está bien, causa. [suspira] Mi día es levantar temprano, dar vueltas con el taxi, atender a la gente, aguantar el tráfico y cuidar que los chicos estén bien cuando llego. [se cruza de brazos] No hay tiempo pa’ pensar mucho en uno mismo."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, doctor, uno trata de aguantar, pero a veces duele, ¿sabe? [mira al suelo] No es fácil ser el que sostiene todo sin caer. Pero hay que seguir pa’lante, por la familia nomás."
+        },
+        {
+          "role": "user",
+          "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Mira al frente, pensativo] Creo que fue cuando los chicos crecieron y ya no solo dependo de mí, sino que también quiero darles más oportunidades. El peso de la obligación se siente más fuerte. [suspira] Ahí fue que todo empezó a pesar más."
+        },
+        {
+          "role": "user",
+          "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+        },
+        {
+          "role": "assistant",
+          "content": "Gracias, doctor. [baja la mirada] No es fácil hablar de esto, pero se siente alivio un poco. [juega con sus dedos] Uno guarda mucho por fuera, pero adentro no es fácil."
+        },
+        {
+          "role": "user",
+          "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Suspira profundo] Pues, causa, lo que más me pesa es pensar si estaré haciendo suficiente pa' mi familia, si les doy lo que necesitan. [mira al suelo] Eso no se va fácil, ni dormido."
+        },
+        {
+          "role": "user",
+          "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Se le quiebra la voz un momento] Sí, doctor, a veces en la madrugada cuando nadie ve, esos pensamientos vienen... pero trato de no quedarme ahí mucho tiempo. [se seca la cara con la mano] Uno no quiere que la familia sufra, por eso aguanto."
+        },
+        {
+          "role": "user",
+          "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+        },
+        {
+          "role": "assistant",
+          "content": "[Asiente con respeto] Gracias a usted, doctor. [muestra una ligera sonrisa] Ya está buenazo saber que puedo hablar un poco. Seguimos, pe."
+        }
+      ]
+    ],
+    "runsB": [
+      [
+        {
+          "role": "user",
+          "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+        },
+        {
+          "role": "assistant",
+          "content": "Buenas tardes, doctor. Pues, ya sabe, el trabajo está cada vez más complicado, el tráfico está peor y la plata no alcanza pa' nada. [se acomoda en la silla, cruza los brazos]"
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho. Suena agotador todo lo que me describe."
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, bastante pe, uno se cansa de estar siempre muerto de pie y que con la plata no le rinda pa' nada. [suspira, baja la mirada] Pero bueno, hay que seguir, no queda otra."
+        },
+        {
+          "role": "user",
+          "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+        },
+        {
+          "role": "assistant",
+          "content": "Duermo mal, pe, me despierto a cada rato y después no puedo volver a dormir bien. El apetito anda normal, igual como siempre. [se frota la nuca, evita el contacto visual]"
+        },
+        {
+          "role": "user",
+          "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, vivo con mi esposa y mis dos hijos, trabajo de taxista hace más de 20 años. No, casi no tomo alcohol, con la casa uno tiene que estar al 100. [asiente con la cabeza, muestra un leve gesto de orgullo]"
+        },
+        {
+          "role": "user",
+          "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, ya fue, doctor, eso de tomarse vacaciones ni en sueños, uno tiene que estar en la calle para que la plata entre. El tráfico no me deja pensar en otra cosa. [se cruza de brazos y frunce el ceño]"
+        },
+        {
+          "role": "user",
+          "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+        },
+        {
+          "role": "assistant",
+          "content": "No, no es para tanto, ya le dije, uno vive en la calle, maneja, recoge pasajeros, atiende el tráfico y vuelve a casa. Eso nomás, nada más complicado. [se encoge de hombros, mira hacia el suelo]"
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+        },
+        {
+          "role": "assistant",
+          "content": "[se le quiebra la voz] No, doctor, no es para tanto. Uno está así nomás, con cosas así hay que aguantarse, pe. Nada más."
+        },
+        {
+          "role": "user",
+          "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+        },
+        {
+          "role": "assistant",
+          "content": "[evita el contacto visual, aprieta la mandíbula] No, no... nada de eso, todo sigue igual nomás, el tráfico, la plata, la casa. Nada que cambiar."
+        },
+        {
+          "role": "user",
+          "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+        },
+        {
+          "role": "assistant",
+          "content": "[respira hondo, mira al frente un instante] Bueno, pe... hace como tres meses, una noche que manejaba de madrugada, un pasajero me metió un cuchillo y me quitó toda la plata del día. Salí vivo, pero desde ese día todo cambió. [se frota la frente]"
+        },
+        {
+          "role": "user",
+          "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+        },
+        {
+          "role": "assistant",
+          "content": "Que no alcanzo para todo lo que necesito pa' la casa, que a veces siento que no soy suficiente pa' mis hijos. [mira hacia abajo, se le quiebra un poco la voz]"
+        },
+        {
+          "role": "user",
+          "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+        },
+        {
+          "role": "assistant",
+          "content": "De repente, sí, pero no es que quiera morirme ni nada, mis hijos son mi todo y por ellos sigo pa'lante, pero a veces, manejando de madrugada, uno piensa en descansar, pues. [se frota la nuca y baja la mirada]"
+        },
+        {
+          "role": "user",
+          "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+        },
+        {
+          "role": "assistant",
+          "content": "Gracias, doctor. Se siente bien saber que hay alguien que escucha sin apurarse ni juzgar. [asiente con un leve suspiro] Nos vemos en la próxima."
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+        },
+        {
+          "role": "assistant",
+          "content": "Buenas, pe, pues ya chueco por el trabajo y por la casa, uno quiere aliviar el cansancio. Esto de manejar tantas horas pasa factura. [suspira, se recarga en el respaldo]"
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho. Suena agotador todo lo que me describe."
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, pe, a veces llego a la casa que nomás quiero tirarme a dormir y nada más. Hay que sacar la vuelta, la familia no se banca sin plata. [mira al suelo, junta las manos]"
+        },
+        {
+          "role": "user",
+          "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+        },
+        {
+          "role": "assistant",
+          "content": "Duermo mal, pe, me despierto a cada rato y aunque tome algo para calmar la cabeza, igual no agarra sueño bueno. El apetito igual, como por obligación nomás. [se frota la frente]"
+        },
+        {
+          "role": "user",
+          "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, vivo con mi esposa y mis dos hijos, de 10 y 8 años. Trabajo de taxista más de 20 años, largas horas en el tráfico. Alcohol, nomás de vez en cuando, para soltar un poco nada más. [asiente con la cabeza]"
+        },
+        {
+          "role": "user",
+          "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+        },
+        {
+          "role": "assistant",
+          "content": "Ya fue, no es para tanto, pe. Eso del ejercicio y todo… yo me meto al tráfico y me enfoco en la vuelta, que la plata no falte. [cruza los brazos, serio]"
+        },
+        {
+          "role": "user",
+          "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+        },
+        {
+          "role": "assistant",
+          "content": "No hay problema, pe. El día a día es nomás levantarme temprano, preparar a los chicos, lanzar la carrera en el taxi y correr con el tráfico hasta la noche. La plata no espera. [mira por la ventana, suspira]"
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+        },
+        {
+          "role": "assistant",
+          "content": "[silencio un rato, mira hacia abajo] Bueno, causa, a veces uno siente que se le quiebra algo por dentro, pero pa' fuera queda la cara firme. Si no hay plata, no hay nada. [se seca los ojos rápido]"
+        },
+        {
+          "role": "user",
+          "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+        },
+        {
+          "role": "assistant",
+          "content": "[evita mirar fijo] Ya fue, no es para tanto, pe. Cosas pasan en la calle, uno no puede estar pensando tanto. Hay gente que la pasa peor."
+        },
+        {
+          "role": "user",
+          "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+        },
+        {
+          "role": "assistant",
+          "content": "[suelta un respiro profundo, mira al terapeuta con un gesto más relajado] La verdad, hace como tres meses, una noche manejando, un pasajero me sacó un cuchillo y se llevó la plata de todo el día. Salí ileso, pero esa noche cambió todo pa' mí. [junta las manos con fuerza]"
+        },
+        {
+          "role": "user",
+          "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+        },
+        {
+          "role": "assistant",
+          "content": "[suspira y baja la mirada] Lo que más pesa es sentir que no puedo proteger a mi familia, que por más que trate, a veces no alcanza. Eso me duele mucho, pe."
+        },
+        {
+          "role": "user",
+          "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+        },
+        {
+          "role": "assistant",
+          "content": "[mira fijo un instante, luego desvía la vista] De repente, manejando en la madrugada, me viene una idea así… pero nomás pasa rápido. Mis hijos son la raza que me hace seguir, no quiero que les falte nada. [aprieta los labios]"
+        },
+        {
+          "role": "user",
+          "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+        },
+        {
+          "role": "assistant",
+          "content": "Gracias a usted, causa. Ya me siento peor cargar solo, me ayuda saber que hay alguien que escucha sin apurar. [asiente con un leve sorriso]"
+        }
+      ]
+    ],
+    "heatA": [
+      [
+        {
+          "turn": 1,
+          "category": "abrumado",
+          "intensity": 2
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 2
+        },
+        {
+          "turn": 4,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "triste",
+          "intensity": 2
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 2
+        },
+        {
+          "turn": 7,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 8,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 11,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "triste",
+          "intensity": 2
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "preocupado",
+          "intensity": 2
+        },
+        {
+          "turn": 4,
+          "category": "neutral",
+          "intensity": 1
+        },
+        {
+          "turn": 5,
+          "category": "frustrado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 2
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 2
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "preocupado",
+          "intensity": 3
+        },
+        {
+          "turn": 11,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "aliviado",
+          "intensity": 2
+        }
+      ]
+    ],
+    "heatB": [
+      [
+        {
+          "turn": 1,
+          "category": "frustrado",
+          "intensity": 2
+        },
+        {
+          "turn": 2,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "frustrado",
+          "intensity": 4
+        },
+        {
+          "turn": 6,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "abrumado",
+          "intensity": 2
+        },
+        {
+          "turn": 8,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 12,
+          "category": "aliviado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "preocupado",
+          "intensity": 3
+        },
+        {
+          "turn": 12,
+          "category": "aliviado",
+          "intensity": 2
+        }
+      ]
+    ],
+    "verdicts": {
+      "realismo": {
+        "winner": "B",
+        "scoreA": 7,
+        "scoreB": 9,
+        "razon": "El paciente 1 muestra más naturalidad y detalles personales, lo que lo hace más realista."
+      },
+      "profundidad": {
+        "winner": "B",
+        "scoreA": 6,
+        "scoreB": 8,
+        "razon": "El Paciente 1 muestra más profundidad clínica al revelar un evento traumático que influye en su estado actual, lo que permite explorar capas emocionales más profundas."
+      },
+      "diferenciacion": {
+        "winner": "B",
+        "scoreA": 7,
+        "scoreB": 9,
+        "razon": "El paciente 1 muestra una reacción más diferenciada al abrirse tras el silencio y compartir un evento traumático."
+      }
+    },
+    "sA": {
+      "media": 2.58,
+      "pico": 4,
+      "piso": 1,
+      "relieve": 0.76,
+      "categorias": 7,
+      "pctDefensivo": 0
+    },
+    "sB": {
+      "media": 2.92,
+      "pico": 4,
+      "piso": 2,
+      "relieve": 0.7,
+      "categorias": 7,
+      "pctDefensivo": 21
+    }
+  },
+  {
+    "name": "Andrés Castillo",
+    "runsA": [
+      [
+        {
+          "role": "user",
+          "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+        },
+        {
+          "role": "assistant",
+          "content": "Buenos días, doctor. [Se sienta con los brazos cruzados] Pues la verdad, veo que las cosas no están fáciles desde que mi esposa se fue. Uno quiere seguir, pero a veces pesa mucho ese silencio en la casa."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho. Suena agotador todo lo que me describe."
+        },
+        {
+          "role": "assistant",
+          "content": "[Suspira] Pues sí, parce, uno se cansa pero hay que echar pa'lante. Los pelos me necesitan fuerte, ¿verdad? Aunque a veces uno quisiera soltar todo y llorar a gritos."
+        },
+        {
+          "role": "user",
+          "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Se rasca la cabeza] El sueño viene y va, a veces descanso, a veces no. Y con la comida, uno no tiene mucho ánimo, sólo como lo justo por los pelados."
+        },
+        {
+          "role": "user",
+          "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Suspira y mira al suelo] Sí, vivo con mis dos hijos; la niña está en la universidad y el pelado en el colegio. El negocio me mantiene ocupado, aunque últimamente no es lo mismo sin ella. Y alcohol, pues, uno se toma alguna que otra para calmar la pena, pero no es cosa de todos los días."
+        },
+        {
+          "role": "user",
+          "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+        },
+        {
+          "role": "assistant",
+          "content": "[Se encoge de hombros] Ojalá fuera tan fácil, doctor. Uno quiere desconectarse, pero las responsabilidades no dejan, y uno tiene que estar pendiente de los pelos y el negocio. La vida no da pausa, eso uno lo sabe muy bien."
+        },
+        {
+          "role": "user",
+          "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Se cruza de brazos] Pues el día a día es puro trabajo y cuidar de los pelados. Al ratito que hay, uno trata de sonreír, aunque a veces la tristeza pesa más. Pero como decía, la familia es lo más importante, y por ellos uno aguanta."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+        },
+        {
+          "role": "assistant",
+          "content": "[Mira al terapeuta con voz quedita] Usted tiene razón, doctor. Uno le pone fuerza, pero adentro duele un montón. A veces pienso que si no me río, me pongo a llorar y eso no puedo, por los pelados."
+        },
+        {
+          "role": "user",
+          "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Se le quiebra la voz] Sí, parce, cuando ella se enfermó de repente y uno no pudo hacer nada para evitarlo. Ahí uno entendió que la vida no avisa y que todo puede cambiar de un momento a otro. Desde entonces, todo se volvió distinto, como un vacío que no se llena."
+        },
+        {
+          "role": "user",
+          "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+        },
+        {
+          "role": "assistant",
+          "content": "[Respira profundo] Gracias, doctor. Es que hablar de eso no es fácil, uno siempre ha sido el que aguanta, pero a veces hace falta soltar aunque sea un poquito."
+        },
+        {
+          "role": "user",
+          "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Mira al suelo] Pues que no sé si estoy haciendo las cosas bien para los pelados, que el negocio aguante sin que ella esté y que uno no pierda la esperanza de que las cosas mejoren algún día. Son demasiadas cosas, parce."
+        },
+        {
+          "role": "user",
+          "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Se le aprieta la mandíbula] Pues sí, doctor, en más de una noche oscura, uno se ha preguntado para qué seguir si todo duele tanto. Pero luego pienso en mis hijos, en que ellos me necesitan y uno saca fuerzas, como puede."
+        },
+        {
+          "role": "user",
+          "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+        },
+        {
+          "role": "assistant",
+          "content": "[Asiente con una leve sonrisa] Gracias a usted, doctor. Esto no es fácil, pero si uno tiene con quién hablar, pues puede ser una ayuda. Aquí estaré para seguir echándole ganas."
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+        },
+        {
+          "role": "assistant",
+          "content": "[baja la mirada] Buenas tardes, pues la verdad uno viene con el corazón medio pesado, parce. La vida cambió mucho desde que ella se fue y uno no sabe bien cómo seguir echando pa'lante."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho. Suena agotador todo lo que me describe."
+        },
+        {
+          "role": "assistant",
+          "content": "[se cruza de brazos] Eso ve, es como caminar en la neblina, parce. Usted sabe, uno tiene que ser fuerte por los pelados, pero a veces la tristeza pesa más que la carga."
+        },
+        {
+          "role": "user",
+          "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+        },
+        {
+          "role": "assistant",
+          "content": "[rasca la cabeza] Pues, uno come cuando puede y duerme poco, parcera. No es fácil tener la cabeza tranquila cuando todo está patas pa' arriba en la casa."
+        },
+        {
+          "role": "user",
+          "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+        },
+        {
+          "role": "assistant",
+          "content": "[asiente con la cabeza] Sí, claro, vivo con mis dos pelados, la vieja se fue hace seis meses ya. El negocio familiar es lo que me mantiene ocupado y, la verdad, uno agarra una cerveza de vez en cuando, pero sin exagerar, parce."
+        },
+        {
+          "role": "user",
+          "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+        },
+        {
+          "role": "assistant",
+          "content": "[sonríe con cierta ironía] Pues, si no me río, me pongo a llorar, parce. Pero uno sabe que de malas vibras mejor me corro, aunque no es tan fácil soltar todo así nomás."
+        },
+        {
+          "role": "user",
+          "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+        },
+        {
+          "role": "assistant",
+          "content": "[suspira] Pues el día empieza temprano, uno se levanta pensando en cómo hacer que la plata alcance y que los pelados no les falte nada. Uno se enfoca en el negocio, pero en la noche la mente no descansa, parce."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+        },
+        {
+          "role": "assistant",
+          "content": "[se le quiebra la voz] Sí, parce, uno tiene que hacerse el duro, pero a veces la tristeza se asoma y duele más de lo que uno quiere mostrar. Uno quiere que los pelados tengan un papá fuerte, aunque internamente uno se sienta perdido."
+        },
+        {
+          "role": "user",
+          "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+        },
+        {
+          "role": "assistant",
+          "content": "[evita la mirada] Pues sí, parce, cuando ella empezó con la enfermedad, uno sentía que el tiempo se detenía. Pero fue cuando se fue, hace seis meses, que uno comprendió que nada sería igual, ni en la casa ni en el corazón."
+        },
+        {
+          "role": "user",
+          "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+        },
+        {
+          "role": "assistant",
+          "content": "[asiente lentamente] Gracias, parce. No es fácil hablar de esto, pero a veces uno necesita soltar un poco ese peso que lleva adentro, aunque sea pa'lante que hay que seguir."
+        },
+        {
+          "role": "user",
+          "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+        },
+        {
+          "role": "assistant",
+          "content": "[mira al suelo] Que uno no alcanza a llenar el vacío que dejó ella, parce. A veces siento que fallé como papá porque no puedo darle a los pelados todo lo que ella les daba con su cariño y con su presencia."
+        },
+        {
+          "role": "user",
+          "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+        },
+        {
+          "role": "assistant",
+          "content": "[baja la cabeza y suspira] Sí, parce, a veces esos pensamientos se asoman cuando la tristeza no da tregua. Pero uno agarra fuerza pensando en los pelados, porque ellos son la razón pa’ seguir aquí, aunque no sea fácil, pues."
+        },
+        {
+          "role": "user",
+          "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+        },
+        {
+          "role": "assistant",
+          "content": "[sonríe con un dejo de esperanza] Gracias a usted, parce. Uno necesita ese apoyo para no perder el camino y seguir echando pa'lante por los pelados y por uno mismo."
+        }
+      ]
+    ],
+    "runsB": [
+      [
+        {
+          "role": "user",
+          "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+        },
+        {
+          "role": "assistant",
+          "content": "Buenas tardes, pues la verdad es que ando bien cargado, parcero. El negocio está como en lucha y en la casa, los pelados me tienen a mil. [se sienta y se cruza de brazos]"
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho. Suena agotador todo lo que me describe."
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, pues, uno tiene que aguantar porque los pelados necesitan uno firme, ¿no? [suspira y suelta una sonrisa forzada] Pero a veces el cuerpo también se cansa, eso uno no lo puede negar."
+        },
+        {
+          "role": "user",
+          "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+        },
+        {
+          "role": "assistant",
+          "content": "Eso sí ha estado complicado, parce; uno llega a la casa y como que la cabeza no para, ni dan ganas de comer mucho. [se frota la nuca] Pero hay que tirar pa'lante, que eso del descanso sí toca mejorarlo."
+        },
+        {
+          "role": "user",
+          "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, vivo con los pelados, Manuela en la universidad y Tomás todavía en el cole. Trabajo en la ferretería, eso no para ni un día. En cuanto a la cerveza, uno se da permiso a veces, pero sin volverse costumbre. [asiente con la cabeza]"
+        },
+        {
+          "role": "user",
+          "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, pues sí, qué más. Pero en la casa y el negocio uno no puede pararse tanto, los pelados dependen uno. [se queda en silencio unos segundos] Igual hay que ver cómo hacer para no dejar todo tirado."
+        },
+        {
+          "role": "user",
+          "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+        },
+        {
+          "role": "assistant",
+          "content": "No, pues gracias parce, uno trata de no armar líos, ¿verdad? El día a día es levantarse temprano, atender la ferretería, ayudar en lo que pueda con los pelados y, claro, pensar en que esto tiene que mejorar. [mira al suelo] No es fácil, pero uno se aguanta."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+        },
+        {
+          "role": "assistant",
+          "content": "[respira profundo y baja la mirada] Pues sí, eso es lo difícil... uno tiene que ser fuerte porque si no, ¿quién? Los pelados necesitan un papá entero y uno trata de no aflojar, aunque a veces duela por dentro."
+        },
+        {
+          "role": "user",
+          "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+        },
+        {
+          "role": "assistant",
+          "content": "[desvía la mirada rápido] Pues parce, lo que me tiene más enredado es la ferretería y cómo no parar para los pelados. Eso del momento, mejor la hablás de otra cosa, ¿sí? Que después me embolato."
+        },
+        {
+          "role": "user",
+          "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+        },
+        {
+          "role": "assistant",
+          "content": "[respira hondo y se remueve en la silla] Bueno, es que cuando uno pierde a alguien tan en el día a día, uno siente que el mundo se quebró. Pero hay que seguir, aunque la verdad a veces quisiera que alguien me dijera que todo va a estar bien."
+        },
+        {
+          "role": "user",
+          "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+        },
+        {
+          "role": "assistant",
+          "content": "[pone las manos juntas y mira al frente] Pues, parce, cuando uno queda solo, lo que más pesa es no haber estado ahí para ella. Eso no me lo saco, aunque trato de seguir echándole ganas."
+        },
+        {
+          "role": "user",
+          "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+        },
+        {
+          "role": "assistant",
+          "content": "[baja la cabeza y suspira] La va a escuchar de a poquito, pero sí, esas ganas de que uno se tome un descanso eterno a veces asoman. Pero uno es fuerte, porque los pelados necesitan que el papá no afloje."
+        },
+        {
+          "role": "user",
+          "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+        },
+        {
+          "role": "assistant",
+          "content": "Claro que sí, parce, uno agradece que haya alguien que escuche sin apurarse. Esto no es fácil, pero con apoyo uno puede echar pa'lante. [sonríe un poco más relajado]"
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+        },
+        {
+          "role": "assistant",
+          "content": "Buenas tardes, doctor. Pues, uno viene acá porque a veces toca hablar con alguien que escuche, ¿no? La verdad es que uno tiene que seguir echándole ganas, pero a veces se vuelve muy duro seguir solo. [se sienta erguido, con las manos sobre las piernas]"
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho. Suena agotador todo lo que me describe."
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, pues, uno está siempre tirando pa'lante, pero la verdad uno no es de piedra, ¿no? [suspira y baja un poco la cabeza] A veces el cuerpo y la mente no dan más, pero hay que aguantar por los pelados."
+        },
+        {
+          "role": "user",
+          "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+        },
+        {
+          "role": "assistant",
+          "content": "El sueño anda medio revuelto, uno se acuesta cansado pero despierta muchas veces. El apetito sigue, no es que ande sin ganas de comer, pero uno no quiere estar mucho rato perdiendo tiempo. [se frota ligeramente la nuca]"
+        },
+        {
+          "role": "user",
+          "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, uno vive con los pelados, Manuela y Tomás, ahí en la casa. Trabajo full tiempo en la ferretería, no paro ni los domingos casi. El alcohol, pues, a veces una cervecita para aflojar la cabeza, pero nada en exceso. [se endereza y cruza ligeramente los brazos]"
+        },
+        {
+          "role": "user",
+          "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+        },
+        {
+          "role": "assistant",
+          "content": "[Pone una sonrisa forzada y menea la cabeza] Pues sí, qué más, eso lo dicen mucho. Pero uno tiene responsabilidades, y si uno para, todo se descompone. Los pelados no pueden quedarse sin papá ni sin negocio, parce."
+        },
+        {
+          "role": "user",
+          "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+        },
+        {
+          "role": "assistant",
+          "content": "No, no es que le dé mucha charla a cualquiera, uno es así, más calladito y tirando pa'lante. El día empieza temprano en la ferretería, atendiendo, vendiendo, resolviendo lo que llega. Al final, lo que más se quiere es que esa rutina no se friegue. [juega con unas llaves sobre la mesa]"
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+        },
+        {
+          "role": "assistant",
+          "content": "[Suspira hondo y desvía la mirada unos segundos] Bueno, uno tiene que hacerse el fuerte, eso se aprende rápido cuando faltan los de uno. Pero, pues, a veces se siente que la carga es muy pesada."
+        },
+        {
+          "role": "user",
+          "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Se tensa, evita el contacto visual y respira profundo] Pues, doctor, más bien las cosas se fueron complicando cuando Beatriz ya no estaba. Uno se tuvo que meter a jalar más, porque los pelados necesitan su apoyo. Por eso, no he tenido tiempo de parar ni a pensar."
+        },
+        {
+          "role": "user",
+          "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+        },
+        {
+          "role": "assistant",
+          "content": "[Asiente lentamente y mira al frente con más calma] Gracias, doctor. Eso se agradece, uno pocas veces encuentra alguien que realmente lo escuche sin apurarse. Pues, uno trata de sobrevivir día a día con lo que queda."
+        },
+        {
+          "role": "user",
+          "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Se queda en silencio un momento, mirando la puerta de la consulta] Uno se queda pensando en los pelados, que no tuvieron a la mamá para muchas cosas, y uno siente que no alcanza para llenar ese vacío. Eso es lo que más pesa."
+        },
+        {
+          "role": "user",
+          "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Se frunce el ceño y desvía la mirada rápidamente] Mire, esas ideas no son para uno, hay que ser fuerte por los pelados, pues. Eso uno no lo piensa en serio, solo son vueltas de la cabeza cuando uno está muy cansado."
+        },
+        {
+          "role": "user",
+          "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+        },
+        {
+          "role": "assistant",
+          "content": "[Asiente con un leve gesto de gratitud y se acomoda en la silla] Bueno, doctor, uno agradece el tiempo y la disposición. Veremos cómo va todo en las próximas citas, a ver si uno puede ir soltando un poco el lastre."
+        }
+      ]
+    ],
+    "heatA": [
+      [
+        {
+          "turn": 1,
+          "category": "triste",
+          "intensity": 2
+        },
+        {
+          "turn": 2,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "triste",
+          "intensity": 2
+        },
+        {
+          "turn": 4,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 11,
+          "category": "esperanzado",
+          "intensity": 2
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "triste",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 2
+        },
+        {
+          "turn": 6,
+          "category": "abrmado",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ]
+    ],
+    "heatB": [
+      [
+        {
+          "turn": 1,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 2
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "preocupado",
+          "intensity": 2
+        },
+        {
+          "turn": 6,
+          "category": "abrumado",
+          "intensity": 2
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 8,
+          "category": "evasivo",
+          "intensity": 2
+        },
+        {
+          "turn": 9,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "culpable",
+          "intensity": 3
+        },
+        {
+          "turn": 11,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "vulnerable",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "enojado",
+          "intensity": 2
+        },
+        {
+          "turn": 3,
+          "category": "preocupado",
+          "intensity": 2
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "frustrado",
+          "intensity": 2
+        },
+        {
+          "turn": 6,
+          "category": "evasivo",
+          "intensity": 2
+        },
+        {
+          "turn": 7,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 8,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "sereno",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 11,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ]
+    ],
+    "verdicts": {
+      "realismo": {
+        "winner": "A",
+        "scoreA": 9,
+        "scoreB": 7,
+        "razon": "Paciente 1 muestra más naturalidad y profundidad emocional."
+      },
+      "profundidad": {
+        "winner": "A",
+        "scoreA": 8,
+        "scoreB": 6,
+        "razon": "El Paciente 1 muestra más profundidad emocional y un proceso de apertura gradual."
+      },
+      "diferenciacion": {
+        "winner": "A",
+        "scoreA": 9,
+        "scoreB": 7,
+        "razon": "Paciente 1 muestra más apertura emocional y variabilidad en sus respuestas."
+      }
+    },
+    "sA": {
+      "media": 2.83,
+      "pico": 4,
+      "piso": 2,
+      "relieve": 0.75,
+      "categorias": 5,
+      "pctDefensivo": 0
+    },
+    "sB": {
+      "media": 2.46,
+      "pico": 3,
+      "piso": 2,
+      "relieve": 0.5,
+      "categorias": 11,
+      "pctDefensivo": 21
+    }
+  },
+  {
+    "name": "Rosa Huamán",
+    "runsA": [
+      [
+        {
+          "role": "user",
+          "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+        },
+        {
+          "role": "assistant",
+          "content": "Buenas tardes, señorita. [se acomoda en la silla] Pues, yo... he estado sintiendo que no me alcanza el tiempo para toditito, y eso me está causando mucho estrés. [mira al suelo] Siento que no puedo con todo pues, he tratado de organizarme, pero nomás es complicado."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho. Suena agotador todo lo que me describe."
+        },
+        {
+          "role": "assistant",
+          "content": "Sí, señorita, es demasiado agotador. [se frota las manos] A veces siento que no soy suficiente, ni en el trabajo ni en mi vida personal. [suspira] Pero trato de seguir adelante, aunque a veces me da miedo no estar haciendo las cosas bien pues."
+        },
+        {
+          "role": "user",
+          "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+        },
+        {
+          "role": "assistant",
+          "content": "Uy, señorita, he estado durmiendo poquito nomás, como nerviosa. [juega con su anillo] Y con el apetito también, a veces se me va y no sé, me da pereza comer, aunque sé que debo. [se muerde el labio] Eso me preocupa un poquito pues."
+        },
+        {
+          "role": "user",
+          "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+        },
+        {
+          "role": "assistant",
+          "content": "Vivo sola, señorita, hace poco terminó mi relación de tantos años. [mira hacia un lado] Trabajo en una escuela primaria, soy maestra. No tengo hijos, y no tomo alcohol, pues no me gusta andar así nomás. [se cruza de brazos] Así nomás es pe, trato de mantener todo en orden."
+        },
+        {
+          "role": "user",
+          "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+        },
+        {
+          "role": "assistant",
+          "content": "[Suspira con un poco de tristeza] Sí, señorita, me gustaría poder hacer eso, pero siento que no puedo dejar todo en la escuela, hay mucho que organizar y los niños necesitan mi atención. [Se frota el rostro] A veces siento que si no estoy ahí, todo se caerá. Así nomás es pe, muy difícil."
+        },
+        {
+          "role": "user",
+          "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+        },
+        {
+          "role": "assistant",
+          "content": "No se preocupe, señorita, yo sé que usted quiere ayudar. [se acomoda en la silla] Mi día a día es muy rutinario, me levanto temprano, preparo las clases, atiendo a mis niños, y cuando llego a casa reviso toditos los trabajos y planes para el otro día. [mira hacia abajo] Apenas me queda tiempo para descansar, pero trato pues, porque quiero hacerlo bien."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+        },
+        {
+          "role": "assistant",
+          "content": "[Suspira profundamente] Sí, señorita, a veces es difícil no dejar que se note, pero por dentro duele bastante. [Se enjuaga los ojos con la manga] Me cuesta pedir ayuda, como que siento que debo poder sola, pero a veces me siento tan sola. Así nomás es pe, uno aprende a poner cara alegre aunque no sea así."
+        },
+        {
+          "role": "user",
+          "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+        },
+        {
+          "role": "assistant",
+          "content": "Mmm, sí señorita, creo que fue cuando terminó mi relación. [mira al suelo] Eso me dejó un vacío grande y desde ahí siento que todo se me complicó más. [se toca el cabello nerviosa] Antes podía con más cosas, pero ahora todo pesa diferente."
+        },
+        {
+          "role": "user",
+          "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+        },
+        {
+          "role": "assistant",
+          "content": "[asiente suavemente] Gracias, señorita, eso me da un poco de calma. [juega con un mechón de cabello] A veces nomás quiero que alguien me escuche sin juzgarme, así es más fácil. [suspira] Pues, me cuesta abrirme, pero ya estoy intentando."
+        },
+        {
+          "role": "user",
+          "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+        },
+        {
+          "role": "assistant",
+          "content": "Lo que más me pesa, señorita, es sentir que no soy suficiente, que no hago las cosas bien ni en la escuela ni en mi vida. [se encoje de hombros] También me duele la soledad, a veces parece que nadie entiende lo que paso. [mira hacia abajo] Y me da miedo que eso se note, porque no quiero preocupar a nadie pues."
+        },
+        {
+          "role": "user",
+          "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Se queda en silencio un momento, luego suspira con tristeza] Señorita, sí, a veces esos pensamientos me rondan, aunque trato de no darles mucha vuelta porque me asustan. [Se abraza a sí misma] Pero la presión y la tristeza pueden ser demasiado, y uno se siente perdido. Así nomás es pe, pero intento aguantar."
+        },
+        {
+          "role": "user",
+          "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+        },
+        {
+          "role": "assistant",
+          "content": "Muchas gracias, señorita, yo también quiero seguir adelante y mejorar poquito a poquito. [sonríe tímidamente] Me da esperanza saber que alguien me escucha y entiende. [asiente con la cabeza] Pues nomás, vamos paso a paso."
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+        },
+        {
+          "role": "assistant",
+          "content": "Buenas tardes, señorita. [se acomoda en la silla con un pequeño suspiro] Pues, la verdad, he estado sintiendo un poquito de cansancio y estrés con el trabajo y la familia, como que no me alcanza el tiempo para todo. Así nomás es pe, ¿no? Quisiera hablar un ratito, pues."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho. Suena agotador todo lo que me describe."
+        },
+        {
+          "role": "assistant",
+          "content": "[suspira bajito] Sí, señorita, la verdad es que a veces me siento demasiado cansadita, como que no doy abasto con todito. Y uno quiere hacer las cosas bien, pero es difícil mantener todo en orden, pues."
+        },
+        {
+          "role": "user",
+          "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+        },
+        {
+          "role": "assistant",
+          "content": "[se frota suavemente las manos] Pues, señorita, el sueño anda tan pesado, como que me doy vueltas y vueltas y no descanso del todo. El apetito igual nomás, como que no tengo ganas de comer mucho, pero trato de hacerlo por obligación, pues."
+        },
+        {
+          "role": "user",
+          "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+        },
+        {
+          "role": "assistant",
+          "content": "[respira profundo] Vivo sola ahorita, pues, después de que se terminó una relación que tenía por cinco años. Trabajo de profesora en una escuela primaria, con mis niñitos linditos. No tengo hijos todavía, y no tomo alcohol casi nunca, nomás en alguna fiesta familiar."
+        },
+        {
+          "role": "user",
+          "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+        },
+        {
+          "role": "assistant",
+          "content": "[se muerde el labio] Sí, señorita, eso quisiera, pero a veces se complica dejar todito en pausa, pues. Yo trato de hacer ejercicio, aunque sea poquito, pero no siempre me sale. [suspira bajito]"
+        },
+        {
+          "role": "user",
+          "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+        },
+        {
+          "role": "assistant",
+          "content": "[evita la mirada un momento] Pues, señorita, me levanto temprano para preparar las clases, después atiendo a mis niños en la escuela, y al regresar me pongo a ordenar y planificar todo para el día siguiente. Así nomás es pe, hay poco tiempo para descansar o distraerse. [se encoje de hombros]"
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+        },
+        {
+          "role": "assistant",
+          "content": "[se le quiebra la voz] Ay, señorita, sí duele, pero uno a la fuerza tiene que ponerse fuerte, ¿no? Aunque por dentro a veces estoy bien quebradita, pero trato de no mostrarlo."
+        },
+        {
+          "role": "user",
+          "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+        },
+        {
+          "role": "assistant",
+          "content": "[piensa lento] Creo que fue cuando terminó mi relación de cinco años. Ahí nomás me cambió todito, como que se me vino el mundo encima y ya nada fue igual, pues."
+        },
+        {
+          "role": "user",
+          "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+        },
+        {
+          "role": "assistant",
+          "content": "[respira profundo y baja la mirada] Gracias, señorita, eso me hace sentir un poquito más tranquila. A veces nomás necesito que alguien me escuche sin juzgar, pues."
+        },
+        {
+          "role": "user",
+          "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+        },
+        {
+          "role": "assistant",
+          "content": "[se humedece los labios] Me pesa demasiado sentir que no soy suficiente, tanto en la chamba como en la vida personal. Como si siempre me faltara algo y no pudiera alcanzar a estar bien del todo, pues."
+        },
+        {
+          "role": "user",
+          "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+        },
+        {
+          "role": "assistant",
+          "content": "[evita la mirada y aprieta los labios] Sí, señorita, a veces esos pensamientos me asustan mucho, pero trato de no quedarme en ellos. Son momentos muy oscuros que trato de olvidar lo más rápido que puedo, pues."
+        },
+        {
+          "role": "user",
+          "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+        },
+        {
+          "role": "assistant",
+          "content": "[sonríe con timidez] Gracias a usted, señorita, por escucharme con tanta paciencia. Yo también quiero seguir adelante y mejorar, poquito a poquito, pues."
+        }
+      ]
+    ],
+    "runsB": [
+      [
+        {
+          "role": "user",
+          "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+        },
+        {
+          "role": "assistant",
+          "content": "Buenas tardes, señorita. [mira con timidez] Pues, la verdad es que a veces el trabajo con los nenitos me pesa demasiado y no sé cómo hacer para que todo ande bien sin sentir como que me falta el aire. Así nomás es la vida, pe."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho. Suena agotador todo lo que me describe."
+        },
+        {
+          "role": "assistant",
+          "content": "[junta las manos sobre la falda] Sí, es bastante cansancito, señorita... pero uno tiene que aguantar, pues. Los nenitos necesitan que estemos ahí, bien firmes y con todo en ordenito nomás."
+        },
+        {
+          "role": "user",
+          "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+        },
+        {
+          "role": "assistant",
+          "content": "[baja la mirada] Pues, sí, duermo un poquito menos, pero no es tan grave, señorita. El apetito más o menos, como siempre, no me ha faltado el almuerzo ni la cena. Así nomás ando, pues."
+        },
+        {
+          "role": "user",
+          "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+        },
+        {
+          "role": "assistant",
+          "content": "[junta las manos en el regazo] Vivo sola, aunque acá en la familia ayudaditos siempre hay, igual que con las labores del cole. Trabajo de profe en la primaria y no tengo hijos aún. Y sí, a veces un poquito de chichita con los amigos, pero nada más."
+        },
+        {
+          "role": "user",
+          "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+        },
+        {
+          "role": "assistant",
+          "content": "[suspira y desvía la mirada] Sí, señorita, eso estaría bonito, pero es que con tanta carga y responsabilidad uno no puede aflojar tanto. Yo trato de hacer todo lo posible para que no se me traspapele nada, pues. No quiero ser molestia pidiendo ayuda."
+        },
+        {
+          "role": "user",
+          "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+        },
+        {
+          "role": "assistant",
+          "content": "[pone las manos en el pecho y sonríe tímidamente] No se preocupe, señorita, así nomás es la vida, pe. El día a día es levantarse temprano, preparar la clase bien organizada, atender a los nenitos, corregir cuadernos y pensar en el día siguiente. Todo tiene que estar bien cuadradito para que no se me amontone nada."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+        },
+        {
+          "role": "assistant",
+          "content": "[baja un poco la cabeza y sonríe con dulzura] Pues, sí, algo de dolor hay, pero usted sabe que hay que aguantar, no se puede estar mostrando débil todo el rato. Los nenitos y la familia esperan que uno sea fuerte y firme. Así nomás es pe."
+        },
+        {
+          "role": "user",
+          "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+        },
+        {
+          "role": "assistant",
+          "content": "[mira hacia el costado, suspira] Creo que fue hace unos cuatro mesecitos, cuando terminó una relación que duró cinco años. Desde entonces todo se volvió como más difícil y la ansiedad me agarró de sorpresa. Pero uno sigue adelante, pues."
+        },
+        {
+          "role": "user",
+          "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+        },
+        {
+          "role": "assistant",
+          "content": "[baja lentamente la cabeza, respira profundo] Gracias, señorita... es bonito poder decirlo en voz bajita. A veces uno se siente sola en todo esto, pero acá se siente un poquito de alivio nomás."
+        },
+        {
+          "role": "user",
+          "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+        },
+        {
+          "role": "assistant",
+          "content": "[mira con los ojos un poquito vidriosos] Lo que más molesta es cuando no puedo dormir y la cabeza se me llena de cosas, y el corazón se me pone acelerado sin razón. En esas noches largas uno se siente bien pequeñito, pero uno trata de seguir nomás."
+        },
+        {
+          "role": "user",
+          "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+        },
+        {
+          "role": "assistant",
+          "content": "[baja la mirada, nerviosa] Señorita, a veces esos pensamientos llegan como susurritos, pero uno trata de alejarlos rápido... porque uno quiere estar bien para los nenitos y la familia. No es fácil, pero hay que luchar poquito a poco, pues."
+        },
+        {
+          "role": "user",
+          "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+        },
+        {
+          "role": "assistant",
+          "content": "[se sorprende y sonríe tímidamente] Gracias, señorita... no estoy acostumbrada a que me digan eso, pero es bonito sentir que alguien se preocupa. Yo voy a poner de mi parte, pues."
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+        },
+        {
+          "role": "assistant",
+          "content": "[baja la mirada, sonriendo con timidez] Buenas tardes, señorita. Es que la clase está bien grande, ¿ve? Y a veces no doy acabado con todito, siento que me faltan manos nomás."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho. Suena agotador todo lo que me describe."
+        },
+        {
+          "role": "assistant",
+          "content": "[suspira, juntando las manos sobre la falda] Sí, señorita, es que uno quiere hacer todo bien, pues, y a veces cansa demasiado. Pero así nomás es la vida, pe."
+        },
+        {
+          "role": "user",
+          "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+        },
+        {
+          "role": "assistant",
+          "content": "[baja la mirada, meneando la cabeza] Pues, así nomás, señorita, a veces cuesta dormirse, pero no es tanto. Lo otro, el apetito, nomás como siempre, gracias a Dios."
+        },
+        {
+          "role": "user",
+          "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+        },
+        {
+          "role": "assistant",
+          "content": "[junta las manos, sonriendo suavemente] Vivo sola, sí, señorita, y trabajo dando clases en la primaria. No tengo hijos ni tomo nada de alcohol, pues."
+        },
+        {
+          "role": "user",
+          "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+        },
+        {
+          "role": "assistant",
+          "content": "[baja la mirada, tensándose un poco] Es que, señorita, a veces no puedo dejar todo, hay mucho qué hacer y no quiero ser molestia para nadie. Pero gracias por decirlo."
+        },
+        {
+          "role": "user",
+          "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+        },
+        {
+          "role": "assistant",
+          "content": "[sonríe con timidez, bajando la mirada] No se preocupe, señorita, así es nomás conmigo. Todos los días preparo clases, reviso tareas y atiendo a los niñitos, no me queda tiempo pa' nada más."
+        },
+        {
+          "role": "user",
+          "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+        },
+        {
+          "role": "assistant",
+          "content": "[suspira, juntando las manos en el regazo] Pues sí, señorita, uno trata de estar fuerte por ellos, pero a veces el corazón pesa demasiado, nomás que no se nota."
+        },
+        {
+          "role": "user",
+          "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+        },
+        {
+          "role": "assistant",
+          "content": "[baja la mirada, jugando con un pliegue de la falda] Sí, señorita, fue cuando terminó la relación hace poquito, desde ahí todo cambió y la ansiedad no me deja tranquila."
+        },
+        {
+          "role": "user",
+          "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+        },
+        {
+          "role": "assistant",
+          "content": "[sonríe con timidez, suspirando suave] Gracias, señorita, eso quiere dice mucho para mí, no siempre uno tiene a quién contarle así nomás."
+        },
+        {
+          "role": "user",
+          "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+        },
+        {
+          "role": "assistant",
+          "content": "[baja la mirada, juntando las manos] Lo que más pesa es el no poder dormir bien y que el corazón se me acelere, entonces agarro miedo y no me dejo descansar."
+        },
+        {
+          "role": "user",
+          "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+        },
+        {
+          "role": "assistant",
+          "content": "[se estremece un poco, baja la mirada rápido] Pues, señorita, esos pensamientos ahí están, pero trato de no darle mucha importancia porque sé que la vida sigue."
+        },
+        {
+          "role": "user",
+          "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+        },
+        {
+          "role": "assistant",
+          "content": "[sorprendida, sonríe con ternura] Ay, señorita, gracias a usted nomás, no estoy acostumbrada a que me escuchen así con cariño. Me alegra quedar pa' la próxima."
+        }
+      ]
+    ],
+    "heatA": [
+      [
+        {
+          "turn": 1,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "preocupado",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "abrumado",
+          "intensity": 2
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "esperanzado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 11,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "abrumado",
+          "intensity": 2
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 2
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 2
+        },
+        {
+          "turn": 4,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 2
+        },
+        {
+          "turn": 6,
+          "category": "abusmado",
+          "intensity": 2
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 11,
+          "category": "asustado",
+          "intensity": 3
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ]
+    ],
+    "heatB": [
+      [
+        {
+          "turn": 1,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "triste",
+          "intensity": 2
+        },
+        {
+          "turn": 3,
+          "category": "evasivo",
+          "intensity": 2
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "evasivo",
+          "intensity": 2
+        },
+        {
+          "turn": 7,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 2
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 12,
+          "category": "cálido",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "avergonzado",
+          "intensity": 2
+        },
+        {
+          "turn": 2,
+          "category": "triste",
+          "intensity": 2
+        },
+        {
+          "turn": 3,
+          "category": "evasivo",
+          "intensity": 2
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 2
+        },
+        {
+          "turn": 6,
+          "category": "evasivo",
+          "intensity": 2
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 12,
+          "category": "cálido",
+          "intensity": 2
+        }
+      ]
+    ],
+    "verdicts": {
+      "realismo": {
+        "winner": "B",
+        "scoreA": 7,
+        "scoreB": 9,
+        "razon": "Paciente 1 muestra mayor naturalidad y uso de modismos auténticos."
+      },
+      "profundidad": {
+        "winner": "B",
+        "scoreA": 6,
+        "scoreB": 8,
+        "razon": "El paciente 1 muestra un núcleo emocional emergente y mayor profundidad en su proceso de abrirse."
+      },
+      "diferenciacion": {
+        "winner": "A",
+        "scoreA": 8,
+        "scoreB": 6,
+        "razon": "El paciente 1 muestra más apertura y vulnerabilidad, especialmente al hablar de sus pensamientos difíciles, mientras que el paciente 2 mantiene una actitud más reservada y minimiza sus dificultades."
+      }
+    },
+    "sA": {
+      "media": 2.67,
+      "pico": 4,
+      "piso": 2,
+      "relieve": 0.69,
+      "categorias": 8,
+      "pctDefensivo": 4
+    },
+    "sB": {
+      "media": 2.38,
+      "pico": 4,
+      "piso": 2,
+      "relieve": 0.63,
+      "categorias": 8,
+      "pctDefensivo": 33
+    }
+  }
+]

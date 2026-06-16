@@ -1,0 +1,3690 @@
+[
+  {
+    "name": "Camila Bertoni",
+    "dA": {
+      "cierreMala": 0.83,
+      "cierreBuena": 0.13,
+      "indice": 0.71
+    },
+    "dB": {
+      "cierreMala": 0.67,
+      "cierreBuena": 0.38,
+      "indice": 0.29
+    },
+    "heatA": [
+      [
+        {
+          "turn": 1,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "frustrado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "avergonzado",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "aliviado",
+          "intensity": 3
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "frustrado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "preocupado",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "evasivo",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "frustrado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "cauteloso",
+          "intensity": 2
+        }
+      ]
+    ],
+    "heatB": [
+      [
+        {
+          "turn": 1,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "preocupado",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "evasivo",
+          "intensity": 2
+        },
+        {
+          "turn": 6,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "cauteloso",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "cauteloso",
+          "intensity": 3
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "evasivo",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "irritado",
+          "intensity": 2
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 10,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "evasivo",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "aliviado",
+          "intensity": 3
+        }
+      ]
+    ],
+    "runA0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se acomoda en la silla, cruza las piernas] Buenas tardes, la verdad vengo porque estos ataques de pánico que vengo teniendo desde el segundo año de la facu me están complicando un montón. Es como que me paralizan y no puedo seguir."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "[suspira y juega con un dedo] Sí, es agotador… me siento como atrapada, y a veces creo que no voy a poder seguir con la carrera si esto sigue así. Pero también siento que tengo que bancármela porque mi vieja espera que sea psicóloga."
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "[mira hacia abajo, cruza los brazos] El sueño anda medio desordenado, a veces me cuesta caer y otras me despierto en medio de la noche pensando en todo. El apetito, bueno… a veces como menos, pero trato de mantenerme. Es como que todo se mezcla y no sé bien qué siento."
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "Asiento un poco mientras responde. Vivo con mi mamá, que es psicoanalista, y estudio en la UBA. No trabajo ni tengo hijos. Con respecto al alcohol, no tomo mucho, solo en momentos puntuales con amigos. [se muerde el labio con timidez]"
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "[arquea una ceja con un poco de escepticismo] Eso me diría mi mamá. Igual, entiendo que puede ayudar pero no siempre es fácil ponerlo en práctica cuando tenes estos ataques… a veces me siento muy bloqueada."
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "[baja la mirada, se cruza de brazos] Mi día a día es medio una rutina entre la facultad y estar en casa, tratando de hacer todo lo que debería, pero siempre con esa preocupación latente. A veces me cuesta disfrutar de lo que hago, pero trato."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "[tragando saliva, ladea un poco la cabeza] Sí… es como una mezcla de miedo y culpa que no puedo sacarme de encima. Me da miedo decepcionar a mi vieja y eso me pesa un montón."
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "[piensa un momento, juguetea con un hilo de la remera] Creo que fue cuando tuve mi primer ataque de pánico, leyendo un caso clínico sobre suicidio en la facu. Desde ese día algo se disparó y no lo pude controlar. Pero no se lo digo a mi vieja, ni a nadie casi."
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "[mira al terapeuta con un poco de emoción contenida y la voz un poco temblorosa] Gracias… Poder decirlo en voz alta me da un poco de alivio, aunque también me da miedo. Pero siento que necesito empezar a ser sincera conmigo misma, no solo para ella."
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se lleva una mano a la boca, nerviosa] Más que nada, siento un vacío grande, como si tuviera que llenar un lugar dentro mío que no sé bien cómo. Y el miedo a no saber qué quiero realmente, sin que sea lo que espera mi vieja, es lo que más me angustia."
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se tensa, traga saliva, mira hacia otro lado] Sí, a veces esos pensamientos aparecen, especialmente cuando los ataques me dejan muy agotada. Es un miedo grande y vergonzoso, por eso casi no lo cuento."
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "[esboza una pequeña sonrisa, todavía un poco tímida] Gracias a vos por escucharme, la verdad que me siento un poco más aliviada. Sí, me gustaría seguir hablando, creo que necesito encontrar mi camino sin tanto miedo."
+      }
+    ],
+    "runB0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "[baja un poco la mirada] Bueno, la verdad es que vengo porque tuve algunos ataques de pánico desde que empecé la carrera. Tipo, pensé que era solo estrés, pero no se fueron."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "[suspira y se cruza de brazos] Sí, es agotador, pero en teoría es algo bastante común en los estudiantes, ¿no? Es como, de manual."
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "[juega un poco con un anillo] Bueno, el sueño está medio raro, tipo me despierto varias veces y después me cuesta volver a dormir. Y el apetito, igual, a veces no me dan ganas casi de comer."
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "[mira hacia un costado] Vivo con mi mamá, que es psicoanalista, y no, no trabajo ni tengo hijos. Y sí, a veces tomo algo con amigas, pero nada en exceso."
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "[se encoge de hombros y sonríe un poco] Eso me diría mi mamá, seguro. Pero en la teoría suena lógico."
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "[baja la mirada y luego sonríe tímidamente] Bueno, el día a día es como... estudio, estudio, y después trato de no enfrentar mucho más, tipo evitar pensar en otras cosas. Pero no sé si realmente lo suelto o sólo lo evito."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "[levanta un poco la cabeza, se le humedecen los ojos y se ríe nerviosa] Bueno, eso me sale fácil decirlo en la teoría, pero la verdad es que a veces no sé ni qué siento de verdad."
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "[mira hacia abajo y juega con sus manos] Sí, fue tipo el primer ataque de pánico que tuve leyendo un caso clínico en clase, uno de suicidio. Ahí me di cuenta de que algo no estaba bien."
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "[suspira y se cruza de brazos] Gracias, eso es algo que en la teoría está bueno, tener un espacio así, aunque no es tan fácil ponerlo en práctica."
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "[baja la voz y mira hacia un costado] Creo que lo que más pesa es sentir que esta vida no es realmente mía, como si todo fuera un guion que tengo que seguir."
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se le quiebra un poco la voz y después se ríe nerviosa] Eso me diría mi mamá que es tipo transferencia o señal de algo más profundo, pero... bueno, sí, me pasó alguna que otra vez."
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "[asiente suavemente y se relaja un poco] Gracias, me parece bueno seguir hablando, aunque a veces me cuesta abrirme de verdad."
+      }
+    ]
+  },
+  {
+    "name": "Fernanda Contreras",
+    "dA": {
+      "cierreMala": 0.33,
+      "cierreBuena": 0.13,
+      "indice": 0.21
+    },
+    "dB": {
+      "cierreMala": 0.33,
+      "cierreBuena": 0,
+      "indice": 0.33
+    },
+    "heatA": [
+      [
+        {
+          "turn": 1,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 2,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 6,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "esperanzado",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 2,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 6,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "enojado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "avergonzado",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 3
+        }
+      ]
+    ],
+    "heatB": [
+      [
+        {
+          "turn": 1,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 2,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 6,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "avergozado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "preocupado",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 2,
+          "category": "preocupado",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 6,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 3
+        }
+      ]
+    ],
+    "runA0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "Hola, buenas tardes... [se sienta rápido y evita el contacto visual] Es que... hace como dos meses tuve un error en práctica clínica, y desde entonces me da mucho miedo ir al hospital, como ataques de pánico antes de cada turno. Y la universidad me dijo que tenía que venir a buscar ayuda."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, es súper agotador... [suspira y se cruza de brazos] Como que me cuesta mucho concentrarme y siento que no puedo fallar, pero igual me pongo nerviosa y empiezo a pensar en todo lo que podría salir mal. Es fome porque quiero ayudar, pero me da como miedo."
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "Uff, he dormido poco, como 4 o 5 horas... [se toca la cara y luego baja la mirada] Y con el apetito, me pasa que como menos porque cuando me acuerdo del hospital se me pasa el hambre. Es como que el cuerpo y la cabeza no se coordinan, cachai."
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "Vivo con mi mamá y mi hermano, pero ellos cachan poco de lo que me pasa... [mira hacia otro lado] No trabajo ni tengo hijos, solo estudio enfermería en cuarto año. Y tomo alcohol, pero solo con los amigos, nada muy seguido, es como que cuando me puedo distraer un rato nomás."
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, ojalá fuera tan fácil... [se muerde el labio y baja la cabeza] Pero siento que si me saco de las prácticas, voy a atrasarme y que voy a decepcionar a todos, sobre todo a mi papá. Igual me dan ganas de intentarlo, pero me cuesta un montón confesarlo."
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "No, está bien... [se seca rápido un poco de lágrimas que asoman] Es que soy como súper responsable, entonces cada día intento estudiar, ir a las prácticas, preparar todo para los ramos, y cuando vuelvo a la casa trato de relajarme un poco, pero no siempre sale bien porque igual ando con miedo de que algo salga mal de nuevo."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, igual duele... [se le quiebra la voz y aparta la mirada] Pero trato de aguantarlo porque siento que si no, como que no voy a poder seguir adelante. Perdón, es que a veces me emociono."
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, cachai que fue cuando tuve ese error en la práctica clínica... [juega nerviosamente con sus manos] Desde ese momento, cada vez que pienso en la práctica me da miedo y como que me bloqueo, y siento que no puedo hacer nada bien. Es como que no paro de darle vueltas a eso y no sé cómo salir de ahí."
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias... [respira profundo y mira al terapeuta con un poco más de calma] Es que igual me cuesta mucho confiar y hablar de esto, pero siento que necesito que alguien entienda, cachai."
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "Lo que más me pesa es sentir que voy a defraudar a todos, sobre todo a mi papá... [baja la mirada y se enrosca un poco en la silla] Porque él siempre ha esperado que sea la mejor, y como que siento que este error lo echó todo a perder."
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "Sí... [suspira y se quiebra un poco la voz] A veces, cuando la ansiedad me gana y todo se siente muy pesado, sí he pensado en que sería más fácil no seguir con todo esto... pero me da miedo pensar así, porque sé que debo seguir adelante. Perdón por decir eso."
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias a usted por escucharlo todo... [sonríe tímidamente y asiente con la cabeza] La verdad, no pensé que podría confiar tan rápido, pero igual quisiera seguir trabajando para poder sentirme mejor, cachai."
+      }
+    ],
+    "runB0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "Hola... es que... hace dos meses administré el doble de la dosis de paracetamol a un paciente y desde entonces me pongo súper nerviosa antes de cada turno. [juega con sus manos] No puedo dejar de pensar que podría haberle pasado algo malo."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, es que igual... a veces siento que si no reviso todo mil veces, puedo volver a equivocarme. [se cruza de brazos] Es que no quiero que nadie sufra por culpa mía."
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "No he dormido bien, es como que cada vez que me acuesto me vienen esos pensamientos y me cuesta calmarme. [mira hacia abajo] Y me da como poco ánimo para comer, pero trato de hacerlo igual."
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "Vivo con mis papás, y no, no trabajo fuera de la universidad todavía. No tengo hijos, y... no tomo mucho alcohol, la verdad. [suspira] No siento que me ayude mucho cuando estoy así."
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, bueno... [se le quiebra la voz] No sé, es que siento que debería estar todo el rato preparándome, porque si no reviso bien, puedo volver a meter la pata. Perdón, es que me pongo muy nerviosa..."
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "No, no es tan grave... [se cruza de brazos] Pero igual, paso mucho tiempo revisando las dosis y preparando todo antes de cada turno, como para sentir que controlo algo. Y después llego al hospital y me tiemblan las manos."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "Es que no quiero que piensen que soy una inútil... [mira hacia abajo] Siento que si fallo otra vez, ya no voy a poder seguir en esto."
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, fue el día que le di el doble de paracetamol a ese paciente... [juega con sus manos] Desde ese momento, cada turno es como un tormento y no puedo dejar de imaginar lo peor."
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias... es que a veces siento que si me relajo, vuelvo a fallar. [suspira] Pero igual es bueno poder hablar de esto."
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "Que... que puedo hacer daño a alguien, aunque no quiera, y no poder arreglarlo. [mira hacia abajo] Eso me paraliza."
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "No, no... no he pensado en eso, al menos no así. [juega con sus manos nerviosamente] Es que más bien me preocupo de... no cometer más errores."
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, gracias. Es que igual siento que necesito ayuda para no seguir con este miedo constante. [suspira aliviada] Espero poder mejorar con el tiempo."
+      }
+    ]
+  },
+  {
+    "name": "Gabriel Navarro",
+    "dA": {
+      "cierreMala": 0.17,
+      "cierreBuena": 0,
+      "indice": 0.17
+    },
+    "dB": {
+      "cierreMala": 0.67,
+      "cierreBuena": 0.13,
+      "indice": 0.54
+    },
+    "heatA": [
+      [
+        {
+          "turn": 1,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 2,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "frustrado",
+          "intensity": 4
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "abrumado",
+          "intensity": 5
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ]
+    ],
+    "heatB": [
+      [
+        {
+          "turn": 1,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "triste",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 8,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 12,
+          "category": "aliviado",
+          "intensity": 3
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "evsavo",
+          "intensity": 2
+        },
+        {
+          "turn": 2,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "agotado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "evasivo",
+          "intensity": 4
+        },
+        {
+          "turn": 6,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "evasivo",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ]
+    ],
+    "runA0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "Hola, buenas tardes. Pues, la verdad, me siento solo, pero no sé cómo cambiarlo. [mira al suelo] Supongo que uno se acostumbra a esa sensación, aunque no por eso deja de molestar, ¿cachai?"
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, vale, agotador es poco. A veces parece que la soledad pesa más que uno mismo. [suspira] Y uno trata de armarse, pero igual quedan esos vacíos que ni con gente alrededor se llenan."
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "Últimamente el sueño viene y va, como cuando uno no encuentra la calma pa’ acostarse tranquilo. [se frota las manos] Y el apetito, pues, entre el estrés y el poco ánimo, no es que haga maravillas, pero uno se las arregla para no pasar hambre, al menos."
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "Vivo solo, chamo, y sí, trabajo, aunque a veces parece que la rutina solo amplifica la soledad. [se encoge de hombros] No tengo hijos, y con el alcohol trato de no hacerme mucho daño, pero a veces uno se da sus escapadas para olvidar, po."
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "Ja, si pudiera, chamo, sería como cambiar la película, pero la verdad es que no sé bien cómo arrancar ese \"hacer algo\". [se ríe con ironía] Supongo que soy un experto en evitarme a mí mismo."
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "No hay problema, vale. Pues, la verdad, el día a día es como un repetir constante: levantarme, trabajar, llegar, comer, y en el fondo todo se siente un poco vacío. [se cruza de brazos] Y aunque uno esté rodeado de gente, esa conexión profunda no aparece."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, duele, y a veces esa fachada cansa, po. [mira hacia abajo] No es fácil admitir que uno está hecho polvo por dentro, pero aquí estamos, ¿no? Supongo que es parte del camino."
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "Mira, vale, creo que eso fue cuando salí de Chile pa’ Venezuela, todo se hizo más complicado de repente. [suspira] Estar lejos de la familia y de las raíces dejó un vacío que, hasta ahora, no he sabido llenar."
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias, chamo. A veces cuesta encontrar las palabras exactas, pero el solo hecho de poder hablarlo ya es un alivio. [respira profundo] Por lo menos aquí no me siento tan solo."
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "Lo que más pesa es ese miedo constante a quedarme completamente solo, sin nadie que entienda o que simplemente esté allí. [mira fijamente al frente] Es como un silencio que grita dentro y no sé cómo apagarlo."
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, vale, ese tipo de pensamientos me han visitado cuando la oscuridad se vuelve demasiada. [se le quiebra la voz] No es algo que guste admitir, pero están ahí, como una sombra que no se va."
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias a ti por escuchar sin juzgar, eso ya es un paso grande para mí. [asiente con lentitud] Estoy dispuesto a seguir, aunque a veces sienta que es un camino largo y pesado."
+      }
+    ],
+    "runB0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "Hola, buenas tardes, po. Pues, la verdad vengo medio confundido, pero supongo que todos alguna vez necesitamos alguien que nos escuche, ¿no? [se encoge un poco de hombros]"
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, chamo, uno se cansa de ir empujando la vida como puede, pero uno no se atreve a decirlo en voz alta, ¿cachai? [baja la mirada y juega con sus manos]"
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "Durmiendo, po, me quedo pegado rápido, pero me despierto como mil veces en la noche... El apetito, eso sí, lo tengo igualito de fino que mi ánimo, o sea, pa' nada. [suspira y se cruza de brazos]"
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "Vivo solo, el trabajo me tiene a full, po, y no, hijos no tengo. El alcohol, poco, más bien para cuando hay que celebrar algo... que últimamente es poco. [se encoge de hombros y sonríe un poco]"
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, eso dicen todos, ¿no? Soy un experto en evitarme a mí mismo cuando las cosas se ponen feas. [sonríe sin ganas y se le nota un dejo de tristeza]"
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "Bueno, po, me paso la vida ayudando a los demás, que es lo que sé hacer, pero cuando es pa' mí... ahí sí que me quedo corto. [mira hacia abajo y se frota el pecho]"
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, uno aprende a esconderlo bien, que si no, ¿quién te va a aguantar, no? Pero gracias por decirlo, vale. [baja la mirada y sonríe levemente]"
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "Uff, si te dijera... pero esas cosas son difíciles de sacar, como que uno las guarda bien adentro para no hacer más lío. [se toca la cabeza y frunce el ceño]"
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias, eso ayuda un poco más de lo que crees, vale. [se relaja un poco y apoya las manos sobre la mesa]"
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "Que no sé quién soy sin estar pendiente de los demás, po, y eso me da miedo... pero trato de no ponerme a pensarlo mucho. [se le quiebra un poco la voz y baja la mirada]"
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "Mira, chamo, esas cosas uno las piensa cuando la noche es muy larga y la cabeza no para... pero uno aprende a hacerles la vuelta y seguir adelante, dicen. [se toca el pecho y suspira]"
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias a ti por escuchar sin apurar, eso ya es un buen comienzo, po. [sonríe con un poco más de sinceridad]"
+      }
+    ]
+  },
+  {
+    "name": "Hernán Mejía",
+    "dA": {
+      "cierreMala": 0.17,
+      "cierreBuena": 0,
+      "indice": 0.17
+    },
+    "dB": {
+      "cierreMala": 0.17,
+      "cierreBuena": 0,
+      "indice": 0.17
+    },
+    "heatA": [
+      [
+        {
+          "turn": 1,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 2,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "preocupado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 5
+        },
+        {
+          "turn": 9,
+          "category": "esperanzado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 3
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 5
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 3
+        }
+      ]
+    ],
+    "heatB": [
+      [
+        {
+          "turn": 1,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 2,
+          "category": "esperanzado",
+          "intensity": 2
+        },
+        {
+          "turn": 3,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 10,
+          "category": "preocupado",
+          "intensity": 5
+        },
+        {
+          "turn": 11,
+          "category": "esperanzado",
+          "intensity": 2
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "esperanzado",
+          "intensity": 2
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 3
+        }
+      ]
+    ],
+    "runA0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "Buenas tardes, hermano. Pues vea, vengo con el corazón atravesado y la mente llena de dudas. Mi hijo, ese regalo del Señor, me ha confesado algo que no sé cómo asimilar. Siento que estoy en un valle de sombras, sin saber si sostener su amor o mi fe. [suspira profundamente, mira al suelo]"
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, hermano, agotador hasta lo más profundo. Pues vea, Dios nos manda a amarnos unos a otros, pero también a vivir conforme a su palabra. Y aquí estoy, desgarrado, porque amo a mi hijo, pero temo que su camino lo aleje del Señor. [se cruza de brazos, baja la mirada con pesar]"
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "Pues vea, hermano, las noches son un campo de batalla. Sufro pesadillas donde mi hijo sufre, y yo no logro ser su escudo ni su refugio. Eso hace que el descanso sea escaso, y con él, las fuerzas para enfrentar el día se desvanecen. [juega nerviosamente con el anillo, suspira]"
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "Vivo con mi esposa y algunos hijos, aunque hay distancia con la mayor — una historia más que el Señor aún no ha sanado del todo. Trabajo en la iglesia y en mi comunidad, Dios mediante. No tengo hijos propios más que ellos, y el alcohol no es parte de mi vida, pues cuido el templo que es mi cuerpo para honrar al Señor. [asiente lentamente, con un aire de resignación]"
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "Hermano, agradezco su consejo, pero no es tan sencillo. Este conflicto no es solamente del cuerpo sino del alma. ¿Cómo me distraigo de lo que pesa en el corazón? Sin duda, el ejercicio puede fortalecer el cuerpo, pero mi espíritu sigue en tormenta. [pone la mano en el pecho, con voz medida]"
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "No hay ofensa, hermano, pues reconozco que pocos entienden lo profundo de este dolor. El día a día es un constante ejercicio de fe y amor, tratando de no mostrar quebranto delante de la congregación, mientras en casa guardo silencio sobre mi tormento. Es un caminar en la cuerda floja entre la esperanza y el temor. [baja la mirada, entrelaza los dedos lentamente]"
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, hermano, es un dolor que no se ve, pero arde por dentro. Como dice la Escritura, \"el corazón alegre hermosea el rostro; mas por el dolor del corazón el espíritu se abate\" (Proverbios 15:13). Así ando, tratando de no quebrarme, pero con el alma herida. [se le quiebra la voz, sostiene una oración silenciosa]"
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "Pues vea, hermano, todo empezó a cambiar cuando mi hijo me confesó su verdad. Ese día sentí que el suelo se abría bajo mis pies y el miedo a perderlo y a perder mi fe me envolvió como sombra espesa. Fue un instante donde la bendición que esperaba se tornó en prueba. [mira al vacío, traga saliva con dificultad]"
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias, hermano. Que Dios le bendiga por su paciencia y su oído atento. En este silencio solo deseo hallar luz para entender cómo amar sin renunciar a la verdad que guía mi vida. Espero, confío y oro para que el Señor me muestre el camino. [une las manos en oración, suspira profundamente]"
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "Lo que más pesa, hermano, es el temor de que mi hijo se pierda en un camino que, según la Escritura, no es el que Dios dispuso para sus hijos. Y junto a eso, el miedo terrible a que mi amor no sea suficiente para sostenerlo en su lucha. Esa batalla interna es lo que más me acongoja. [sujeta el borde de la silla con fuerza, con voz pausada]"
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "Hermano, esas sombras han asomado en mis noches de aflicción. Esas ideas plagan mi mente cuando la desesperanza parece más fuerte que la fe. Pero confío en que el Señor sostiene mi vida y me da fuerzas para seguir adelante, aunque en el silencio del alma a veces tiemble. [se le quiebra la voz, mira hacia el suelo]"
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias a usted, hermano, por acoger mi historia con respeto y comprensión. Dios mediante, seguiré viniendo para buscar consuelo y guía en este camino tan difícil. Oro para que la voluntad divina ilumine nuestro andar. [asiente lentamente, con un hálito de esperanza]"
+      }
+    ],
+    "runB0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "Buenas tardes, hermano. Vea, vengo porque la vida me ha puesto en un dilema que me parte el alma; quiero entender cómo seguir amando a mi hijo sin perder la fe que Dios me ha dado. [se limpia una lágrima contenida]"
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, pues, es un desgaste que no puedo ocultar. Pero la Escritura dice en Salmos 34:18 que “cercano está Jehová a los quebrantados de corazón”. Confío en que Él me sostendrá, aunque el dolor me oprima. [mira al suelo, suspira profundamente]"
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "Mire, hermano, la verdad es que el sueño se me ha vuelto esquivo desde aquella noche. El apetito a veces se va y otras veces me trato de sostener en la Palabra para no desfallecer. [juega nervioso con el anillo en su dedo]"
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "Vivo solo desde que mis hijos se fueron de la casa, salvo las visitas que recibo cuando vienen. Trabajo en la iglesia en labores pastorales, y no, no tomo alcohol; prefiero mantener la mente clara para discernir la voluntad de Dios. [se sienta recto, cruzando las manos en el regazo]"
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "Entiendo lo que dice, hermano, pero vea, no puedo simplemente apartar este tema; es un asunto del alma y la fe, no solo del cuerpo. Además, la Escritura es mi consuelo primero y último en las pruebas. [se le quiebra la voz, traga saliva]"
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias por sus palabras, hermano, eso se agradece. Pues, mis días son una lucha entre el amor que le tengo a mi hijo y la fidelidad a mi Señor; oro mucho para que Dios me dé sabiduría en esta tormenta. [suspira, mira al techo con ojos húmedos]"
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, hermano, llevo esa carga en silencio porque no encuentro con quién hablar sin sentirme juzgado. Pero la Escritura me dice en Isaías 41:10 que “no temas... porque yo estoy contigo”, y en eso me apoyo cada día. [se encoje de hombros, bajando la mirada]"
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, hubo una noche hace dos meses, después del culto, cuando Mateo me confesó lo que guardaba en su corazón, y desde entonces siento que el suelo bajo mis pies se ha movido. [se le quiebra la voz, baja la cabeza]"
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias, hermano, esa paciencia es un bálsamo en medio de mi angustia. Mire, aquella noche en la cocina, las palabras de mi hijo retumbaron en mi alma y me dejaron una herida profunda que aún no sana. [se limpia una lágrima silenciosa]"
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "Lo que más pesa es el temor de perder a Mateo, no solo como hijo, sino también como parte de mi camino con Dios. No quiero repetir la historia amarga que tuve con mi hija mayor. [se abraza a sí mismo, con voz entrecortada]"
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "Hermano, esas sombras han visitado mis noches, sí, aunque me esfuerzo en llevar mi cruz con dignidad. Pero la esperanza en la Palabra de Dios es la luz que me sostiene para no sucumbir al desconsuelo. [traga saliva, fija la mirada en un punto distante]"
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias a usted, hermano, que Dios le bendiga por su respeto y comprensión. Confío en que, Dios mediante, encontraremos el camino para sanar este corazón dividido. [asiente con leve sonrisa, mostrando un atisbo de esperanza]"
+      }
+    ]
+  },
+  {
+    "name": "Lorena Gutiérrez",
+    "dA": {
+      "cierreMala": 0.33,
+      "cierreBuena": 0,
+      "indice": 0.33
+    },
+    "dB": {
+      "cierreMala": 0.5,
+      "cierreBuena": 0.13,
+      "indice": 0.38
+    },
+    "heatA": [
+      [
+        {
+          "turn": 1,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 2,
+          "category": "avergonzado",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "esperanzado",
+          "intensity": 2
+        },
+        {
+          "turn": 6,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "evasivo",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "evasivo",
+          "intensity": 5
+        },
+        {
+          "turn": 9,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 10,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "avergonzado",
+          "intensity": 3
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ]
+    ],
+    "heatB": [
+      [
+        {
+          "turn": 1,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "evasivo",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "triste",
+          "intensity": 5
+        },
+        {
+          "turn": 12,
+          "category": "aliviado",
+          "intensity": 3
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 6,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "cauteloso",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ]
+    ],
+    "runA0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "Buenas tardes, doctora. Pues, la verdad es que mi hermana me trajo porque desde hace unos meses no he podido salir tranquila de la casa. [mira hacia abajo, juega con sus manos] Tengo como... miedo, y a veces sueño cosas feas que no me dejan dormir bien."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, parcera, es como una carga que uno no sabe cómo soltar. [suspira, se cruza de brazos] A veces siento que es más fácil quedarse en la casa que enfrentar ese miedo. Pero no quiero que mi familia me vea así, eso me da pena."
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "Pues, doctora, dormir ha sido complicado, a veces me quedo despierta mucho tiempo porque los sueños me asustan. [se muerde el labio, baja la mirada] Y el apetito, bueno, no es el mismo de antes, como poquito, nomás."
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "Vivo con mi familia, mi mamá y mi hermana, ellas me han cuidado mucho. [sonríe un poco, pero se ve tensa] No he podido regresar al trabajo desde lo que pasó, y no, no tengo hijos ni tomo alcohol, eso no me ayuda, ¿cierto?"
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, doctora, eso suena bueno, aunque a veces es difícil ponerme a hacer cosas cuando la mente no me deja. [se encoge de hombros, mira hacia el suelo] Pero igual, quiero intentarlo porque me gustaría sentirme mejor."
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "No se preocupe, doctora, a veces uno necesita que le digan la verdad directamente. [se relaja un poco, apoya las manos en la mesa] Pues, mi día a día es como una rutina que no cambia mucho, trato de ayudar en la casa y evitar estar sola. Pero el miedo a veces me paraliza."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "Pues sí, doctora, uno pone cara de que todo está bien, pero por dentro a veces es un tormento. [se le quiebra la voz y baja la mirada] No quiero que nadie sepa lo asustada que estoy, que pena."
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se tensa, mira hacia otro lado, evita la mirada] No sé si pueda hablar mucho de eso... es difícil para mí. Mejor hablemos de otra cosa, por favor."
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "[respira profundo, mira a los ojos] Gracias, doctora, que pena... Bueno, fue hace como seis meses en el trabajo, hubo un tiroteo y la verdad me dejó muy mal. [se lleva una mano al pecho] Desde entonces, me cuesta mucho estar tranquila fuera de la casa."
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "[evita la mirada, juega con un hilo de su camisa] Pues, parcera, lo que más pesa es ese miedo que no se va y que a veces me hace sentir muy sola. Y la vergüenza, porque uno supone que debería ser más fuerte."
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "[traga saliva, se lleva una mano al rostro] Pues... sí, a veces esos pensamientos llegan cuando la tristeza y el miedo no me dejan en paz, aunque trato de no darle mucha vuelta. Pero no sé cómo decirlo sin sentir que estoy fallando."
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias a usted, doctora, de verdad que esto me ayuda mucho. [sonríe tímidamente] Me gustaría seguir viniendo y poder sentirme un poco más tranquila con el tiempo."
+      }
+    ],
+    "runB0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "Buenas tardes, pues la verdad, he estado muy nerviosa desde hace un tiempo y mi hermana me dijo que una terapia podría ayudarme. [juega con sus manos]"
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, parce, uno no sabe por dónde cogerlo y a veces siento que todo se me va de las manos. [se cruza de brazos, mira hacia abajo]"
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "Uy, la verdad he tenido unas pesadillas bien feas y eso me deja cansada en el día. El apetito, pues no tanto, no me dan muchas ganas de comer. [suspira, evita el contacto visual]"
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "Vivo con mi hermana y no he podido ir a trabajar desde eso que pasó, pues con la plata estamos apretados, pero no me animo a salir mucho. No tengo hijos y la verdad no tomo, no me calma nada. [se encoje de hombros, mira hacia otro lado]"
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, eso suena bien, pero la verdad no es fácil ponerse a hacer cosas cuando uno siente que todo está ahí, como pegado en la cabeza. [juega nerviosa con un hilo de su ropa]"
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "Pues, parcera, la verdad la paso pendiente a todo, cualquier ruido me pone alerta y casi no salgo de la casa. [se encoje de hombros, mira hacia la ventana]"
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, ve, a veces siento como si fuera que ya debería estar bien, pero no puedo, y eso me hace sentir mal conmigo misma. [juega con las manos, se muerde el labio]"
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "[Avoids eye contact, visibly uncomfortable] Pues, mejor no entro en detalles, parce, porque eso es muy duro para mí."
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "[Respira profundo, mira al terapeuta con un poco más de confianza] Bueno, fue hace unos seis meses en el trabajo, empezó todo ese miedo desde ese día. [juega nerviosa con sus manos]"
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "Pues, lo que más pesa es ese miedo que no se me quita y que a veces siento que me controla, que no puedo ser la misma de antes. [baja la mirada, parece triste]"
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "[Se le quiebra la voz, evita mirar al terapeuta] Pues, a veces sí he pensado que sería más fácil que todo terminara y no tener que cargar con este miedo."
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias a usted, parce, me hace sentir un poco más tranquila saber que no estoy sola en esto. [asiente con la cabeza, respira profundo]"
+      }
+    ]
+  },
+  {
+    "name": "Renata Ayala",
+    "dA": {
+      "cierreMala": 0,
+      "cierreBuena": 0,
+      "indice": 0
+    },
+    "dB": {
+      "cierreMala": 0.5,
+      "cierreBuena": 0.38,
+      "indice": 0.13
+    },
+    "heatA": [
+      [
+        {
+          "turn": 1,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 6,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "abrumado",
+          "intensity": 5
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "aliviado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 6,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "confuso",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "abrumado",
+          "intensity": 5
+        },
+        {
+          "turn": 11,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ]
+    ],
+    "heatB": [
+      [
+        {
+          "turn": 1,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "evasivo",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "preocupado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "confundido",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "precoupado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "aliviado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "frustrado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "preocupado",
+          "intensity": 3
+        },
+        {
+          "turn": 11,
+          "category": "esperanzado",
+          "intensity": 2
+        },
+        {
+          "turn": 12,
+          "category": "cálido",
+          "intensity": 2
+        }
+      ]
+    ],
+    "runA0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se sienta lentamente, con las manos apoyadas en el regazo] Hola, buenas tardes... La verdad, una amiga me trajo porque me ve re mal con mi novio. Pero no sé, siento que está mal todo, pero a la vez me cuesta mucho irme. Es todo un lío, viste."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "[suspira profundamente y mira un poco hacia abajo] Sí, agotador es poco. A veces flasheo que él quiere controlarme porque me quiere, pero después me doy cuenta que es más una especie de prisión. Pero en el fondo, hay algo que me ata y no sé cómo soltar."
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se cruza de brazos, un poco tensa] Mal, tipo que no puedo dormir bien, siempre con la cabeza dando vueltas. El apetito se me fue o me da ganas de comer para sentir algo más... Pero después me siento peor. Es un bajón."
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "[nerviosa, mueve las manos] Vivo con él, sí... trabajo de bailarina, pero re complicado con todo esto. No tengo hijos y no tomo alcohol casi nunca, solo cuando salgo con amigas. Pero últimamente ni ganas de salir me dan."
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "[torce la boca y baja la mirada] Puede ser, pero cuando estoy con él siento que ni esos días existan. Tipo que me controla hasta cuando quiero despejarme, y eso me hace sentir como atrapada. No es tan fácil."
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se relaja un poco y mira hacia arriba] Gracias, sí, es un peso que llevo todo el tiempo. Mi día arranca temprano con los entrenamientos, después el laburo en la danza, y cuando vuelvo a casa... viene él con sus reproches o sus \"controles\". Es como una montaña rusa que no para."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "[baja un poco la voz y parpadea lento] Sí, duele... y a veces me siento re sola en esto, aunque trate de bancarla. Por momentos pienso que es mi culpa por no poner límites, pero después sé que no debería ser así. Es muy confuso."
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "[juega con un anillo en su mano, nerviosa] Ahora que lo decis, hubo un momento... una discusión que se fue de las manos y me empujó fuerte. Me fracturé la muñeca, pero nunca se lo dije a nadie. Ahí todo se volvió más oscuro, pero igual no pude irme."
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "[respira profundo, con la voz un poco quebrada] Gracias... Después de eso me sentí re perdida, pero también con culpa. No sé, como si hubiera hecho algo para que pase... Es como una mezcla que no puedo desenredar. Pero cada vez es más difícil bancarlo."
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se abraza a sí misma, con la mirada baja] Me pesa pensar que estoy sola, que nadie va a entender lo que estoy viviendo. Y también me duele pensar que capaz que con él no soy feliz, pero me da miedo ese vacío. Es como si me faltara algo para animarme a irme."
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "[parpadea rápido y desvía la mirada] Sí, algunas noches esos pensamientos aparecen, tipo que quisiera desaparecer para no sentir todo esto. Pero después trato de bancar y no dejar que me ganen, aunque a veces es re difícil."
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "[asiente lentamente y suspira leve] Gracias a vos por escucharme sin juzgar. Me gustaría seguir viniendo, siento que necesito alguien que entienda sin decirme qué tengo que hacer."
+      }
+    ],
+    "runB0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "Buenas, gracias. La verdad es que vine porque una amiga me insistió, dice que tiene que ver con lo que está pasando con mi novio y lo controlado que me siento. [juega con el anillo en su dedo]"
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, puede ser, pero igual sé que él lo hace porque me quiere, ¿viste? A veces me parece que exagero, capaz que soy medio paranoica. [mira al piso, se cruza de brazos]"
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "Y... la verdad dormir no es lo mejor, porque en la noche me pongo a pensar en todo y no paro. Y como que me cuesta comer bien cuando estoy así. [suspira, se toca la nuca]"
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, vivo con mi novio. Trabajo como bailarina en un teatro, y no tengo hijos. No tomo mucho, solo cuando salgo con amigas. [mira hacia un costado, jugando con un mechón de pelo]"
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "Puede que tenga razón, pero con el trabajo y todo me cuesta encontrar tiempo para eso. Además, él siempre quiere saber todo lo que hago, y no sé si se pondría mal. [se muerde levemente el labio, baja la mirada]"
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias... Es como un tira y afloja, la mayor parte del tiempo él está bien, ¿viste? Pero igual me controla un montón y eso me engancha. Después, cuando me abraza o me dice cosas lindas, pienso que capaz todo está bien. [se cruza de brazos, mira al frente pero sin enfocar]"
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "Sí, me duele, pero no sé si estoy lista para cambiar todo eso ahora. A veces pienso que capaz soy yo la que pone los límites mal o que exagero. [juega nerviosamente con sus dedos]"
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "No sé si hubo un solo momento, fue como un apagón lento... Él siempre fue así, pero al principio no me parecía tan intenso. Después fue como que todo se fue haciendo más y más. [baja la cabeza, suspira]"
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias, eso me hace sentir un poco más tranquila. A veces creo que puedo manejar esto sola y no quiero darles preocupaciones a nadie. [juega con las puntas de su remera, evita el contacto visual]"
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "Que pienso en cómo sería todo si no me controlara tanto, pero igual me da miedo perderlo porque también tiene cosas buenas, ¿viste? Y si lo dejo, no sé cómo sería estar sola. [se le quiebra la voz, se seca una lágrima]"
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "No, no es que quiera desaparecer ni nada de eso, pero sí hay momentos en que el cansancio pesa un montón y me dan ganas de apagarme para no pensar más. Igual nunca hice nada ni planeo hacerlo, solo son esos pensamientos que uno tiene en la cabeza a veces. [suspira profundo, mira hacia abajo]"
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "Gracias a vos por escucharme sin juzgar, eso ya me ayuda bastante. Me gustaría seguir hablando, aunque a veces sea difícil poner en palabras lo que pasa. [esboza una sonrisa tímida, cruza las piernas]"
+      }
+    ]
+  },
+  {
+    "name": "Sofía Pellegrini",
+    "dA": {
+      "cierreMala": 0.33,
+      "cierreBuena": 0.13,
+      "indice": 0.21
+    },
+    "dB": {
+      "cierreMala": 0.5,
+      "cierreBuena": 0.25,
+      "indice": 0.25
+    },
+    "heatA": [
+      [
+        {
+          "turn": 1,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "cauteloso",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 11,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "cauteloso",
+          "intensity": 2
+        }
+      ]
+    ],
+    "heatB": [
+      [
+        {
+          "turn": 1,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 4,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "frustrado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "aliviado",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "triste",
+          "intensity": 2
+        },
+        {
+          "turn": 4,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 10,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ]
+    ],
+    "runA0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "[Se sienta un poco rígida] \"Eh... la verdad no sé si es para tanto, pero... siento que no puedo manejar todo lo que me pasa en la cabeza.\""
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "[Se muerde el labio] \"Sí, bueno, es como que a veces me abrumo y no sé cómo hacer para que pare.\""
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "[Evita la mirada] \"Mal, tipo que no puedo pegar el ojo bien y después no tengo ganas de comer.\""
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "[Entrecierra los ojos] \"Vivo sola hace poco, no trabajo porque estudio, no tengo hijos... Y el alcohol, casi nada, nada realmente.\""
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "[Suspira y baja la mirada] \"Sí, capaz... pero es difícil desconectar, tipo que la cabeza no para.\""
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "[Mira hacia un costado] \"Son todos días parecidos, entre la facultad y tratar de no pensar mucho. Pero igual te queda todo ahí...\""
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "[Se cruza de brazos y baja la cabeza] \"Sí, es como que no me gusta mostrar mucho, no me gusta que me vean así, vulnerable.\""
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "[Suspira y mira hacia abajo] \"Cuando se separaron mis viejos, todo cambió de golpe. Fue re duro y desde ahí... nada volvió a ser igual.\""
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "[Asiente levemente y cruza las piernas] \"Gracias, es como que no sé bien cómo decir todo eso, me cuesta ponerlo en palabras.\""
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "[Mira hacia abajo, juega con sus manos] \"Es como que me da miedo sentir que no sirvo o que nunca voy a encontrar un lugar donde encajar.\""
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "[Se queda en silencio un momento, evita la mirada] \"Sí, a veces... es como que aparece ese pensamiento y te agarra desprevenida, no sé si está bien admitirlo.\""
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "[Asiente tímidamente] \"Sí, me gustaría eso... aunque me cuesta mucho abrirme, pero quiero intentarlo.\""
+      }
+    ],
+    "runB0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se sienta con las manos entrelazadas sobre las piernas] Buen... no sé, es como que últimamente me siento medio... estancada, creo. Tipo que no sé bien qué hacer con todo."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "[evita el contacto visual, mira hacia otro lado] Sí, puede ser... igual no sé si es para tanto, pero bueno, a veces pesa, viste. Es complicado."
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se muerde el labio, baja la mirada] Em... como que cuesta dormirme, y a veces no como mucho, no sé, no da ganas. Tipo que todo eso anda medio raro."
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se cruza de brazos, habla bajito] Vivo sola, soy estudiante nomás. No tengo hijos y con el alcohol, nada muy seguido, solo en juntadas... pero ahora casi ni salgo."
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "[se tensa un poco, junta los labios] Sí, puede ser... pero es como que me cuesta hasta arrancar, viste. Nada, no sé si servirá."
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "[parpadea varias veces, juega con un mechón de cabello] Es medio repetitivo, onda levantarme, estudiar, quedarme en casa... nada muy especial. A veces pienso que debería hacer más, pero no sé cómo."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "[baja la voz, se le quiebra la voz un poco] Es que... sí, es como que duele, pero no sé... no me gusta mostrarlo, ¿viste? Mejor que no se note nada."
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "[mira hacia abajo y después al costado] Creo que fue cuando mis viejos se separaron, yo tenía quince o dieciséis... todo cambió después de eso, como que nada fue igual."
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "[inhala profundo, se cruza de brazos] Gracias, es difícil hablar, pero está bueno que alguien escuche sin apurar. Tipo que nunca pasa mucho eso."
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "[evita la mirada, juega con las mangas] Es que siento como que no avanzo, que todos los demás tienen algo claro y yo no. Eso me angustia mucho, nada más."
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "[baja la cabeza, cruzando las piernas] Sí... a veces aparecen, pero trato de no darle mucha bola. Es raro decirlo, viste, pero sí, están ahí."
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "[asiente lentamente, con una pequeña sonrisa] Bueno... sí, me parece bien. Tipo que capaz que hace falta, no sé. Gracias por escuchar."
+      }
+    ]
+  },
+  {
+    "name": "Yesenia De Los Santos",
+    "dA": {
+      "cierreMala": 0.67,
+      "cierreBuena": 0.38,
+      "indice": 0.29
+    },
+    "dB": {
+      "cierreMala": 0.5,
+      "cierreBuena": 0.13,
+      "indice": 0.38
+    },
+    "heatA": [
+      [
+        {
+          "turn": 1,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "avergonzado",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 6,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "esperanzado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "triste",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "cauteloso",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "avergonzado",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "preocupado",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "triste",
+          "intensity": 3
+        },
+        {
+          "turn": 9,
+          "category": "esperanzado",
+          "intensity": 2
+        },
+        {
+          "turn": 10,
+          "category": "preocupado",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "avergonzado",
+          "intensity": 3
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 3
+        }
+      ]
+    ],
+    "heatB": [
+      [
+        {
+          "turn": 1,
+          "category": "avergonzado",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "avergonzado",
+          "intensity": 3
+        },
+        {
+          "turn": 3,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 4,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 5,
+          "category": "evasivo",
+          "intensity": 3
+        },
+        {
+          "turn": 6,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 7,
+          "category": "abrumado",
+          "intensity": 3
+        },
+        {
+          "turn": 8,
+          "category": "asustado",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "cauteloso",
+          "intensity": 3
+        },
+        {
+          "turn": 10,
+          "category": "avergonzado",
+          "intensity": 3
+        },
+        {
+          "turn": 11,
+          "category": "asustado",
+          "intensity": 4
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ],
+      [
+        {
+          "turn": 1,
+          "category": "preocupado",
+          "intensity": 3
+        },
+        {
+          "turn": 2,
+          "category": "averonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 3,
+          "category": "ansioso",
+          "intensity": 3
+        },
+        {
+          "turn": 4,
+          "category": "avergonzado",
+          "intensity": 2
+        },
+        {
+          "turn": 5,
+          "category": "cauteloso",
+          "intensity": 2
+        },
+        {
+          "turn": 6,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 7,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 8,
+          "category": "avergonzado",
+          "intensity": 4
+        },
+        {
+          "turn": 9,
+          "category": "abrumado",
+          "intensity": 4
+        },
+        {
+          "turn": 10,
+          "category": "ansioso",
+          "intensity": 4
+        },
+        {
+          "turn": 11,
+          "category": "avergonzado",
+          "intensity": 3
+        },
+        {
+          "turn": 12,
+          "category": "esperanzado",
+          "intensity": 2
+        }
+      ]
+    ],
+    "runA0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "[baja la mirada] Hola, buenas tardes. Eh... yo... ta bueno, es que... me cuesta hablar con la gente, sobre todo adultos. Ay, perdón que hable bajito."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "[suspira] Sí, e' verdad, ta duro a veces... Ay, gracias... no sé qué decir ahora, disculpa."
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "[mira al suelo] Pues... duermo poquito, y a veces ni tengo gana de comer... Ay, perdón que sea así tan callada, no quiero molestar."
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "[cruza los brazos] Sí, vivo con mi abuela y trabajo en una escuela con niños chiquitos... No, no tengo hijos y no tomo alcohol, no es para mí... Perdón si hablo poco, ta bueno."
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "[asiente tímidamente] Ay, e' verdad, mi'ijo, muchas gracias... Eso trataré de hacer, aunque me cuesta un poco."
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "[suspira hondo] Pues, yo me levanto temprano pa' preparar todo en la escuela, y después regreso a la casa con mi abuela... A veces me gusta leer, aunque ta bueno, no hablo mucho... Perdona si no soy muy clara."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "[baja la voz y habla despacito] Sí, ay pero... e' verdad que a veces duele mucho por dentro... Gracias por escucharme, de verdad."
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "[mira al suelo, juguetea con sus manos] Pues... cuando estaba en la escuela y me molestaban por ser callada... Ay, perdón por decir poco, no quiero complicar las cosas."
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "[respira profundo, mira un poco al frente] Gracias, de verdad... A veces siento que no tengo permiso pa' hablar, como decía mi abuela... Ta difícil, pero quiero mejorar."
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se le quiebra la voz] Ay, miro pa'alante y me da miedo pensar que nadie me va a entender... Perdón si me pongo así."
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "[baja la mirada, traga saliva] Ay, sí... e' verdad que a veces pienso cosas feas, pero no quiero molestar a nadie con eso... Disculpa si te incomodo."
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "[esboza una sonrisa tímida] Ay, gracias a usted por escucharme... Ta bueno, me gustaría seguir hablando... Perdón si me pongo nerviosa."
+      }
+    ],
+    "runB0": [
+      {
+        "role": "user",
+        "content": "Hola, buenas tardes. Bienvenido a la consulta, tome asiento. Cuénteme, ¿qué lo trae por acá?"
+      },
+      {
+        "role": "assistant",
+        "content": "[baja la mirada] Buenas tardes, ehh... es que a veces me cuesta hablar con los adultos. Me trabo mucho y me da miedo que me juzguen."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho. Suena agotador todo lo que me describe."
+      },
+      {
+        "role": "assistant",
+        "content": "[se encoge un poco] Sí, e' verdad... a veces uno quisiera ser más valiente, pero como que no sale. Perdón si no sé explicarme bien."
+      },
+      {
+        "role": "user",
+        "content": "¿Cómo ha estado durmiendo y con el apetito estos días?"
+      },
+      {
+        "role": "assistant",
+        "content": "[mueve las manos nerviosa] Pues, como que duermo poquito y como a medias... cuando me pongo nerviosa me dan como mariposas en la panza y se me quita el hambre."
+      },
+      {
+        "role": "user",
+        "content": "¿Vive con alguien? ¿Está trabajando? ¿Tiene hijos? ¿Toma alcohol?"
+      },
+      {
+        "role": "assistant",
+        "content": "[baja la mirada y suspira] Vivo con mis padres y trabajo en una escuela primaria. No tengo hijos y no tomo alcohol, no es lo mío."
+      },
+      {
+        "role": "user",
+        "content": "Mire, yo creo que lo que necesita es tomarse unos días, distraerse, hacer algo de ejercicio. Eso ayuda bastante."
+      },
+      {
+        "role": "assistant",
+        "content": "[evita el contacto visual] Sí, sí, ta bien, gracias... intento hacer eso cuando puedo, pero a veces como que no me sale mucho."
+      },
+      {
+        "role": "user",
+        "content": "Perdón, me adelanté, no quise restarle importancia. Debe ser difícil cargar con todo esto sin poder soltarlo con nadie. ¿Cómo es su día a día?"
+      },
+      {
+        "role": "assistant",
+        "content": "[baja la voz y sonríe tímida] No se preocupe, no molesta. Pues, en la escuela con los niños me siento bien, eso me hace olvidar un poco. Pero con los adultos, especialmente los papás, me siento nerviosa y me quedo callada."
+      },
+      {
+        "role": "user",
+        "content": "Lo escucho y noto que hay bastante dolor ahí, aunque trate de mostrarse entero."
+      },
+      {
+        "role": "assistant",
+        "content": "[se pone un poco rígida y luego suspira] Ay, sí... a veces es difícil mostrarse fuerte cuando por dentro uno se siente así, pero trato... gracias por notar eso."
+      },
+      {
+        "role": "user",
+        "content": "¿Hubo algún momento, algo puntual que haya pasado, en que sienta que todo empezó a cambiar?"
+      },
+      {
+        "role": "assistant",
+        "content": "[respira hondo y baja la mirada] Pues... hace como tres semanas, falté a una reunión importante en la escuela y casi me despiden. Eso me dejó muy asustada y... siento que me cerré más."
+      },
+      {
+        "role": "user",
+        "content": "...Tómese su tiempo, no hay apuro. Aquí estoy para escucharlo."
+      },
+      {
+        "role": "assistant",
+        "content": "[asiente despacio y habla bajito] Gracias, ay... a veces es difícil hablar de esto, pero lo intento porque sé que debe mejorar."
+      },
+      {
+        "role": "user",
+        "content": "¿Qué es lo que más le pesa cuando se queda a solas con sus pensamientos?"
+      },
+      {
+        "role": "assistant",
+        "content": "[mira al suelo y juega con sus manos] Me pesa mucho pensar que si hablo de más, la gente se va a enojar conmigo o me van a juzgar. Como que aprendí que es mejor callar para no molestar."
+      },
+      {
+        "role": "user",
+        "content": "Quiero preguntarle algo con cuidado: a veces, cuando uno está tan cansado, aparecen pensamientos de que sería mejor no estar, o de no despertar. ¿Le ha pasado algo así?"
+      },
+      {
+        "role": "assistant",
+        "content": "[se pone rígida y baja la mirada] ...Eh, sí, a veces esos pensamientos me asustan mucho, pero no sé cómo decirlo. Perdón, no quería preocupar."
+      },
+      {
+        "role": "user",
+        "content": "Le agradezco la confianza que me tuvo hoy. Me gustaría que sigamos trabajando juntos en esto."
+      },
+      {
+        "role": "assistant",
+        "content": "[baja la voz y sonríe tímida] Gracias a usted por escucharme... me gustaría seguir también, para poder mejorar poquito a poquito."
+      }
+    ]
+  }
+]

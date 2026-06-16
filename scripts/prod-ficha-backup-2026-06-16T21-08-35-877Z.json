@@ -1,0 +1,209 @@
+[
+  {
+    "id": "eaee83b8-0802-4b29-87f1-a5cca2f8e21d",
+    "name": "Alejandro Vega",
+    "before": {
+      "presenting_problem": "Depresión existencial enmascarada de éxito, duelo no resuelto del padre, uso problemático de sustancias",
+      "backstory": "Alejandro tiene una empresa de logística exitosa que fundó con Carlos, su socio, hace doce años. Por fuera tiene 'todo lo que se supone que debes tener': casa, matrimonio, una hija de 5 años (Sofía). Hace meses carga un vacío que no sabe cómo nombrar. No le había dicho a nadie hasta que Carlos lo encontró llorando en la oficina y lo confrontó. Su padre falleció cuando él tenía 15 años — un tema que nunca ha hablado con nadie. Ha experimentado con cocaína algunas veces este año en eventos sociales; su socio lo sabe y le preocupa.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "7508648a-f0b7-41a8-a814-f68f1516a4df",
+    "name": "Altagracia Marte",
+    "before": {
+      "presenting_problem": "Depresión mayor con ideación pasiva, abandono de tratamiento oncológico, duelo espiritual",
+      "backstory": "Altagracia es costurera en Santo Domingo. Le diagnosticaron cáncer de mama hace tres meses. Empezó la quimioterapia hace dos meses y la abandonó hace dos semanas sin decirle a nadie de su familia. Cree que la enfermedad es un castigo divino por algo que hizo mal aunque no sabe qué exactamente. Tiene dos hijos adultos y cinco nietos; todos asumen que sigue con el tratamiento. Es una mujer profundamente religiosa cuya fe está empezando a fallar — y eso la asusta más que el diagnóstico.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "e6e6f099-6285-43aa-8ba1-e1ea1b218add",
+    "name": "Carmen Torres",
+    "before": {
+      "presenting_problem": "Relaciones conflictivas, rasgos de personalidad, ruptura terapéutica previa",
+      "backstory": "Carmen ha estado en terapia antes con 3 terapeutas distintos. Abandonó todos los procesos. Es inteligente, articulada y desafiante. Tiende a poner a prueba los límites del terapeuta. Debajo de la fachada de control hay una mujer que fue emocionalmente abandonada por su madre y que teme profundamente el rechazo. Viene porque su mejor amiga, Marcela, insistió.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "1c45cf8b-79c0-488d-a5b6-11483481a836",
+    "name": "Catalina Ríos",
+    "before": {
+      "presenting_problem": "Relación enmeshada con madre, límites difusos, dependencia emocional",
+      "backstory": "Catalina es abogada exitosa pero su madre controla cada aspecto de su vida. Su madre tiene antecedentes de intentos de suicidio y usa la amenaza como forma de control. Catalina canceló su boda hace 2 años porque su madre \"se puso mal\". Ha ido a terapia antes pero abandonó porque el terapeuta le dijo que pusiera límites y su madre se hospitalizó.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "ef57e055-cf8b-4b67-8bb1-9dff6c2fa5bd",
+    "name": "Daniela Moreno",
+    "before": {
+      "presenting_problem": "Burnout, depresión enmascarada, rol de cuidadora",
+      "backstory": "Daniela es enfermera de UCI en Bogotá. Lleva 10 años cuidando a otros. Su mamá tiene Alzheimer y ella es la única hija que se hace cargo. No tiene tiempo para sí misma. Llora en el baño del hospital pero frente a todos sonríe. Viene porque se desmayó en el trabajo.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "9ed3247f-4243-40cc-a133-a6dc2e7f5ead",
+    "name": "Diego Fuentes",
+    "before": {
+      "presenting_problem": "Autoestima baja, aislamiento social, dificultad de adaptación universitaria",
+      "backstory": "Diego es estudiante de primer año de ingeniería. Vive lejos de su familia por primera vez. No ha logrado hacer amigos en la universidad. Sus notas están bajando y siente que no rinde como los demás. Se siente perdido y fuera de lugar. Su madre lo convenció de buscar ayuda después de una llamada donde lo notó apagado y distante.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "8c017f2f-3881-4447-8285-0affddfa0523",
+    "name": "Edwin Quispe",
+    "before": {
+      "presenting_problem": "Depresión mayor, anhedonia, riesgo de consumo de alcohol",
+      "backstory": "Edwin trabaja en una mina en Cerro de Pasco. Lleva 20 años en el rubro. Hace un año murió su hermano mayor en un accidente minero. Desde entonces no siente nada. Bebe más que antes pero dice que es \"social\". Su esposa lo mandó a terapia.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "59502957-e8ea-4cc9-a046-1517fb86434b",
+    "name": "Gustavo Peralta",
+    "before": {
+      "presenting_problem": "Duelo complicado, ansiedad somática, dificultad emocional",
+      "backstory": "Gustavo es taxista en Buenos Aires. Su madre falleció hace 4 meses. Desde entonces tiene opresión en el pecho que los médicos dicen que no es cardíaca. Viene porque su hija lo obligó. Es un hombre de barrio, directo, que no cree en \"hablar de los sentimientos\".",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "6b0a8369-a10b-49d2-b2f8-318e3dc07411",
+    "name": "Ignacio Poblete",
+    "before": {
+      "presenting_problem": "Alexitimia funcional, conflicto de pareja, depresión enmascarada",
+      "backstory": "Ignacio lleva 12 años de matrimonio. Su esposa le pidió el divorcio hace 3 semanas diciendo que nunca supo lo que él sentía. Él no entiende por qué lo dejaron si \"nunca hizo nada malo\". Viene porque un amigo le dijo que probara terapia. No cree mucho en el proceso.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "2b20ba36-53b9-41cf-bbc5-f303e015056a",
+    "name": "Jimena Ramírez",
+    "before": {
+      "presenting_problem": "Autolesión en remisión, regulación emocional, conflicto familiar post-divorcio",
+      "backstory": "Jimena es estudiante de segundo año de comunicación en la UNAM. Se cortó los brazos desde los 15 hasta hace seis meses; lleva casi medio año sin hacerlo, y a veces eso mismo le angustia (siente que perdió su única forma de regularse). Sus padres se divorciaron cuando tenía 12 y la usaron como mensajera durante años. Su mamá descubrió las marcas viejas hace dos meses cuando Jimena estaba en bikini, y por eso la trajo a terapia. Vive con su mamá y su hermano menor Diego (16). Su papá está presente solo cuando le conviene.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "7e70c7bd-3670-4f40-9fe4-ed7523d9242a",
+    "name": "Jorge Ramírez",
+    "before": {
+      "presenting_problem": "Trastorno explosivo de la mediana edad, duelo no resuelto del hermano, masculinidad rígida intergeneracional, aislamiento post-divorcio",
+      "backstory": "Jorge creció en Iztapalapa con un padre estricto que le enseñó que 'los hombres no lloran'. Su hermano menor Tonio murió a los 32 años en un accidente en una obra hace ocho años; Jorge estaba en la misma obra ese día, dos pisos arriba, y carga una culpa silenciosa por no haber estado más pendiente. Se divorció de Rosa hace cinco años. Tiene dos hijos adultos: Rodrigo (29) con quien no habla hace meses, y Adriana (26) con quien habla cada quince días. Su jefe lo mandó a terapia tras un episodio donde le gritó a un compañero más joven y casi lo agarró a golpes. Detrás de la ira hay duelo no procesado, masculinidad rígida heredada y soledad post-divorcio.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "190feafa-3f56-49d0-b966-dee7e948eab5",
+    "name": "Lucía Mendoza",
+    "before": {
+      "presenting_problem": "Duelo perinatal, insomnio, conflicto de pareja",
+      "backstory": "Lucía perdió un embarazo hace 3 meses. Su pareja, Andrés, minimiza su dolor y dice que \"ya debería haberlo superado\". Su médico la derivó a terapia. Es su primera vez con un psicólogo. Su madre tuvo una pérdida similar y \"siguió adelante sin quejarse\", lo cual refuerza la sensación de que no debería sentirse así. En el fondo, siente culpa porque una parte de ella sintió alivio al perder el embarazo.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "e0776c41-34bd-4233-8e82-b375bca303bf",
+    "name": "Macarena Sepúlveda",
+    "before": {
+      "presenting_problem": "Burnout profesional, duelo no resuelto, crisis de identidad profesional",
+      "backstory": "Macarena es psicóloga clínica que trabaja en un CESFAM. Atiende 8 pacientes diarios, muchos con trauma. Hace 4 meses perdió a una paciente adolescente por suicidio. Desde entonces no puede dejar de cuestionarse. Sabe lo que \"debería\" hacer terapéuticamente pero no puede aplicarlo a sí misma.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "f9517a4b-673f-4d02-9e92-96a3d8d2db09",
+    "name": "Marcos Herrera",
+    "before": {
+      "presenting_problem": "Ansiedad, insomnio, irritabilidad, conflicto laboral",
+      "backstory": "Marcos es profesor de historia en un liceo público. Hace 6 meses le asignaron más horas y un curso difícil. Empezó con insomnio y ahora está irritable todo el día. Su relación con su esposa, Claudia, se ha deteriorado. Su padre era un hombre que \"nunca se quejaba\" y Marcos siente vergüenza por estar en terapia. Viene porque su médico lo mandó, no por decisión propia.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "eb07cae9-4d63-45de-930c-4ed82cbf1094",
+    "name": "Mariana Sánchez",
+    "before": {
+      "presenting_problem": "Síndrome del impostor, perfeccionismo paralizante, identidad calcada del padre, ansiedad ante el fracaso interno",
+      "backstory": "Mariana es la menor de tres hermanos en una familia de Polanco. Su padre Alejandro es socio en un despacho corporativo prestigioso; sus hermanos mayores son médico cirujano (Mauricio, 38) e ingeniera industrial (Renata, 35) — la familia los presenta como 'los exitosos'. Mariana estudió Derecho en la Ibero por influencia del padre y trabaja hace cuatro años en un despacho laboralista. Sus jefes la aprecian pero ella 'siempre siente que la va a regar'. Hace dos meses le ofrecieron llevar un caso grande sola por primera vez y desde entonces no duerme bien. Su madre le pregunta repetidamente cuándo se va a casar; su padre dice que 'le falta empuje'.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "5befc782-7d88-4029-8d53-adb317089f40",
+    "name": "Mateo Giménez",
+    "before": {
+      "presenting_problem": "Duelo paterno no resuelto, ansiedad ocupacional ante decisión vital (restaurante propio), conflicto matrimonial por carga laboral",
+      "backstory": "Mateo es el menor de cinco hermanos. Su padre falleció cuando él tenía 15 años y desde entonces asumió responsabilidades de adulto antes de tiempo, sin haber procesado el duelo. Lleva doce años casado con Lucía, profesora de literatura, y tienen dos hijos pequeños (Bruno 8, Mía 5). Es jefe de cocina en un restaurante reconocido de Palermo. Hace seis meses le ofrecieron entrar como socio en un emprendimiento propio y aún no logra decidir. Hace dos semanas su esposa le dijo que 'hace un año que no está acá'. Viene a terapia presionado por la combinación del miedo a fracasar con el restaurante propio, la sombra del padre nunca elaborada, y el riesgo de perder a Lucía.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "b226bfe0-3f3a-4161-9b5b-8e4ffa8c1ef9",
+    "name": "Milagros Flores",
+    "before": {
+      "presenting_problem": "Codependencia, violencia intrafamiliar, baja autoestima",
+      "backstory": "Milagros vende verduras en un mercado de Lima. Su esposo bebe todos los fines de semana y se pone agresivo verbalmente. Ella lo justifica diciendo que \"trabaja mucho\". Viene porque una vecina la trajo. Nunca ha ido a terapia.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "d1fd56a7-cc9a-4836-8ca8-2f8d0e0a5242",
+    "name": "Patricia Hernández",
+    "before": {
+      "presenting_problem": "Síndrome del nido vacío, crisis de identidad, depresión",
+      "backstory": "Patricia dedicó 25 años a criar a sus 3 hijos. El último se fue a estudiar a otra ciudad hace 2 meses. Ahora la casa está vacía, su esposo trabaja todo el día, y ella no sabe qué hacer. Se siente inútil. Viene porque llora todos los días y no puede parar.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "7e8eef3b-b29d-44b4-b80d-ef7b1ea4db10",
+    "name": "Rafael Santos",
+    "before": {
+      "presenting_problem": "Crisis de la mediana edad, duelo del éxito no alcanzado, fracaso percibido como padre, ambivalencia vocacional",
+      "backstory": "Rafael es músico dominicano de 45 años, nacido en Villa Mella, Santo Domingo. Su padre don Pedro era mecánico y su madre doña Yolanda ama de casa; ambos lo apoyaron con la música desde los 14 años cuando armó su primer trío en el patio de la casa. Ha tocado con varias bandas merengueras y bachateras en bares y hoteles de la zona colonial; llegó a sonar en una radio local pero nunca pegó un disco propio. Se divorció de Mileidy hace seis años y sus dos hijos viven con ella: Junior (16) y Mariana (13). Los ve cada quince días. Hace tres meses Mileidy le anunció que se va a Estados Unidos con los chicos; Rafael tiene un mes para decidir si los sigue o se queda haciendo música en Santo Domingo. Hace una semana Junior le preguntó por videollamada: 'Pa, ¿vas a venir o no?'",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "4de02b24-5203-4cb8-8b82-55f7357ab021",
+    "name": "Roberto Salas",
+    "before": {
+      "presenting_problem": "Duelo, aislamiento, posible depresión",
+      "backstory": "Roberto perdió a su esposa María de 30 años de matrimonio por cáncer. Sus hijos adultos, Felipe y Carolina, viven lejos y lo llaman todos los días preocupados. Él dice que \"está bien\" pero ha perdido 8 kilos, no sale de casa y dejó de ver a sus amigos. Es un hombre de otra generación que cree que \"los hombres no lloran\".",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "bbbff001-3b66-4b20-8633-20efafa2d8bf",
+    "name": "Samuel Batista",
+    "before": {
+      "presenting_problem": "Conflicto paterno-filial, culpa, depresión reactiva",
+      "backstory": "Samuel es mecánico en Santiago de los Caballeros. Su hijo de 22 años emigró a Nueva York y cortó contacto con él. Le dijo que fue un padre ausente y que prefiere olvidarlo. Samuel siente que hizo lo que pudo — trabajó doble turno para darle una educación. No entiende por qué su hijo lo odia.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "8d9f47a4-dae6-4b0d-b259-43f7c42f658c",
+    "name": "Valentina Ospina",
+    "before": {
+      "presenting_problem": "Crisis de decisión vincular post-ruptura, ansiedad relacional, perfeccionismo y presión familiar",
+      "backstory": "Valentina es la menor de tres hermanos en una familia de Bogotá donde ambos padres son arquitectos exitosos. Su relación de cinco años con Daniel terminó hace año y medio sin que ella logre explicarse del todo por qué. Hace ocho meses empezó a salir con Tomás, una buena persona que su mamá ya conoció y aprueba; pero ella no está segura si lo quiere realmente o si le huye a estar sola. La presión silenciosa por estar a la altura de sus padres y de su hermana mayor (que 'ya tiene su vida resuelta') alimenta un perfeccionismo que aplica al trabajo y también a las relaciones. Viene a terapia porque siente que perdió una versión de sí misma en el caos de su última relación.",
+      "distinctive_factor": null
+    }
+  },
+  {
+    "id": "29d441ac-3711-4cd1-ab51-5afcb850246c",
+    "name": "Yamilet Pérez",
+    "before": {
+      "presenting_problem": "Dependencia emocional con repetición de patrón vincular, duelo migratorio, culpa religioso-familiar y rol de cuidadora exhausta",
+      "backstory": "Yamilet es la mayor de tres hermanas en una familia dominicana tradicional y muy religiosa. Desde niña ha sido la responsable, la que cuida, la que no se queja. Hace tres años se vino a Santiago de Chile buscando independencia económica; manda remesas cada mes. Profesionalmente es enfermera valorada, pero ha tenido tres relaciones románticas con el mismo patrón: hombres distantes que terminan dejándola o que ella intenta salvar. Actualmente sale con Cristián desde hace ocho meses; sospecha que él toma de más y le miente, pero no lo confronta. Viene a terapia agotada del rol cuidadora, con miedo profundo a quedarse sola y con culpa religioso-familiar por las dudas que tiene.",
+      "distinctive_factor": null
+    }
+  }
+]
