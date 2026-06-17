@@ -16,6 +16,7 @@ import { chatLimiter, checkRateLimit } from "@/lib/rate-limit";
 import { buildSafetyPrompt } from "@/lib/content-safety";
 import { buildEnrichedPrompt } from "@/lib/build-system-prompt";
 import { getPacingProfile, thinkingDelayFor, buildIntroductionRule, buildSelfIntroductionRule, buildNameEscalation, buildClosingAppointmentRule, extractStudentName, hasStudentIntroducedName } from "@/lib/conversation-pacing";
+import { getDifficultyBehavior, scaleSilenceThresholds } from "@/lib/difficulty-behavior";
 import { polishAndLog } from "@/lib/text-polish";
 
 const chatRequestSchema = z.object({
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
     async () => {
       const { data } = await createAdminClient()
         .from("ai_patients")
-        .select("id, name, system_prompt, country_origin, country_residence, neighborhood, pacing_profile, enrichment_red_social, enrichment_lugares, enrichment_estado_corporal, enrichment_frases_tipo, enrichment_version")
+        .select("id, name, system_prompt, country_origin, country_residence, neighborhood, pacing_profile, difficulty_level, enrichment_red_social, enrichment_lugares, enrichment_estado_corporal, enrichment_frases_tipo, enrichment_version")
         .eq("id", patientId)
         .single();
       if (!data) throw new Error("Patient not found");
@@ -365,6 +366,18 @@ Si el/la terapeuta recién te saluda y NO te hizo una pregunta directa: tu mensa
   // reutiliza mas abajo para typewriter + thinking delay + silence.
   const pacingProfile = getPacingProfile(patient.pacing_profile);
 
+  // Capa de dificultad (⚙️ determinista): el difficulty_level fija el
+  // PRESUPUESTO de paciencia (5/4/3 min). El pacing fija la FORMA de la
+  // curva de nudges; aqui la escalamos para que el ultimo umbral coincida
+  // con ese presupuesto, preservando el espaciado y la CANTIDAD de nudges
+  // (length intacto => el silence route no cambia). respectsTyping viaja
+  // al cliente para el futuro refactor de tipeo (aun no lo consume).
+  const difficultyBehavior = getDifficultyBehavior(patient.difficulty_level);
+  const silenceThresholdsMs = scaleSilenceThresholds(
+    pacingProfile.silenceThresholdsMs,
+    difficultyBehavior.patienceMs
+  );
+
   // Protocolo de identificacion: en la primera sesion, en el turno
   // definido por el arquetipo del paciente, si el estudiante no se
   // presento por su nombre, el paciente se lo pregunta. Una sola vez.
@@ -516,7 +529,8 @@ Lo que el terapeuta acaba de escribir es hostil, amenazante o irrespetuoso hacia
             charDelayMs: pacingProfile.charDelayMs,
             sentenceGapMinMs: pacingProfile.sentenceGapMinMs,
             sentenceGapMaxMs: pacingProfile.sentenceGapMaxMs,
-            silenceThresholdsMs: pacingProfile.silenceThresholdsMs,
+            silenceThresholdsMs,
+            respectsTyping: difficultyBehavior.respectsTyping,
           } })}\n\n`)
         );
 

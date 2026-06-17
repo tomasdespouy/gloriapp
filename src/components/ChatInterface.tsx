@@ -47,6 +47,37 @@ const DEFAULT_CHAR_DELAY_MS = 28;
 // "pacing" event. Length of the array == number of nudge stages.
 const DEFAULT_SILENCE_THRESHOLDS_MS = [60_000, 120_000, 210_000, 300_000];
 
+// Cómo el tipeo del estudiante afecta los nudges de "¿sigue ahí?", según el
+// difficulty_level del paciente (llega por el evento "pacing" como
+// respectsTyping). Determinista — no depende del modelo.
+//   full    → mientras escribe, se suprimen TODOS los nudges (principiante).
+//   partial → se suprimen salvo el nudge final/cierre (intermedio).
+//   from2   → se suprime solo el nudge 1; desde el 2, si escribe, pregunta
+//             igual (avanzado).
+// IMPORTANTE: "suprimir" significa CONSUMIR la etapa en silencio (avanzar el
+// contador) SIN emitir el mensaje. Si no se avanzara, como las etapas son
+// secuenciales (nextStage = stage+1), las etapas posteriores de partial/from2
+// nunca se alcanzarían. El reloj de silencio NO se reinicia al tipear.
+type RespectsTypingMode = "full" | "partial" | "from2";
+function typingSuppressesNudge(
+  mode: RespectsTypingMode,
+  nextStage: number,
+  totalStages: number,
+  isTyping: boolean
+): boolean {
+  if (!isTyping) return false; // no escribe → nunca suprime
+  switch (mode) {
+    case "full":
+      return true; // siempre pausa al tipear
+    case "partial":
+      return nextStage < totalStages; // pausa salvo el nudge final
+    case "from2":
+      return nextStage < 2; // pausa solo el nudge 1
+    default:
+      return true;
+  }
+}
+
 // Multi-message debounce — after the user hits Send, wait this long
 // before calling the AI. Each new Send during the window resets the
 // timer, so the user can fire off several short messages and the
@@ -100,6 +131,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // via the SSE "pacing" event without forcing a re-render.
   const charDelayRef = useRef<number>(DEFAULT_CHAR_DELAY_MS);
   const silenceThresholdsRef = useRef<number[]>(DEFAULT_SILENCE_THRESHOLDS_MS);
+  // Modo de respeto al tipeo (capa de dificultad). Lo fija el evento
+  // "pacing"; lo consume el setInterval de silencio vía typingSuppressesNudge.
+  const respectsTypingRef = useRef<RespectsTypingMode>("full");
   // Extra pause after ".?!" + space so sentences breathe naturally.
   // Random in [min, max] ms each time one is hit. 0 disables.
   const sentenceGapMinRef = useRef<number>(0);
@@ -437,24 +471,18 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     };
   }, [conversationId]);
 
-  // Typing detection — while the user has at least one character in
-  // the compose box, pause the "¿estás ahí?" silence timers. Focus
-  // alone (empty input) still counts as silence. When the input goes
-  // back to empty (user backspaced everything) we restart the timers.
+  // Typing detection — `isTypingRef` is true while the compose box holds at
+  // least one character. Antes esto REINICIABA el reloj de silencio (clear +
+  // restart), pero eso impedía que un avanzado/intermedio preguntara mientras
+  // el estudiante escribe. Ahora el reloj sigue corriendo y la SUPRESIÓN del
+  // nudge se decide por etapa en el setInterval (typingSuppressesNudge),
+  // según respectsTypingRef. Foco con caja vacía sigue contando como silencio.
   // Legacy no-op signature is kept so existing call sites compile.
   const handleTypingActivity = useCallback(() => {}, []);
 
-  const isTypingPausedRef = useRef(false);
+  const isTypingRef = useRef(false);
   const applyTypingPause = (hasText: boolean) => {
-    if (hasText && !isTypingPausedRef.current) {
-      isTypingPausedRef.current = true;
-      clearSilenceTimers();
-    } else if (!hasText && isTypingPausedRef.current) {
-      isTypingPausedRef.current = false;
-      if (conversationId && sessionStarted && !isStreamingRef.current) {
-        startSilenceTimers();
-      }
-    }
+    isTypingRef.current = hasText;
   };
 
   // Patient media
@@ -591,8 +619,19 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       const nextStage = silenceStageRef.current + 1;
 
       if (nextStage <= thresholds.length && elapsed >= thresholds[nextStage - 1]) {
+        // Consumimos la etapa SIEMPRE (avanzamos el contador) para que las
+        // etapas posteriores se alcancen; solo el DISPARO del mensaje se
+        // suprime mientras el estudiante escribe, según el modo de dificultad.
+        // El tipeo no aplica en modo voz (no hay caja de texto activa).
         silenceStageRef.current = nextStage;
-        fireSilenceStage(nextStage);
+        const suppress = !voiceModeRef.current && typingSuppressesNudge(
+          respectsTypingRef.current, nextStage, thresholds.length, isTypingRef.current
+        );
+        if (suppress) {
+          console.log(`[silence] stage ${nextStage} suprimido por tipeo (modo=${respectsTypingRef.current})`);
+        } else {
+          fireSilenceStage(nextStage);
+        }
         // Stop polling after the last stage
         if (nextStage >= thresholds.length) {
           clearSilenceTimers();
@@ -1035,7 +1074,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     const now = new Date().toISOString();
     setMessages((prev) => [...prev, { role: "user", content: trimmed, created_at: now }]);
-    isTypingPausedRef.current = false;
+    isTypingRef.current = false;
     lastSentAtRef.current = Date.now();
     setUserTickStage(1);
     setTimeout(() => setUserTickStage((prev) => (prev === 1 ? 2 : prev)), 500);
@@ -1161,6 +1200,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               sentenceGapMinMs?: number;
               sentenceGapMaxMs?: number;
               silenceThresholdsMs?: number[];
+              respectsTyping?: RespectsTypingMode;
             };
             if (typeof p.charDelayMs === "number" && p.charDelayMs >= 10 && p.charDelayMs <= 400) {
               charDelayRef.current = p.charDelayMs;
@@ -1173,6 +1213,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             }
             if (Array.isArray(p.silenceThresholdsMs) && p.silenceThresholdsMs.length >= 2) {
               silenceThresholdsRef.current = p.silenceThresholdsMs;
+            }
+            if (p.respectsTyping === "full" || p.respectsTyping === "partial" || p.respectsTyping === "from2") {
+              respectsTypingRef.current = p.respectsTyping;
             }
           } else if (data.type === "token") {
             // First token received → switch from "thinking" to "writing"
