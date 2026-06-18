@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, ArrowLeft, LogOut, Mic, MicOff, Volume2, Square, Loader2, Clock, X, FileText, CheckCircle2, MessageSquare, AlertTriangle } from "lucide-react";
+import { Send, ArrowLeft, LogOut, Mic, MicOff, Volume2, Square, Loader2, Clock, X, FileText, CheckCircle2, MessageSquare, AlertTriangle, Info } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SessionTimer, { useActiveSecondsRef } from "@/components/SessionTimer";
@@ -87,6 +87,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [voiceMode, setVoiceMode] = useState(false);
   const [voiceSpeaking, setVoiceSpeaking] = useState(false); // true = audio playing, hide text
   const [showDisconnect, setShowDisconnect] = useState(false);
+  // Ruptura/quiebre: el paciente cerró la sesión (hostilidad o nombre evadido).
+  // Guarda la razón para mostrar un aviso centrado, igual que la desconexión.
+  const [sessionEndInfo, setSessionEndInfo] = useState<{ reason: string } | null>(null);
   const [showVoiceConsent, setShowVoiceConsent] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesText, setNotesText] = useState("");
@@ -1223,9 +1226,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               return updated;
             });
           } else if (data.type === "session_ended") {
-            // Ruptura: la paciente cerró la sesión. Bloqueamos el input.
+            // Ruptura/quiebre: la paciente cerró la sesión. Bloqueamos el input
+            // y mostramos un aviso centrado (igual que la desconexión por silencio).
             sessionEndedRef.current = true;
             setSessionEnded(true);
+            setSessionEndInfo({ reason: data.reason === "name_evasion" ? "name_evasion" : "rupture" });
           }
         }
       }
@@ -1422,9 +1427,23 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         </div>
       )}
       {showAttentionNotice && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md bg-white border border-gray-200 shadow-lg rounded-lg px-4 py-3 text-sm text-gray-700 flex items-start gap-3">
-          <span>Esta sesión requiere tu atención. Si cambias de pestaña o pegas texto de otra parte, el paciente lo notará; a la segunda vez, la sesión se cierra.</span>
-          <button onClick={() => setShowAttentionNotice(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer shrink-0">Entendido</button>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 animate-pop text-center">
+            <div className="mx-auto w-14 h-14 rounded-full bg-sidebar/10 flex items-center justify-center">
+              <Info className="w-7 h-7 text-sidebar" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Esta sesión requiere tu atención</h3>
+            <p className="text-sm text-gray-600">
+              Si cambias de pestaña o pegas texto de otra parte, el paciente lo notará.
+              A la segunda vez, la sesión <strong>se cierra</strong>.
+            </p>
+            <button
+              onClick={() => setShowAttentionNotice(false)}
+              className="w-full bg-sidebar text-white rounded-lg py-2.5 text-sm font-medium hover:opacity-90 cursor-pointer"
+            >
+              Entendido
+            </button>
+          </div>
         </div>
       )}
       {distractionWarning && (
@@ -1674,6 +1693,33 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             <h3 className="text-lg font-bold text-gray-900">{patient.name} se ha desconectado</h3>
             <p className="text-sm text-gray-600 leading-relaxed">
               Debido a que no hubo respuesta por un tiempo prolongado, el paciente decidió retirarse de la sesión.
+            </p>
+            <p className="text-xs text-gray-400">
+              Esto puede afectar el vínculo terapéutico en futuras sesiones.
+            </p>
+            <button
+              onClick={() => router.push(`/review/${conversationId}`)}
+              className="w-full bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-sidebar-hover transition-colors cursor-pointer"
+            >
+              Ver resumen de sesión
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Patient rupture modal — el paciente cerró la sesión por hostilidad o nombre evadido */}
+      {sessionEndInfo && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 space-y-5 animate-pop text-center max-h-[calc(100dvh-1.5rem)] overflow-y-auto">
+            <div className="w-20 h-20 rounded-full overflow-hidden mx-auto border-2 border-gray-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imageSrc} alt={patient.name} className="w-full h-full object-cover" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">{patient.name} terminó la sesión</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              {sessionEndInfo.reason === "name_evasion"
+                ? "El paciente no se sintió en confianza al no saber tu nombre y prefirió terminar la sesión."
+                : "El paciente se sintió incómodo o inseguro con la conversación y decidió retirarse."}
             </p>
             <p className="text-xs text-gray-400">
               Esto puede afectar el vínculo terapéutico en futuras sesiones.
