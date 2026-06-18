@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, ArrowLeft, LogOut, Mic, MicOff, Volume2, Square, Loader2, Clock, X, FileText, CheckCircle2, MessageSquare } from "lucide-react";
+import { Send, ArrowLeft, LogOut, Mic, MicOff, Volume2, Square, Loader2, Clock, X, FileText, CheckCircle2, MessageSquare, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SessionTimer, { useActiveSecondsRef } from "@/components/SessionTimer";
@@ -33,6 +33,9 @@ interface ChatInterfaceProps {
   userAvatarUrl?: string | null;
   userName?: string;
   nextAppointment?: string | null;
+  /** Rol REAL del usuario (no el impersonado). La guardia anti-distracción
+   *  solo aplica a "student". */
+  userRole?: string | null;
 }
 
 type Phase = "idle" | "thinking" | "writing";
@@ -55,7 +58,7 @@ const DEFAULT_SILENCE_THRESHOLDS_MS = [60_000, 120_000, 210_000, 300_000];
 const SEND_DEBOUNCE_MS = 4000;
 const SEND_INDICATOR_DELAY_MS = 1500;
 
-export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "", nextAppointment = null }: ChatInterfaceProps) {
+export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "", nextAppointment = null, userRole = null }: ChatInterfaceProps) {
   console.log("[ChatInterface] Mount:", { patient: patient.name, patientId: patient.id, conversationId: initialConvId, initialMessagesCount: initialMessages.length, voiceId: patient.voice_id });
   const userInitials = userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -1305,17 +1308,24 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     }
   };
 
-  // Aviso de encuadre al comenzar la sesión (se autooculta).
+  // La guardia anti-distracción aplica SOLO a estudiantes reales y SOLO con
+  // pacientes de dificultad "avanzado". Docente/admin/superadmin (y los
+  // niveles principiante/intermedio) quedan exentos: ni aviso ni cierre.
+  const antiDistractionEnabled =
+    userRole === "student" && patient.difficulty_level === "advanced";
+
+  // Aviso de encuadre al comenzar la sesión (se autooculta). Solo cuando la
+  // guardia está activa, para no advertir de algo que no va a ocurrir.
   useEffect(() => {
-    if (!sessionStarted) return;
+    if (!sessionStarted || !antiDistractionEnabled) return;
     setShowAttentionNotice(true);
     const t = setTimeout(() => setShowAttentionNotice(false), 9000);
     return () => clearTimeout(t);
-  }, [sessionStarted]);
+  }, [sessionStarted, antiDistractionEnabled]);
 
   // Listeners de cambio de pestaña + pegado de texto largo.
   useEffect(() => {
-    if (!sessionStarted) return;
+    if (!sessionStarted || !antiDistractionEnabled) return;
     const onVis = () => { if (document.visibilityState === "hidden") registerDistraction(); };
     const onPaste = (e: ClipboardEvent) => {
       const t = e.clipboardData?.getData("text") ?? "";
@@ -1328,7 +1338,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       document.removeEventListener("paste", onPaste);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionStarted]);
+  }, [sessionStarted, antiDistractionEnabled]);
 
   // Bloqueo de navegación durante la sesión: intercepta clics en enlaces
   // internos (sidebar, etc.) y el botón "atrás", y abre un modal para cerrar
@@ -1418,9 +1428,23 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         </div>
       )}
       {distractionWarning && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md bg-orange-50 border border-orange-200 shadow-lg rounded-lg px-4 py-3 text-sm text-orange-800 flex items-start gap-3">
-          <span>Saliste de la sesión (cambiaste de pestaña o pegaste texto). El paciente lo nota. Si vuelve a ocurrir, la sesión se cerrará.</span>
-          <button onClick={() => setDistractionWarning(false)} className="text-orange-500 hover:text-orange-700 cursor-pointer shrink-0">Cerrar</button>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 animate-pop text-center">
+            <div className="mx-auto w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center">
+              <AlertTriangle className="w-7 h-7 text-orange-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Saliste de la sesión</h3>
+            <p className="text-sm text-gray-600">
+              Cambiaste de pestaña o pegaste texto de otra parte, y el paciente lo nota.
+              Si vuelve a ocurrir, la sesión <strong>se cerrará</strong>.
+            </p>
+            <button
+              onClick={() => setDistractionWarning(false)}
+              className="w-full bg-sidebar text-white rounded-lg py-2.5 text-sm font-medium hover:opacity-90 cursor-pointer"
+            >
+              Entendido, continuar
+            </button>
+          </div>
         </div>
       )}
       {/* Header */}

@@ -77,6 +77,7 @@ export default async function ChatPage({
         userAvatarUrl={userProfile?.avatarUrl || null}
         userName={userProfile?.fullName || ""}
         nextAppointment={nextAppointment}
+        userRole={userProfile?.realRole || null}
       />
     </div>
   );
