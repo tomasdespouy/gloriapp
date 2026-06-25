@@ -61,14 +61,14 @@ export type DifficultyBehavior = {
 
 export const DIFFICULTY_BEHAVIOR: Record<DifficultyKey, DifficultyBehavior> = {
   beginner: {
-    patienceMs: 300_000, // 5 min
+    patienceMs: 420_000, // 7 min
     respectsTyping: "full",
     offenseSensitivity: "none",
     allianceSpeed: "fast",
     initialStateBias: { resistencia: 0, alianza: 0, apertura: 0 },
   },
   intermediate: {
-    patienceMs: 240_000, // 4 min
+    patienceMs: 300_000, // 5 min
     respectsTyping: "partial",
     offenseSensitivity: "mild",
     allianceSpeed: "medium",

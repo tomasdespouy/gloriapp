@@ -26,7 +26,7 @@ Leyenda: ⚙️ = parámetro duro (código, fiable ~100%) · 🧠 = conducta
 
 | Variable | 🌱 Principiante | 🌿 Intermedio | 🌳 Avanzado | Tipo |
 |---|---|---|---|---|
-| **Presupuesto de paciencia** (silencio total antes de irse) | **5 min** | **4 min** | **3 min** | ⚙️ |
+| **Presupuesto de paciencia** (silencio total antes de irse) | **7 min** | **5 min** | **3 min** | ⚙️ |
 | **Respeta el tipeo** (¿el tipeo pausa el "¿sigue ahí?"?) | `full` — siempre | `partial` — salvo el nudge final | `from2` — pausa el nudge 1; desde el nudge 2, si escribe, pregunta igual | ⚙️ |
 | **Sensibilidad a comentarios torpes** (juicio, minimizar, consejo prematuro) | ninguna | **leve** | alta — se siente herido y lo expresa | 🧠 |
 | **Velocidad de alianza** (confianza por buena intervención) | rápida | media | lenta | 🧠 |
