@@ -90,6 +90,11 @@ export async function POST(req: NextRequest) {
     patientId?: string;
     conversationId?: string;
     userId?: string;
+    custom_llm_extra_body?: {
+      patientId?: string;
+      conversationId?: string;
+      userId?: string;
+    };
   };
   try {
     body = await req.json();
@@ -97,10 +102,26 @@ export async function POST(req: NextRequest) {
     return new Response("Bad Request", { status: 400 });
   }
 
+  // ── TEMP DEBUG (modo voz): registra la FORMA del body que manda ElevenLabs
+  // para confirmar si la identidad llega PLANA (body.conversationId) o ANIDADA
+  // (body.custom_llm_extra_body.conversationId). QUITAR tras verificar.
+  const extra = body.custom_llm_extra_body ?? {};
+  console.log("[voice/llm][DEBUG] body keys:", Object.keys(body));
+  console.log("[voice/llm][DEBUG] identidad plana:", {
+    patientId: body.patientId ?? null,
+    conversationId: body.conversationId ?? null,
+    userId: body.userId ?? null,
+  });
+  console.log("[voice/llm][DEBUG] custom_llm_extra_body:", body.custom_llm_extra_body ?? "(ausente)");
+
   const model = body.model || "gpt-4o";
-  const patientId = body.patientId || SANDBOX_PATIENT_ID;
-  const conversationId = body.conversationId || null;
-  const userId = body.userId || null;
+  // Lee la identidad en AMBAS formas (plana o anidada) para no depender de
+  // cómo ElevenLabs serialice el extra body. Tras confirmar la forma real con
+  // el log de arriba, se puede simplificar a una sola.
+  const patientId = body.patientId || extra.patientId || SANDBOX_PATIENT_ID;
+  const conversationId = body.conversationId || extra.conversationId || null;
+  const userId = body.userId || extra.userId || null;
+  console.log("[voice/llm][DEBUG] identidad resuelta:", { patientId, conversationId, userId });
   const id = `chatcmpl-voice-${Math.random().toString(36).slice(2)}`;
 
   // 3. History from ElevenLabs (drop its system prompt — we build our own).
