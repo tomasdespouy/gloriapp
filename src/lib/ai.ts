@@ -93,15 +93,16 @@ export async function chat(
  */
 export function chatStream(
   messages: ChatMessage[],
-  systemPrompt?: string
+  systemPrompt?: string,
+  cacheKey?: string
 ): ReadableStream<string> {
   const primary = primaryProvider === "openai"
-    ? () => chatStreamOpenAI(messages, systemPrompt, chatModel)
+    ? () => chatStreamOpenAI(messages, systemPrompt, chatModel, cacheKey)
     : () => chatStreamGemini(messages, systemPrompt);
 
   const secondary = primaryProvider === "openai"
     ? () => chatStreamGemini(messages, systemPrompt)
-    : () => chatStreamOpenAI(messages, systemPrompt, chatModel);
+    : () => chatStreamOpenAI(messages, systemPrompt, chatModel, cacheKey);
 
   return new ReadableStream({
     async start(controller) {
@@ -250,7 +251,8 @@ function chatStreamGemini(
 function chatStreamOpenAI(
   messages: ChatMessage[],
   systemPrompt?: string,
-  model?: string
+  model?: string,
+  cacheKey?: string
 ): ReadableStream<string> {
   return new ReadableStream({
     async start(controller) {
@@ -267,11 +269,24 @@ function chatStreamOpenAI(
           model: model || chatModel,
           messages: allMessages,
           stream: true,
+          // Pide el bloque de uso al final del stream para poder medir la
+          // tasa de acierto del prompt caching (cached_tokens) en dev.
+          stream_options: { include_usage: true },
+          // Enruta los turnos de una misma conversación al mismo caché de
+          // prefijo (mejora la tasa de acierto del prompt caching de OpenAI).
+          ...(cacheKey ? { prompt_cache_key: cacheKey } : {}),
         });
 
         for await (const chunk of stream) {
           const text = chunk.choices[0]?.delta?.content;
           if (text) controller.enqueue(text);
+          // El chunk final (con include_usage) trae usage y choices vacío.
+          if (chunk.usage) {
+            const u = chunk.usage;
+            const cached = u.prompt_tokens_details?.cached_tokens ?? 0;
+            const pct = u.prompt_tokens ? Math.round((100 * cached) / u.prompt_tokens) : 0;
+            console.log(`[ai] prompt_tokens=${u.prompt_tokens} cached=${cached} (${pct}%) completion=${u.completion_tokens}`);
+          }
         }
         clearTimeout(timeout);
         controller.close();
