@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Brain, BookOpen, GraduationCap, Send, CheckCircle, Save,
   MessageSquare, Clock, User as UserIcon, Sparkles, Loader2, Eye,
+  Search, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getPatientImageUrl } from "@/lib/patient-assets";
@@ -84,6 +85,35 @@ const COMP_V2_LABELS: { key: string; label: string; domain: string }[] = [
   { key: "contencion_afectos", label: "Contención de afectos", domain: "Actitudes" },
 ];
 
+// Búsqueda en la transcripción. `foldText` quita acentos y mayúsculas SIN
+// cambiar el largo (1 carácter → 1 carácter), para poder resaltar sobre el
+// texto ORIGINAL por posición, manteniendo la búsqueda insensible a tildes.
+function foldText(s: string): string {
+  return s.toLowerCase()
+    .replace(/[áàäâã]/g, "a").replace(/[éèëê]/g, "e").replace(/[íìïî]/g, "i")
+    .replace(/[óòöôõ]/g, "o").replace(/[úùüû]/g, "u").replace(/ñ/g, "n");
+}
+function countMatches(text: string, q: string): number {
+  if (!q) return 0;
+  const h = foldText(text);
+  let n = 0, i = 0, idx;
+  while ((idx = h.indexOf(q, i)) !== -1) { n++; i = idx + q.length; }
+  return n;
+}
+function highlightMatches(text: string, q: string): ReactNode {
+  if (!q) return text;
+  const h = foldText(text);
+  const out: ReactNode[] = [];
+  let i = 0, k = 0, idx;
+  while ((idx = h.indexOf(q, i)) !== -1) {
+    if (idx > i) out.push(text.slice(i, idx));
+    out.push(<mark key={k++} className="bg-yellow-200 text-inherit rounded px-0.5">{text.slice(idx, idx + q.length)}</mark>);
+    i = idx + q.length;
+  }
+  if (i < text.length) out.push(text.slice(i));
+  return out;
+}
+
 export default function TeacherReviewClient({
   conversationId,
   student,
@@ -112,6 +142,12 @@ export default function TeacherReviewClient({
   const [editingAI, setEditingAI] = useState(false);
   const [regeneratingEval, setRegeneratingEval] = useState(false);
   const [feedbackStyle, setFeedbackStyle] = useState<"executive" | "descriptive">("executive");
+  // Buscador de la transcripción
+  const [search, setSearch] = useState("");
+  const [searchScope, setSearchScope] = useState<"todos" | "alumno" | "paciente">("todos");
+  const [activeMatch, setActiveMatch] = useState(0);
+  const msgRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  useEffect(() => { setActiveMatch(0); }, [search, searchScope]);
   const [aiCommentary, setAiCommentary] = useState(competencies?.ai_commentary || "");
   const [editedScores, setEditedScores] = useState<Record<string, number>>({});
   const [editedStrengths, setEditedStrengths] = useState<string[]>(competencies?.strengths || []);
@@ -250,6 +286,18 @@ export default function TeacherReviewClient({
   // Filter out system messages
   const chatMessages = messages.filter((m) => m.role !== "system");
 
+  // Estado derivado del buscador
+  const q = foldText(search.trim());
+  const inScope = (m: Message) => searchScope === "todos" || (searchScope === "alumno" ? m.role === "user" : m.role !== "user");
+  const matchIds = q ? chatMessages.filter((m) => inScope(m) && countMatches(m.content, q) > 0).map((m) => m.id) : [];
+  const activeMatchId: string | null = matchIds[activeMatch] ?? null;
+  const goToMatch = (dir: 1 | -1) => {
+    if (matchIds.length === 0) return;
+    const next = (activeMatch + dir + matchIds.length) % matchIds.length;
+    setActiveMatch(next);
+    msgRefs.current[matchIds[next]]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   // La etiqueta de dificultad se oculta en la vista docente (decisión de producto).
 
   return (
@@ -355,26 +403,62 @@ export default function TeacherReviewClient({
             {/* Chat transcript */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Transcripción del chat
-                </p>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Transcripción del chat
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex rounded-lg border border-gray-200 overflow-hidden text-[11px]">
+                      {(["todos", "alumno", "paciente"] as const).map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setSearchScope(s)}
+                          className={`px-2 py-1 capitalize transition-colors ${searchScope === s ? "bg-sidebar text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="relative">
+                      <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Buscar en la transcripción…"
+                        className="pl-7 pr-2 py-1 text-xs border border-gray-200 rounded-lg w-44 sm:w-56 focus:outline-none focus:ring-1 focus:ring-sidebar/40"
+                      />
+                    </div>
+                    {search.trim() && (
+                      <div className="flex items-center gap-1 text-[11px] text-gray-500 whitespace-nowrap">
+                        <span>{matchIds.length === 0 ? "Sin coincidencias" : `${activeMatch + 1}/${matchIds.length}`}</span>
+                        <button onClick={() => goToMatch(-1)} disabled={matchIds.length === 0} className="p-0.5 rounded hover:bg-gray-100 disabled:opacity-30 cursor-pointer" title="Anterior">
+                          <ChevronUp size={14} />
+                        </button>
+                        <button onClick={() => goToMatch(1)} disabled={matchIds.length === 0} className="p-0.5 rounded hover:bg-gray-100 disabled:opacity-30 cursor-pointer" title="Siguiente">
+                          <ChevronDown size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="p-4 space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto">
                 {chatMessages.map((msg) => {
                   const isStudent = msg.role === "user";
+                  const isActive = msg.id === activeMatchId;
                   return (
-                    <div key={msg.id} className={`flex ${isStudent ? "justify-end" : "justify-start"}`}>
+                    <div key={msg.id} ref={(el) => { msgRefs.current[msg.id] = el; }} className={`flex ${isStudent ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
                         isStudent
                           ? "bg-sidebar text-white rounded-br-md"
                           : "bg-gray-100 text-gray-800 rounded-bl-md"
-                      }`}>
+                      } ${isActive ? "ring-2 ring-yellow-400" : ""}`}>
                         <p className={`text-[10px] font-medium mb-1 ${
                           isStudent ? "text-white/60" : "text-gray-400"
                         }`}>
                           {isStudent ? "Alumno" : patient.name}
                         </p>
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{q && inScope(msg) ? highlightMatches(msg.content, q) : msg.content}</p>
                         <p className={`text-[9px] mt-1 ${
                           isStudent ? "text-white/40" : "text-gray-300"
                         }`}>

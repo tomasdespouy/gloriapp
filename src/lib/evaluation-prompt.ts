@@ -91,6 +91,12 @@ REGLAS CRÍTICAS:
   (ej. setting ya consensuado en sesión previa de continuidad).
 - 0 NO es lo mismo que "NA". 0 significa que la competencia debió
   aplicarse y no se vio en la conversación.
+- "objetivos": si la sesión avanzó más allá de la apertura (varios intercambios
+  de contenido clínico), evalúa objetivos terapéuticos con 0-4. NO lo marques
+  "NA" por defecto en una sesión que transcurrió con normalidad.
+- "optimismo": en una sesión que transcurre con normalidad NO es "NA". Transmitir
+  que el cambio es posible casi siempre aplica; reserva "NA" solo para casos
+  excepcionales y documentados en na_justifications.
 
 ═══════════════════════════════════════════════════
 RÚBRICA CONDUCTUAL POR COMPETENCIA

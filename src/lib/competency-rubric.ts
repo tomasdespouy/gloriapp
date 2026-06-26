@@ -1,9 +1,16 @@
 /**
  * Rúbrica conductual analítica para la evaluación de competencias V2.
  *
- * Basada en Valdés & Gómez (2023) — Pauta para la Evaluación de Competencias
- * Psicoterapéuticas para el trabajo con Adultos (Ediciones Universidad
- * Santo Tomás).
+ * Inspirada en el marco de competencias psicoterapéuticas de Valdés Sánchez, N.
+ * & Gómez Gallo, D. (2023), "Supervisión clínica para estudiantes de Psicología:
+ * un modelo de competencias psicoterapéuticas genéricas básicas" (Ediciones
+ * Universidad Santo Tomás / RIL Editores), que incluye la Pauta de Evaluación
+ * de Competencias Terapéuticas (PECT).
+ *
+ * PROPIEDAD INTELECTUAL: los descriptores de niveles a continuación son redacción
+ * ORIGINAL de GlorIA, BASADA en ese marco — NO son reproducciones textuales del
+ * libro. No incorporar descriptores literales del PECT sin acuerdo con los autores
+ * (UST); la validación clínica con ellos queda pendiente (conversación con N. Valdés).
  *
  * Cada competencia define:
  *   - na_criteria        Cuándo marcar "no aplicaba" (score = null, justificación obligatoria)
