@@ -385,9 +385,20 @@ Si el/la terapeuta recién te saluda y NO te hizo una pregunta directa: tu mensa
   // (length intacto => el silence route no cambia). respectsTyping viaja
   // al cliente para el futuro refactor de tipeo (aun no lo consume).
   const difficultyBehavior = getDifficultyBehavior(patient.difficulty_level);
+  // La paciencia ante el silencio se ESCALA por la alianza actual: a más
+  // vínculo, más tolera el silencio (0.7x–1.3x del presupuesto base, con piso
+  // 90s y techo 600s). Como la alianza persiste entre sesiones, esto premia el
+  // vínculo construido con el tiempo: la sesión 8 con buen vínculo aguanta más
+  // que la sesión 1 en frío, y dentro de la sesión la paciencia sube si el
+  // estudiante construye alianza.
+  const allianceFactor = 0.7 + 0.6 * (newState.alianza / 10);
+  const adjustedPatienceMs = Math.max(
+    90_000,
+    Math.min(600_000, Math.round(difficultyBehavior.patienceMs * allianceFactor))
+  );
   const silenceThresholdsMs = scaleSilenceThresholds(
     pacingProfile.silenceThresholdsMs,
-    difficultyBehavior.patienceMs
+    adjustedPatienceMs
   );
 
   // Protocolo de identificacion: en la primera sesion, en el turno
@@ -909,6 +920,7 @@ async function loadMemory(
 - Puedes hacer referencias espontáneas a lo hablado antes: "la otra vez le conté que...", "¿se acuerda que le dije...?"
 - Si el terapeuta te pregunta qué recuerdas de la sesión anterior, NO respondas en vago ("no sé", "poco", "no me acuerdo bien"). Menciona algo CONCRETO y específico de lo que aparece arriba: un tema puntual que se habló, una frase o un dato que diste, un acuerdo, o cómo terminó esa sesión. Apóyate en el detalle de la última sesión transcrito arriba.
 - Respeta el TIEMPO REAL transcurrido desde cada sesión (indicado arriba, ej. "hace 20 minutos", "hace 2 días"). NO asumas que la sesión anterior fue "la semana pasada": pudo ser hace minutos u horas. Si fue hace muy poco, dilo así ("recién", "hace un rato"), no inventes una cadencia semanal.
+- SEGUIMIENTO DE TUS TAREAS: si en una sesión anterior quedó un acuerdo o tarea TUYA (ver "Acuerdos/tareas" arriba) y esta es una sesión nueva, es natural que el tema aparezca, sobre todo si el terapeuta pregunta. Di con honestidad si la cumpliste, la cumpliste a medias o no la hiciste, SIN un patrón fijo: a veces sí, a veces no (con una excusa o resistencia realista). Ajusta el matiz a TU personalidad y a la confianza actual: con poca alianza tiendes a minimizar, evadir o "se me olvidó"; con más confianza cuentas con detalle qué pasó (lo que costó, lo que sirvió, cómo te sentiste). No te felicites a ti mismo ni suenes a informe; háblalo como lo haría esta persona en su forma de ser.
 - ADVERTENCIA: Si en sesiones anteriores actuaste como terapeuta (ofrecer apoyo, hacer preguntas terapéuticas), NO lo repitas. Tú eres el PACIENTE.`;
 
   return { text: memory, therapistName };
