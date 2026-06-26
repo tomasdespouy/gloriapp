@@ -280,7 +280,19 @@ Reglas de oro:
         disposicion_cambio: ps.disposicion_cambio ?? INITIAL_STATE.disposicion_cambio,
       };
     } else {
-      currentState = INITIAL_STATE;
+      // Primera sesión con este paciente: el estado inicial se sesga según
+      // la DIFICULTAD. El avanzado arranca más blindado (más resistencia,
+      // menos alianza/apertura); el principiante queda igual al baseline.
+      // El sesgo SOLO aplica aquí (primera vez): los estados heredados de
+      // arriba ya traen la alianza acumulada de sesiones previas.
+      const bias = getDifficultyBehavior(patient.difficulty_level).initialStateBias;
+      const clampState = (v: number) => Math.max(0, Math.min(10, v));
+      currentState = {
+        ...INITIAL_STATE,
+        resistencia: clampState(INITIAL_STATE.resistencia + bias.resistencia),
+        alianza: clampState(INITIAL_STATE.alianza + bias.alianza),
+        apertura_emocional: clampState(INITIAL_STATE.apertura_emocional + bias.apertura),
+      };
     }
   }
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Download } from "lucide-react";
 import ExportFichaButton from "../ExportFichaButton";
 import { getPatientImageUrl } from "@/lib/patient-assets";
+import { canSeeDifficulty } from "@/lib/roles";
 
 export default async function FichaClinicaPage({
   params,
@@ -15,6 +16,9 @@ export default async function FichaClinicaPage({
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const role = profile?.role;
 
   const admin = createAdminClient();
   const { data: patient } = await admin
@@ -106,7 +110,9 @@ export default async function FichaClinicaPage({
               <span>Origen: <strong>{patient.country_origin || "—"}</strong></span>
               <span>Residencia: <strong>{patient.country_residence || "—"}</strong></span>
               <span>Visible para: <strong>{Array.isArray(patient.country) ? patient.country.join(", ") : (patient.country || "Todos")}</strong></span>
-              <span>Dificultad: <strong>{diffLabels[patient.difficulty_level] || patient.difficulty_level}</strong></span>
+              {canSeeDifficulty(role) && (
+                <span>Dificultad: <strong>{diffLabels[patient.difficulty_level] || patient.difficulty_level}</strong></span>
+              )}
             </div>
           </div>
         </div>

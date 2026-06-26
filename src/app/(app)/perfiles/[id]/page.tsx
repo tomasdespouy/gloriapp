@@ -7,6 +7,7 @@ import ExportFichaButton from "./ExportFichaButton";
 import PatientImageModal from "./PatientImageModal";
 import TeacherNotesEditor from "./TeacherNotesEditor";
 import { getPatientImageUrl, getPatientVideoUrl } from "@/lib/patient-assets";
+import { canSeeDifficulty } from "@/lib/roles";
 
 export default async function PatientDetailPage({
   params,
@@ -123,13 +124,15 @@ export default async function PatientDetailPage({
               <p className="text-sm text-gray-500">{patient.age} años, {patient.occupation}</p>
               <p className="text-sm text-gray-400 italic mt-1">&ldquo;{patient.quote}&rdquo;</p>
               <div className="flex items-center gap-3 mt-3 flex-wrap">
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                  patient.difficulty_level === "beginner" ? "bg-green-100 text-green-700" :
-                  patient.difficulty_level === "intermediate" ? "bg-yellow-100 text-yellow-700" :
-                  "bg-red-100 text-red-700"
-                }`}>
-                  {diffLabels[patient.difficulty_level] || patient.difficulty_level}
-                </span>
+                {canSeeDifficulty(role) && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    patient.difficulty_level === "beginner" ? "bg-green-100 text-green-700" :
+                    patient.difficulty_level === "intermediate" ? "bg-yellow-100 text-yellow-700" :
+                    "bg-red-100 text-red-700"
+                  }`}>
+                    {diffLabels[patient.difficulty_level] || patient.difficulty_level}
+                  </span>
+                )}
                 <span className="text-xs text-gray-500">
                   Origen: <strong>{patient.country_origin || "Sin definir"}</strong>
                 </span>

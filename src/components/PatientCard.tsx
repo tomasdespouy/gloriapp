@@ -16,6 +16,7 @@ interface PatientCardProps {
   activeConversationId?: string;
   country?: string | null;
   hasVoice?: boolean;
+  showDifficulty?: boolean;
 }
 
 const countryFlagSrc: Record<string, string> = {
@@ -57,7 +58,7 @@ const tagEmojis: Record<string, string> = {
   social: "👥",
 };
 
-export default function PatientCard({ id, name, age, occupation, quote, difficultyLevel, tags, activeConversationId, country, hasVoice }: PatientCardProps) {
+export default function PatientCard({ id, name, age, occupation, quote, difficultyLevel, tags, activeConversationId, country, hasVoice, showDifficulty = false }: PatientCardProps) {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -87,14 +88,16 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
   return (
     <>
       <div ref={cardRef} className="bg-white rounded-xl shadow-sm p-4 sm:p-6 flex flex-col items-center relative">
-        {/* Difficulty badge — top left */}
-        <span className={`absolute top-3 left-3 text-[10px] px-2 py-0.5 rounded-full font-medium ${difficulty.color}`}>
-          {difficulty.label}
-        </span>
+        {/* Difficulty badge — top left (solo admin/superadmin) */}
+        {showDifficulty && (
+          <span className={`absolute top-3 left-3 text-[10px] px-2 py-0.5 rounded-full font-medium ${difficulty.color}`}>
+            {difficulty.label}
+          </span>
+        )}
 
-        {/* Voice icon — top left after difficulty */}
+        {/* Voice icon — corre a la derecha solo si el badge de dificultad está visible */}
         {hasVoice && (
-          <span title="Modo voz disponible" className="absolute top-3 left-[110px] text-sidebar opacity-60">
+          <span title="Modo voz disponible" className={`absolute top-3 ${showDifficulty ? "left-[110px]" : "left-3"} text-sidebar opacity-60`}>
             <Volume2 size={14} />
           </span>
         )}

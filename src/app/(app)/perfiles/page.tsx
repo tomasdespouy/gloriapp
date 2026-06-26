@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import PatientTable from "./PatientTable";
+import { canSeeDifficulty } from "@/lib/roles";
 
 const SAFE_EMPTY_ID = "00000000-0000-0000-0000-000000000000";
 
@@ -114,7 +115,7 @@ export default async function PerfilesPage() {
           )}
         </div>
 
-        <PatientTable patients={patients || []} canEdit={canEdit} />
+        <PatientTable patients={patients || []} canEdit={canEdit} showDifficulty={canSeeDifficulty(role)} />
       </div>
     </div>
   );

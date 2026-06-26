@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/user-profile";
+import { canSeeDifficulty } from "@/lib/roles";
 import Link from "next/link";
 import { LEARNING_DATA } from "@/lib/learning-data";
 import { getPatientImageUrl } from "@/lib/patient-assets";
@@ -336,9 +337,11 @@ export default async function Dashboard() {
                       <div className="p-2.5">
                         <p className="text-xs font-bold text-gray-900">{p.name}</p>
                         <p className="text-[11px] text-gray-500 mt-0.5">{p.age} años · {p.occupation}</p>
-                        <span className={`inline-block mt-1 text-[9px] font-medium px-2 py-0.5 rounded-full ${diffColor}`}>
-                          {diffLabel}
-                        </span>
+                        {canSeeDifficulty(userProfile.role) && (
+                          <span className={`inline-block mt-1 text-[9px] font-medium px-2 py-0.5 rounded-full ${diffColor}`}>
+                            {diffLabel}
+                          </span>
+                        )}
                       </div>
                     </Link>
                   );

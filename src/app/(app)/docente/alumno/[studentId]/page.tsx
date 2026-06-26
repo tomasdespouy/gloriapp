@@ -336,14 +336,7 @@ export default async function DocenteAlumnoPage({ params }: Props) {
                             {patient?.name} - Sesión #{session.session_number}
                           </p>
                         </div>
-                        <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${
-                          patient?.difficulty_level === "beginner" ? "bg-green-50 text-green-600" :
-                          patient?.difficulty_level === "intermediate" ? "bg-amber-50 text-amber-600" :
-                          "bg-red-50 text-red-600"
-                        }`}>
-                          {patient?.difficulty_level === "beginner" ? "Principiante" :
-                           patient?.difficulty_level === "intermediate" ? "Intermedio" : "Avanzado"}
-                        </span>
+                        {/* Dificultad oculta en la vista docente (decisión de producto) */}
                       </div>
                       {/* Score badge */}
                       {score != null && score > 0 && (

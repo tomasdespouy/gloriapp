@@ -250,11 +250,7 @@ export default function TeacherReviewClient({
   // Filter out system messages
   const chatMessages = messages.filter((m) => m.role !== "system");
 
-  const difficultyLabel: Record<string, string> = {
-    beginner: "Principiante",
-    intermediate: "Intermedio",
-    advanced: "Avanzado",
-  };
+  // La etiqueta de dificultad se oculta en la vista docente (decisión de producto).
 
   return (
     <div className="min-h-screen">
@@ -275,13 +271,7 @@ export default function TeacherReviewClient({
               <span className="text-xs text-gray-400">Sesión #{sessionNumber} &middot; {date}</span>
             </div>
             <p className="text-xs text-gray-500">
-              Paciente: {patient.name} ({patient.age} años, {patient.occupation}) &middot;{" "}
-              <span className={
-                patient.difficulty_level === "beginner" ? "text-green-600" :
-                patient.difficulty_level === "intermediate" ? "text-amber-600" : "text-red-600"
-              }>
-                {difficultyLabel[patient.difficulty_level] || patient.difficulty_level}
-              </span>
+              Paciente: {patient.name} ({patient.age} años, {patient.occupation})
             </p>
           </div>
           {!isApproved && (
@@ -340,7 +330,7 @@ export default function TeacherReviewClient({
                   {patient.name}, {patient.age} años — Sesión #{sessionNumber}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {patient.occupation} &middot; {difficultyLabel[patient.difficulty_level] || patient.difficulty_level}
+                  {patient.occupation}
                 </p>
               </div>
               <div className="flex items-center gap-4 text-xs text-gray-400">

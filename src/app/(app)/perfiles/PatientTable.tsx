@@ -31,7 +31,7 @@ const difficultyLabels: Record<string, { label: string; color: string; order: nu
 type SortKey = "name" | "difficulty" | "country" | "status" | "created";
 type SortDir = "asc" | "desc";
 
-export default function PatientTable({ patients, canEdit = false }: { patients: Patient[]; canEdit?: boolean }) {
+export default function PatientTable({ patients, canEdit = false, showDifficulty = false }: { patients: Patient[]; canEdit?: boolean; showDifficulty?: boolean }) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -123,9 +123,11 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
               <th className={thClass} onClick={() => handleSort("name")}>
                 Paciente <SortIcon col="name" />
               </th>
-              <th className={thClass} onClick={() => handleSort("difficulty")}>
-                Dificultad <SortIcon col="difficulty" />
-              </th>
+              {showDifficulty && (
+                <th className={thClass} onClick={() => handleSort("difficulty")}>
+                  Dificultad <SortIcon col="difficulty" />
+                </th>
+              )}
               <th className={thClass} onClick={() => handleSort("country")}>
                 País <SortIcon col="country" />
               </th>
@@ -185,11 +187,13 @@ export default function PatientTable({ patients, canEdit = false }: { patients: 
                       </div>
                     </Link>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${diff.color}`}>
-                      {diff.label}
-                    </span>
-                  </td>
+                  {showDifficulty && (
+                    <td className="px-6 py-4">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${diff.color}`}>
+                        {diff.label}
+                      </span>
+                    </td>
+                  )}
                   <td className="px-6 py-4">
                     <div className="space-y-0.5">
                       {(p.country_origin || p.country_residence) && (
