@@ -96,6 +96,13 @@ export default async function DocenteSesionPage({ params }: Props) {
       .maybeSingle(),
   ]);
 
+  // Log de estado clínico por turno → heatmap emocional del paciente
+  const { data: heatStates } = await admin
+    .from("clinical_state_log")
+    .select("turn_number, sintomatologia, resistencia, alianza, apertura_emocional")
+    .eq("conversation_id", conversationId)
+    .order("turn_number", { ascending: true });
+
   const patient = conversation.ai_patients as unknown as {
     name: string; age: number; occupation: string; difficulty_level: string;
   };
@@ -113,6 +120,7 @@ export default async function DocenteSesionPage({ params }: Props) {
       feedbackStatus={(competencies?.feedback_status as "pending" | "approved" | "evaluated") || "pending"}
       summary={summaryRow?.summary || null}
       messageCount={messages?.length || 0}
+      heatStates={heatStates || []}
     />
   );
 }

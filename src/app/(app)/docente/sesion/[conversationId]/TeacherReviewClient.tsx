@@ -70,6 +70,7 @@ interface Props {
   feedbackStatus: "pending" | "approved" | "evaluated";
   summary?: string | null;
   messageCount?: number;
+  heatStates?: { turn_number: number; sintomatologia: number; resistencia: number; alianza: number; apertura_emocional: number }[];
 }
 
 const COMP_V2_LABELS: { key: string; label: string; domain: string }[] = [
@@ -114,6 +115,24 @@ function highlightMatches(text: string, q: string): ReactNode {
   return out;
 }
 
+// Heatmap: "temperatura emocional" del paciente por turno. v1 usa la
+// sintomatología del estado clínico (0-10) como intensidad; el color va de frío
+// (calma) a caliente (intensidad). v2 podrá usar etiquetas de emoción del LLM.
+function heatColor(intensity: number): string {
+  if (intensity < 0.25) return "#60a5fa"; // azul — calma
+  if (intensity < 0.45) return "#34d399"; // verde — distendido
+  if (intensity < 0.65) return "#fbbf24"; // ámbar — activado
+  if (intensity < 0.82) return "#fb923c"; // naranja — tenso
+  return "#ef4444"; // rojo — muy intenso
+}
+function heatLabel(intensity: number): string {
+  if (intensity < 0.25) return "calma";
+  if (intensity < 0.45) return "distendido";
+  if (intensity < 0.65) return "activado";
+  if (intensity < 0.82) return "tenso";
+  return "muy intenso";
+}
+
 export default function TeacherReviewClient({
   conversationId,
   student,
@@ -126,6 +145,7 @@ export default function TeacherReviewClient({
   feedbackStatus,
   summary,
   messageCount,
+  heatStates,
 }: Props) {
   const router = useRouter();
   const [comment, setComment] = useState(feedback?.teacher_comment || "");
@@ -298,6 +318,16 @@ export default function TeacherReviewClient({
     msgRefs.current[matchIds[next]]?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
+  // Heatmap emocional del paciente (a partir del log de estado clínico por turno)
+  const heat = (heatStates || []).map((s) => {
+    const intensity = Math.max(0, Math.min(1, (Number(s.sintomatologia) || 0) / 10));
+    return { turn: s.turn_number, intensity, color: heatColor(intensity), label: heatLabel(intensity) };
+  });
+  const heatGradient = heat.length > 1
+    ? `linear-gradient(to bottom, ${heat.map((h, i) => `${h.color} ${(i / (heat.length - 1)) * 100}%`).join(", ")})`
+    : heat.length === 1 ? heat[0].color : "transparent";
+  const assistantMsgIds = chatMessages.filter((m) => m.role !== "user").map((m) => m.id);
+
   // La etiqueta de dificultad se oculta en la vista docente (decisión de producto).
 
   return (
@@ -442,7 +472,28 @@ export default function TeacherReviewClient({
                   </div>
                 </div>
               </div>
-              <div className="p-4 space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto">
+              <div className="flex gap-2 p-4">
+                {heat.length > 0 && (
+                  <div className="shrink-0 flex flex-col items-center gap-1" title="Calor emocional del paciente durante la sesión">
+                    <div
+                      className="relative w-3.5 rounded-full overflow-hidden border border-gray-200"
+                      style={{ height: "calc(100vh - 360px)", background: heatGradient }}
+                    >
+                      {heat.map((h, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => { const id = assistantMsgIds[i]; if (id) msgRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "center" }); }}
+                          className="block w-full cursor-pointer hover:opacity-60"
+                          style={{ height: `${100 / heat.length}%` }}
+                          title={`Turno ${h.turn} · ${h.label} · intensidad ${(h.intensity * 10).toFixed(0)}/10`}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-[8px] text-gray-400">calor</span>
+                  </div>
+                )}
+                <div className="flex-1 space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto">
                 {chatMessages.map((msg) => {
                   const isStudent = msg.role === "user";
                   const isActive = msg.id === activeMatchId;
@@ -471,6 +522,7 @@ export default function TeacherReviewClient({
                     </div>
                   );
                 })}
+                </div>
               </div>
             </div>
 
