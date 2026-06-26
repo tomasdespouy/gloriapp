@@ -1888,7 +1888,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">Silencios</p>
-                    <p className="text-xs text-gray-500">Si no respondes, el paciente reaccionar&aacute; al silencio. Si pasan 5 minutos sin respuesta, se retirar&aacute;.</p>
+                    <p className="text-xs text-gray-500">Si no respondes, el paciente reaccionar&aacute; al silencio. Si pasas varios minutos sin responder, se retirar&aacute;.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

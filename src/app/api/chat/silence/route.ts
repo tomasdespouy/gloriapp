@@ -57,7 +57,7 @@ Han pasado 3 minutos sin que el terapeuta responda. Ya preguntaste si estaba ah\
 Responde en 1-2 oraciones. Deja claro que si no hay respuesta, te ir\u00e1s.`,
 
   4: `[INSTRUCCI\u00d3N ESPECIAL]
-El terapeuta lleva 5 minutos sin responder. Es el momento de retirarte de la sesi\u00f3n. Desp\u00eddete de forma coherente con tu personalidad:
+El terapeuta lleva ya varios minutos sin responder. Es el momento de retirarte de la sesi\u00f3n. Desp\u00eddete de forma coherente con tu personalidad:
 - Con tristeza: "Bueno... creo que mejor me voy. Espero que la pr\u00f3xima vez podamos tener una sesi\u00f3n completa."
 - Con enojo: "Esto no es lo que esperaba. Me voy. Ojal\u00e1 la pr\u00f3xima vez sea diferente."
 - Con resignaci\u00f3n: "Entiendo que es un mal momento. Nos vemos en la pr\u00f3xima sesi\u00f3n, espero."
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
   // The closing stage depends on the patient's pacing profile:
   // depressive_slow and inhibited_timid have 3 nudges; the rest have 4.
   // Whatever the number, the last stage always disconnects — we never
-  // want to block the student past 5 minutes of silence.
+  // want to block the student past the difficulty's patience budget (7/5/3 min).
   const pacing = getPacingProfile(patient.pacing_profile);
   const totalStages = pacing.silenceThresholdsMs.length;
   const isClosingStage = stage >= totalStages;
