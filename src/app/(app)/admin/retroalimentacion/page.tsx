@@ -122,8 +122,161 @@ export default async function RetroalimentacionPage() {
       ? Math.round(((promoters - detractors) / allScores.length) * 100)
       : 0;
 
+  // ── Supervisores: ciclo de retroalimentación docente (solo lectura) ──
+  // Acotado por establecimiento con los mismos scopedUserIds (alumnos en
+  // alcance). Superadmin: sin filtro. Se agrupa por approved_by (el supervisor
+  // que cerró la retro). Lo pendiente es una bolsa institucional: no se
+  // atribuye a un docente (los docentes ven todo el establecimiento).
+  const scopeIds =
+    scopedUserIds && scopedUserIds.length > 0 ? scopedUserIds : [SAFE_EMPTY_ID];
+
+  let closedQ = admin
+    .from("session_competencies")
+    .select("conversation_id, student_id, approved_by, approved_at, overall_score")
+    .in("feedback_status", ["approved", "evaluated"])
+    .not("approved_by", "is", null)
+    .order("approved_at", { ascending: false })
+    .limit(1000);
+  if (!isSuperadmin) closedQ = closedQ.in("student_id", scopeIds);
+
+  let pendingQ = admin
+    .from("session_competencies")
+    .select("id", { count: "exact", head: true })
+    .eq("feedback_status", "pending");
+  if (!isSuperadmin) pendingQ = pendingQ.in("student_id", scopeIds);
+
+  const [{ data: closedRows }, { count: pendingInstitution }] = await Promise.all([
+    closedQ,
+    pendingQ,
+  ]);
+
+  type ClosedRow = {
+    conversation_id: string;
+    student_id: string;
+    approved_by: string;
+    approved_at: string | null;
+    overall_score: number | null;
+  };
+  const rows = (closedRows || []) as ClosedRow[];
+
+  const approverIds = [...new Set(rows.map((r) => r.approved_by).filter(Boolean))];
+  const closedStudentIds = [...new Set(rows.map((r) => r.student_id).filter(Boolean))];
+  const convIds = [...new Set(rows.map((r) => r.conversation_id).filter(Boolean))];
+  const peopleIds = [...new Set([...approverIds, ...closedStudentIds])];
+
+  const [{ data: people }, { data: convs }, { data: fbs }] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", peopleIds.length ? peopleIds : [SAFE_EMPTY_ID]),
+    admin
+      .from("conversations")
+      .select("id, session_number, ended_at, created_at, ai_patients(name)")
+      .in("id", convIds.length ? convIds : [SAFE_EMPTY_ID]),
+    admin
+      .from("session_feedback")
+      .select("conversation_id, teacher_comment, teacher_score")
+      .in("conversation_id", convIds.length ? convIds : [SAFE_EMPTY_ID]),
+  ]);
+
+  type ConvInfo = { sessionNumber: number | null; endedAt: string | null; patientName: string };
+  type FbInfo = { comment: string | null; score: number | null };
+
+  const nameById = new Map<string, string>(
+    (people || []).map((p) => [p.id as string, (p.full_name as string) || "—"] as [string, string])
+  );
+  const convById = new Map<string, ConvInfo>(
+    (convs || []).map((c) => {
+      const ap = c.ai_patients as unknown;
+      const patientName = Array.isArray(ap)
+        ? ((ap[0] as { name?: string })?.name ?? "—")
+        : ((ap as { name?: string })?.name ?? "—");
+      return [
+        c.id as string,
+        {
+          sessionNumber: (c.session_number as number | null) ?? null,
+          endedAt: ((c.ended_at as string | null) || (c.created_at as string | null)) ?? null,
+          patientName,
+        },
+      ] as [string, ConvInfo];
+    })
+  );
+  const fbById = new Map<string, FbInfo>(
+    (fbs || []).map((f) => [
+      f.conversation_id as string,
+      {
+        comment: (f.teacher_comment as string | null) || null,
+        score: (f.teacher_score as number | null) ?? null,
+      },
+    ] as [string, FbInfo])
+  );
+
+  type SupFeedback = {
+    conversationId: string;
+    studentName: string;
+    patientName: string;
+    sessionNumber: number | null;
+    approvedAt: string | null;
+    closeDays: number | null;
+    teacherComment: string | null;
+    teacherScore: number | null;
+    overallScore: number | null;
+  };
+  const supMap = new Map<
+    string,
+    { id: string; name: string; feedbacks: SupFeedback[]; closeDaysList: number[] }
+  >();
+  for (const r of rows) {
+    const conv = convById.get(r.conversation_id);
+    const fb = fbById.get(r.conversation_id);
+    const closeDaysRaw =
+      r.approved_at && conv?.endedAt
+        ? Math.max(
+            0,
+            (new Date(r.approved_at).getTime() - new Date(conv.endedAt).getTime()) / 86400000
+          )
+        : null;
+    const entry =
+      supMap.get(r.approved_by) || {
+        id: r.approved_by,
+        name: nameById.get(r.approved_by) || "—",
+        feedbacks: [],
+        closeDaysList: [],
+      };
+    entry.feedbacks.push({
+      conversationId: r.conversation_id,
+      studentName: nameById.get(r.student_id) || "—",
+      patientName: conv?.patientName || "—",
+      sessionNumber: conv?.sessionNumber ?? null,
+      approvedAt: r.approved_at,
+      closeDays: closeDaysRaw != null ? Math.round(closeDaysRaw * 10) / 10 : null,
+      teacherComment: fb?.comment ?? null,
+      teacherScore: fb?.score ?? null,
+      overallScore: r.overall_score ?? null,
+    });
+    if (closeDaysRaw != null) entry.closeDaysList.push(closeDaysRaw);
+    supMap.set(r.approved_by, entry);
+  }
+
+  const supervisores = {
+    supervisors: [...supMap.values()]
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        closedCount: s.feedbacks.length,
+        avgCloseDays: s.closeDaysList.length
+          ? Math.round((s.closeDaysList.reduce((a, b) => a + b, 0) / s.closeDaysList.length) * 10) / 10
+          : null,
+        feedbacks: s.feedbacks,
+      }))
+      .sort((a, b) => b.closedCount - a.closedCount),
+    totalClosed: rows.length,
+    pendingInstitution: pendingInstitution || 0,
+  };
+
   return (
     <RetroClient
+      supervisores={supervisores}
       surveys={surveys || []}
       responses={(responses || []).map((r) => ({
         ...r,

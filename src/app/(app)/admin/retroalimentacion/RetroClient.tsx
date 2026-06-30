@@ -11,7 +11,32 @@ type Est = { id: string; name: string; country: string | null };
 type Course = { id: string; name: string; establishment_id: string };
 type Section = { id: string; name: string; course_id: string };
 
+type SupFeedback = {
+  conversationId: string;
+  studentName: string;
+  patientName: string;
+  sessionNumber: number | null;
+  approvedAt: string | null;
+  closeDays: number | null;
+  teacherComment: string | null;
+  teacherScore: number | null;
+  overallScore: number | null;
+};
+type Supervisor = {
+  id: string;
+  name: string;
+  closedCount: number;
+  avgCloseDays: number | null;
+  feedbacks: SupFeedback[];
+};
+type Supervisores = {
+  supervisors: Supervisor[];
+  totalClosed: number;
+  pendingInstitution: number;
+};
+
 type Props = {
+  supervisores: Supervisores;
   surveys: Survey[];
   responses: Response[];
   establishments: Est[];
@@ -159,9 +184,9 @@ function ResponseCard({ response: r }: { response: Response }) {
   );
 }
 
-export default function RetroClient({ surveys, responses, establishments, courses, sections, nps, totalResponses, declinedCount, isSuperadmin }: Props) {
+export default function RetroClient({ surveys, responses, establishments, courses, sections, nps, totalResponses, declinedCount, isSuperadmin, supervisores }: Props) {
   const router = useRouter();
-  const [tab, setTab] = useState<"overview" | "surveys" | "create">("overview");
+  const [tab, setTab] = useState<"overview" | "surveys" | "create" | "supervisores">("overview");
   const [yearFilter, setYearFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
   const [estFilter, setEstFilter] = useState("");
@@ -193,7 +218,7 @@ export default function RetroClient({ surveys, responses, establishments, course
     <div className="min-h-screen">
       <header className="px-4 sm:px-8 py-5">
         <h1 className="text-2xl font-bold text-gray-900">Retroalimentación</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Encuestas NPS y satisfacción de usuarios</p>
+        <p className="text-sm text-gray-500 mt-0.5">Encuestas NPS, satisfacción y ciclo de retroalimentación docente</p>
       </header>
 
       {/* Tabs */}
@@ -202,6 +227,7 @@ export default function RetroClient({ surveys, responses, establishments, course
           { key: "overview", label: "Consolidado" },
           { key: "surveys", label: "Encuestas" },
           { key: "create", label: "Crear encuesta" },
+          { key: "supervisores", label: "Supervisores" },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key as typeof tab)}
             className={`tab-btn px-5 py-3 text-sm font-medium border-b-2 ${tab === t.key ? "border-sidebar text-sidebar" : "border-transparent text-gray-400 hover:text-gray-700"}`}>
@@ -320,7 +346,146 @@ export default function RetroClient({ surveys, responses, establishments, course
         )}
 
         {tab === "create" && <CreateSurveyForm establishments={establishments} courses={courses} sections={sections} countries={countries} onCreated={() => { setTab("surveys"); router.refresh(); }} />}
+
+        {tab === "supervisores" && <SupervisoresView data={supervisores} />}
       </div>
+    </div>
+  );
+}
+
+/* ─────────────────────── Supervisores ─────────────────────── */
+// Ciclo de retroalimentación docente, solo lectura. Nivel 1: tabla por
+// docente (agrupada por quien cerró la retro). Nivel 2: drill-down con las
+// retro cerradas de ese docente, con un expandible para leer el comentario.
+
+function SupervisoresView({ data }: { data: Supervisores }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const sup = selected ? data.supervisors.find(s => s.id === selected) : null;
+
+  if (sup) {
+    return (
+      <div className="space-y-4">
+        <button
+          onClick={() => setSelected(null)}
+          className="text-sm text-sidebar hover:underline cursor-pointer"
+        >
+          ← Supervisores
+        </button>
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <h3 className="text-lg font-semibold text-gray-900">{sup.name}</h3>
+          <span className="text-xs text-gray-400">
+            {sup.closedCount} retroalimentaciones cerradas
+            {sup.avgCloseDays != null && ` · cierre prom. ${sup.avgCloseDays} días`}
+          </span>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
+          {sup.feedbacks.map(f => <FeedbackRow key={f.conversationId} f={f} />)}
+          {sup.feedbacks.length === 0 && (
+            <p className="text-xs text-gray-400 text-center py-6">Sin retroalimentaciones cerradas</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+              <th className="px-4 py-3 font-semibold">Docente</th>
+              <th className="px-4 py-3 font-semibold text-center">Cerradas</th>
+              <th className="px-4 py-3 font-semibold text-center">T. cierre prom.</th>
+              <th className="px-4 py-3" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {data.supervisors.map(s => (
+              <tr
+                key={s.id}
+                onClick={() => setSelected(s.id)}
+                className="hover:bg-gray-50 cursor-pointer"
+              >
+                <td className="px-4 py-3 font-medium text-gray-900">{s.name}</td>
+                <td className="px-4 py-3 text-center text-gray-700">{s.closedCount}</td>
+                <td className="px-4 py-3 text-center text-gray-700">
+                  {s.avgCloseDays != null ? `${s.avgCloseDays} días` : "—"}
+                </td>
+                <td className="px-4 py-3 text-right text-gray-300">→</td>
+              </tr>
+            ))}
+            {data.supervisors.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-8 text-center text-xs text-gray-400">
+                  Aún no hay retroalimentaciones cerradas por docentes en tu alcance.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center justify-between bg-white rounded-2xl border border-gray-200 px-5 py-3">
+        <span className="text-xs text-gray-500">
+          Total cerradas: <strong className="text-gray-900">{data.totalClosed}</strong>
+        </span>
+        <span className="text-xs text-gray-500">
+          Pendientes en la institución: <strong className="text-amber-600">{data.pendingInstitution}</strong>
+        </span>
+      </div>
+      <p className="text-[11px] text-gray-400">
+        Lo pendiente no se atribuye a un docente: los docentes ven a todo el establecimiento, sin
+        asignación por sección. Por eso se muestra como bolsa institucional.
+      </p>
+    </div>
+  );
+}
+
+function FeedbackRow({ f }: { f: SupFeedback }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-sm font-medium text-gray-900 min-w-[140px]">{f.studentName}</span>
+        <span className="text-xs text-gray-500">{f.patientName}</span>
+        {f.sessionNumber != null && (
+          <span className="text-[11px] text-gray-400">Sesión #{f.sessionNumber}</span>
+        )}
+        <span className="text-[11px] text-gray-400 ml-auto">
+          {f.approvedAt
+            ? new Date(f.approvedAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })
+            : "—"}
+          {f.closeDays != null && ` · ${f.closeDays}d`}
+        </span>
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="text-[11px] text-sidebar hover:underline cursor-pointer"
+        >
+          {open ? "ocultar" : "leer"}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2 border-t border-gray-100 pt-2 space-y-2">
+          <div className="flex items-center gap-2 text-xs flex-wrap">
+            {f.teacherScore != null && (
+              <span className="font-semibold text-sidebar">Nota docente: {f.teacherScore}/10</span>
+            )}
+            {f.overallScore != null && (
+              <span className="text-gray-400">· Puntaje IA aprobado: {f.overallScore}</span>
+            )}
+          </div>
+          {f.teacherComment ? (
+            <p className="text-xs text-gray-700 bg-gray-50 rounded-lg px-3 py-2 whitespace-pre-wrap">
+              {f.teacherComment}
+            </p>
+          ) : (
+            <p className="text-[11px] text-gray-400 italic">
+              El docente aprobó la evaluación sin dejar comentario escrito.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { getUserProfile } from "@/lib/supabase/user-profile";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import PatientTable from "./PatientTable";
+import PatientCatalog from "./PatientCatalog";
 import { canSeeDifficulty } from "@/lib/roles";
 
 const SAFE_EMPTY_ID = "00000000-0000-0000-0000-000000000000";
@@ -93,8 +93,12 @@ export default async function PerfilesPage() {
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Perfiles de pacientes</h1>
-            <p className="text-gray-500 mt-1">Gestiona y crea pacientes IA para el simulador</p>
+            <h1 className="text-2xl font-bold text-gray-900">Pacientes IA</h1>
+            <p className="text-gray-500 mt-1">
+              {canEdit
+                ? "Gestiona y crea pacientes IA para el simulador"
+                : "Catálogo de pacientes IA disponibles"}
+            </p>
           </div>
           {canEdit && (
             <div className="flex gap-2">
@@ -115,7 +119,7 @@ export default async function PerfilesPage() {
           )}
         </div>
 
-        <PatientTable patients={patients || []} canEdit={canEdit} showDifficulty={canSeeDifficulty(role)} />
+        <PatientCatalog patients={patients || []} showDifficulty={canSeeDifficulty(role)} />
       </div>
     </div>
   );

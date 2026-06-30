@@ -152,7 +152,7 @@ export default async function MetricasPage() {
         <p className="text-sm text-gray-500 mt-0.5">Monitoreo en vivo y análisis histórico</p>
       </header>
 
-      <MetricsTabs>
+      <MetricsTabs isSuperadmin={ctx.isSuperadmin}>
         <MetricsClient
           competencies={COMPETENCIES.map((c) => ({ key: c, label: COMPETENCY_LABELS[c] }))}
           heatmapData={heatmapData}

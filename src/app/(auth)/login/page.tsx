@@ -66,18 +66,23 @@ export default function LoginPage() {
   return (
     <>
       {/* Logo */}
-      <div className="flex justify-center mb-2">
+      <div className="flex justify-center mb-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/branding/gloria-logo.png" alt="GlorIA" className="h-12 w-auto" />
+        <img src="/branding/gloria-logo.png" alt="GlorIA" className="h-[52px] w-auto" />
       </div>
 
       {/* Heading */}
-      <h2 className="text-lg font-semibold text-gray-900 text-center mb-6">
-        Iniciar sesión
-      </h2>
+      <div className="text-center mb-8">
+        <h2 className="text-[22px] font-bold tracking-tight text-gray-900">
+          Bienvenido de vuelta
+        </h2>
+        <p className="text-sm text-gray-500 mt-1.5">
+          Ingresa a tu cuenta para continuar
+        </p>
+      </div>
 
       {/* Form */}
-      <form onSubmit={handleLogin} className="space-y-4">
+      <form onSubmit={handleLogin} className="space-y-5">
         {/* Email */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -88,7 +93,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => { setEmail(e.target.value.replace(/\s/g, "")); setErrors((p) => ({ ...p, email: undefined })); }}
             onBlur={(e) => setEmail(e.target.value.trim())}
-            className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.email ? "border-red-400" : "border-gray-300"}`}
+            className={`w-full px-4 py-3 border rounded-xl text-sm transition focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/15 focus:border-[#4A55A2] ${errors.email ? "border-red-400" : "border-gray-300"}`}
             placeholder="tu@email.com"
           />
           {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
@@ -105,7 +110,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => { setPassword(e.target.value.replace(/\s/g, "")); setErrors((p) => ({ ...p, password: undefined })); }}
               onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}
-              className={`w-full px-4 py-2.5 pr-10 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.password ? "border-red-400" : "border-gray-300"}`}
+              className={`w-full px-4 py-3 pr-10 border rounded-xl text-sm transition focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/15 focus:border-[#4A55A2] ${errors.password ? "border-red-400" : "border-gray-300"}`}
               placeholder="••••••••"
             />
             <button
@@ -142,7 +147,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-[#0B1425] hover:bg-[#162a4a] text-white py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full bg-[#4A55A2] hover:bg-[#3D4890] text-white py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_10px_24px_-10px_rgba(74,85,162,0.7)]"
         >
           {loading ? (
             <>
@@ -162,7 +167,7 @@ export default function LoginPage() {
       <div className="mt-6 text-center">
         <Link
           href="/forgot-password"
-          className="text-blue-600 text-sm hover:underline"
+          className="text-[#4A55A2] text-sm font-medium hover:underline"
         >
           Recuperar contraseña
         </Link>

@@ -35,6 +35,12 @@ export default async function FichaClinicaPage({
     advanced: "Avanzado",
   };
 
+  const diffPillColor: Record<string, string> = {
+    beginner: "bg-green-100 text-green-700",
+    intermediate: "bg-yellow-100 text-yellow-700",
+    advanced: "bg-red-100 text-red-700",
+  };
+
   const traitLabels: Record<string, string> = {
     openness: "Apertura",
     neuroticism: "Neuroticismo",
@@ -99,7 +105,14 @@ export default async function FichaClinicaPage({
             className="w-24 h-24 rounded-2xl object-cover border border-gray-200"
           />
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">{patient.name}</h1>
+            <div className="flex items-center gap-3 mb-1 flex-wrap">
+              <h1 className="text-2xl font-bold text-gray-900">{patient.name}</h1>
+              {canSeeDifficulty(role) && (
+                <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full ${diffPillColor[patient.difficulty_level] || "bg-gray-100 text-gray-600"}`}>
+                  {diffLabels[patient.difficulty_level] || patient.difficulty_level}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-gray-500 mb-2">
               {patient.age} años &middot; {patient.occupation}
             </p>
@@ -109,10 +122,6 @@ export default async function FichaClinicaPage({
             <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-600">
               <span>Origen: <strong>{patient.country_origin || "—"}</strong></span>
               <span>Residencia: <strong>{patient.country_residence || "—"}</strong></span>
-              <span>Visible para: <strong>{Array.isArray(patient.country) ? patient.country.join(", ") : (patient.country || "Todos")}</strong></span>
-              {canSeeDifficulty(role) && (
-                <span>Dificultad: <strong>{diffLabels[patient.difficulty_level] || patient.difficulty_level}</strong></span>
-              )}
             </div>
           </div>
         </div>
@@ -203,6 +212,16 @@ export default async function FichaClinicaPage({
                   <p>Cumpleaños: <strong>{new Date(patient.birthday + "T12:00:00").toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })}</strong></p>
                   {patient.neighborhood && <p>Sector: <strong>{patient.neighborhood}</strong></p>}
                 </div>
+              </section>
+            )}
+
+            {patient.teacher_notes && (
+              <section>
+                <h2 className="text-xs font-semibold text-[#4A55A2] uppercase tracking-wide mb-2">
+                  Notas docentes
+                </h2>
+                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{patient.teacher_notes}</p>
+                <p className="text-[10px] text-gray-400 mt-1">Solo lectura</p>
               </section>
             )}
           </div>

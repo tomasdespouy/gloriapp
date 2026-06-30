@@ -7,7 +7,13 @@ import SystemMetrics from "./SystemMetrics";
 import AlertsPanel from "./AlertsPanel";
 import MonitorPanel from "@/components/monitor/MonitorPanel";
 
-export default function MetricsTabs({ children }: { children: React.ReactNode }) {
+export default function MetricsTabs({
+  children,
+  isSuperadmin = false,
+}: {
+  children: React.ReactNode;
+  isSuperadmin?: boolean;
+}) {
   const [tab, setTab] = useState<"live" | "personas" | "alertas" | "historic" | "system">("live");
 
   return (
@@ -50,15 +56,19 @@ export default function MetricsTabs({ children }: { children: React.ReactNode })
           <BarChart3 size={16} />
           Historico
         </button>
-        <button
-          onClick={() => setTab("system")}
-          className={`tab-btn flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
-            tab === "system" ? "border-purple-500 text-purple-600" : "border-transparent text-gray-400"
-          }`}
-        >
-          <Server size={16} />
-          Sistema
-        </button>
+        {/* "Sistema" (infra/salud global) solo para superadmin; el admin de
+            institución no necesita ver el estado de servidores. */}
+        {isSuperadmin && (
+          <button
+            onClick={() => setTab("system")}
+            className={`tab-btn flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
+              tab === "system" ? "border-purple-500 text-purple-600" : "border-transparent text-gray-400"
+            }`}
+          >
+            <Server size={16} />
+            Sistema
+          </button>
+        )}
       </div>
 
       {tab === "live" && (
@@ -77,7 +87,7 @@ export default function MetricsTabs({ children }: { children: React.ReactNode })
         </div>
       )}
       {tab === "historic" && children}
-      {tab === "system" && (
+      {tab === "system" && isSuperadmin && (
         <div className="px-4 sm:px-8 pb-8">
           <SystemMetrics />
         </div>

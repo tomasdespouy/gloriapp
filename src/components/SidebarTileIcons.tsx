@@ -168,6 +168,23 @@ export function SettingsIcon({ size = 28 }: IconProps) {
   );
 }
 
+// ── Admin ─────────────────────────────────────────────────────────
+// Dos personas en duotone, mismo lenguaje visual que el resto. Usado por
+// el menú del rol admin para "Usuarios".
+
+export function UsersDuoIcon({ size = 28 }: IconProps) {
+  return (
+    <svg {...baseSvg(size)} className="icon-users">
+      {/* Persona de atrás */}
+      <circle cx="16" cy="9" r="2.9" fill={DUO_FILL} fillOpacity={DUO_OPACITY} stroke={STROKE} strokeWidth="1.5" />
+      <path d="M16 14 C 19 14 21.5 16.2 21.5 19.5" fill="none" stroke={STROKE} strokeWidth="1.5" strokeLinecap="round" />
+      {/* Persona de adelante */}
+      <circle cx="9" cy="8.5" r="3.6" fill={DUO_FILL} fillOpacity={DUO_OPACITY} stroke={STROKE} strokeWidth="1.5" />
+      <path d="M2.5 19.5 C 2.5 15.8 5.5 13.8 9 13.8 C 12.5 13.8 15.5 15.8 15.5 19.5" fill={DUO_FILL} fillOpacity={DUO_OPACITY} stroke={STROKE} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // ── Routing ───────────────────────────────────────────────────────
 
 export const TILE_ICON_BY_HREF: Record<string, React.ComponentType<IconProps>> = {

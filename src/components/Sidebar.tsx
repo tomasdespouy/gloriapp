@@ -6,7 +6,15 @@ import {
   FlaskConical, DollarSign, Activity, FileText,
   Briefcase, Rocket, Bell, ArrowLeft, ArrowRight,
 } from "lucide-react";
-import { TILE_ICON_BY_HREF } from "./SidebarTileIcons";
+import {
+  TILE_ICON_BY_HREF,
+  PanelIcon,
+  UsersDuoIcon,
+  UserIcon as UserDuoIcon,
+  ChartBarIcon,
+  BookOpenIcon as BookOpenDuoIcon,
+  LightbulbIcon,
+} from "./SidebarTileIcons";
 import { useSidebar } from "./SidebarContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -76,13 +84,14 @@ const adminSections = (isSuperadmin: boolean): NavSection[] =>
       ]
     : [
         {
+          // Rol admin: misma familia de íconos duotone que estudiante/docente.
           items: [
-            { icon: LayoutDashboard, label: "Panel", href: "/admin/dashboard" },
-            { icon: Users, label: "Usuarios", href: "/admin/usuarios" },
-            { icon: User, label: "Pacientes IA", href: "/perfiles" },
-            { icon: BookOpen, label: "Retroalimentación", href: "/admin/retroalimentacion" },
-            { icon: BarChart3, label: "Métricas", href: "/admin/metricas" },
-            { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
+            { icon: PanelIcon, label: "Panel", href: "/admin/dashboard" },
+            { icon: UsersDuoIcon, label: "Usuarios", href: "/admin/usuarios" },
+            { icon: UserDuoIcon, label: "Pacientes IA", href: "/perfiles" },
+            { icon: BookOpenDuoIcon, label: "Retroalimentación", href: "/admin/retroalimentacion" },
+            { icon: ChartBarIcon, label: "Métricas", href: "/admin/metricas" },
+            { icon: LightbulbIcon, label: "Sobre GlorIA", href: "/sobre" },
           ],
         },
       ];

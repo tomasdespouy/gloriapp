@@ -37,9 +37,9 @@ export default function ForgotPasswordPage() {
   return (
     <>
       {/* Logo */}
-      <div className="flex justify-center mb-2">
+      <div className="flex justify-center mb-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/branding/gloria-logo.png" alt="GlorIA" className="h-12 w-auto" />
+        <img src="/branding/gloria-logo.png" alt="GlorIA" className="h-[52px] w-auto" />
       </div>
 
       {/* Heading */}
@@ -62,7 +62,7 @@ export default function ForgotPasswordPage() {
           </p>
           <Link
             href="/login"
-            className="inline-block bg-[#0B1425] hover:bg-[#162a4a] text-white py-2.5 px-8 rounded-lg text-sm font-medium transition-colors"
+            className="inline-block bg-[#4A55A2] hover:bg-[#3D4890] text-white py-2.5 px-8 rounded-xl text-sm font-medium transition-colors"
           >
             Volver al login
           </Link>
@@ -78,7 +78,7 @@ export default function ForgotPasswordPage() {
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${error ? "border-red-400" : "border-gray-300"}`}
+                className={`w-full px-4 py-3 border rounded-xl text-sm transition focus:outline-none focus:ring-2 focus:ring-[#4A55A2]/15 focus:border-[#4A55A2] ${error ? "border-red-400" : "border-gray-300"}`}
                 placeholder="tu@email.com"
               />
               {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#0B1425] hover:bg-[#162a4a] text-white py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-[#4A55A2] hover:bg-[#3D4890] text-white py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_10px_24px_-10px_rgba(74,85,162,0.7)]"
             >
               {loading ? (
                 <>
@@ -104,7 +104,7 @@ export default function ForgotPasswordPage() {
           </form>
 
           <p className="text-center text-sm text-gray-500 mt-6">
-            <Link href="/login" className="text-blue-600 font-medium hover:underline">
+            <Link href="/login" className="text-[#4A55A2] font-medium hover:underline">
               Volver a Iniciar Sesión
             </Link>
           </p>
