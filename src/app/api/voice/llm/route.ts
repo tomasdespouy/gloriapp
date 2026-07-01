@@ -85,6 +85,34 @@ function sseDone(id: string, model: string): string {
   return `data: ${JSON.stringify(stop)}\n\ndata: [DONE]\n\n`;
 }
 
+// Filtro con estado para el stream: elimina acotaciones/gestos que el TTS leería
+// en voz alta ([suspira], (pausa), *ríe*). Retiene un posible abridor sin cerrar
+// entre chunks hasta que llegue su cierre, con salvaguarda para no retener de más.
+function makeStageDirectionStripper() {
+  let carry = "";
+  const stripComplete = (s: string) =>
+    s.replace(/\[[^\]]*\]/g, "").replace(/\([^)]*\)/g, "").replace(/\*[^*]*\*/g, "");
+  return {
+    push(raw: string): string {
+      carry = stripComplete(carry + raw);
+      let cut = carry.length;
+      for (const ch of ["[", "(", "*"]) {
+        const i = carry.indexOf(ch);
+        if (i >= 0 && i < cut) cut = i;
+      }
+      if (carry.length - cut > 120) cut = carry.length; // no retener indefinidamente
+      const out = carry.slice(0, cut);
+      carry = carry.slice(cut);
+      return out;
+    },
+    flush(): string {
+      const out = stripComplete(carry).replace(/[[(*][^\])*]*$/g, "");
+      carry = "";
+      return out;
+    },
+  };
+}
+
 export async function POST(req: NextRequest) {
   // 1. Auth: shared secret between ElevenLabs and us.
   const secret = process.env.VOICE_LLM_SECRET;
@@ -252,8 +280,16 @@ export async function POST(req: NextRequest) {
   const systemPrompt =
     safety + basePrompt + THERAPIST_CONTEXT + timeContext + therapistNameRule + memoryText +
     statePrompt + pacingRules + ragContext +
-    "\n\n[REGLA ANTI-REPETICIÓN]\nNUNCA repitas textualmente una respuesta que ya diste.\n" +
+    "\n\n[REGLA ANTI-REPETICIÓN]\nNUNCA repitas ni parafrasees una respuesta que ya diste. Si no hay nada nuevo que aportar, mejor haz una pregunta breve y distinta.\n" +
     safety;
+
+  // Turno de SILENCIO: el terapeuta no dijo nada (o no se transcribió). En vez de
+  // continuar o repetir, Carlos hace un breve check-in de llamada ("¿sigue ahí?").
+  const isSilence = lastUser.trim().length < 2;
+  const voicePrompt = isSilence
+    ? systemPrompt +
+      "\n\n[SILENCIO DEL TERAPEUTA — PRIORIDAD]\nEl terapeuta no dijo nada en un momento (o no se te escuchó). NO continúes tu punto anterior y NO repitas lo que ya dijiste. En UNA sola frase corta, pregúntale con naturalidad de llamada si sigue ahí o si te escucha: \"¿Aló? ¿sigue ahí?\", \"¿me escucha?\", \"¿hola? ¿me escuchan?\". Varía la frase, no siempre la misma.\n"
+    : systemPrompt;
 
   // 8. Stream the LLM response back in OpenAI SSE format; persist on close.
   const encoder = new TextEncoder();
@@ -261,18 +297,27 @@ export async function POST(req: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
+      const strip = makeStageDirectionStripper();
       try {
-        const reader = chatStream(history, systemPrompt).getReader();
+        const reader = chatStream(history, voicePrompt).getReader();
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           if (value) {
-            chunks.push(value);
-            controller.enqueue(encoder.encode(sseChunk(value, id, model)));
+            const clean = strip.push(value);
+            if (clean) {
+              chunks.push(clean);
+              controller.enqueue(encoder.encode(sseChunk(clean, id, model)));
+            }
           }
         }
       } catch {
         // fall through — emit whatever we have + close cleanly
+      }
+      const tail = strip.flush();
+      if (tail) {
+        chunks.push(tail);
+        controller.enqueue(encoder.encode(sseChunk(tail, id, model)));
       }
 
       const fullResponse = chunks.join("").trim();
