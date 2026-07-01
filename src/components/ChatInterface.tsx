@@ -1356,11 +1356,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     }
   };
 
-  // La guardia anti-distracción aplica SOLO a estudiantes reales y SOLO con
-  // pacientes de dificultad "avanzado". Docente/admin/superadmin (y los
-  // niveles principiante/intermedio) quedan exentos: ni aviso ni cierre.
-  const antiDistractionEnabled =
-    userRole === "student" && patient.difficulty_level === "advanced";
+  // La guardia anti-distracción aplica a TODOS los estudiantes reales, en
+  // cualquier nivel de dificultad del paciente (principiante, intermedio y
+  // avanzado). Docente/admin/superadmin quedan exentos: ni aviso ni cierre.
+  const antiDistractionEnabled = userRole === "student";
 
   // Aviso de encuadre al comenzar la sesión (se autooculta). Solo cuando la
   // guardia está activa, para no advertir de algo que no va a ocurrir.
