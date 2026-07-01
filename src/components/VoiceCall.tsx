@@ -49,8 +49,57 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
   };
 
+  // Tono de llamada saliente (ringback ~425 Hz, cadencia ~1 s tono / silencio),
+  // sintetizado con WebAudio para no depender de ningún asset. Suena mientras se
+  // conecta y se corta apenas el paciente "contesta" (onConnect) o si falla.
+  const ringRef = useRef<{ ctx: AudioContext; osc: OscillatorNode; gain: GainNode; timer: ReturnType<typeof setInterval> } | null>(null);
+
+  const startRing = () => {
+    if (ringRef.current) return;
+    try {
+      const AC: typeof AudioContext =
+        window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AC) return;
+      const ctx = new AC();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 425;
+      gain.gain.value = 0.0001;
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      const ring = () => {
+        const t = ctx.currentTime;
+        gain.gain.cancelScheduledValues(t);
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.09, t + 0.04);
+        gain.gain.setValueAtTime(0.09, t + 0.9);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.0);
+      };
+      ring();
+      const timer = setInterval(ring, 3200);
+      ringRef.current = { ctx, osc, gain, timer };
+    } catch { /* audio no disponible: seguir en silencio */ }
+  };
+
+  const stopRing = () => {
+    const r = ringRef.current;
+    if (!r) return;
+    ringRef.current = null;
+    try {
+      clearInterval(r.timer);
+      const t = r.ctx.currentTime;
+      r.gain.gain.cancelScheduledValues(t);
+      r.gain.gain.setValueAtTime(r.gain.gain.value, t);
+      r.gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+      r.osc.stop(t + 0.12);
+      setTimeout(() => { r.ctx.close().catch(() => {}); }, 250);
+    } catch { /* noop */ }
+  };
+
   const conversation = useConversation({
     onConnect: ({ conversationId }) => {
+      stopRing();
       convIdRef.current = conversationId;
       setSeconds(0);
       stopTimer();
@@ -58,6 +107,7 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
       setPhase("live");
     },
     onDisconnect: () => {
+      stopRing();
       stopTimer();
       setPhase((p) => (p === "idle" ? "idle" : "ended"));
     },
@@ -67,19 +117,21 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
       setTranscript(transcriptRef.current);
     },
     onError: (message: string) => {
+      stopRing();
       setError(message || "Hubo un problema con la llamada.");
     },
   });
 
   const { isSpeaking, startSession, endSession, isMuted, setMuted } = conversation;
 
-  useEffect(() => () => stopTimer(), []);
+  useEffect(() => () => { stopTimer(); stopRing(); }, []);
 
   const handleStart = useCallback(async () => {
     setError(null);
     transcriptRef.current = [];
     setTranscript([]);
     setPhase("connecting");
+    startRing();
     try {
       // Ask for the mic up-front so permission issues surface before we connect.
       await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -97,6 +149,7 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
         customLlmExtraBody: { patientId: pid, conversationId, userId },
       });
     } catch (e) {
+      stopRing();
       setError(e instanceof Error ? e.message : "No se pudo iniciar la llamada. Revisa el micrófono.");
       setPhase("idle");
     }
@@ -104,6 +157,7 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
 
   const handleEnd = useCallback(() => {
     try { endSession(); } catch { /* noop */ }
+    stopRing();
     stopTimer();
     setPhase("ended");
   }, [endSession]);

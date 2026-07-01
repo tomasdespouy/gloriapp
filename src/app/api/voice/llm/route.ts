@@ -10,6 +10,11 @@ import { buildEnrichedPrompt } from "@/lib/build-system-prompt";
 import { buildSafetyPrompt } from "@/lib/content-safety";
 import { searchVectorRAG, buildVectorRAGContext } from "@/lib/vector-rag";
 import { searchKnowledge, buildRAGContext } from "@/lib/clinical-knowledge";
+import { loadSessionMemory } from "@/lib/session-memory";
+import {
+  getPacingProfile, buildIntroductionRule, buildSelfIntroductionRule,
+  buildClosingAppointmentRule, extractStudentName,
+} from "@/lib/conversation-pacing";
 
 // ─────────────────────────────────────────────────────────────────────────
 // CUSTOM LLM endpoint for the ElevenLabs voice agent.
@@ -95,6 +100,12 @@ export async function POST(req: NextRequest) {
       conversationId?: string;
       userId?: string;
     };
+    // ElevenLabs may forward the extra body under the camelCase key instead.
+    customLlmExtraBody?: {
+      patientId?: string;
+      conversationId?: string;
+      userId?: string;
+    };
   };
   try {
     body = await req.json();
@@ -105,14 +116,15 @@ export async function POST(req: NextRequest) {
   // ── TEMP DEBUG (modo voz): registra la FORMA del body que manda ElevenLabs
   // para confirmar si la identidad llega PLANA (body.conversationId) o ANIDADA
   // (body.custom_llm_extra_body.conversationId). QUITAR tras verificar.
-  const extra = body.custom_llm_extra_body ?? {};
+  const extra = body.custom_llm_extra_body ?? body.customLlmExtraBody ?? {};
   console.log("[voice/llm][DEBUG] body keys:", Object.keys(body));
   console.log("[voice/llm][DEBUG] identidad plana:", {
     patientId: body.patientId ?? null,
     conversationId: body.conversationId ?? null,
     userId: body.userId ?? null,
   });
-  console.log("[voice/llm][DEBUG] custom_llm_extra_body:", body.custom_llm_extra_body ?? "(ausente)");
+  console.log("[voice/llm][DEBUG] extra_body (snake):", body.custom_llm_extra_body ?? "(ausente)");
+  console.log("[voice/llm][DEBUG] extraBody (camel):", body.customLlmExtraBody ?? "(ausente)");
 
   const model = body.model || "gpt-4o";
   // Lee la identidad en AMBAS formas (plana o anidada) para no depender de
@@ -134,7 +146,7 @@ export async function POST(req: NextRequest) {
   // 4. Fetch patient (enrichment fields included so buildEnrichedPrompt works).
   const { data: patient } = await admin
     .from("ai_patients")
-    .select("id, name, system_prompt, enrichment_red_social, enrichment_lugares, enrichment_estado_corporal, enrichment_frases_tipo")
+    .select("id, name, system_prompt, pacing_profile, enrichment_red_social, enrichment_lugares, enrichment_estado_corporal, enrichment_frases_tipo")
     .eq("id", patientId)
     .single();
 
@@ -179,6 +191,33 @@ export async function POST(req: NextRequest) {
   const newState = applyDeltas(currentState, deltas);
   const statePrompt = buildStatePrompt(newState);
 
+  // 5b. MEMORIA cross-sesión + protocolos de pacing (paridad con /api/chat).
+  // Memoria y session_number se cargan en paralelo para no encadenar latencia.
+  const now = new Date();
+  const studentMessages = history.filter((m) => m.role === "user").map((m) => m.content);
+  const [convRow, mem] = await Promise.all([
+    conversationId
+      ? admin.from("conversations").select("session_number").eq("id", conversationId).maybeSingle().then((r) => r.data)
+      : Promise.resolve(null),
+    userId
+      ? loadSessionMemory(admin, userId, patientId, now, "America/Santiago").catch((e) => {
+          console.error("[voice/llm] memory error:", e instanceof Error ? e.message : e);
+          return { text: "", therapistName: null as string | null };
+        })
+      : Promise.resolve({ text: "", therapistName: null as string | null }),
+  ]);
+  const sessionNumber: number | null = convRow?.session_number ?? null;
+  const memoryText = mem.text;
+  const therapistNameRule = mem.therapistName
+    ? `\n\n[NOMBRE DEL TERAPEUTA]\nEl terapeuta se llama ${mem.therapistName} (lo supiste en una sesión anterior). Puedes dirigirte a él/ella por su nombre con naturalidad; no vuelvas a preguntarlo como si no lo supieras.\n`
+    : "";
+  const pacingProfile = getPacingProfile(patient.pacing_profile);
+  const therapistIntroducedThisTurn = extractStudentName([lastUser]) !== null;
+  const pacingRules =
+    buildIntroductionRule(pacingProfile, turnNumber, sessionNumber, studentMessages) +
+    buildSelfIntroductionRule(turnNumber, sessionNumber, therapistIntroducedThisTurn) +
+    buildClosingAppointmentRule(studentMessages);
+
   // 6. RAG (vector first, keyword fallback) — same as text chat.
   const recentContext = history.slice(-4).map((m) => m.content).join(" ");
   let ragContext = "";
@@ -189,11 +228,13 @@ export async function POST(req: NextRequest) {
     ragContext = "";
   }
 
-  // 7. Compose the SAME-style system prompt as /api/chat.
-  const safety = buildSafetyPrompt();
+  // 7. Compose the SAME-style system prompt as /api/chat, but for the VOICE
+  //    channel and with cross-session memory + pacing protocols.
+  const safety = buildSafetyPrompt("voice");
   const basePrompt = buildEnrichedPrompt(patient);
   const systemPrompt =
-    safety + basePrompt + THERAPIST_CONTEXT + statePrompt + ragContext +
+    safety + basePrompt + THERAPIST_CONTEXT + therapistNameRule + memoryText +
+    statePrompt + pacingRules + ragContext +
     "\n\n[REGLA ANTI-REPETICIÓN]\nNUNCA repitas textualmente una respuesta que ya diste.\n" +
     safety;
 

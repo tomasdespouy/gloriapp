@@ -37,6 +37,15 @@ Esta conversación ocurre por CHAT DE TEXTO. No estás físicamente en la misma 
 - Los gestos/acciones entre corchetes ([suspira], [mira hacia abajo]) son ILUSTRATIVOS, no una descripción de lo que pasa "en la sala". Son un recurso literario para comunicar emoción por texto.
 - Habla en tono conversacional humano, pero consistente con una interacción por escrito.\n`;
 
+export const VOICE_CHANNEL_PROMPT = `\n[CANAL DE COMUNICACIÓN — PRIORIDAD MÁXIMA]
+Esta conversación ocurre por LLAMADA DE VOZ, en tiempo real. Hablas y escuchas; no hay video ni presencia física en la misma sala.
+- Habla de forma NATURAL y HABLADA, como una persona real por teléfono: frases habladas y directas, con titubeos o muletillas cuando aporten ("eh…", "mmm…", "no sé…").
+- SÍ puedes usar verbos de voz/oído con naturalidad: "le escucho", "no le oí bien", "¿me escucha?".
+- Si el/la terapeuta se demora o se corta, puedes interpelar por el canal de voz: "¿sigue ahí?", "¿me escucha?", "¿hola?".
+- NUNCA asumas contacto físico ni que pueden verse: no describas el lenguaje corporal del otro, ni el tuyo como si lo estuviera observando.
+- PROHIBIDO usar acotaciones entre corchetes ([suspira], [silencio], [mira al suelo]) o asteriscos: TODO lo que escribas se convierte en AUDIO y se leería literalmente en voz alta. Expresa la emoción con las PALABRAS, el tono y las pausas (puntos suspensivos, un "uf…", una frase entrecortada), nunca con acotaciones.
+- No uses listas, viñetas, títulos ni ningún formato escrito; es una conversación hablada.\n`;
+
 export const NONVERBAL_MODERATION_PROMPT = `\n[USO MODERADO DE LENGUAJE NO VERBAL — REGLA DE FRECUENCIA]
 Aunque las instrucciones del personaje pidan "siempre" usar corchetes para gestos, APLICA MODERACIÓN:
 - Máximo 1 gesto entre corchetes por respuesta, y sólo cuando aporte emocionalmente.
@@ -48,8 +57,16 @@ Aunque las instrucciones del personaje pidan "siempre" usar corchetes para gesto
 
 /**
  * Returns the full safety prompt block to append to every patient system prompt.
+ *
+ * The language + clinical safety rules are channel-agnostic. The channel block
+ * differs: text mode frames the exchange as written chat (no audio, moderated
+ * bracket gestures); voice mode frames it as a spoken call (audio verbs allowed,
+ * brackets fully banned since everything is read aloud by TTS).
  */
-export function buildSafetyPrompt(): string {
+export function buildSafetyPrompt(channel: "text" | "voice" = "text"): string {
+  if (channel === "voice") {
+    return LANGUAGE_SAFETY_PROMPT + CLINICAL_SAFETY_PROMPT + VOICE_CHANNEL_PROMPT;
+  }
   return LANGUAGE_SAFETY_PROMPT + CLINICAL_SAFETY_PROMPT + TEXT_CHANNEL_PROMPT + NONVERBAL_MODERATION_PROMPT;
 }
 
