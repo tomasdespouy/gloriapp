@@ -64,6 +64,10 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
   const byeClosingRef = useRef(false);
   const prevSpeakingRef = useRef(false);
   const endTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tono de "colgado" al cerrar la llamada: se toca una sola vez, y solo si la
+  // llamada llegó a estar en vivo.
+  const hangupPlayedRef = useRef(false);
+  const wasLiveRef = useRef(false);
 
   const startRing = () => {
     if (ringRef.current) return;
@@ -154,10 +158,44 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
     } catch { /* noop */ }
   };
 
+  // Sonido de "teléfono colgado" (tono de ocupado/desconexión ~425 Hz) durante
+  // 2 s y luego silencio. Se reproduce UNA vez al cerrarse la llamada.
+  const playHangup = () => {
+    if (hangupPlayedRef.current) return;
+    hangupPlayedRef.current = true;
+    try {
+      const AC: typeof AudioContext =
+        window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AC) return;
+      const ctx = new AC();
+      ctx.resume?.().catch(() => {});
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 425;
+      gain.gain.value = 0.0001;
+      osc.connect(gain).connect(ctx.destination);
+      const t0 = ctx.currentTime;
+      const total = 2.0, on = 0.4, period = 0.8, vol = 0.11; // cadencia "tu… tu… tu…"
+      for (let start = 0; start < total - 0.01; start += period) {
+        const s = t0 + start;
+        const dur = Math.min(on, total - start);
+        gain.gain.setValueAtTime(0.0001, s);
+        gain.gain.exponentialRampToValueAtTime(vol, s + 0.02);
+        gain.gain.setValueAtTime(vol, s + dur - 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, s + dur);
+      }
+      osc.start(t0);
+      osc.stop(t0 + total + 0.05);
+      setTimeout(() => { ctx.close().catch(() => {}); }, Math.round((total + 0.3) * 1000));
+    } catch { /* noop */ }
+  };
+
   const conversation = useConversation({
     onConnect: ({ conversationId }) => {
       stopRing();
       startAmbience();
+      wasLiveRef.current = true;
       convIdRef.current = conversationId;
       setSeconds(0);
       stopTimer();
@@ -168,6 +206,7 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
       stopRing();
       stopAmbience();
       stopTimer();
+      if (wasLiveRef.current) playHangup();
       setPhase((p) => (p === "idle" ? "idle" : "ended"));
     },
     onMessage: ({ message, source }: { message: string; source: "user" | "ai" }) => {
@@ -230,6 +269,8 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
     transcriptRef.current = [];
     setTranscript([]);
     setPhase("connecting");
+    hangupPlayedRef.current = false;
+    wasLiveRef.current = false;
     startRing();
     try {
       // Ask for the mic up-front so permission issues surface before we connect.
@@ -260,6 +301,7 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
     stopRing();
     stopAmbience();
     stopTimer();
+    playHangup();
     setPhase("ended");
   }, [endSession]);
 
