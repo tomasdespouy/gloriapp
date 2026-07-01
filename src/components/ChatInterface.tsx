@@ -1356,10 +1356,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     }
   };
 
-  // La guardia anti-distracción aplica a TODOS los estudiantes reales, en
-  // cualquier nivel de dificultad del paciente (principiante, intermedio y
-  // avanzado). Docente/admin/superadmin quedan exentos: ni aviso ni cierre.
-  const antiDistractionEnabled = userRole === "student";
+  // El pegado de texto largo se vigila para TODOS los estudiantes reales, en
+  // cualquier nivel. El cambio de pestaña, en cambio, solo con pacientes
+  // "avanzado" (en principiante/intermedio el alumno puede consultar material
+  // sin que cuente como distracción). Docente/admin/superadmin quedan exentos.
+  const isStudent = userRole === "student";
+  const watchTabSwitch = isStudent && patient.difficulty_level === "advanced";
+  const antiDistractionEnabled = isStudent; // al menos el pegado de texto largo
 
   // Aviso de encuadre al comenzar la sesión (se autooculta). Solo cuando la
   // guardia está activa, para no advertir de algo que no va a ocurrir.
@@ -1370,7 +1373,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     return () => clearTimeout(t);
   }, [sessionStarted, antiDistractionEnabled]);
 
-  // Listeners de cambio de pestaña + pegado de texto largo.
+  // Listeners: el pegado de texto largo se vigila siempre (todos los niveles);
+  // el cambio de pestaña solo cuando watchTabSwitch (paciente "avanzado").
   useEffect(() => {
     if (!sessionStarted || !antiDistractionEnabled) return;
     const onVis = () => { if (document.visibilityState === "hidden") registerDistraction(); };
@@ -1378,14 +1382,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       const t = e.clipboardData?.getData("text") ?? "";
       if (t.length > 220) registerDistraction();
     };
-    document.addEventListener("visibilitychange", onVis);
+    if (watchTabSwitch) document.addEventListener("visibilitychange", onVis);
     document.addEventListener("paste", onPaste);
     return () => {
-      document.removeEventListener("visibilitychange", onVis);
+      if (watchTabSwitch) document.removeEventListener("visibilitychange", onVis);
       document.removeEventListener("paste", onPaste);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionStarted, antiDistractionEnabled]);
+  }, [sessionStarted, antiDistractionEnabled, watchTabSwitch]);
 
   // Bloqueo de navegación durante la sesión: intercepta clics en enlaces
   // internos (sidebar, etc.) y el botón "atrás", y abre un modal para cerrar
@@ -1476,7 +1480,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             </div>
             <h3 className="text-lg font-semibold text-gray-900">Esta sesión requiere tu atención</h3>
             <p className="text-sm text-gray-600">
-              Si cambias de pestaña o pegas texto de otra parte, el paciente lo notará.
+              {watchTabSwitch
+                ? "Si cambias de pestaña o pegas texto de otra parte, el paciente lo notará. "
+                : "Si pegas un texto largo de otra parte, el paciente lo notará. "}
               A la segunda vez, la sesión <strong>se cierra</strong>.
             </p>
             <button
@@ -1494,9 +1500,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             <div className="mx-auto w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center">
               <AlertTriangle className="w-7 h-7 text-orange-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">Saliste de la sesión</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {watchTabSwitch ? "Saliste de la sesión" : "El paciente lo notó"}
+            </h3>
             <p className="text-sm text-gray-600">
-              Cambiaste de pestaña o pegaste texto de otra parte, y el paciente lo nota.
+              {watchTabSwitch
+                ? "Cambiaste de pestaña o pegaste texto de otra parte, y el paciente lo nota. "
+                : "Pegaste un texto largo de otra parte, y el paciente lo nota. "}
               Si vuelve a ocurrir, la sesión <strong>se cerrará</strong>.
             </p>
             <button
