@@ -45,6 +45,7 @@ export async function loadSessionMemory(
   patientId: string,
   now: Date,
   tz: string,
+  maxTranscript: number = MAX_PREV_SESSION,
 ): Promise<{ text: string; therapistName: string | null }> {
   let therapistName: string | null = null;
 
@@ -99,7 +100,7 @@ export async function loadSessionMemory(
       .select("role, content, created_at")
       .eq("conversation_id", last.id)
       .order("created_at", { ascending: true })
-      .limit(MAX_PREV_SESSION);
+      .limit(maxTranscript);
 
     if (msgs?.length) {
       therapistName = extractStudentName(

@@ -36,6 +36,11 @@ export const maxDuration = 120;
 // Fallback for the prototype: [QA] Sandbox — Carlos (staging).
 const SANDBOX_PATIENT_ID = "16d8d543-dd2d-4ae2-b8f9-5947e8af0b88";
 
+// En VOZ la latencia al primer token importa mucho (aire muerto). Recortamos el
+// transcripto crudo de la última sesión en la memoria (los resúmenes van
+// completos igual) para achicar el prompt y responder más rápido.
+const VOICE_MEMORY_TRANSCRIPT = 8;
+
 // The voice agent's data lives in STAGING, but this endpoint may be deployed
 // on the prod Vercel project (whose default env points to prod). So when
 // VOICE_SUPABASE_* are set, talk to that DB explicitly. Locally these are
@@ -163,49 +168,63 @@ export async function POST(req: NextRequest) {
     }), { status: 404, headers: { "Content-Type": "application/json" } });
   }
 
-  // 5. MOTOR ADAPTATIVO: load last state → classify → update.
+  // 5. Cargas en PARALELO para bajar la latencia de la voz: estado clínico,
+  //    session_number, memoria cross-sesión (transcripto recortado) y RAG.
+  //    Antes iban encadenadas (3 round-trips en serie); ahora es 1.
+  const now = new Date();
+  const studentMessages = history.filter((m) => m.role === "user").map((m) => m.content);
+  const recentContext = history.slice(-4).map((m) => m.content).join(" ");
+
+  const loadRag = async (): Promise<string> => {
+    try {
+      const vec = await searchVectorRAG(recentContext, 3, 0.4);
+      return vec.length > 0 ? buildVectorRAGContext(vec) : buildRAGContext(searchKnowledge(recentContext));
+    } catch {
+      return "";
+    }
+  };
+
+  const [dbState, convRow, mem, ragContext] = await Promise.all([
+    conversationId
+      ? admin
+          .from("clinical_state_log")
+          .select("resistencia, alianza, apertura_emocional, sintomatologia, disposicion_cambio, turn_number")
+          .eq("conversation_id", conversationId)
+          .order("turn_number", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+          .then((r) => r.data)
+      : Promise.resolve(null),
+    conversationId
+      ? admin.from("conversations").select("session_number").eq("id", conversationId).maybeSingle().then((r) => r.data)
+      : Promise.resolve(null),
+    userId
+      ? loadSessionMemory(admin, userId, patientId, now, "America/Santiago", VOICE_MEMORY_TRANSCRIPT).catch((e) => {
+          console.error("[voice/llm] memory error:", e instanceof Error ? e.message : e);
+          return { text: "", therapistName: null as string | null };
+        })
+      : Promise.resolve({ text: "", therapistName: null as string | null }),
+    loadRag(),
+  ]);
+
+  // MOTOR ADAPTATIVO: parte del estado cargado → clasifica → actualiza.
   let currentState: ClinicalState = INITIAL_STATE;
   let turnNumber = 1;
-  if (conversationId) {
-    const { data: dbState } = await admin
-      .from("clinical_state_log")
-      .select("resistencia, alianza, apertura_emocional, sintomatologia, disposicion_cambio, turn_number")
-      .eq("conversation_id", conversationId)
-      .order("turn_number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (dbState) {
-      currentState = {
-        resistencia: Number(dbState.resistencia),
-        alianza: Number(dbState.alianza),
-        apertura_emocional: Number(dbState.apertura_emocional),
-        sintomatologia: Number(dbState.sintomatologia),
-        disposicion_cambio: Number(dbState.disposicion_cambio),
-      };
-      turnNumber = (dbState.turn_number || 0) + 1;
-    }
+  if (dbState) {
+    currentState = {
+      resistencia: Number(dbState.resistencia),
+      alianza: Number(dbState.alianza),
+      apertura_emocional: Number(dbState.apertura_emocional),
+      sintomatologia: Number(dbState.sintomatologia),
+      disposicion_cambio: Number(dbState.disposicion_cambio),
+    };
+    turnNumber = (dbState.turn_number || 0) + 1;
   }
-
   const interventionType = classifyIntervention(lastUser);
   const deltas = calculateDeltas(interventionType, currentState);
   const newState = applyDeltas(currentState, deltas);
   const statePrompt = buildStatePrompt(newState);
 
-  // 5b. MEMORIA cross-sesión + protocolos de pacing (paridad con /api/chat).
-  // Memoria y session_number se cargan en paralelo para no encadenar latencia.
-  const now = new Date();
-  const studentMessages = history.filter((m) => m.role === "user").map((m) => m.content);
-  const [convRow, mem] = await Promise.all([
-    conversationId
-      ? admin.from("conversations").select("session_number").eq("id", conversationId).maybeSingle().then((r) => r.data)
-      : Promise.resolve(null),
-    userId
-      ? loadSessionMemory(admin, userId, patientId, now, "America/Santiago").catch((e) => {
-          console.error("[voice/llm] memory error:", e instanceof Error ? e.message : e);
-          return { text: "", therapistName: null as string | null };
-        })
-      : Promise.resolve({ text: "", therapistName: null as string | null }),
-  ]);
   const sessionNumber: number | null = convRow?.session_number ?? null;
   const memoryText = mem.text;
   const therapistNameRule = mem.therapistName
@@ -217,16 +236,6 @@ export async function POST(req: NextRequest) {
     buildIntroductionRule(pacingProfile, turnNumber, sessionNumber, studentMessages) +
     buildSelfIntroductionRule(turnNumber, sessionNumber, therapistIntroducedThisTurn) +
     buildClosingAppointmentRule(studentMessages);
-
-  // 6. RAG (vector first, keyword fallback) — same as text chat.
-  const recentContext = history.slice(-4).map((m) => m.content).join(" ");
-  let ragContext = "";
-  try {
-    const vec = await searchVectorRAG(recentContext, 3, 0.4);
-    ragContext = vec.length > 0 ? buildVectorRAGContext(vec) : buildRAGContext(searchKnowledge(recentContext));
-  } catch {
-    ragContext = "";
-  }
 
   // 7. Compose the SAME-style system prompt as /api/chat, but for the VOICE
   //    channel and with cross-session memory + pacing protocols.

@@ -122,9 +122,38 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
     },
   });
 
-  const { isSpeaking, startSession, endSession, isMuted, setMuted } = conversation;
+  const { isSpeaking, startSession, endSession, isMuted, setMuted, getInputVolume } = conversation;
+
+  // Refs vivos para el medidor de micrófono (evita cerrar sobre valores viejos).
+  const eqRef = useRef<HTMLSpanElement | null>(null);
+  const isMutedRef = useRef(false);
+  isMutedRef.current = isMuted;
+  const getInputVolumeRef = useRef(getInputVolume);
+  getInputVolumeRef.current = getInputVolume;
 
   useEffect(() => () => { stopTimer(); stopRing(); }, []);
+
+  // Medidor de micrófono: mueve las barras del ecualizador SÓLO según el volumen
+  // real de entrada del alumno (getInputVolume), no con una animación fija. En
+  // silencio o con el micrófono muteado, las barras quedan planas.
+  useEffect(() => {
+    if (phase !== "live") return;
+    let raf = 0;
+    const loop = () => {
+      const el = eqRef.current;
+      if (el) {
+        let v = 0;
+        if (!isMutedRef.current) {
+          try { v = getInputVolumeRef.current?.() ?? 0; } catch { v = 0; }
+        }
+        const level = Math.max(0, Math.min(1, v * 2.2));
+        el.style.setProperty("--level", level.toFixed(3));
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [phase]);
 
   const handleStart = useCallback(async () => {
     setError(null);
@@ -225,7 +254,7 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
 
         {phase === "live" && (
           <div className="vc-status" style={{ color: accent }}>
-            <span className="vc-eq"><i /><i /><i /><i /><i /></span>
+            <span className="vc-eq" ref={eqRef}><i /><i /><i /><i /><i /></span>
             <span>{statusText}</span>
           </div>
         )}
@@ -347,9 +376,11 @@ const css = `
 .vc-avatar img{width:100%;height:100%;object-fit:cover;object-position:50% 28%;display:block}
 .vc-initials{width:100%;height:100%;display:grid;place-items:center;font-size:56px;font-weight:700;color:#9a9aa2}
 .vc-status{display:flex;align-items:center;gap:11px;font-size:15px;font-weight:500;height:22px}
-.vc-eq{display:flex;align-items:flex-end;gap:3px;height:18px}
-.vc-eq i{width:3px;background:currentColor;border-radius:2px;height:5px;animation:vc-eq .9s ease-in-out infinite}
-.vc-eq i:nth-child(2){animation-delay:.15s}.vc-eq i:nth-child(3){animation-delay:.3s}
-.vc-eq i:nth-child(4){animation-delay:.45s}.vc-eq i:nth-child(5){animation-delay:.1s}
-@keyframes vc-eq{0%,100%{height:5px}50%{height:18px}}
+.vc-eq{display:flex;align-items:flex-end;gap:3px;height:20px;--level:0}
+.vc-eq i{width:3px;background:currentColor;border-radius:2px;transition:height 80ms ease-out;height:calc(4px + var(--level) * 12px)}
+.vc-eq i:nth-child(1){height:calc(4px + var(--level) * 6px)}
+.vc-eq i:nth-child(2){height:calc(4px + var(--level) * 11px)}
+.vc-eq i:nth-child(3){height:calc(4px + var(--level) * 15px)}
+.vc-eq i:nth-child(4){height:calc(4px + var(--level) * 11px)}
+.vc-eq i:nth-child(5){height:calc(4px + var(--level) * 6px)}
 `;
