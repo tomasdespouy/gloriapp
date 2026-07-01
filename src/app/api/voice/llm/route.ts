@@ -105,8 +105,14 @@ export async function POST(req: NextRequest) {
       conversationId?: string;
       userId?: string;
     };
-    // ElevenLabs may forward the extra body under the camelCase key instead.
+    // ElevenLabs may forward the extra body under the camelCase key…
     customLlmExtraBody?: {
+      patientId?: string;
+      conversationId?: string;
+      userId?: string;
+    };
+    // …but in reality it forwards it under THIS key (confirmado por logs).
+    elevenlabs_extra_body?: {
       patientId?: string;
       conversationId?: string;
       userId?: string;
@@ -121,15 +127,12 @@ export async function POST(req: NextRequest) {
   // ── TEMP DEBUG (modo voz): registra la FORMA del body que manda ElevenLabs
   // para confirmar si la identidad llega PLANA (body.conversationId) o ANIDADA
   // (body.custom_llm_extra_body.conversationId). QUITAR tras verificar.
-  const extra = body.custom_llm_extra_body ?? body.customLlmExtraBody ?? {};
-  console.log("[voice/llm][DEBUG] body keys:", Object.keys(body));
-  console.log("[voice/llm][DEBUG] identidad plana:", {
-    patientId: body.patientId ?? null,
-    conversationId: body.conversationId ?? null,
-    userId: body.userId ?? null,
-  });
-  console.log("[voice/llm][DEBUG] extra_body (snake):", body.custom_llm_extra_body ?? "(ausente)");
-  console.log("[voice/llm][DEBUG] extraBody (camel):", body.customLlmExtraBody ?? "(ausente)");
+  // ElevenLabs forwarda el customLlmExtraBody del cliente bajo la clave
+  // `elevenlabs_extra_body` (confirmado por logs). Aceptamos las otras formas
+  // por robustez, pero esta es la real.
+  const extra =
+    body.elevenlabs_extra_body ?? body.custom_llm_extra_body ?? body.customLlmExtraBody ?? {};
+  console.log("[voice/llm][DEBUG] elevenlabs_extra_body:", JSON.stringify(body.elevenlabs_extra_body ?? null));
 
   const model = body.model || "gpt-4o";
   // Lee la identidad en AMBAS formas (plana o anidada) para no depender de
@@ -172,6 +175,11 @@ export async function POST(req: NextRequest) {
   //    session_number, memoria cross-sesión (transcripto recortado) y RAG.
   //    Antes iban encadenadas (3 round-trips en serie); ahora es 1.
   const now = new Date();
+  // Contexto temporal real (Perú) — sin esto el paciente inventa día/mes/franja.
+  const TZ = "America/Lima";
+  const fechaHoy = now.toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: TZ });
+  const horaHoy = now.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: TZ });
+  const timeContext = `\n\n[CONTEXTO TEMPORAL — AHORA]\nEn este momento es ${fechaHoy}, ${horaHoy} (hora de Perú). Sé coherente con esta fecha y hora real: si el terapeuta saluda con "buenos días/buenas tardes/buenas noches", ajústate a la franja correcta; NUNCA inventes otro día de la semana, mes ni franja horaria.\n`;
   const studentMessages = history.filter((m) => m.role === "user").map((m) => m.content);
   const recentContext = history.slice(-4).map((m) => m.content).join(" ");
 
@@ -199,7 +207,7 @@ export async function POST(req: NextRequest) {
       ? admin.from("conversations").select("session_number").eq("id", conversationId).maybeSingle().then((r) => r.data)
       : Promise.resolve(null),
     userId
-      ? loadSessionMemory(admin, userId, patientId, now, "America/Santiago", VOICE_MEMORY_TRANSCRIPT).catch((e) => {
+      ? loadSessionMemory(admin, userId, patientId, now, TZ, VOICE_MEMORY_TRANSCRIPT).catch((e) => {
           console.error("[voice/llm] memory error:", e instanceof Error ? e.message : e);
           return { text: "", therapistName: null as string | null };
         })
@@ -242,7 +250,7 @@ export async function POST(req: NextRequest) {
   const safety = buildSafetyPrompt("voice");
   const basePrompt = buildEnrichedPrompt(patient);
   const systemPrompt =
-    safety + basePrompt + THERAPIST_CONTEXT + therapistNameRule + memoryText +
+    safety + basePrompt + THERAPIST_CONTEXT + timeContext + therapistNameRule + memoryText +
     statePrompt + pacingRules + ragContext +
     "\n\n[REGLA ANTI-REPETICIÓN]\nNUNCA repitas textualmente una respuesta que ya diste.\n" +
     safety;

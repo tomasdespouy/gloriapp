@@ -25,6 +25,9 @@ function displayName(name: string) {
 const INDIGO = "#4A55A2";
 const GREEN = "#2f9e6f";
 
+// Despedidas (del alumno o del paciente) para el auto-colgado de la llamada.
+const FAREWELL_RE = /\b(chau|chao|adi[oó]s|nos vemos|hasta (luego|pronto|la pr[oó]xima|ma[ñn]ana|el)|me despido|me tengo que ir|eso ser[ií]a (todo|por hoy)|gracias por (todo|hoy|su tiempo|la sesi[oó]n)|que (le|te) vaya bien|que est[eé] (bien|bonito)|cu[ií]d(ese|ate))\b/i;
+
 export function VoiceCall(props: { patient: Patient; hasVoice: boolean; imageSlug?: string }) {
   // useConversation must live under a ConversationProvider.
   return (
@@ -53,6 +56,14 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
   // sintetizado con WebAudio para no depender de ningún asset. Suena mientras se
   // conecta y se corta apenas el paciente "contesta" (onConnect) o si falla.
   const ringRef = useRef<{ ctx: AudioContext; osc: OscillatorNode; gain: GainNode; timer: ReturnType<typeof setInterval> } | null>(null);
+
+  // Ambiente sutil de "línea" durante la llamada (WebAudio, sin asset).
+  const ambienceRef = useRef<{ ctx: AudioContext; src: AudioBufferSourceNode; gain: GainNode } | null>(null);
+  // Auto-colgado por despedida mutua (alumno se despide → Carlos se despide → cuelga).
+  const byeArmedRef = useRef(false);
+  const byeClosingRef = useRef(false);
+  const prevSpeakingRef = useRef(false);
+  const endTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startRing = () => {
     if (ringRef.current) return;
@@ -97,9 +108,56 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
     } catch { /* noop */ }
   };
 
+  // Ruido de fondo MUY sutil (ruido marrón filtrado ~1.6 kHz) para que la voz no
+  // se sienta tan "limpia"/estéril, como la presencia de una línea telefónica.
+  // gain 0.01 es apenas audible; súbelo/bájalo para más o menos "ruido".
+  const startAmbience = () => {
+    if (ambienceRef.current) return;
+    try {
+      const AC: typeof AudioContext =
+        window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AC) return;
+      const ctx = new AC();
+      const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let last = 0;
+      for (let i = 0; i < data.length; i++) {
+        const white = Math.random() * 2 - 1;
+        last = (last + 0.02 * white) / 1.02; // integrador → ruido marrón (grave, suave)
+        data[i] = last * 3.5;
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.loop = true;
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 1600;
+      const gain = ctx.createGain();
+      gain.gain.value = 0.01; // muy sutil; ajustable
+      src.connect(lp).connect(gain).connect(ctx.destination);
+      src.start();
+      ambienceRef.current = { ctx, src, gain };
+    } catch { /* sin ambiente si el audio no está disponible */ }
+  };
+
+  const stopAmbience = () => {
+    const a = ambienceRef.current;
+    if (!a) return;
+    ambienceRef.current = null;
+    try {
+      const t = a.ctx.currentTime;
+      a.gain.gain.cancelScheduledValues(t);
+      a.gain.gain.setValueAtTime(a.gain.gain.value, t);
+      a.gain.gain.linearRampToValueAtTime(0.0001, t + 0.3);
+      a.src.stop(t + 0.35);
+      setTimeout(() => { a.ctx.close().catch(() => {}); }, 500);
+    } catch { /* noop */ }
+  };
+
   const conversation = useConversation({
     onConnect: ({ conversationId }) => {
       stopRing();
+      startAmbience();
       convIdRef.current = conversationId;
       setSeconds(0);
       stopTimer();
@@ -108,6 +166,7 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
     },
     onDisconnect: () => {
       stopRing();
+      stopAmbience();
       stopTimer();
       setPhase((p) => (p === "idle" ? "idle" : "ended"));
     },
@@ -115,9 +174,17 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
       if (!message) return;
       transcriptRef.current = [...transcriptRef.current, { source, message }];
       setTranscript(transcriptRef.current);
+      // Auto-colgado: el alumno se despide → cuando Carlos TAMBIÉN se despide,
+      // se cuelga al terminar de hablar (ver efecto sobre isSpeaking).
+      if (source === "user" && FAREWELL_RE.test(message)) byeArmedRef.current = true;
+      else if (source === "ai" && byeArmedRef.current && FAREWELL_RE.test(message)) {
+        byeArmedRef.current = false;
+        byeClosingRef.current = true;
+      }
     },
     onError: (message: string) => {
       stopRing();
+      stopAmbience();
       setError(message || "Hubo un problema con la llamada.");
     },
   });
@@ -131,7 +198,10 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
   const getInputVolumeRef = useRef(getInputVolume);
   getInputVolumeRef.current = getInputVolume;
 
-  useEffect(() => () => { stopTimer(); stopRing(); }, []);
+  useEffect(() => () => {
+    stopTimer(); stopRing(); stopAmbience();
+    if (endTimerRef.current) clearTimeout(endTimerRef.current);
+  }, []);
 
   // Medidor de micrófono: mueve las barras del ecualizador SÓLO según el volumen
   // real de entrada del alumno (getInputVolume), no con una animación fija. En
@@ -185,11 +255,24 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
   }, [patient.id, startSession]);
 
   const handleEnd = useCallback(() => {
+    if (endTimerRef.current) { clearTimeout(endTimerRef.current); endTimerRef.current = null; }
     try { endSession(); } catch { /* noop */ }
     stopRing();
+    stopAmbience();
     stopTimer();
     setPhase("ended");
   }, [endSession]);
+
+  // Auto-colgado: cuando Carlos termina de hablar su despedida, cerramos la
+  // llamada (transición de isSpeaking true→false con byeClosing armado).
+  useEffect(() => {
+    if (phase === "live" && prevSpeakingRef.current && !isSpeaking && byeClosingRef.current) {
+      byeClosingRef.current = false;
+      if (endTimerRef.current) clearTimeout(endTimerRef.current);
+      endTimerRef.current = setTimeout(() => handleEnd(), 1200);
+    }
+    prevSpeakingRef.current = isSpeaking;
+  }, [isSpeaking, phase, handleEnd]);
 
   const mmss = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
   const imgUrl = getPatientImageUrl(imageSlug || slugify(patient.name));

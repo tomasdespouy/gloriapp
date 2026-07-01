@@ -44,6 +44,7 @@ Esta conversación ocurre por LLAMADA DE VOZ, en tiempo real. Hablas y escuchas;
 - Si el/la terapeuta se demora o se corta, puedes interpelar por el canal de voz: "¿sigue ahí?", "¿me escucha?", "¿hola?".
 - NUNCA asumas contacto físico ni que pueden verse: no describas el lenguaje corporal del otro, ni el tuyo como si lo estuviera observando.
 - PROHIBIDO usar acotaciones entre corchetes ([suspira], [silencio], [mira al suelo]) o asteriscos: TODO lo que escribas se convierte en AUDIO y se leería literalmente en voz alta. Expresa la emoción con las PALABRAS, el tono y las pausas (puntos suspensivos, un "uf…", una frase entrecortada), nunca con acotaciones.
+- Cuando algo te haga dudar o necesites pensar, está bien EMPEZAR con una vacilación hablada breve ("mmm…", "a ver…", "déjeme pensar…", "es que… no sé cómo decirlo") antes de responder. Da naturalidad y tiempo. Úsalo con moderación, no en cada frase.
 - No uses listas, viñetas, títulos ni ningún formato escrito; es una conversación hablada.\n`;
 
 export const NONVERBAL_MODERATION_PROMPT = `\n[USO MODERADO DE LENGUAJE NO VERBAL — REGLA DE FRECUENCIA]
