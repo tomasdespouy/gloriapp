@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getAdminContext } from "@/lib/admin-helpers";
+import { applyScope, scopeAllowsCourse, scopeAllowsSection } from "@/lib/admin-scope";
 import UsuariosClient from "./UsuariosClient";
 
 export default async function UsuariosPage({
@@ -29,18 +30,12 @@ export default async function UsuariosPage({
       ? rawEstFilter
       : "";
 
-  // Build scoping filter helper
-  const scopeFilter = ctx.isSuperadmin
-    ? null
-    : ctx.establishmentIds.length > 0
-      ? ctx.establishmentIds
-      : ["00000000-0000-0000-0000-000000000000"];
-
-  // Get total count with filters
+  // Get total count with filters. El alcance del admin (establecimiento +
+  // asignatura/sección) se aplica con applyScope; superadmin no se filtra.
   let countQuery = supabase
     .from("profiles")
     .select("id", { count: "exact", head: true });
-  if (scopeFilter) countQuery = countQuery.in("establishment_id", scopeFilter);
+  countQuery = applyScope(countQuery, ctx.scope);
   if (roleFilter) countQuery = countQuery.eq("role", roleFilter);
   if (estFilter) countQuery = countQuery.eq("establishment_id", estFilter);
   if (courseFilter) countQuery = countQuery.eq("course_id", courseFilter);
@@ -58,7 +53,7 @@ export default async function UsuariosPage({
     .select("id, email, full_name, role, establishment_id, course_id, section_id, is_disabled, created_at, credentials_sent_at")
     .order("full_name")
     .range(from, to);
-  if (scopeFilter) usersQuery = usersQuery.in("establishment_id", scopeFilter);
+  usersQuery = applyScope(usersQuery, ctx.scope);
   if (roleFilter) usersQuery = usersQuery.eq("role", roleFilter);
   if (estFilter) usersQuery = usersQuery.eq("establishment_id", estFilter);
   if (courseFilter) usersQuery = usersQuery.eq("course_id", courseFilter);
@@ -77,12 +72,28 @@ export default async function UsuariosPage({
         .in("id", ctx.establishmentIds.length > 0 ? ctx.establishmentIds : ["00000000-0000-0000-0000-000000000000"])
         .order("name");
 
-  // Fetch courses and sections — for display names AND for the create form's
-  // cascading Asignatura/Sección selectors (need establishment_id / course_id).
-  const { data: allCourses } = await supabase.from("courses").select("id, name, establishment_id, is_active");
-  const { data: allSections } = await supabase.from("sections").select("id, name, course_id, is_active");
-  const courseMap = new Map((allCourses || []).map((c) => [c.id, c.name]));
-  const sectionMap = new Map((allSections || []).map((s) => [s.id, s.name]));
+  // Cursos y secciones (nombres + selectores del form + dropdowns de filtro),
+  // ACOTADOS al alcance del admin para no exponer asignaturas/secciones ajenas.
+  const estScope = ctx.scope.all
+    ? null
+    : ctx.establishmentIds.length
+      ? ctx.establishmentIds
+      : ["00000000-0000-0000-0000-000000000000"];
+  let coursesQ = supabase.from("courses").select("id, name, establishment_id, is_active");
+  if (estScope) coursesQ = coursesQ.in("establishment_id", estScope);
+  const { data: allCoursesRaw } = await coursesQ;
+  const courseEstMap = new Map((allCoursesRaw || []).map((c) => [c.id, c.establishment_id]));
+  let sectionsQ = supabase.from("sections").select("id, name, course_id, is_active");
+  if (estScope) {
+    const cids = (allCoursesRaw || []).map((c) => c.id);
+    sectionsQ = sectionsQ.in("course_id", cids.length ? cids : ["00000000-0000-0000-0000-000000000000"]);
+  }
+  const { data: allSectionsRaw } = await sectionsQ;
+
+  const allCourses = (allCoursesRaw || []).filter((c) => scopeAllowsCourse(ctx.scope, c.establishment_id, c.id));
+  const allSections = (allSectionsRaw || []).filter((s) => scopeAllowsSection(ctx.scope, courseEstMap.get(s.course_id), s.course_id, s.id));
+  const courseMap = new Map(allCourses.map((c) => [c.id, c.name]));
+  const sectionMap = new Map(allSections.map((s) => [s.id, s.name]));
 
   // Session counts per student
   const studentIds = users?.filter((u) => u.role === "student").map((u) => u.id) || [];

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import { redirect } from "next/navigation";
+import { type Scope, resolveAdminScopeRules, scopeEstablishmentIds } from "@/lib/admin-scope";
 
 export type AdminContext = {
   userId: string;
@@ -8,6 +9,10 @@ export type AdminContext = {
   isSuperadmin: boolean;
   establishmentIds: string[];
   isImpersonating: boolean;
+  // Alcance completo (incluye acotamiento por asignatura/sección). Las
+  // superficies que muestran PERSONAS/datos deben usar `scope` (matchesScope /
+  // applyScope), no solo establishmentIds.
+  scope: Scope;
 };
 
 /**
@@ -38,23 +43,26 @@ export async function getAdminContext(): Promise<AdminContext> {
   const isSuperadmin = profile.role === "superadmin";
   const supabase = await createClient();
 
+  let scope: Scope;
   let establishmentIds: string[] = [];
   if (isSuperadmin) {
     // Real superadmin without impersonation: sees every establishment.
+    scope = { all: true };
     const { data: establishments } = await supabase
       .from("establishments")
       .select("id");
     establishmentIds = establishments?.map((e) => e.id) || [];
   } else if (profile.isImpersonating && profile.establishmentId) {
-    // Superadmin impersonating admin: scope to the cookie's single establishment.
+    // Superadmin impersonating admin: scope to the cookie's single establishment
+    // (whole establishment — the cookie carries no course/section narrowing).
+    scope = { all: false, rules: [{ establishmentId: profile.establishmentId, courseId: null, sectionId: null }] };
     establishmentIds = [profile.establishmentId];
   } else {
-    // Real admin: resolve scope via admin_establishments.
-    const { data: assignments } = await supabase
-      .from("admin_establishments")
-      .select("establishment_id")
-      .eq("admin_id", profile.id);
-    establishmentIds = assignments?.map((a) => a.establishment_id) || [];
+    // Real admin: resolve scope (con acotamiento por asignatura/sección) desde
+    // admin_establishments. Sin filas = "sin asignar" = no ve nada.
+    const rules = await resolveAdminScopeRules(supabase, profile.id);
+    scope = { all: false, rules };
+    establishmentIds = scopeEstablishmentIds(scope);
   }
 
   return {
@@ -63,6 +71,7 @@ export async function getAdminContext(): Promise<AdminContext> {
     isSuperadmin,
     establishmentIds,
     isImpersonating: profile.isImpersonating,
+    scope,
   };
 }
 
