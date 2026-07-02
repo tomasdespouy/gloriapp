@@ -228,23 +228,27 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
     },
   });
 
-  const { isSpeaking, startSession, endSession, isMuted, setMuted, getInputVolume } = conversation;
+  const { isSpeaking, startSession, endSession, isMuted, setMuted, getInputVolume, getOutputVolume } = conversation;
 
-  // Refs vivos para el medidor de micrófono (evita cerrar sobre valores viejos).
+  // Refs vivos para el medidor de audio (evita cerrar sobre valores viejos).
   const eqRef = useRef<HTMLSpanElement | null>(null);
   const isMutedRef = useRef(false);
   isMutedRef.current = isMuted;
+  const isSpeakingRef = useRef(false);
+  isSpeakingRef.current = isSpeaking;
   const getInputVolumeRef = useRef(getInputVolume);
   getInputVolumeRef.current = getInputVolume;
+  const getOutputVolumeRef = useRef(getOutputVolume);
+  getOutputVolumeRef.current = getOutputVolume;
 
   useEffect(() => () => {
     stopTimer(); stopRing(); stopAmbience();
     if (endTimerRef.current) clearTimeout(endTimerRef.current);
   }, []);
 
-  // Medidor de micrófono: mueve las barras del ecualizador SÓLO según el volumen
-  // real de entrada del alumno (getInputVolume), no con una animación fija. En
-  // silencio o con el micrófono muteado, las barras quedan planas.
+  // Medidor de audio: las barras se mueven según QUIÉN habla — cuando habla el
+  // paciente, por el volumen de SALIDA (su voz); en nuestro turno, por el
+  // MICRÓFONO. En silencio o muteado, quedan planas.
   useEffect(() => {
     if (phase !== "live") return;
     let raf = 0;
@@ -252,9 +256,10 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
       const el = eqRef.current;
       if (el) {
         let v = 0;
-        if (!isMutedRef.current) {
-          try { v = getInputVolumeRef.current?.() ?? 0; } catch { v = 0; }
-        }
+        try {
+          if (isSpeakingRef.current) v = getOutputVolumeRef.current?.() ?? 0;
+          else if (!isMutedRef.current) v = getInputVolumeRef.current?.() ?? 0;
+        } catch { v = 0; }
         const level = Math.max(0, Math.min(1, v * 2.2));
         el.style.setProperty("--level", level.toFixed(3));
       }
@@ -324,7 +329,6 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
 
   const speakingPatient = phase === "live" && isSpeaking;
   const accent = phase !== "live" ? INDIGO : speakingPatient ? INDIGO : GREEN;
-  const statusText = speakingPatient ? `${firstName} está hablando…` : "Te escucho…";
 
   if (!hasVoice) {
     return (
@@ -380,7 +384,6 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
         {phase === "live" && (
           <div className="vc-status" style={{ color: accent }}>
             <span className="vc-eq" ref={eqRef}><i /><i /><i /><i /><i /></span>
-            <span>{statusText}</span>
           </div>
         )}
 
@@ -490,13 +493,15 @@ const css = `
 .vc-dot{width:7px;height:7px;border-radius:50%;background:#c4c4cc}
 .vc-dot-on{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.15)}
 .vc-avatarWrap{position:relative;width:300px;height:300px;display:grid;place-items:center}
-.vc-ring{position:absolute;width:300px;height:300px;border-radius:50%;border:1.5px solid var(--accent);opacity:0;pointer-events:none}
-.vc-halo .vc-ring{animation:vc-pulse 2.6s ease-out infinite}
-.vc-halo .vc-ring:nth-child(2){animation-delay:.8s}
-.vc-halo .vc-ring:nth-child(3){animation-delay:1.6s}
-@keyframes vc-pulse{0%{transform:scale(.62);opacity:.5}80%{opacity:0}100%{transform:scale(1.05);opacity:0}}
+.vc-ring{position:absolute;width:300px;height:300px;border-radius:50%;border:2.5px solid var(--accent);opacity:0;pointer-events:none}
+.vc-halo .vc-ring{animation:vc-pulse 1.9s ease-out infinite}
+.vc-halo .vc-ring:nth-child(2){animation-delay:.63s}
+.vc-halo .vc-ring:nth-child(3){animation-delay:1.26s}
+@keyframes vc-pulse{0%{transform:scale(.55);opacity:.9}80%{opacity:0}100%{transform:scale(1.2);opacity:0}}
 .vc-glow{position:absolute;width:230px;height:230px;border-radius:50%;transition:opacity .3s,box-shadow .2s;animation:vc-breathe 3.4s ease-in-out infinite}
+.vc-halo .vc-glow{animation:vc-breathe-strong 1.9s ease-in-out infinite}
 @keyframes vc-breathe{0%,100%{box-shadow:0 0 50px 6px color-mix(in srgb,var(--accent) 14%,transparent)}50%{box-shadow:0 0 82px 16px color-mix(in srgb,var(--accent) 30%,transparent)}}
+@keyframes vc-breathe-strong{0%,100%{box-shadow:0 0 72px 12px color-mix(in srgb,var(--accent) 26%,transparent)}50%{box-shadow:0 0 122px 28px color-mix(in srgb,var(--accent) 48%,transparent)}}
 .vc-avatar{position:relative;z-index:2;width:222px;height:222px;border-radius:50%;overflow:hidden;border:4px solid #fff;box-shadow:0 10px 40px rgba(26,26,40,.16);background:#e6e6ec}
 .vc-avatar img{width:100%;height:100%;object-fit:cover;object-position:50% 28%;display:block}
 .vc-initials{width:100%;height:100%;display:grid;place-items:center;font-size:56px;font-weight:700;color:#9a9aa2}

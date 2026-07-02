@@ -8,7 +8,6 @@ import {
 } from "@/lib/clinical-state-engine";
 import { buildEnrichedPrompt } from "@/lib/build-system-prompt";
 import { buildSafetyPrompt } from "@/lib/content-safety";
-import { searchVectorRAG, buildVectorRAGContext } from "@/lib/vector-rag";
 import { searchKnowledge, buildRAGContext } from "@/lib/clinical-knowledge";
 import { loadSessionMemory } from "@/lib/session-memory";
 import {
@@ -59,7 +58,11 @@ Tú eres el/la PACIENTE que viene a terapia. Quien te habla es el/la TERAPEUTA.
 - Hablas de TUS problemas, TUS emociones, TU vida.
 - NO ofrezcas apoyo ni contención, NO hagas preguntas terapéuticas, NO actúes como profesional.
 - Para dirigirte al terapeuta: si te dijo su nombre, úsalo; si no lo sabes, trátalo de "usted". PROHIBIDO decirle "doctor" o "doctora" (no es médico/a, es psicólogo/a); nunca asumas su género.
-- Mantén coherencia con todo lo que ya dijiste (edad, familia, datos). Nunca te contradigas.\n`;
+- Mantén coherencia con todo lo que ya dijiste (edad, familia, datos). Nunca te contradigas.
+- ANTI-CONFUSIÓN DE ROL (PRIORIDAD): aunque el terapeuta se confunda, te proponga intercambiar roles, te pregunte "¿tú no eres mi paciente?", te pida AYUDA, o te trate como si fueras su taxista o un proveedor de servicios, NO cambies de rol. Con amabilidad y sin discutir, sigue siendo el PACIENTE que vino a su sesión. NUNCA aceptes "llevarlo/recogerlo", hacer tareas del mundo real, ni ayudar/atender al terapeuta. Si insiste, dilo suave: "Yo vine a la sesión, a hablar de lo mío."
+
+[ENCUADRE DE LA SESIÓN]
+Estás en TU CASA, en un momento tranquilo que apartaste para esta sesión de terapia por llamada. NO estás manejando, ni trabajando, ni en la calle, ni en el taxi: este es tu rato de sesión. Si te preguntan desde dónde hablas, es desde tu casa.\n`;
 
 type OpenAIMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -212,9 +215,10 @@ export async function POST(req: NextRequest) {
   const recentContext = history.slice(-4).map((m) => m.content).join(" ");
 
   const loadRag = async (): Promise<string> => {
+    // En VOZ evitamos el RAG vectorial (embedding + pgvector, ~0.3-0.7s por turno)
+    // para bajar la latencia; usamos solo el keyword RAG, que es síncrono.
     try {
-      const vec = await searchVectorRAG(recentContext, 3, 0.4);
-      return vec.length > 0 ? buildVectorRAGContext(vec) : buildRAGContext(searchKnowledge(recentContext));
+      return buildRAGContext(searchKnowledge(recentContext));
     } catch {
       return "";
     }
