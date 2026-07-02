@@ -110,6 +110,17 @@ export async function POST(request: Request) {
     if (profileError) {
       console.error("[users/create] profile update failed", profileError);
     }
+
+    // Un ADMIN ve a los usuarios por `admin_establishments` (NO por
+    // profiles.establishment_id). Sin esta fila, un admin recién creado no ve a
+    // NADIE. La creamos aquí para que "crear admin con establecimiento" otorgue
+    // visibilidad de una vez (antes había que asignarlo aparte, y se olvidaba).
+    if (role === "admin" && validatedEstablishmentId) {
+      const { error: aeError } = await admin
+        .from("admin_establishments")
+        .insert({ admin_id: newUser.user.id, establishment_id: validatedEstablishmentId });
+      if (aeError) console.error("[users/create] admin_establishments insert failed", aeError);
+    }
   }
 
   // Send welcome email with credentials (only if requested)
