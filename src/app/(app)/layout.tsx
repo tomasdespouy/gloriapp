@@ -46,9 +46,15 @@ export default async function AppLayout({
   if (profile?.id) {
     const { data: prof } = await admin
       .from("profiles")
-      .select("welcome_video_seen_at, a11y_prefs, must_change_password")
+      .select("welcome_video_seen_at, a11y_prefs, must_change_password, is_disabled")
       .eq("id", profile.id)
       .single();
+    // Red de seguridad: una cuenta desactivada no entra a la app aunque su
+    // sesión siga viva (el baneo en Auth la corta al refrescar el token; esto
+    // la bloquea de inmediato en la próxima navegación). Superadmin nunca.
+    if (prof?.is_disabled && !isTrulySuperadmin) {
+      redirect("/login?disabled=1");
+    }
     welcomeVideoSeen = !!prof?.welcome_video_seen_at;
     a11yPrefs = (prof?.a11y_prefs as { fontSize?: string; contrast?: string }) || {};
     mustChangePassword = !!prof?.must_change_password;

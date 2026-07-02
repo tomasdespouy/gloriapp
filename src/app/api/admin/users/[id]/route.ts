@@ -50,6 +50,15 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Deshabilitar/rehabilitar debe tener DIENTES: se banea/des-banea también en
+  // Supabase Auth, porque el flag `is_disabled` por sí solo NO bloquea el login.
+  if (is_disabled !== undefined) {
+    const { error: banErr } = await adminClient.auth.admin.updateUserById(id, {
+      ban_duration: is_disabled ? "876000h" : "none",
+    });
+    if (banErr) console.error("[admin/users] ban/unban error:", banErr.message);
+  }
+
   await logAdminAction({
     adminId: user.id,
     action: "update_user",
