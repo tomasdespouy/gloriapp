@@ -87,12 +87,17 @@ export default async function AppLayout({
         const startsAt = pilot.scheduled_at ? new Date(pilot.scheduled_at).getTime() : null;
         const endsAt = pilot.ended_at ? new Date(pilot.ended_at).getTime() : null;
 
-        if (pilot.status === "cancelado") {
-          redirect("/piloto-cerrado?reason=cancelado");
-        } else if (startsAt && now < startsAt) {
-          redirect("/piloto-cerrado?reason=not_yet");
-        } else if ((endsAt && now > endsAt) || pilot.status === "finalizado") {
-          redirect("/piloto-cerrado?reason=ended");
+        // La ventana del piloto (período de prueba) solo bloquea a ESTUDIANTES.
+        // Un admin o instructor que quedó como participante de un piloto viejo
+        // no debe perder acceso a la plataforma por eso.
+        if (role === "student") {
+          if (pilot.status === "cancelado") {
+            redirect("/piloto-cerrado?reason=cancelado");
+          } else if (startsAt && now < startsAt) {
+            redirect("/piloto-cerrado?reason=not_yet");
+          } else if ((endsAt && now > endsAt) || pilot.status === "finalizado") {
+            redirect("/piloto-cerrado?reason=ended");
+          }
         }
 
         pilotLogoUrl = pilot.logo_url || null;
