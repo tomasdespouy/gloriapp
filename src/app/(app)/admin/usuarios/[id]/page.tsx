@@ -8,10 +8,15 @@ import UserDetailClient from "./UserDetailClient";
 
 export default async function UserDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { id } = await params;
+  const { from } = await searchParams;
+  // Volver a la lista con el filtro que traía (si venía filtrada).
+  const backHref = from ? `/admin/usuarios?${from}` : "/admin/usuarios";
   const ctx = await getAdminContext();
   const supabase = await createClient();
 
@@ -74,7 +79,7 @@ export default async function UserDetailPage({
     <div className="min-h-screen">
       <header className="px-4 sm:px-8 py-5">
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
-          <Link href="/admin/usuarios" className="hover:text-sidebar transition-colors">
+          <Link href={backHref} className="hover:text-sidebar transition-colors">
             Usuarios
           </Link>
           <span>/</span>

@@ -69,6 +69,10 @@ export default function UsuariosClient({ users, establishments, courses, section
 
   const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
 
+  // Al abrir la ficha de un usuario, arrastramos el filtro actual (en `from`)
+  // para que el "volver" regrese a la lista filtrada.
+  const filterSuffix = searchParamsHook.toString() ? `?from=${encodeURIComponent(searchParamsHook.toString())}` : "";
+
   // Navigate with all current filters preserved
   const navigate = useCallback((overrides: Record<string, string>) => {
     const params = new URLSearchParams(searchParamsHook.toString());
@@ -611,7 +615,7 @@ export default function UsuariosClient({ users, establishments, courses, section
                       </>
                     )}
                     {u.role !== "superadmin" && (
-                      <Link href={`/admin/usuarios/${u.id}`}
+                      <Link href={`/admin/usuarios/${u.id}${filterSuffix}`}
                         className="action-btn action-btn-sidebar flex items-center gap-1 text-xs text-sidebar font-medium">
                         <Pencil size={12} /> Editar
                       </Link>
@@ -749,7 +753,7 @@ export default function UsuariosClient({ users, establishments, courses, section
                       {/* Edit */}
                       <td className="px-4 py-3">
                         {u.role !== "superadmin" ? (
-                          <Link href={`/admin/usuarios/${u.id}`}
+                          <Link href={`/admin/usuarios/${u.id}${filterSuffix}`}
                             className="action-btn action-btn-sidebar flex items-center gap-1 text-xs text-sidebar font-medium">
                             <Pencil size={12} /> Editar
                           </Link>

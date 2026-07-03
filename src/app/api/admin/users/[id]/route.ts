@@ -41,6 +41,25 @@ export async function PATCH(
   if (section_id !== undefined) updates.section_id = section_id;
   if (is_disabled !== undefined) updates.is_disabled = is_disabled;
 
+  // Alcance del ADMIN (asignatura/sección): la fuente de verdad es
+  // admin_establishments (abajo). Además ESPEJAMOS curso/sección en el PERFIL
+  // para que la lista y la ficha lo muestren (assigned=false o "Todas" → NULL).
+  const manageAdminScope = !!admin_scope && role === "admin" && !!establishment_id;
+  let scopeCourse: string | null = null;
+  let scopeSection: string | null = null;
+  if (manageAdminScope && admin_scope.assigned) {
+    scopeCourse = admin_scope.course_id ?? null;
+    scopeSection = admin_scope.section_id ?? null;
+    if (scopeSection && !scopeCourse) {
+      const { data: sec } = await adminClient.from("sections").select("course_id").eq("id", scopeSection).maybeSingle();
+      scopeCourse = sec?.course_id ?? null;
+    }
+  }
+  if (manageAdminScope) {
+    updates.course_id = scopeCourse;
+    updates.section_id = scopeSection;
+  }
+
   const { data, error } = await adminClient
     .from("profiles")
     .update(updates)
@@ -59,19 +78,12 @@ export async function PATCH(
     if (banErr) console.error("[admin/users] ban/unban error:", banErr.message);
   }
 
-  // Alcance del ADMIN (asignatura/sección): vive en admin_establishments, NO en
-  // profiles. El form envía `admin_scope` solo cuando el usuario es admin.
-  //   assigned=false → "Sin asignar" (no ve nada) → se borra su fila.
+  // Fuente de verdad del alcance: admin_establishments.
+  //   assigned=false → "Sin asignar" (no ve nada) → sin fila.
   //   assigned=true, course/section NULL → "Todas" (todo el establecimiento).
-  if (admin_scope && role === "admin" && establishment_id) {
+  if (manageAdminScope) {
     await adminClient.from("admin_establishments").delete().eq("admin_id", id).eq("establishment_id", establishment_id);
     if (admin_scope.assigned) {
-      let scopeCourse: string | null = admin_scope.course_id ?? null;
-      const scopeSection: string | null = admin_scope.section_id ?? null;
-      if (scopeSection && !scopeCourse) {
-        const { data: sec } = await adminClient.from("sections").select("course_id").eq("id", scopeSection).maybeSingle();
-        scopeCourse = sec?.course_id ?? null;
-      }
       await adminClient.from("admin_establishments").insert({
         admin_id: id, establishment_id, course_id: scopeCourse, section_id: scopeSection,
       });
