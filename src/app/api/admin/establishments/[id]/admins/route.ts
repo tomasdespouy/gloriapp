@@ -80,6 +80,11 @@ export async function POST(
     if (!s) return NextResponse.json({ error: "La sección no pertenece a la asignatura" }, { status: 400 });
   }
 
+  // "add" FIJA el alcance del admin en este establecimiento (uno por admin):
+  // limpia sus filas previas y reinserta, para que cambiar el alcance
+  // (Todas ↔ asignatura ↔ sección) no duplique filas.
+  await admin.from("admin_establishments").delete().eq("admin_id", admin_id).eq("establishment_id", establishment_id);
+
   const { data, error } = await admin
     .from("admin_establishments")
     .insert({ admin_id, establishment_id, course_id, section_id })

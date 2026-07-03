@@ -33,7 +33,7 @@ export default async function EstablishmentDetailPage({
     { data: allPatients },
     { data: moduleRows },
   ] = await Promise.all([
-    admin.from("admin_establishments").select("admin_id").eq("establishment_id", id),
+    admin.from("admin_establishments").select("admin_id, course_id, section_id").eq("establishment_id", id),
     admin.from("profiles").select("id, full_name, email").eq("role", "admin"),
     admin.from("courses").select("*").eq("establishment_id", id).order("name"),
     admin.from("sections").select("*").order("name"),
@@ -45,7 +45,12 @@ export default async function EstablishmentDetailPage({
   ]);
 
   const assignedAdminIds = new Set(assignments?.map((a) => a.admin_id) || []);
-  const assignedAdmins = (allAdminUsers || []).filter((a) => assignedAdminIds.has(a.id));
+  // Scope (asignatura/sección) de cada admin asignado, para mostrarlo/editarlo.
+  const scopeByAdmin = new Map<string, { course_id: string | null; section_id: string | null }>();
+  (assignments || []).forEach((a) => scopeByAdmin.set(a.admin_id, { course_id: a.course_id ?? null, section_id: a.section_id ?? null }));
+  const assignedAdmins = (allAdminUsers || [])
+    .filter((a) => assignedAdminIds.has(a.id))
+    .map((a) => ({ ...a, ...(scopeByAdmin.get(a.id) || { course_id: null, section_id: null }) }));
   const availableAdmins = (allAdminUsers || []).filter((a) => !assignedAdminIds.has(a.id));
 
   // Map sections to their courses

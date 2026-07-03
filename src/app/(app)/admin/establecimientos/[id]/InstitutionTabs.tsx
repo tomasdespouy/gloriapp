@@ -123,12 +123,61 @@ function ScopeSelect({ courses, courseSections, course, section, setCourse, setS
   );
 }
 
+// Fila de un admin asignado: muestra y permite EDITAR su alcance (autoguardado).
+function AssignedAdminRow({ estId, admin, courses, courseSections, onRemove }: {
+  estId: string; admin: Profile; courses: Course[]; courseSections: Record<string, Section[]>; onRemove: (id: string) => void;
+}) {
+  const router = useRouter();
+  const [course, setCourse] = useState(admin.course_id || "");
+  const [section, setSection] = useState(admin.section_id || "");
+  const [saving, setSaving] = useState(false);
+
+  const save = async (c: string, s: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/establishments/${estId}/admins`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_id: admin.id, _action: "add", course_id: c || null, section_id: s || null }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Alcance actualizado");
+      router.refresh();
+    } catch {
+      toast.error("Error al actualizar el alcance");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className={`flex items-center justify-between gap-3 py-2.5 px-3 bg-gray-50 rounded-xl flex-wrap ${saving ? "opacity-50" : ""}`}>
+      <div className="min-w-[140px]">
+        <p className="text-sm font-medium text-gray-900">{admin.full_name || admin.email}</p>
+        <p className="text-[10px] text-gray-400">{admin.email}</p>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[11px] text-gray-400">Alcance:</span>
+        <select value={course} onChange={(e) => { const c = e.target.value; setCourse(c); setSection(""); save(c, ""); }}
+          className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs cursor-pointer">
+          <option value="">Todas las asignaturas</option>
+          {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <select value={section} onChange={(e) => { const s = e.target.value; setSection(s); save(course, s); }} disabled={!course}
+          className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50">
+          <option value="">Todas las secciones</option>
+          {(courseSections[course] || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <button onClick={() => onRemove(admin.id)} className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded cursor-pointer transition-colors">Remover</button>
+      </div>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════
 // TAB: Administradores
 // ════════════════════════════════════════════
 function TabAdmins({ estId, assigned, available, courses, courseSections }: { estId: string; assigned: Profile[]; available: Profile[]; courses: Course[]; courseSections: Record<string, Section[]> }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
@@ -140,7 +189,6 @@ function TabAdmins({ estId, assigned, available, courses, courseSections }: { es
   const scopeBody = () => ({ course_id: assignCourse || null, section_id: assignSection || null });
 
   const assign = async (adminId: string) => {
-    setLoading(true);
     try {
       const res = await fetch(`/api/admin/establishments/${estId}/admins`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -151,13 +199,10 @@ function TabAdmins({ estId, assigned, available, courses, courseSections }: { es
       router.refresh();
     } catch {
       toast.error("Error al asignar administrador");
-    } finally {
-      setLoading(false);
     }
   };
 
   const remove = async (adminId: string) => {
-    setLoading(true);
     try {
       const res = await fetch(`/api/admin/establishments/${estId}/admins`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -168,8 +213,6 @@ function TabAdmins({ estId, assigned, available, courses, courseSections }: { es
       router.refresh();
     } catch {
       toast.error("Error al remover administrador");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -213,13 +256,7 @@ function TabAdmins({ estId, assigned, available, courses, courseSections }: { es
         {assigned.length > 0 ? (
           <div className="space-y-2">
             {assigned.map((a) => (
-              <div key={a.id} className={`flex items-center justify-between py-2.5 px-3 bg-gray-50 rounded-xl ${loading ? "opacity-50" : ""}`}>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{a.full_name || a.email}</p>
-                  <p className="text-[10px] text-gray-400">{a.email}</p>
-                </div>
-                <button onClick={() => remove(a.id)} className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded cursor-pointer transition-colors">Remover</button>
-              </div>
+              <AssignedAdminRow key={a.id} estId={estId} admin={a} courses={courses} courseSections={courseSections} onRemove={remove} />
             ))}
           </div>
         ) : (
