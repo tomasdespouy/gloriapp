@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
+import { applyScope, resolveAdminScopeRules } from "@/lib/admin-scope";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -29,15 +30,11 @@ export async function GET(request: NextRequest) {
     .eq("role", "student");
 
   if (profile.role !== "superadmin") {
-    const { data: assignments } = await admin
-      .from("admin_establishments")
-      .select("establishment_id")
-      .eq("admin_id", user.id);
-    const estIds = assignments?.map((a) => a.establishment_id) || [];
-    if (estIds.length === 0) {
+    const rules = await resolveAdminScopeRules(admin, user.id);
+    if (rules.length === 0) {
       return new Response("", { status: 200, headers: { "Content-Type": "text/csv" } });
     }
-    studentQuery = studentQuery.in("establishment_id", estIds);
+    studentQuery = applyScope(studentQuery, { all: false, rules });
   }
 
   if (establishmentId) {

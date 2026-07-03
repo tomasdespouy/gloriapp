@@ -67,7 +67,7 @@ export default function InstitutionTabs(props: Props) {
       {tab === "general" && <TabGeneral establishment={props.establishment} isSuperadmin={props.isSuperadmin} />}
       {tab === "modules" && <TabModules estId={String(props.establishment.id)} modules={props.modules} isSuperadmin={props.isSuperadmin} />}
       {tab === "patients" && <TabPatients estId={String(props.establishment.id)} allPatients={props.allPatients} assignedPatientIds={props.assignedPatientIds} estCountry={props.estCountry} isSuperadmin={props.isSuperadmin} />}
-      {tab === "admins" && <TabAdmins estId={String(props.establishment.id)} assigned={props.assignedAdmins} available={props.availableAdmins} />}
+      {tab === "admins" && <TabAdmins estId={String(props.establishment.id)} assigned={props.assignedAdmins} available={props.availableAdmins} courses={props.courses} courseSections={props.courseSections} />}
       {tab === "courses" && <TabCourses estId={String(props.establishment.id)} courses={props.courses} courseSections={props.courseSections} />}
       {tab === "instructors" && <TabInstructors estId={String(props.establishment.id)} instructors={props.instructors} courses={props.courses} courseSections={props.courseSections} />}
       {tab === "students" && <TabStudents estId={String(props.establishment.id)} students={props.students} courses={props.courses} courseSections={props.courseSections} />}
@@ -100,10 +100,33 @@ function TabGeneral({ establishment, isSuperadmin }: { establishment: Record<str
   );
 }
 
+// Selector de alcance (Asignatura / Sección) para asignar un admin.
+// "" = Todas. Elegir sección implica su asignatura.
+function ScopeSelect({ courses, courseSections, course, section, setCourse, setSection }: {
+  courses: Course[]; courseSections: Record<string, Section[]>;
+  course: string; section: string; setCourse: (v: string) => void; setSection: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-[11px] text-gray-400">Alcance:</span>
+      <select value={course} onChange={(e) => { setCourse(e.target.value); setSection(""); }}
+        className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs cursor-pointer">
+        <option value="">Todas las asignaturas</option>
+        {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+      </select>
+      <select value={section} onChange={(e) => setSection(e.target.value)} disabled={!course}
+        className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50">
+        <option value="">Todas las secciones</option>
+        {(courseSections[course] || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+      </select>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════
 // TAB: Administradores
 // ════════════════════════════════════════════
-function TabAdmins({ estId, assigned, available }: { estId: string; assigned: Profile[]; available: Profile[] }) {
+function TabAdmins({ estId, assigned, available, courses, courseSections }: { estId: string; assigned: Profile[]; available: Profile[]; courses: Course[]; courseSections: Record<string, Section[]> }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -111,13 +134,17 @@ function TabAdmins({ estId, assigned, available }: { estId: string; assigned: Pr
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  // Alcance con que se asigna: "" = Todas. Elegir sección implica su asignatura.
+  const [assignCourse, setAssignCourse] = useState("");
+  const [assignSection, setAssignSection] = useState("");
+  const scopeBody = () => ({ course_id: assignCourse || null, section_id: assignSection || null });
 
   const assign = async (adminId: string) => {
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/establishments/${estId}/admins`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ admin_id: adminId, _action: "add" }),
+        body: JSON.stringify({ admin_id: adminId, _action: "add", ...scopeBody() }),
       });
       if (!res.ok) throw new Error("Error del servidor");
       toast.success("Administrador asignado");
@@ -159,7 +186,7 @@ function TabAdmins({ estId, assigned, available }: { estId: string; assigned: Pr
       // Assign to this institution
       const assignRes = await fetch(`/api/admin/establishments/${estId}/admins`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ admin_id: data.user?.user?.id, _action: "add" }),
+        body: JSON.stringify({ admin_id: data.user?.user?.id, _action: "add", ...scopeBody() }),
       });
       if (!assignRes.ok) throw new Error("Error al asignar");
       toast.success("Administrador creado y asignado");
@@ -201,16 +228,19 @@ function TabAdmins({ estId, assigned, available }: { estId: string; assigned: Pr
 
         {/* Assign existing */}
         {available.length > 0 && (
-          <div className="mt-4 flex items-center gap-2">
-            <select id="assign-admin" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 cursor-pointer">
-              {available.map((a) => <option key={a.id} value={a.id}>{a.full_name || a.email}</option>)}
-            </select>
-            <button onClick={() => {
-              const sel = (document.getElementById("assign-admin") as HTMLSelectElement)?.value;
-              if (sel) assign(sel);
-            }} className="bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer">
-              Asignar
-            </button>
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <select id="assign-admin" className="flex-1 min-w-[160px] border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 cursor-pointer">
+                {available.map((a) => <option key={a.id} value={a.id}>{a.full_name || a.email}</option>)}
+              </select>
+              <button onClick={() => {
+                const sel = (document.getElementById("assign-admin") as HTMLSelectElement)?.value;
+                if (sel) assign(sel);
+              }} className="bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover transition-colors cursor-pointer">
+                Asignar
+              </button>
+            </div>
+            <ScopeSelect courses={courses} courseSections={courseSections} course={assignCourse} section={assignSection} setCourse={setAssignCourse} setSection={setAssignSection} />
           </div>
         )}
       </div>
@@ -228,6 +258,9 @@ function TabAdmins({ estId, assigned, available }: { estId: string; assigned: Pr
               <label className="block text-xs font-medium text-gray-600 mb-1">Correo electrónico</label>
               <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="admin@institucion.cl" />
             </div>
+          </div>
+          <div className="mt-3">
+            <ScopeSelect courses={courses} courseSections={courseSections} course={assignCourse} section={assignSection} setCourse={setAssignCourse} setSection={setAssignSection} />
           </div>
           {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
           <div className="flex items-center gap-3 mt-3">

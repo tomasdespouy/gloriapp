@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canViewStudent } from "@/lib/section-scope";
+import { matchesScope, resolveAdminScopeRules } from "@/lib/admin-scope";
 
 export type FeedbackAuthResult =
   | { ok: true; userId: string; role: string; studentId: string }
@@ -86,6 +87,21 @@ export async function authorizeFeedbackAccess(opts: {
     );
 
     if (!sameEstablishment || !inSection) {
+      return { ok: false, status: 403, error: "No autorizado" };
+    }
+  } else if (role === "admin") {
+    // Admin acotado por asignatura/sección: solo puede actuar sobre alumnos de su alcance.
+    const { data: student } = await admin
+      .from("profiles")
+      .select("establishment_id, section_id, course_id")
+      .eq("id", studentId)
+      .single();
+    const rules = await resolveAdminScopeRules(admin, user.id);
+    if (!matchesScope({ all: false, rules }, {
+      establishment_id: student?.establishment_id,
+      section_id: student?.section_id,
+      course_id: student?.course_id,
+    })) {
       return { ok: false, status: 403, error: "No autorizado" };
     }
   }

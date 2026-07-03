@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
 import { listUsersQuerySchema, parseSearchParams } from "@/lib/validation/schemas";
+import { applyScope, resolveAdminScopeRules } from "@/lib/admin-scope";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -35,19 +36,11 @@ export async function GET(request: NextRequest) {
     query = query.or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`);
   }
 
-  // Scope for non-superadmin
+  // Scope for non-superadmin (establecimiento + asignatura/sección del admin).
   if (profile.role !== "superadmin") {
-    const { data: assignments } = await admin
-      .from("admin_establishments")
-      .select("establishment_id")
-      .eq("admin_id", user.id);
-
-    const estIds = assignments?.map((a) => a.establishment_id) || [];
-    if (estIds.length > 0) {
-      query = query.in("establishment_id", estIds);
-    } else {
-      return NextResponse.json([]);
-    }
+    const rules = await resolveAdminScopeRules(admin, user.id);
+    if (rules.length === 0) return NextResponse.json([]); // sin asignar → ve nada
+    query = applyScope(query, { all: false, rules });
   }
 
   const { data, error } = await query;

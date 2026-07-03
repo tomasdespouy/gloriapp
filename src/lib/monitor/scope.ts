@@ -81,17 +81,26 @@ export async function getMonitorAuthority(): Promise<MonitorAuthority> {
     };
   }
 
-  // Admin (o superadmin impersonando admin) → sus establecimientos.
+  // Admin (o superadmin impersonando admin) → sus establecimientos, acotados
+  // por asignatura/sección si la fila admin_establishments lo indica. Un admin
+  // puede tener filas de grano MIXTO (un est. entero + una sección de otro), así
+  // que se llenan los tres arreglos y la materialización hace la UNIÓN.
   if (role === "admin") {
-    let establishmentIds: string[] = [];
+    const establishmentIds: string[] = [];
+    const courseIds: string[] = [];
+    const sectionIds: string[] = [];
     if (profile.isImpersonating && profile.establishmentId) {
-      establishmentIds = [profile.establishmentId];
+      establishmentIds.push(profile.establishmentId);
     } else {
       const { data } = await admin
         .from("admin_establishments")
-        .select("establishment_id")
+        .select("establishment_id, course_id, section_id")
         .eq("admin_id", profile.id);
-      establishmentIds = (data || []).map((a) => a.establishment_id);
+      for (const r of data || []) {
+        if (r.section_id) sectionIds.push(r.section_id);
+        else if (r.course_id) courseIds.push(r.course_id);
+        else establishmentIds.push(r.establishment_id);
+      }
     }
     return {
       ok: true,
@@ -99,8 +108,8 @@ export async function getMonitorAuthority(): Promise<MonitorAuthority> {
       isSuperadmin: false,
       mode: "establishment",
       establishmentIds,
-      sectionIds: [],
-      courseIds: [],
+      sectionIds,
+      courseIds,
       sectionFallback: false,
     };
   }
@@ -225,9 +234,14 @@ async function materializeRequested(requested: RequestedScope): Promise<{ all: b
 /** Materializa la lista de personas de la autoridad del usuario. */
 async function materializeAuthority(auth: Extract<MonitorAuthority, { ok: true }>): Promise<{ all: boolean; ids: string[] }> {
   if (auth.mode === "all") return { all: true, ids: [] };
-  if (auth.mode === "section") return { all: false, ids: await peopleBySection(auth.sectionIds) };
-  if (auth.mode === "course") return { all: false, ids: await peopleByCourse(auth.courseIds) };
-  return { all: false, ids: await peopleByEstablishment(auth.establishmentIds) };
+  // UNIÓN de los tres granos: instructor llena solo uno; un admin puede tener
+  // varios (establecimiento entero + curso + sección) a la vez.
+  const [byEst, byCourse, bySection] = await Promise.all([
+    peopleByEstablishment(auth.establishmentIds),
+    peopleByCourse(auth.courseIds),
+    peopleBySection(auth.sectionIds),
+  ]);
+  return { all: false, ids: [...new Set([...byEst, ...byCourse, ...bySection])] };
 }
 
 /**
@@ -275,14 +289,13 @@ export async function canAccessStudent(
   // existen para estudiantes, pero el chequeo de alcance aplica a cualquiera.
   if (!student || student.role === "superadmin") return false;
 
-  if (auth.mode === "section") {
-    return !!student.section_id && auth.sectionIds.includes(student.section_id);
-  }
-  if (auth.mode === "course") {
-    return !!student.course_id && auth.courseIds.includes(student.course_id);
-  }
-  // establishment
-  return !!student.establishment_id && auth.establishmentIds.includes(student.establishment_id);
+  // Puede tocar a quien caiga en CUALQUIERA de sus alcances (sección, curso o
+  // establecimiento). Cubre grano único (instructor) y mixto (admin).
+  return (
+    (!!student.section_id && auth.sectionIds.includes(student.section_id)) ||
+    (!!student.course_id && auth.courseIds.includes(student.course_id)) ||
+    (!!student.establishment_id && auth.establishmentIds.includes(student.establishment_id))
+  );
 }
 
 /** Parsea el query param `scope` (JSON) a RequestedScope, con default "all". */

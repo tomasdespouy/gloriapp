@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chatStream } from "@/lib/ai";
 import { Resend } from "resend";
+import { applyScope, type ScopeRule } from "@/lib/admin-scope";
 
 // ════════════════════════════════════════════
 // System prompts by role
@@ -239,16 +240,22 @@ async function buildInstructorContext(admin: any, userId: string, profile: any, 
 async function buildAdminContext(admin: any, userId: string, profile: any, role: string, currentPage: string | undefined) {
   const isSuperadmin = role === "superadmin";
 
-  // Determine scope
+  // Determine scope (incluye acotamiento por asignatura/sección del admin).
   let estIds: string[] = [];
   let estNames: string[] = [];
+  let adminRules: ScopeRule[] = [];
 
   if (!isSuperadmin) {
     const { data: assignments } = await admin
       .from("admin_establishments")
-      .select("establishment_id, establishments(name)")
+      .select("establishment_id, course_id, section_id, establishments(name)")
       .eq("admin_id", userId);
-    estIds = (assignments || []).map((a: { establishment_id: string }) => a.establishment_id);
+    adminRules = (assignments || []).map((a: { establishment_id: string; course_id: string | null; section_id: string | null }) => ({
+      establishmentId: a.establishment_id,
+      courseId: a.course_id ?? null,
+      sectionId: a.section_id ?? null,
+    }));
+    estIds = [...new Set(adminRules.map((r) => r.establishmentId))];
     estNames = (assignments || []).map((a: { establishments: { name: string } | null }) => a.establishments?.name).filter(Boolean);
   } else {
     const { data: allEst } = await admin
@@ -262,7 +269,7 @@ async function buildAdminContext(admin: any, userId: string, profile: any, role:
   // Get scoped students
   let studentQuery = admin.from("profiles").select("id").eq("role", "student");
   if (!isSuperadmin && estIds.length > 0) {
-    studentQuery = studentQuery.in("establishment_id", estIds);
+    studentQuery = applyScope(studentQuery, { all: false, rules: adminRules });
   } else if (!isSuperadmin) {
     // Admin without establishments
     return [
@@ -285,7 +292,7 @@ async function buildAdminContext(admin: any, userId: string, profile: any, role:
   // Instructors count (scoped)
   let instructorQuery = admin.from("profiles").select("id", { count: "exact", head: true }).eq("role", "instructor");
   if (!isSuperadmin && estIds.length > 0) {
-    instructorQuery = instructorQuery.in("establishment_id", estIds);
+    instructorQuery = applyScope(instructorQuery, { all: false, rules: adminRules });
   }
   queries.push(instructorQuery);
 
