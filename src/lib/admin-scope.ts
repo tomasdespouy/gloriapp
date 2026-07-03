@@ -43,23 +43,26 @@ export function matchesScope(
  * reglas → filtro imposible (no ve nada). Los UUID salen de la BD
  * (admin_establishments), no de input de usuario → seguros dentro del `.or()`.
  */
-export function applyScope<T extends { or(filter: string): T; eq(col: string, val: string): T }>(
-  query: T,
+export function applyScope<Q>(
+  query: Q,
   scope: Scope,
   cols: { establishment?: string; course?: string; section?: string } = {},
-): T {
+): Q {
   if (scope.all) return query;
+  // Genérico "libre" (sin `extends` sobre el builder de Supabase) para no
+  // disparar instanciación de tipos infinita; se castea a una interfaz mínima.
+  const q = query as unknown as { or(f: string): unknown; eq(c: string, v: string): unknown };
   const est = cols.establishment ?? "establishment_id";
   const course = cols.course ?? "course_id";
   const section = cols.section ?? "section_id";
-  if (scope.rules.length === 0) return query.eq(est, NO_MATCH_UUID);
+  if (scope.rules.length === 0) return q.eq(est, NO_MATCH_UUID) as Q;
   const groups = scope.rules.map((r) => {
     const parts = [`${est}.eq.${r.establishmentId}`];
     if (r.sectionId) parts.push(`${section}.eq.${r.sectionId}`);
     if (r.courseId) parts.push(`${course}.eq.${r.courseId}`);
     return `and(${parts.join(",")})`;
   });
-  return query.or(groups.join(","));
+  return q.or(groups.join(",")) as Q;
 }
 
 /** ¿El alcance permite ver/elegir esta ASIGNATURA? (para dropdowns). */
@@ -119,4 +122,28 @@ export async function resolveAdminScopeRules(supabase: SupabaseClient, adminId: 
     courseId: (r.course_id as string | null) ?? null,
     sectionId: (r.section_id as string | null) ?? null,
   }));
+}
+
+/** Resuelve el alcance de un usuario por su rol (superadmin = todo). */
+export async function resolveScope(supabase: SupabaseClient, userId: string, role: string): Promise<Scope> {
+  if (role === "superadmin") return { all: true };
+  return { all: false, rules: await resolveAdminScopeRules(supabase, userId) };
+}
+
+/**
+ * IDs de perfiles dentro del alcance (para rutas que filtran por
+ * `.in('student_id'|'user_id'|'id', ...)`). Superadmin → { all: true } (el
+ * caller no debe filtrar). Sin reglas → { all:false, ids: [] } = ve nada.
+ */
+export async function scopedProfileIds(
+  supabase: SupabaseClient,
+  scope: Scope,
+  role?: string,
+): Promise<{ all: boolean; ids: string[] }> {
+  if (scope.all) return { all: true, ids: [] };
+  let q = supabase.from("profiles").select("id");
+  if (role) q = q.eq("role", role);
+  q = applyScope(q, scope);
+  const { data } = await q;
+  return { all: false, ids: (data || []).map((p) => p.id as string) };
 }

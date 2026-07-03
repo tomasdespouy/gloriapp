@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { applyScope, resolveAdminScopeRules } from "@/lib/admin-scope";
 
 // GLOBAL chat_alerts feed for the Métricas section. Unlike the per-pilot
 // endpoint, this is NOT scoped to a pilot — it surfaces alerts across all
 // students the admin can see (superadmin = everyone; admin = students of
 // their establishments). This is the feed that catches violence/incidents
 // from users who are NOT part of a monitored pilot.
-
-const SENTINEL = "00000000-0000-0000-0000-000000000000";
 
 async function authAdmin() {
   const supabase = await createClient();
@@ -23,12 +22,12 @@ async function authAdmin() {
 
 // Resolve the student_ids an admin may see. null => no restriction (superadmin).
 async function scopedStudentIds(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<string[]> {
-  const { data: assignments } = await admin
-    .from("admin_establishments").select("establishment_id").eq("admin_id", userId);
-  const estIds = (assignments || []).map((a) => a.establishment_id);
-  const { data: studs } = await admin
-    .from("profiles").select("id").eq("role", "student")
-    .in("establishment_id", estIds.length ? estIds : [SENTINEL]);
+  const rules = await resolveAdminScopeRules(admin, userId);
+  if (rules.length === 0) return [];
+  const { data: studs } = await applyScope(
+    admin.from("profiles").select("id").eq("role", "student"),
+    { all: false, rules },
+  );
   return (studs || []).map((s) => s.id);
 }
 
@@ -91,6 +90,16 @@ export async function PATCH(request: Request) {
   if (!body.alert_id) return NextResponse.json({ error: "alert_id es requerido" }, { status: 400 });
 
   const admin = createAdminClient();
+
+  // Un admin acotado solo puede marcar alertas de alumnos dentro de su alcance.
+  if (!auth.isSuperadmin) {
+    const { data: al } = await admin.from("chat_alerts").select("student_id").eq("id", body.alert_id).maybeSingle();
+    const allowed = await scopedStudentIds(admin, auth.user.id);
+    if (!al?.student_id || !allowed.includes(al.student_id)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+  }
+
   const { error } = await admin.from("chat_alerts").update({
     reviewed_at: body.reviewed === false ? null : new Date().toISOString(),
     reviewed_by: body.reviewed === false ? null : auth.user.id,
