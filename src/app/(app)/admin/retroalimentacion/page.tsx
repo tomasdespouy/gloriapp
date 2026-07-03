@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminContext } from "@/lib/admin-helpers";
+import { applyScope, scopeAllowsCourse, scopeAllowsSection } from "@/lib/admin-scope";
 import RetroClient from "./RetroClient";
 
 const SAFE_EMPTY_ID = "00000000-0000-0000-0000-000000000000";
@@ -14,16 +15,8 @@ export default async function RetroalimentacionPage() {
   // (used to filter survey_responses). Superadmin sees everything.
   let scopedUserIds: string[] | null = null;
   if (!isSuperadmin) {
-    if (allowedEstIds.length === 0) {
-      // Admin without assigned establishments: empty scope
-      scopedUserIds = [];
-    } else {
-      const { data: estUsers } = await admin
-        .from("profiles")
-        .select("id")
-        .in("establishment_id", allowedEstIds);
-      scopedUserIds = (estUsers || []).map((u) => u.id);
-    }
+    const { data: estUsers } = await applyScope(admin.from("profiles").select("id"), ctx.scope);
+    scopedUserIds = (estUsers || []).map((u) => u.id);
   }
 
   // Build queries with scope where applicable
@@ -94,12 +87,16 @@ export default async function RetroalimentacionPage() {
     { data: surveys },
     { data: responses },
     { data: establishments },
-    { data: courses },
+    { data: coursesRaw },
     { count: declinedCount },
   ] = await Promise.all([surveysQ, responsesQ, establishmentsQ, coursesQ, declinedCountQ]);
 
-  // Sections: filter by the resolved courses (depends on courses query result)
-  const allowedCourseIds = (courses || []).map((c) => c.id);
+  // Acotar asignaturas/secciones al alcance del admin (no solo al establecimiento).
+  const courseEstMap = new Map((coursesRaw || []).map((c) => [c.id, c.establishment_id]));
+  const courses = isSuperadmin
+    ? (coursesRaw || [])
+    : (coursesRaw || []).filter((c) => scopeAllowsCourse(ctx.scope, c.establishment_id, c.id));
+  const allowedCourseIds = courses.map((c) => c.id);
   let sectionsQ = admin
     .from("sections")
     .select("id, name, course_id")
@@ -108,7 +105,10 @@ export default async function RetroalimentacionPage() {
     const ids = allowedCourseIds.length > 0 ? allowedCourseIds : [SAFE_EMPTY_ID];
     sectionsQ = sectionsQ.in("course_id", ids);
   }
-  const { data: sections } = await sectionsQ;
+  const { data: sectionsRaw } = await sectionsQ;
+  const sections = isSuperadmin
+    ? (sectionsRaw || [])
+    : (sectionsRaw || []).filter((s) => scopeAllowsSection(ctx.scope, courseEstMap.get(s.course_id), s.course_id, s.id));
 
   // Build NPS summary. Ignore null nps_score (newer JSONB surveys without
   // a 0-10 rating) so they don't pollute the NPS calculation.

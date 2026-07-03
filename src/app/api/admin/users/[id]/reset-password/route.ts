@@ -5,6 +5,7 @@ import { Resend } from "resend";
 import { logAdminAction } from "@/lib/audit";
 import { getAppUrl } from "@/lib/app-url";
 import { logEmail } from "@/lib/email-log";
+import { matchesScope, resolveAdminScopeRules } from "@/lib/admin-scope";
 
 export async function POST(
   _request: Request,
@@ -29,7 +30,7 @@ export async function POST(
   const admin = createAdminClient();
 
   // Get target user info
-  const { data: target } = await admin.from("profiles").select("role, full_name, email, establishment_id, credentials_sent_at").eq("id", id).single();
+  const { data: target } = await admin.from("profiles").select("role, full_name, email, establishment_id, course_id, section_id, credentials_sent_at").eq("id", id).single();
   if (!target) {
     return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
   }
@@ -43,12 +44,8 @@ export async function POST(
     if (target.role !== "student" && target.role !== "instructor") {
       return NextResponse.json({ error: "Sin permisos para este rol" }, { status: 403 });
     }
-    const { data: assignments } = await supabase
-      .from("admin_establishments")
-      .select("establishment_id")
-      .eq("admin_id", user.id);
-    const allowedIds = (assignments || []).map((a) => a.establishment_id);
-    if (!target.establishment_id || !allowedIds.includes(target.establishment_id)) {
+    const rules = await resolveAdminScopeRules(supabase, user.id);
+    if (!matchesScope({ all: false, rules }, target)) {
       return NextResponse.json({ error: "Usuario fuera de tu alcance" }, { status: 403 });
     }
   }
