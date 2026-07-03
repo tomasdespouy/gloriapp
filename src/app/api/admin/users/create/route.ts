@@ -6,6 +6,7 @@ import { logAdminAction } from "@/lib/audit";
 import { createUserSchema, parseBody } from "@/lib/validation/schemas";
 import { getAppUrl } from "@/lib/app-url";
 import { logEmail } from "@/lib/email-log";
+import { matchesScope, resolveAdminScopeRules } from "@/lib/admin-scope";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -70,6 +71,25 @@ export async function POST(request: Request) {
     }
   }
 
+  // Un admin acotado por asignatura/sección solo puede crear usuarios dentro de
+  // su alcance (elegir sección implica su asignatura). Si tiene una única regla
+  // acotada y no se especificó, se usa esa.
+  let effCourseId: string | null = course_id ?? null;
+  let effSectionId: string | null = section_id ?? null;
+  if (callerRole === "admin" && validatedEstablishmentId) {
+    const rules = (await resolveAdminScopeRules(supabase, user.id)).filter((r) => r.establishmentId === validatedEstablishmentId);
+    const hasWide = rules.some((r) => !r.courseId && !r.sectionId);
+    if (!hasWide) {
+      if (!effCourseId && !effSectionId && rules.length === 1) {
+        effCourseId = rules[0].courseId;
+        effSectionId = rules[0].sectionId;
+      }
+      if (!matchesScope({ all: false, rules }, { establishment_id: validatedEstablishmentId, course_id: effCourseId, section_id: effSectionId })) {
+        return NextResponse.json({ error: "La asignatura/sección elegida está fuera de tu alcance" }, { status: 403 });
+      }
+    }
+  }
+
   const admin = createAdminClient();
 
   // Generate temporary password
@@ -104,8 +124,8 @@ export async function POST(request: Request) {
       must_change_password: true,
     };
     if (validatedEstablishmentId) updates.establishment_id = validatedEstablishmentId;
-    if (course_id) updates.course_id = course_id;
-    if (section_id) updates.section_id = section_id;
+    if (effCourseId) updates.course_id = effCourseId;
+    if (effSectionId) updates.section_id = effSectionId;
     const { error: profileError } = await admin.from("profiles").update(updates).eq("id", newUser.user.id);
     if (profileError) {
       console.error("[users/create] profile update failed", profileError);

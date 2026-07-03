@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { canViewStudent } from "@/lib/section-scope";
+import { matchesScope, resolveAdminScopeRules } from "@/lib/admin-scope";
 import TeacherReviewClient from "./TeacherReviewClient";
 
 interface Props {
@@ -63,6 +64,16 @@ export default async function DocenteSesionPage({ params }: Props) {
       { section_id: student?.section_id, course_id: student?.course_id },
     );
     if (!sameEstablishment || !inSection) {
+      redirect("/docente/dashboard");
+    }
+  } else if (callerRole === "admin") {
+    // Admin acotado por asignatura/sección: solo sesiones de alumnos de su alcance.
+    const rules = await resolveAdminScopeRules(supabase, user.id);
+    if (!matchesScope({ all: false, rules }, {
+      establishment_id: student?.establishment_id,
+      section_id: student?.section_id,
+      course_id: student?.course_id,
+    })) {
       redirect("/docente/dashboard");
     }
   }

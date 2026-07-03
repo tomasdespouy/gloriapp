@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserProfile } from "@/lib/supabase/user-profile";
+import { matchesScope, type Scope } from "@/lib/admin-scope";
 
 /**
  * Section-level scoping for the docente surfaces.
@@ -64,9 +65,15 @@ export async function getDocenteScope(): Promise<DocenteScope | null> {
  */
 export function canViewStudent(
   scope: Pick<DocenteScope, "role" | "sectionId" | "courseId">,
-  student: { section_id?: string | null; course_id?: string | null },
+  student: { section_id?: string | null; course_id?: string | null; establishment_id?: string | null },
+  adminScope?: Scope,
 ): boolean {
-  if (scope.role === "admin" || scope.role === "superadmin") return true;
+  if (scope.role === "superadmin") return true;
+  if (scope.role === "admin") {
+    // Admin acotado por asignatura/sección: solo dentro de su alcance. Si el
+    // caller no threadeó el scope del admin, se mantiene amplio (compat).
+    return adminScope ? matchesScope(adminScope, student) : true;
+  }
   // Unscoped instructor → establishment-wide (backward compatible).
   if (!scope.sectionId && !scope.courseId) return true;
   if (scope.sectionId) return !!student.section_id && student.section_id === scope.sectionId;

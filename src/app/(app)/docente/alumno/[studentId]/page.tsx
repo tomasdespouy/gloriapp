@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import DownloadReportButton from "@/components/DownloadReportButton";
 import { getDocenteScope, canViewStudent } from "@/lib/section-scope";
+import { matchesScope, resolveAdminScopeRules } from "@/lib/admin-scope";
 import { getPatientImageUrl } from "@/lib/patient-assets";
 
 interface Props {
@@ -65,6 +66,16 @@ export default async function DocenteAlumnoPage({ params }: Props) {
       course_id: student.course_id,
     });
     if (!sameEstablishment || !inSection) redirect("/docente/dashboard");
+  } else if (scope?.role === "admin") {
+    // Admin acotado por asignatura/sección: solo alumnos de su alcance.
+    const rules = await resolveAdminScopeRules(supabase, user.id);
+    if (!matchesScope({ all: false, rules }, {
+      establishment_id: student.establishment_id,
+      section_id: student.section_id,
+      course_id: student.course_id,
+    })) {
+      redirect("/docente/dashboard");
+    }
   }
 
   const admin = createAdminClient();
