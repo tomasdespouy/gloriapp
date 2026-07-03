@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { applyScope, type Scope, type ScopeRule } from "@/lib/admin-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -28,18 +29,25 @@ export async function GET(req: NextRequest) {
     const isSuperadmin = profile.role === "superadmin";
     const admin = createAdminClient();
 
-    // Admin establishment scope
+    // Admin establishment scope (incluye acotamiento por asignatura/sección).
     let adminEstIds: string[] = [];
+    let adminRules: ScopeRule[] = [];
     if (isSuperadmin) {
       const { data } = await admin.from("establishments").select("id");
       adminEstIds = (data || []).map((e) => e.id);
     } else {
       const { data } = await supabase
         .from("admin_establishments")
-        .select("establishment_id")
+        .select("establishment_id, course_id, section_id")
         .eq("admin_id", user.id);
-      adminEstIds = (data || []).map((a) => a.establishment_id);
+      adminRules = (data || []).map((a) => ({
+        establishmentId: a.establishment_id,
+        courseId: a.course_id ?? null,
+        sectionId: a.section_id ?? null,
+      }));
+      adminEstIds = [...new Set(adminRules.map((r) => r.establishmentId))];
     }
+    const adminScope: Scope = isSuperadmin ? { all: true } : { all: false, rules: adminRules };
 
     // ── Parse filters ──
     const sp = req.nextUrl.searchParams;
@@ -132,6 +140,9 @@ export async function GET(req: NextRequest) {
     }
     if (fCourseId) studentsQ = studentsQ.eq("course_id", fCourseId);
     if (fSectionId) studentsQ = studentsQ.eq("section_id", fSectionId);
+    // Acota al alcance del admin (asignatura/sección). Como safeIds sale de aquí,
+    // TODO lo derivado (sesiones, competencias, actividad, riesgo…) queda acotado.
+    if (!isSuperadmin) studentsQ = applyScope(studentsQ, adminScope);
 
     const { data: studentsData } = await studentsQ;
     const students = studentsData || [];
@@ -243,6 +254,9 @@ export async function GET(req: NextRequest) {
         scopeEstIds.length > 0 ? scopeEstIds : SAFE_EMPTY
       );
     }
+    // Además del establecimiento, acota los usuarios en línea a la asignatura/
+    // sección del admin (si no, se contarían online de otras secciones).
+    if (!isSuperadmin) onlineQ = applyScope(onlineQ, adminScope);
 
     // Today's platform activity must be scoped to admin's users (otherwise
     // platformMinutesToday inflates with global numbers from other establishments).
