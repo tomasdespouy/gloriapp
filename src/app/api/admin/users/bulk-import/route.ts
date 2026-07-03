@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { logAdminAction } from "@/lib/audit";
+import { matchesScope, resolveAdminScopeRules, type ScopeRule } from "@/lib/admin-scope";
 import crypto from "crypto";
 
 interface CsvRow {
@@ -118,6 +119,13 @@ export async function POST(request: Request) {
     establishmentId = profile?.establishment_id || undefined;
   }
 
+  // Alcance del admin dentro del establecimiento (asignatura/sección).
+  let adminRules: ScopeRule[] = [];
+  if (callerRole === "admin") {
+    adminRules = (await resolveAdminScopeRules(supabase, user.id)).filter((r) => r.establishmentId === establishmentId);
+  }
+  const adminWide = callerRole !== "admin" || adminRules.some((r) => !r.courseId && !r.sectionId);
+
   const coursesMap: Record<string, string> = {}; // name -> id
   const sectionsMap: Record<string, string> = {}; // "courseId:sectionName" -> id
 
@@ -194,6 +202,18 @@ export async function POST(request: Request) {
     const seccion = row.seccion.trim().toLowerCase();
     if (seccion && courseId && sectionsMap[`${courseId}:${seccion}`]) {
       sectionId = sectionsMap[`${courseId}:${seccion}`];
+    }
+
+    // Un admin acotado solo puede sembrar usuarios dentro de su asignatura/sección.
+    if (!adminWide) {
+      if (!courseId && !sectionId && adminRules.length === 1) {
+        courseId = adminRules[0].courseId;
+        sectionId = adminRules[0].sectionId;
+      }
+      if (!matchesScope({ all: false, rules: adminRules }, { establishment_id: establishmentId, course_id: courseId, section_id: sectionId })) {
+        errors.push({ row: rowNum, email, error: "Asignatura/sección fuera de tu alcance" });
+        continue;
+      }
     }
 
     // Create auth user
