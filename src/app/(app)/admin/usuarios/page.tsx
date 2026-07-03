@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminContext } from "@/lib/admin-helpers";
 import { applyScope, scopeAllowsCourse, scopeAllowsSection } from "@/lib/admin-scope";
 import UsuariosClient from "./UsuariosClient";
@@ -114,13 +115,25 @@ export default async function UsuariosPage({
     }
   });
 
+  // Para un ADMIN, asignatura/sección representan su ALCANCE: NULL = "Todas" si
+  // tiene fila en admin_establishments, o "Sin asignar" si no la tiene (no ve
+  // nada). Para alumnos/docentes se mantiene "—" cuando no hay asignación.
+  const { data: aeRows } = await createAdminClient().from("admin_establishments").select("admin_id");
+  const assignedAdminIds = new Set((aeRows || []).map((r) => r.admin_id));
+  const scopeLabel = (u: { id: string; role: string }, id: string | null, map: Map<string, string>) =>
+    u.role !== "admin"
+      ? (id ? map.get(id) || "—" : "—")
+      : !assignedAdminIds.has(u.id)
+        ? "Sin asignar"
+        : (id ? map.get(id) || "—" : "Todas");
+
   const enrichedUsers = (users || []).map((u) => ({
     ...u,
     sessionCount: sessionCountMap[u.id] || 0,
     lastActivity: lastActivityMap[u.id] || null,
     establishmentName: establishments?.find((e) => e.id === u.establishment_id)?.name || "—",
-    courseName: u.course_id ? courseMap.get(u.course_id) || "—" : "—",
-    sectionName: u.section_id ? sectionMap.get(u.section_id) || "—" : "—",
+    courseName: scopeLabel(u, u.course_id, courseMap),
+    sectionName: scopeLabel(u, u.section_id, sectionMap),
   }));
 
   return (
