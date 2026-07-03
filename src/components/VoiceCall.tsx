@@ -47,6 +47,9 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
   const convIdRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [imgOk, setImgOk] = useState(true);
+  // A/B de voz: Modo 1 = rápido (flash + emoción por prompt), Modo 2 = expresivo
+  // (v3 + audio tags). Se elige antes de llamar; se mantiene entre llamadas.
+  const [mode, setMode] = useState<1 | 2>(1);
 
   const stopTimer = () => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
@@ -280,25 +283,26 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
     try {
       // Ask for the mic up-front so permission issues surface before we connect.
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      const res = await fetch(`/api/voice/signed-url?patientId=${patient.id}`);
+      const res = await fetch(`/api/voice/signed-url?patientId=${patient.id}&mode=${mode}`);
       if (!res.ok) {
         const j = await res.json().catch(() => null);
         throw new Error(j?.error || "No se pudo iniciar la llamada");
       }
       const { signedUrl, conversationId, userId, patientId: pid } = await res.json();
-      // Pass identity to our Custom LLM (/api/voice/llm) via extra body so it
-      // can run the adaptive engine against the right patient + conversation.
+      // Pass identity + A/B mode to our Custom LLM (/api/voice/llm) via extra body
+      // so it runs the adaptive engine against the right patient + conversation,
+      // and knows whether to emit audio tags (Modo 2).
       startSession({
         signedUrl,
         connectionType: "websocket",
-        customLlmExtraBody: { patientId: pid, conversationId, userId },
+        customLlmExtraBody: { patientId: pid, conversationId, userId, mode: String(mode) },
       });
     } catch (e) {
       stopRing();
       setError(e instanceof Error ? e.message : "No se pudo iniciar la llamada. Revisa el micrófono.");
       setPhase("idle");
     }
-  }, [patient.id, startSession]);
+  }, [patient.id, startSession, mode]);
 
   const handleEnd = useCallback(() => {
     if (endTimerRef.current) { clearTimeout(endTimerRef.current); endTimerRef.current = null; }
@@ -350,10 +354,17 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
 
       {/* top bar */}
       <div className="flex items-center justify-between px-7 py-5">
-        <span className="inline-flex items-center gap-2 rounded-full border border-[#E5E5E5] bg-white px-3.5 py-1.5 text-[13px] text-[#6b6b72]">
-          <span className={`vc-dot ${phase === "live" ? "vc-dot-on" : ""}`} />
-          {phase === "live" ? "En sesión" : phase === "connecting" ? "Conectando…" : phase === "ended" ? "Sesión finalizada" : "Listo para empezar"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#E5E5E5] bg-white px-3.5 py-1.5 text-[13px] text-[#6b6b72]">
+            <span className={`vc-dot ${phase === "live" ? "vc-dot-on" : ""}`} />
+            {phase === "live" ? "En sesión" : phase === "connecting" ? "Conectando…" : phase === "ended" ? "Sesión finalizada" : "Listo para empezar"}
+          </span>
+          {phase !== "idle" && (
+            <span className="inline-flex items-center rounded-full border border-[#E5E5E5] bg-white px-3 py-1.5 text-[12px] font-medium text-[#4A55A2]">
+              Modo {mode} · {mode === 1 ? "Rápido" : "Expresivo"}
+            </span>
+          )}
+        </div>
         {(phase === "live" || phase === "ended") && (
           <span className="inline-flex items-center rounded-full border border-[#E5E5E5] bg-white px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-[#1A1A1A]">
             {mmss}
@@ -392,7 +403,27 @@ function VoiceCallInner({ patient, hasVoice, imageSlug }: { patient: Patient; ha
         )}
 
         {phase === "idle" && (
-          <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-col items-center gap-4">
+            {/* A/B: elige el modo antes de llamar */}
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="inline-flex rounded-full border border-[#E5E5E5] bg-white p-1 text-[13px]">
+                <button
+                  onClick={() => setMode(1)}
+                  className={`rounded-full px-4 py-1.5 font-medium transition ${mode === 1 ? "bg-[#4A55A2] text-white" : "text-[#6b6b72] hover:text-[#1A1A1A]"}`}
+                >
+                  Modo 1 · Rápido
+                </button>
+                <button
+                  onClick={() => setMode(2)}
+                  className={`rounded-full px-4 py-1.5 font-medium transition ${mode === 2 ? "bg-[#4A55A2] text-white" : "text-[#6b6b72] hover:text-[#1A1A1A]"}`}
+                >
+                  Modo 2 · Expresivo
+                </button>
+              </div>
+              <p className="text-[11px] text-[#9a9aa2]">
+                {mode === 1 ? "Voz rápida y estable (emoción por tono)" : "Voz más expresiva por turno (audio tags, algo más lenta)"}
+              </p>
+            </div>
             <button onClick={handleStart} className="rounded-full bg-[#4A55A2] px-8 py-3.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-[#3f4990]">
               Iniciar llamada
             </button>

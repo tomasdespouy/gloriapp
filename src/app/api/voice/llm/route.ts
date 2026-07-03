@@ -32,6 +32,15 @@ import {
 
 export const maxDuration = 120;
 
+// Prewarm: /api/voice/signed-url dispara un GET aquí al conectar la llamada para
+// arrancar la función serverless ANTES del primer turno (mata el cold start de
+// Vercel, que el soft_timeout solo enmascara). No hace nada sensible.
+export async function GET() {
+  return new Response(JSON.stringify({ ok: true, warm: true }), {
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 // Fallback for the prototype: [QA] Sandbox — Carlos (staging).
 const SANDBOX_PATIENT_ID = "16d8d543-dd2d-4ae2-b8f9-5947e8af0b88";
 
@@ -91,15 +100,23 @@ function sseDone(id: string, model: string): string {
 // Filtro con estado para el stream: elimina acotaciones/gestos que el TTS leería
 // en voz alta ([suspira], (pausa), *ríe*). Retiene un posible abridor sin cerrar
 // entre chunks hasta que llegue su cierre, con salvaguarda para no retener de más.
-function makeStageDirectionStripper() {
+// keepBrackets=true (Modo 2 expresivo): conserva los audio tags [tired]/[sighs]
+// para que eleven_v3_conversational los INTERPRETE; sigue quitando (paréntesis) y
+// *asteriscos*. keepBrackets=false (Modo 1): quita también los corchetes, porque
+// flash los leería literalmente.
+function makeStageDirectionStripper(keepBrackets = false) {
   let carry = "";
-  const stripComplete = (s: string) =>
-    s.replace(/\[[^\]]*\]/g, "").replace(/\([^)]*\)/g, "").replace(/\*[^*]*\*/g, "");
+  const stripComplete = (s: string) => {
+    let out = s.replace(/\([^)]*\)/g, "").replace(/\*[^*]*\*/g, "");
+    if (!keepBrackets) out = out.replace(/\[[^\]]*\]/g, "");
+    return out;
+  };
+  const openers = keepBrackets ? ["(", "*"] : ["[", "(", "*"];
   return {
     push(raw: string): string {
       carry = stripComplete(carry + raw);
       let cut = carry.length;
-      for (const ch of ["[", "(", "*"]) {
+      for (const ch of openers) {
         const i = carry.indexOf(ch);
         if (i >= 0 && i < cut) cut = i;
       }
@@ -109,7 +126,8 @@ function makeStageDirectionStripper() {
       return out;
     },
     flush(): string {
-      const out = stripComplete(carry).replace(/[[(*][^\])*]*$/g, "");
+      const trailing = keepBrackets ? /[(*][^)*]*$/g : /[[(*][^\])*]*$/g;
+      const out = stripComplete(carry).replace(trailing, "");
       carry = "";
       return out;
     },
@@ -121,7 +139,7 @@ function makeStageDirectionStripper() {
 // realiza con PALABRAS, ritmo y pausas (no audio tags → cero latencia, sin
 // deriva de acento, funciona en el modelo rápido). Traduce las 5 variables del
 // motor a una directiva breve de "cómo suenas" este turno.
-function buildVoiceProsody(s: ClinicalState): string {
+function buildVoiceProsody(s: ClinicalState, useTags = false): string {
   const cues: string[] = [];
   if (s.sintomatologia >= 7) cues.push("hoy el ánimo te pesa: voz más apagada y cansada, frases que se te apagan al final, algún 'uf…' hablado y pausas antes de responder");
   else if (s.sintomatologia <= 3) cues.push("te sientes algo más aliviado: la voz un poco más ligera");
@@ -132,7 +150,11 @@ function buildVoiceProsody(s: ClinicalState): string {
   else if (s.alianza <= 3) cues.push("todavía no confías del todo: distante y algo formal");
   if (s.disposicion_cambio <= 3) cues.push("escéptico de que esto sirva ('no sé para qué…')");
   if (!cues.length) return "";
-  return `\n\n[TONO EMOCIONAL DE ESTE TURNO — cómo SUENAS]\nExpresa esto SOLO con palabras, ritmo y pausas (nunca con acotaciones ni describiéndolo): ${cues.join("; ")}. No lo declares ("estoy a la defensiva"); que se note en CÓMO hablas.\n`;
+  const base = `\n\n[TONO EMOCIONAL DE ESTE TURNO — cómo SUENAS]\nExpresa esto SOLO con palabras, ritmo y pausas (nunca con acotaciones ni describiéndolo): ${cues.join("; ")}. No lo declares ("estoy a la defensiva"); que se note en CÓMO hablas.\n`;
+  if (!useTags) return base;
+  // Modo 2 expresivo (eleven_v3_conversational): además de palabras/pausas, puede
+  // intercalar audio tags que el modelo interpreta (no se leen).
+  return base + `Además PUEDES intercalar con MODERACIÓN (máximo uno, al inicio de una frase) un audio tag de ElevenLabs entre corchetes que el sistema INTERPRETA y NO se lee en voz: por ejemplo [tired], [sighs], [exhales], [sad], [nervous], [hesitant]. Elige el que calce con cómo te sientes; nunca uno por frase.\n`;
 }
 
 export async function POST(req: NextRequest) {
@@ -144,29 +166,19 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. Parse OpenAI-style body + our extra fields (custom_llm_extra_body).
+  type Extra = { patientId?: string; conversationId?: string; userId?: string; mode?: string };
   let body: {
     messages?: OpenAIMessage[];
     model?: string;
     patientId?: string;
     conversationId?: string;
     userId?: string;
-    custom_llm_extra_body?: {
-      patientId?: string;
-      conversationId?: string;
-      userId?: string;
-    };
+    mode?: string;
+    custom_llm_extra_body?: Extra;
     // ElevenLabs may forward the extra body under the camelCase key…
-    customLlmExtraBody?: {
-      patientId?: string;
-      conversationId?: string;
-      userId?: string;
-    };
+    customLlmExtraBody?: Extra;
     // …but in reality it forwards it under THIS key (confirmado por logs).
-    elevenlabs_extra_body?: {
-      patientId?: string;
-      conversationId?: string;
-      userId?: string;
-    };
+    elevenlabs_extra_body?: Extra;
   };
   try {
     body = await req.json();
@@ -191,7 +203,10 @@ export async function POST(req: NextRequest) {
   const patientId = body.patientId || extra.patientId || SANDBOX_PATIENT_ID;
   const conversationId = body.conversationId || extra.conversationId || null;
   const userId = body.userId || extra.userId || null;
-  console.log("[voice/llm][DEBUG] identidad resuelta:", { patientId, conversationId, userId });
+  // Modo del A/B: "2" (expresivo, eleven_v3_conversational) habilita audio tags;
+  // cualquier otro = "1" (rápido, flash + emoción por prompt, se quitan corchetes).
+  const useTags = String(extra.mode ?? body.mode ?? "1") === "2";
+  console.log("[voice/llm][DEBUG] identidad resuelta:", { patientId, conversationId, userId, useTags });
   const id = `chatcmpl-voice-${Math.random().toString(36).slice(2)}`;
 
   // 3. History from ElevenLabs (drop its system prompt — we build our own).
@@ -283,7 +298,7 @@ export async function POST(req: NextRequest) {
   const deltas = calculateDeltas(interventionType, currentState);
   const newState = applyDeltas(currentState, deltas);
   const statePrompt = buildStatePrompt(newState);
-  const prosody = buildVoiceProsody(newState);
+  const prosody = buildVoiceProsody(newState, useTags);
 
   const sessionNumber: number | null = convRow?.session_number ?? null;
   const memoryText = mem.text;
@@ -321,7 +336,7 @@ export async function POST(req: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      const strip = makeStageDirectionStripper();
+      const strip = makeStageDirectionStripper(useTags);
       try {
         const reader = chatStream(history, voicePrompt).getReader();
         while (true) {

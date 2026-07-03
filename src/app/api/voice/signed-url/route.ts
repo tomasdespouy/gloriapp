@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
-import { getVoiceAgent } from "@/lib/voice-agents";
+import { getVoiceAgent, pickAgentId } from "@/lib/voice-agents";
 
 // Mints a short-lived signed URL so the browser can open the ElevenLabs
 // Conversational AI WebSocket without ever seeing the API key. The agent has
@@ -16,11 +16,23 @@ export async function GET(req: NextRequest) {
   const agent = getVoiceAgent(patientId);
   if (!agent) return NextResponse.json({ error: "Este paciente no tiene modo voz" }, { status: 404 });
 
+  // Modo del A/B: "1" = rápido (flash + emoción por prompt), "2" = expresivo
+  // (v3 + audio tags). Elige el agente correspondiente.
+  const mode = req.nextUrl.searchParams.get("mode") === "2" ? "2" : "1";
+  const agentId = pickAgentId(agent, mode);
+
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "ELEVENLABS_API_KEY no configurada" }, { status: 500 });
 
+  // Prewarm: dispara (sin esperar) un GET al endpoint del cerebro para arrancar
+  // la función serverless AHORA, mientras el usuario aún no habla — así el primer
+  // turno no paga el cold start de Vercel. Best-effort; se ignora cualquier error.
+  if (process.env.VOICE_LLM_URL) {
+    fetch(process.env.VOICE_LLM_URL, { cache: "no-store" }).catch(() => {});
+  }
+
   const res = await fetch(
-    `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${agent.agentId}`,
+    `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${agentId}`,
     { headers: { "xi-api-key": apiKey }, cache: "no-store" }
   );
 
@@ -66,5 +78,6 @@ export async function GET(req: NextRequest) {
     conversationId,
     userId: user.id,
     patientId,
+    mode,
   });
 }
