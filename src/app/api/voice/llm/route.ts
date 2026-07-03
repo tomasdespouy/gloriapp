@@ -116,6 +116,25 @@ function makeStageDirectionStripper() {
   };
 }
 
+// OPCIÓN 2 — tono emocional POR TURNO derivado del estado clínico.
+// Vía recomendada por la revisión de mercado (SOPHIE/U. Rochester): el afecto se
+// realiza con PALABRAS, ritmo y pausas (no audio tags → cero latencia, sin
+// deriva de acento, funciona en el modelo rápido). Traduce las 5 variables del
+// motor a una directiva breve de "cómo suenas" este turno.
+function buildVoiceProsody(s: ClinicalState): string {
+  const cues: string[] = [];
+  if (s.sintomatologia >= 7) cues.push("hoy el ánimo te pesa: voz más apagada y cansada, frases que se te apagan al final, algún 'uf…' hablado y pausas antes de responder");
+  else if (s.sintomatologia <= 3) cues.push("te sientes algo más aliviado: la voz un poco más ligera");
+  if (s.apertura_emocional <= 3) cues.push("te cuesta abrirte: respuestas breves y contenidas, tiendes a minimizar ('no es nada', 'estoy bien')");
+  else if (s.apertura_emocional >= 7) cues.push("estás más abierto: te permites nombrar lo que sientes y a ratos se te quiebra un poco la voz");
+  if (s.resistencia >= 7) cues.push("estás a la defensiva: algo cortante y seco, frases cortas, cierta desconfianza");
+  if (s.alianza >= 7) cues.push("hay confianza con el terapeuta: tono más cercano y colaborador");
+  else if (s.alianza <= 3) cues.push("todavía no confías del todo: distante y algo formal");
+  if (s.disposicion_cambio <= 3) cues.push("escéptico de que esto sirva ('no sé para qué…')");
+  if (!cues.length) return "";
+  return `\n\n[TONO EMOCIONAL DE ESTE TURNO — cómo SUENAS]\nExpresa esto SOLO con palabras, ritmo y pausas (nunca con acotaciones ni describiéndolo): ${cues.join("; ")}. No lo declares ("estoy a la defensiva"); que se note en CÓMO hablas.\n`;
+}
+
 export async function POST(req: NextRequest) {
   // 1. Auth: shared secret between ElevenLabs and us.
   const secret = process.env.VOICE_LLM_SECRET;
@@ -264,6 +283,7 @@ export async function POST(req: NextRequest) {
   const deltas = calculateDeltas(interventionType, currentState);
   const newState = applyDeltas(currentState, deltas);
   const statePrompt = buildStatePrompt(newState);
+  const prosody = buildVoiceProsody(newState);
 
   const sessionNumber: number | null = convRow?.session_number ?? null;
   const memoryText = mem.text;
@@ -283,7 +303,7 @@ export async function POST(req: NextRequest) {
   const basePrompt = buildEnrichedPrompt(patient);
   const systemPrompt =
     safety + basePrompt + THERAPIST_CONTEXT + timeContext + therapistNameRule + memoryText +
-    statePrompt + pacingRules + ragContext +
+    statePrompt + prosody + pacingRules + ragContext +
     "\n\n[REGLA ANTI-REPETICIÓN]\nNUNCA repitas ni parafrasees una respuesta que ya diste. Si no hay nada nuevo que aportar, mejor haz una pregunta breve y distinta.\n" +
     safety;
 
