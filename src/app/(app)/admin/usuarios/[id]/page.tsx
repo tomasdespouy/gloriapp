@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminContext } from "@/lib/admin-helpers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -54,6 +55,20 @@ export default async function UserDetailPage({
     : "—";
 
   const currentEstName = establishments?.find((e) => e.id === userProfile.establishment_id)?.name || "Sin asignar";
+
+  // Alcance actual del admin (de admin_establishments) para pre-cargar el form.
+  // null = "Sin asignar" (sin fila = no ve nada); course/section NULL = "Todas".
+  let currentAdminScope: { course_id: string | null; section_id: string | null } | null = null;
+  if (userProfile.role === "admin" && userProfile.establishment_id) {
+    const { data: ae } = await createAdminClient()
+      .from("admin_establishments")
+      .select("course_id, section_id")
+      .eq("admin_id", id)
+      .eq("establishment_id", userProfile.establishment_id)
+      .limit(1)
+      .maybeSingle();
+    currentAdminScope = ae ? { course_id: ae.course_id ?? null, section_id: ae.section_id ?? null } : null;
+  }
 
   return (
     <div className="min-h-screen">
@@ -113,6 +128,7 @@ export default async function UserDetailPage({
             currentEstablishmentId={userProfile.establishment_id}
             currentCourseId={userProfile.course_id}
             currentSectionId={userProfile.section_id}
+            currentAdminScope={currentAdminScope}
             establishments={establishments || []}
           />
         )}

@@ -10,11 +10,14 @@ type Props = {
   currentEstablishmentId: string | null;
   currentCourseId: string | null;
   currentSectionId: string | null;
+  currentAdminScope: { course_id: string | null; section_id: string | null } | null;
   establishments: { id: string; name: string }[];
 };
 
 type Course = { id: string; name: string; code: string | null };
 type Section = { id: string; name: string };
+
+const ALL = "__ALL__"; // opción "Todas" (para el alcance de un admin)
 
 export default function UserDetailClient({
   userId,
@@ -23,14 +26,24 @@ export default function UserDetailClient({
   currentEstablishmentId,
   currentCourseId,
   currentSectionId,
+  currentAdminScope,
   establishments,
 }: Props) {
   const router = useRouter();
   const [fullName, setFullName] = useState(currentFullName);
   const [role, setRole] = useState(currentRole);
   const [estId, setEstId] = useState(currentEstablishmentId || "");
-  const [courseId, setCourseId] = useState(currentCourseId || "");
-  const [sectionId, setSectionId] = useState(currentSectionId || "");
+  // Para un ADMIN el alcance vive en admin_establishments (no en el perfil):
+  //   sin fila → "" (Sin asignar = no ve nada); course NULL → ALL (Todas); si no, el curso.
+  const [courseId, setCourseId] = useState(
+    currentRole === "admin"
+      ? (currentAdminScope === null ? "" : currentAdminScope.course_id === null ? ALL : currentAdminScope.course_id)
+      : (currentCourseId || ""),
+  );
+  const [sectionId, setSectionId] = useState(
+    currentRole === "admin" ? (currentAdminScope?.section_id || "") : (currentSectionId || ""),
+  );
+  const isAdmin = role === "admin";
   const [courses, setCourses] = useState<Course[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(false);
@@ -43,13 +56,13 @@ export default function UserDetailClient({
       .then((r) => r.json())
       .then((data) => {
         setCourses(data);
-        if (!data.find((c: Course) => c.id === courseId)) { setCourseId(""); setSections([]); setSectionId(""); }
+        if (courseId !== ALL && !data.find((c: Course) => c.id === courseId)) { setCourseId(""); setSections([]); setSectionId(""); }
       });
   }, [estId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load sections when course changes
+  // Load sections when course changes ("Todas"/vacío no cargan secciones).
   useEffect(() => {
-    if (!courseId) { setSections([]); setSectionId(""); return; }
+    if (!courseId || courseId === ALL) { setSections([]); setSectionId(""); return; }
     fetch(`/api/admin/sections?course_id=${courseId}`)
       .then((r) => r.json())
       .then((data) => {
@@ -69,8 +82,15 @@ export default function UserDetailClient({
         full_name: fullName.trim() || null,
         role,
         establishment_id: estId || null,
-        course_id: courseId || null,
-        section_id: sectionId || null,
+        // El curso/sección del PERFIL solo aplica a no-admins. Para un admin, su
+        // asignatura/sección es su ALCANCE y va a admin_establishments (abajo).
+        course_id: isAdmin ? null : (courseId && courseId !== ALL ? courseId : null),
+        section_id: isAdmin ? null : (sectionId || null),
+        admin_scope: isAdmin ? {
+          assigned: courseId !== "",                                  // "" = Sin asignar (no ve nada)
+          course_id: courseId === ALL ? null : (courseId || null),    // ALL = Todas
+          section_id: (courseId && courseId !== ALL) ? (sectionId || null) : null,
+        } : undefined,
       }),
     });
 
@@ -168,11 +188,23 @@ export default function UserDetailClient({
               <label className="block text-xs font-medium text-gray-600 mb-1">Asignatura</label>
               <select value={courseId} onChange={(e) => setCourseId(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white hover:border-gray-300 cursor-pointer">
-                <option value="">Sin asignar</option>
+                {isAdmin ? (
+                  <>
+                    <option value={ALL}>Todas las asignaturas</option>
+                    <option value="">Sin asignar (no ve nada)</option>
+                  </>
+                ) : (
+                  <option value="">Sin asignar</option>
+                )}
                 {courses.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ""}</option>
                 ))}
               </select>
+              {isAdmin && (
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Define QUÉ ve/administra el admin: Todas = todo el establecimiento; una asignatura/sección = solo eso; Sin asignar = no ve nada.
+                </p>
+              )}
               <div className="flex items-center gap-2 mt-1.5">
                 <input type="text" value={newCourse} onChange={(e) => setNewCourse(e.target.value)}
                   placeholder="Nueva asignatura..." className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs" />
@@ -182,13 +214,13 @@ export default function UserDetailClient({
             </div>
           )}
 
-          {/* Sección */}
-          {courseId && (
+          {/* Sección (no aplica cuando la asignatura es "Todas") */}
+          {courseId && courseId !== ALL && (
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Sección</label>
               <select value={sectionId} onChange={(e) => setSectionId(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white hover:border-gray-300 cursor-pointer">
-                <option value="">Sin asignar</option>
+                <option value="">{isAdmin ? "Todas las secciones" : "Sin asignar"}</option>
                 {sections.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}

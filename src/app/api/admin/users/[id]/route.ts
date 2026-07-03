@@ -31,7 +31,7 @@ export async function PATCH(
   }
 
   const body = await request.json();
-  const { full_name, role, establishment_id, course_id, section_id, is_disabled } = body;
+  const { full_name, role, establishment_id, course_id, section_id, is_disabled, admin_scope } = body;
 
   const updates: Record<string, unknown> = {};
   if (full_name !== undefined) updates.full_name = full_name;
@@ -57,6 +57,25 @@ export async function PATCH(
       ban_duration: is_disabled ? "876000h" : "none",
     });
     if (banErr) console.error("[admin/users] ban/unban error:", banErr.message);
+  }
+
+  // Alcance del ADMIN (asignatura/sección): vive en admin_establishments, NO en
+  // profiles. El form envía `admin_scope` solo cuando el usuario es admin.
+  //   assigned=false → "Sin asignar" (no ve nada) → se borra su fila.
+  //   assigned=true, course/section NULL → "Todas" (todo el establecimiento).
+  if (admin_scope && role === "admin" && establishment_id) {
+    await adminClient.from("admin_establishments").delete().eq("admin_id", id).eq("establishment_id", establishment_id);
+    if (admin_scope.assigned) {
+      let scopeCourse: string | null = admin_scope.course_id ?? null;
+      const scopeSection: string | null = admin_scope.section_id ?? null;
+      if (scopeSection && !scopeCourse) {
+        const { data: sec } = await adminClient.from("sections").select("course_id").eq("id", scopeSection).maybeSingle();
+        scopeCourse = sec?.course_id ?? null;
+      }
+      await adminClient.from("admin_establishments").insert({
+        admin_id: id, establishment_id, course_id: scopeCourse, section_id: scopeSection,
+      });
+    }
   }
 
   await logAdminAction({
