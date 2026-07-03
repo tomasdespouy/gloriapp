@@ -44,6 +44,11 @@ export async function GET() {
 // Fallback for the prototype: [QA] Sandbox — Carlos (staging).
 const SANDBOX_PATIENT_ID = "16d8d543-dd2d-4ae2-b8f9-5947e8af0b88";
 
+// Cerebro de VOZ: modelo más rápido al PRIMER TOKEN para minimizar el aire
+// muerto ("conteste" antes, no "hable" más rápido). Medido: gpt-4.1-nano ~40%
+// menos TTFT que gpt-4.1-mini. Overridable por env si la calidad no alcanza.
+const VOICE_BRAIN_MODEL = process.env.VOICE_CHAT_MODEL || "gpt-4.1-nano";
+
 // En VOZ la latencia al primer token importa mucho (aire muerto). Recortamos el
 // transcripto crudo de la última sesión en la memoria (los resúmenes van
 // completos igual) para achicar el prompt y responder más rápido.
@@ -338,7 +343,7 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const strip = makeStageDirectionStripper(useTags);
       try {
-        const reader = chatStream(history, voicePrompt).getReader();
+        const reader = chatStream(history, voicePrompt, VOICE_BRAIN_MODEL).getReader();
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;

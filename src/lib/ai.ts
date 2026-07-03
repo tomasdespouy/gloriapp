@@ -93,15 +93,17 @@ export async function chat(
  */
 export function chatStream(
   messages: ChatMessage[],
-  systemPrompt?: string
+  systemPrompt?: string,
+  model?: string
 ): ReadableStream<string> {
+  const chosen = model || chatModel;
   const primary = primaryProvider === "openai"
-    ? () => chatStreamOpenAI(messages, systemPrompt, chatModel)
+    ? () => chatStreamOpenAI(messages, systemPrompt, chosen)
     : () => chatStreamGemini(messages, systemPrompt);
 
   const secondary = primaryProvider === "openai"
     ? () => chatStreamGemini(messages, systemPrompt)
-    : () => chatStreamOpenAI(messages, systemPrompt, chatModel);
+    : () => chatStreamOpenAI(messages, systemPrompt, chosen);
 
   return new ReadableStream({
     async start(controller) {
