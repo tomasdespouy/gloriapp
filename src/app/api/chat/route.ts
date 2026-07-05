@@ -64,6 +64,10 @@ export async function POST(request: NextRequest) {
   // that needs a single "current" string uses the last element.
   const userMessages: string[] = body.messages?.length ? body.messages : [body.message!];
   const message = userMessages[userMessages.length - 1];
+  // Ancla del turno para el "delay de pensar": incluye cargas + juez LLM, así el
+  // delay se descuenta/omite si ya esperamos mucho (evita que el juez y el delay
+  // se apilen en los turnos con keyword).
+  const turnStart = Date.now();
   let conversationId = body.conversationId;
 
   // 3. Fetch patient (cached 10 min — prompts rarely change)
@@ -515,11 +519,11 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
 
   const systemPrompt = safetyPrompt + basePrompt + timeContext + therapistContext + memoryResult.text
     + statePrompt
-    + questioningRule
+    + (sessionEndsNow ? "" : questioningRule)
     + firstTurnRule
     + introductionRule
     + selfIntroductionRule
-    + nameEsc.rule
+    + (sessionEndsNow ? "" : nameEsc.rule)
     + (sessionEndsNow ? "" : closingAppointmentRule)
     + therapistNameRule
     + ruptureRule
@@ -605,7 +609,7 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
         // Artificial thinking delay before the first token. Skipped if
         // the rest of the route already took longer than the ceiling
         // (e.g. cold cache, slow memory load) so waits don't stack.
-        const elapsedSoFar = Date.now() - streamStart;
+        const elapsedSoFar = Date.now() - turnStart;
         const wait = thinkingDelayFor(pacingProfile, elapsedSoFar);
         if (wait > 0) {
           await new Promise((r) => setTimeout(r, wait));
