@@ -465,7 +465,7 @@ Lo que el terapeuta acaba de escribir es hostil, amenazante o irrespetuoso hacia
   // contradictorias). Y NO se retira en el turno 1 (un primer mensaje
   // fragmentado por el debounce no debe cerrar la sesión de entrada).
   const rupturingElsewhere = isRupture || nameEsc.rupture;
-  const unprofWithdraw = unprof.action === "withdraw" && turnNumber >= 2 && !rupturingElsewhere;
+  const unprofWithdraw = unprof.action === "withdraw" && unprofNow && turnNumber >= 2 && !rupturingElsewhere;
   const unprofRule = rupturingElsewhere
     ? ""
     : unprofWithdraw

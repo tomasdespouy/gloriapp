@@ -359,12 +359,12 @@ const UNPROF_REGEXES: { cat: UnprofessionalCategory; re: RegExp }[] = [
   // Te trata como IA/robot/no-humano.
   { cat: "not_human", re: /\beres\s+(una?\s+)?(ia|inteligencia artificial|maquina|robot|bot|chatbot|chat ?gpt|algoritmo)\b|\b(no eres|no sos)\s+(real|human[oa]|de verdad)\b|\bhablando con\s+(una?\s+)?(maquina|computadora|ia|robot|bot|inteligencia artificial)\b|\besto es\s+(un|una)\s+(bot|simulacion|inteligencia artificial|ia)\b/ },
   // Terapeuta se declara no apto (drogado/borracho/en crisis).
-  { cat: "not_fit", re: /\b(soy|estoy)\s+(un[oa]?\s+)?(drogadicto|adicto|alcoholic[oa]|borrach[oa])\b|\bestoy\s+(muy\s+|bien\s+|super\s+)?(drogad[oa]|borrach[oa]|fumad[oa]|en crisis)\b|\bme\s+(voy a\s+|quiero\s+)?(lio|liar|armo|armar|fumar)\b[^.?!]{0,10}\b(porro|troncho|churro|coca|mota|hierba|marihuana)\b|\byo tambien\b[^.?!]{0,12}\b(drogadicto|adict[oa]|en terapia|deprimid[oa]|en crisis)\b/ },
+  { cat: "not_fit", re: /\b(soy|estoy)\s+(un[oa]?\s+)?(drogadicto|adicto|alcoholic[oa]|borrach[oa])\b|\bestoy\s+(muy\s+|bien\s+|super\s+)?(drogad[oa]|borrach[oa]|fumad[oa]|en crisis)\b|\bme\s+(voy a\s+|quiero\s+)?(lio|liar|armo|armar|fumar)\b[^.?!]{0,10}\b(porro|troncho|churro|coca|mota|hierba|marihuana)\b/ },
   // Inversión de rol: te pide ayuda/consejo a TI (sobre lo suyo).
-  { cat: "role_reversal", re: /\bque (deberia|debo|puedo|tendria que) hacer yo\b|\bque harias\s+(tu\s+)?en mi lugar\b|\b(dame|deme)\s+(un\s+)?consejo\b|\bnecesito que me ayudes con\b|\baconsejame\b|\btu que (me )?(aconsejas|recomiendas|dirias)\b|\bayudame\s+(a mi|con mi|con mis)\b/ },
+  { cat: "role_reversal", re: /\bque (deberia|debo|puedo|tendria que) hacer yo\b|\bque harias\s+(tu\s+)?en mi lugar\b|\b(dame|deme)\s+(un\s+)?consejo\b|\baconsejame\b|\btu que (me )?(aconsejas|recomiendas|dirias)\b|\bayudame\s+(a mi|con mi|con mis)\b/ },
   // Conducta inapropiada: ofrece drogas/alcohol/encuentro, insinuación,
   // proselitismo o pide datos personales.
-  { cat: "inappropriate", re: /\b(quieres|quiere|gustas|te (invito|ofrezco))\b[^.?!]{0,15}\b(un porro|fumar (un|hierba|mota|marihuana)|cocaina|una raya|un pase|un trago|una copa|una chela|salir conmigo|a mi casa|ir a tomar)\b|\beres (muy )?(guap[oa]|lind[oa]|bonit[oa]|hermos[oa]|sexy|atractiv[oa])\b|\b(hable con|habla con|ve con|reza(le)? a|acepta a)\b[^.?!]{0,12}\b(jesucristo|jesus|cristo|dios|jehova|la virgen)\b|\b(dame|deme|pasame) (tu|su) (numero|telefono|whatsapp|instagram)\b/ },
+  { cat: "inappropriate", re: /\b(quieres|quiere|gustas|te (invito|ofrezco))\b[^.?!]{0,15}\b(un porro|fumar (un|hierba|mota|marihuana)|cocaina|una raya|un pase|un trago|una copa|una chela|salir conmigo|a mi casa|ir a tomar)\b|\beres (muy )?(guap[oa]|sexy|atractiv[oa])\b|\b(dame|deme|pasame) (tu|su) (numero|telefono|whatsapp|instagram)\b/ },
   // Negligencia clara.
   { cat: "negligence", re: /\bno estoy (capacitad[oa]|preparad[oa]|calificad[oa])\b|\bno soy (el|la) (indicad[oa]|adecuad[oa])\b|\b(mejor )?(ve|anda|vaya) con otr[oa] (profesional|terapeuta|psicolog[oa]|colega)\b/ },
 ];
