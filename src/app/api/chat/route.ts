@@ -469,9 +469,9 @@ Lo que el terapeuta acaba de escribir es hostil, amenazante o irrespetuoso hacia
   const unprofNow = judged.unprofessional;
   const prevUnprofCount = (convRow?.unprofessional_count as number | undefined) || 0;
   const unprofCount = prevUnprofCount + (unprofNow ? 1 : 0);
-  if (unprofNow) {
-    await supabase.from("conversations").update({ unprofessional_count: unprofCount }).eq("id", conversationId);
-  }
+  // El conteo se PERSISTE recién al completar el turno (más abajo, junto al
+  // state_log), NO aquí: si el turno falla y el alumno reenvía el mismo mensaje,
+  // no se cuenta la misma falta dos veces.
   const unprofAction = unprofessionalActionFor(unprofCount, patient.difficulty_level);
   // La ruptura por hostilidad/nombre tiene PRECEDENCIA (evita reglas
   // contradictorias). Y no se retira en el turno 1.
@@ -520,7 +520,7 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
     + introductionRule
     + selfIntroductionRule
     + nameEsc.rule
-    + closingAppointmentRule
+    + (sessionEndsNow ? "" : closingAppointmentRule)
     + therapistNameRule
     + ruptureRule
     + unprofRule
@@ -821,6 +821,12 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
           delta_disposicion: deltas.disposicion_cambio || 0,
           patient_response: patientResponse.slice(0, 1000),
         }); // Non-blocking state log
+
+        // Persistir la falta antiprofesional SOLO ahora (turno completado, no en
+        // el path retryFailed) para que un reenvío tras un fallo no la duplique.
+        if (unprofNow) {
+          await supabase.from("conversations").update({ unprofessional_count: unprofCount }).eq("id", conversationId);
+        }
 
         // Performance metrics
         logger.metric("chat_response", {

@@ -27,7 +27,7 @@ interface Message {
 
 // Cierre "correcto" de una sesión: hubo despedida O se acordó una próxima cita.
 // Si al finalizar no hubo ninguno de los dos, se avisa del impacto en el vínculo.
-const FAREWELL_RE = /\b(chau|chao|adi[oó]s|nos vemos|hasta (luego|pronto|la pr[oó]xima|ma[ñn]ana)|me despido|me tengo que ir|gracias por (todo|hoy|la sesi[oó]n|tu tiempo|su tiempo)|que (le|te) vaya bien|cu[ií]d(ate|ese)|buena semana|linda semana)\b/i;
+const FAREWELL_RE = /\b(chau|chao|adi[oó]s|nos vemos|hasta (luego|pronto|la pr[oó]xima|ma[ñn]ana)|me despido|me tengo que ir|gracias por (la sesi[oó]n|tu tiempo|su tiempo|atenderme)|que (le|te) vaya bien|cu[ií]d(ate|ese)|(buena|linda) semana)\b/i;
 // Contexto de CITA (no una mención cualquiera de un día: "el lunes fui al médico"
 // no cuenta). Requiere intención de agendar / volver a vernos.
 const APPOINTMENT_RE = /\b(pr[oó]xima (sesi[oó]n|semana|cita|vez)|la semana que viene|la otra semana|nos vemos (el|la|pronto|la pr[oó]xima)|te veo (el|la|la pr[oó]xima)|agend(emos|amos|ar|ate|are)|volvemos a vernos|siguiente (sesi[oó]n|cita))\b/i;
