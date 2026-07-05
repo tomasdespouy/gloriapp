@@ -30,7 +30,7 @@ interface Message {
 const FAREWELL_RE = /\b(chau|chao|adi[oó]s|nos vemos|hasta (luego|pronto|la pr[oó]xima|ma[ñn]ana)|me despido|me tengo que ir|gracias por (la sesi[oó]n|tu tiempo|su tiempo|atenderme)|que (le|te) vaya bien|cu[ií]d(ate|ese)|(buena|linda) semana)\b/i;
 // Contexto de CITA (no una mención cualquiera de un día: "el lunes fui al médico"
 // no cuenta). Requiere intención de agendar / volver a vernos.
-const APPOINTMENT_RE = /\b(pr[oó]xima (sesi[oó]n|semana|cita|vez)|la semana que viene|la otra semana|nos vemos (el|la|pronto|la pr[oó]xima)|te veo (el|la|la pr[oó]xima)|agend(emos|amos|ar|ate|are)|volvemos a vernos|siguiente (sesi[oó]n|cita))\b/i;
+const APPOINTMENT_RE = /\b(pr[oó]xima (sesi[oó]n|cita)|siguiente (sesi[oó]n|cita)|nos vemos (el|la|pronto|la pr[oó]xima)|te veo (el|la|la pr[oó]xima)|agend(emos|amos|ar|ate|are)|volvemos a vernos)\b/i;
 
 interface ChatInterfaceProps {
   patient: Patient;
@@ -607,10 +607,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             autoPlayTtsAndResumeMic(data.message, msgIdx);
           }
 
-          // Session closed by patient — show disconnect modal
+          // Session closed by patient — show disconnect modal. Marca la sesión
+          // como TERMINADA (igual que la ruptura): sin esto el input queda vivo y
+          // el alumno podía "revivir" al paciente presionando Enter.
           if (data.sessionClosed) {
             if (voiceModeRef.current) stopVoiceMode();
             clearSilenceTimers();
+            sessionEndedRef.current = true;
+            setSessionEnded(true);
             setShowDisconnect(true);
           }
         }
@@ -1331,7 +1335,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     // Solo cuenta el cierre hecho por el ALUMNO (sus últimos mensajes): que él se
     // haya despedido o acordado una próxima cita. La despedida del paciente no
     // exime al alumno de cerrar bien.
-    const recent = messages.slice(-10).filter((m) => m.role === "user").map((m) => m.content).join("  ");
+    const recent = messages.filter((m) => m.role === "user").slice(-4).map((m) => m.content).join("  ");
     return FAREWELL_RE.test(recent) || APPOINTMENT_RE.test(recent);
   };
   // Intento de finalizar desde el modal de confirmación: si hubo intercambio
