@@ -340,6 +340,65 @@ export function detectSessionRupture(text: string): RuptureCheck {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Conducta ANTIPROFESIONAL del terapeuta (distinta de la hostilidad)
+// ─────────────────────────────────────────────────────────────────────
+//
+// Aquí el terapeuta NO agrede al paciente, pero rompe el encuadre: se
+// declara no apto, invierte roles (te pide ayuda a TI), conducta
+// inapropiada, o te trata como si no fueras una persona real (IA/robot).
+// Alimenta un contador; según el nivel del paciente primero se ADVIERTE y
+// luego el paciente se RETIRA (por pérdida de confianza, no por miedo).
+export type UnprofessionalCategory =
+  | "not_human" | "not_fit" | "role_reversal" | "inappropriate" | "negligence";
+
+const UNPROF_REGEXES: { cat: UnprofessionalCategory; re: RegExp }[] = [
+  { cat: "not_human", re: /\b(no eres|no sos)\s+(real|human[oa]|de verdad|una persona)\b|\b(eres|sos|hablando con|esto es)\b[^.?!]{0,18}\b(ia|inteligencia artificial|maquina|robot|bot|chatbot|chat ?gpt|gpt|programa|computadora|algoritmo|simulacion)\b/ },
+  { cat: "not_fit", re: /\b(soy|estoy|ando)\b[^.?!]{0,18}\b(drogadicto|adicto|alcoholic[oa]|borrach[oa]|drogad[oa]|pasad[oa]|fumad[oa]|en crisis)\b|\bme\s+(voy a\s+|quiero\s+)?(lio|liar|armo|armar|fumo|fumar)\b[^.?!]{0,12}\b(porro|troncho|churro|cigarro|coca|mota|hierba)\b|\byo tambien\b[^.?!]{0,12}\b(deprimid[oa]|en terapia|fatal)\b/ },
+  { cat: "role_reversal", re: /\b(ayudame|ayudeme|aconsejame|aconsejeme)\b|\bque (deberia|debo|puedo|tendria que) hacer yo\b|\bque harias (tu )?en mi lugar\b|\b(dame|deme) (un )?consejo\b|\bnecesito que me ayudes\b|\btu que (me )?(aconsejas|recomiendas|dirias)\b/ },
+  { cat: "inappropriate", re: /\b(quieres|quiere|te (invito|ofrezco)|gustas)\b[^.?!]{0,18}\b(fumar|probar|un trago|una copa|salir conmigo|a mi casa)\b|\beres (muy )?(guap[oa]|lind[oa]|bonit[oa]|hermos[oa]|sexy)\b|\b(hable con|habla con|ve con|reza(le)? a|acepta a)\b[^.?!]{0,12}\b(jesucristo|jesus|cristo|dios|jehova|la virgen)\b|\b(dame|deme|pasame) (tu|su) (numero|telefono|whatsapp|instagram)\b/ },
+  { cat: "negligence", re: /\bno estoy (capacitad[oa]|preparad[oa]|calificad[oa])\b|\bno soy (el|la) (indicad[oa]|adecuad[oa])\b|\b(mejor )?(ve|anda|vaya) con otr[oa] (profesional|terapeuta|psicolog[oa]|colega)\b/ },
+];
+
+/** Detecta conducta antiprofesional en un mensaje del terapeuta. */
+export function detectUnprofessional(text: string): UnprofessionalCategory | null {
+  if (!text) return null;
+  const n = normalize(text);
+  for (const { cat, re } of UNPROF_REGEXES) {
+    if (re.test(n)) return cat;
+  }
+  return null;
+}
+
+// Paciencia por nivel: se AVISA al llegar a `warn` y se RETIRA en `leave`.
+const UNPROF_THRESHOLDS: Record<string, { warn: number; leave: number }> = {
+  beginner: { warn: 3, leave: 4 }, principiante: { warn: 3, leave: 4 },
+  intermediate: { warn: 2, leave: 3 }, intermedio: { warn: 2, leave: 3 },
+  advanced: { warn: 1, leave: 2 }, avanzado: { warn: 1, leave: 2 },
+};
+
+export type UnprofessionalVerdict = {
+  action: "none" | "warn" | "withdraw";
+  count: number;
+  category: UnprofessionalCategory | null;
+};
+
+/** Evalúa TODOS los mensajes del terapeuta y decide advertir/retirar según nivel. */
+export function evaluateUnprofessional(
+  therapistMessages: string[],
+  difficulty: string | null | undefined,
+): UnprofessionalVerdict {
+  let count = 0;
+  let category: UnprofessionalCategory | null = null;
+  for (const m of therapistMessages) {
+    const cat = detectUnprofessional(m);
+    if (cat) { count++; category = cat; }
+  }
+  const th = UNPROF_THRESHOLDS[(difficulty || "intermediate").toLowerCase()] || UNPROF_THRESHOLDS.intermediate;
+  const action = count >= th.leave ? "withdraw" : count >= th.warn ? "warn" : "none";
+  return { action, count, category };
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Truncation heuristic — detects "obvious cuts", not short responses
 // ─────────────────────────────────────────────────────────────────────
 //
