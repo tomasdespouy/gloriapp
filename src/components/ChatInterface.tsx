@@ -1338,7 +1338,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // real (>=6 mensajes) pero sin cierre correcto, primero muestra el aviso de
   // vínculo; si no, finaliza directo.
   const confirmEnd = () => {
-    if (messages.length >= 6 && !hasProperClosure()) {
+    // Si la sesión ya terminó (p.ej. quiebre por anti-distracción o ruptura del
+    // paciente), no tiene sentido el aviso de vínculo sobre una sesión muerta.
+    if (!sessionEnded && messages.length >= 6 && !hasProperClosure()) {
       setShowEndConfirm(false);
       setShowAbruptWarning(true);
       return;

@@ -386,26 +386,18 @@ const UNPROF_THRESHOLDS: Record<string, { warn: number; leave: number }> = {
   advanced: { warn: 1, leave: 2 }, avanzado: { warn: 1, leave: 2 },
 };
 
-export type UnprofessionalVerdict = {
-  action: "none" | "warn" | "withdraw";
-  count: number;
-  category: UnprofessionalCategory | null;
-};
-
-/** Evalúa TODOS los mensajes del terapeuta y decide advertir/retirar según nivel. */
-export function evaluateUnprofessional(
-  therapistMessages: string[],
+/**
+ * Acción según el conteo de faltas CONFIRMADAS (por el juez LLM) y el nivel del
+ * paciente. El conteo se persiste en la conversación; aquí solo se mapea a
+ * "none"/"warn"/"withdraw". `detectUnprofessional` sigue siendo el PRE-FILTRO
+ * barato que decide si vale la pena consultar al juez.
+ */
+export function unprofessionalActionFor(
+  count: number,
   difficulty: string | null | undefined,
-): UnprofessionalVerdict {
-  let count = 0;
-  let category: UnprofessionalCategory | null = null;
-  for (const m of therapistMessages) {
-    const cat = detectUnprofessional(m);
-    if (cat) { count++; category = cat; }
-  }
+): "none" | "warn" | "withdraw" {
   const th = UNPROF_THRESHOLDS[(difficulty || "intermediate").toLowerCase()] || UNPROF_THRESHOLDS.intermediate;
-  const action = count >= th.leave ? "withdraw" : count >= th.warn ? "warn" : "none";
-  return { action, count, category };
+  return count >= th.leave ? "withdraw" : count >= th.warn ? "warn" : "none";
 }
 
 // ─────────────────────────────────────────────────────────────────────

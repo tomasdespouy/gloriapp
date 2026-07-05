@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat, chatStream, type ChatMessage } from "@/lib/ai";
-import { detectAlerts, isLikelyTruncated, stripPromptLeaks, detectSessionRupture, evaluateUnprofessional, detectUnprofessional, type AlertSpec } from "@/lib/chat-alerts";
+import { detectAlerts, isLikelyTruncated, stripPromptLeaks, detectSessionRupture, unprofessionalActionFor, detectUnprofessional, type AlertSpec, type UnprofessionalCategory } from "@/lib/chat-alerts";
+import { judgeUnprofessional } from "@/lib/unprofessional-judge";
 import { z } from "zod";
 import {
   classifyIntervention, calculateDeltas, applyDeltas,
@@ -212,7 +213,7 @@ Reglas de oro:
       .order("created_at", { ascending: false })
       .limit(MAX_HISTORY),
     memoryPromise,
-    supabase.from("conversations").select("prompt_snapshot, session_number").eq("id", conversationId).single(),
+    supabase.from("conversations").select("prompt_snapshot, session_number, unprofessional_count").eq("id", conversationId).single(),
   ]);
 
   let chronological = (history || []).reverse();
@@ -458,14 +459,24 @@ Lo que el terapeuta acaba de escribir es hostil, amenazante o irrespetuoso hacia
   // Conducta ANTIPROFESIONAL del terapeuta (rompe el encuadre SIN agredir):
   // se cuenta a lo largo de la sesión y, según el nivel del paciente, primero
   // se ADVIERTE y luego el paciente se RETIRA por pérdida de confianza.
-  const unprof = evaluateUnprofessional(studentMessages, patient.difficulty_level);
-  // Falta cometida EN ESTE turno (para no arrastrar el aviso una vez corregido).
-  const unprofNow = userMessages.some((m) => detectUnprofessional(m) !== null);
+  // Conducta ANTIPROFESIONAL (híbrido): el pre-filtro por keywords decide si vale
+  // la pena preguntar; SOLO si dispara, el juez LLM confirma (distingue terapia
+  // legítima del reflejo/exploración, que las keywords no pueden separar). Máximo
+  // UNA falta por turno; el conteo se PERSISTE en la conversación.
+  const keywordHit = userMessages.some((m) => detectUnprofessional(m) !== null);
+  const judged: { unprofessional: boolean; category: UnprofessionalCategory | null } =
+    keywordHit ? await judgeUnprofessional(userMessages.join(" ")) : { unprofessional: false, category: null };
+  const unprofNow = judged.unprofessional;
+  const prevUnprofCount = (convRow?.unprofessional_count as number | undefined) || 0;
+  const unprofCount = prevUnprofCount + (unprofNow ? 1 : 0);
+  if (unprofNow) {
+    await supabase.from("conversations").update({ unprofessional_count: unprofCount }).eq("id", conversationId);
+  }
+  const unprofAction = unprofessionalActionFor(unprofCount, patient.difficulty_level);
   // La ruptura por hostilidad/nombre tiene PRECEDENCIA (evita reglas
-  // contradictorias). Y NO se retira en el turno 1 (un primer mensaje
-  // fragmentado por el debounce no debe cerrar la sesión de entrada).
+  // contradictorias). Y no se retira en el turno 1.
   const rupturingElsewhere = isRupture || nameEsc.rupture;
-  const unprofWithdraw = unprof.action === "withdraw" && unprofNow && turnNumber >= 2 && !rupturingElsewhere;
+  const unprofWithdraw = unprofAction === "withdraw" && unprofNow && turnNumber >= 2 && !rupturingElsewhere;
   const unprofRule = rupturingElsewhere
     ? ""
     : unprofWithdraw
@@ -475,7 +486,7 @@ El terapeuta ha tenido una conducta impropia o poco profesional de forma repetid
 - CIERRA la conversación: di que esto no te parece serio o profesional y que prefieres terminar la sesión acá.
 - NO sigas conversando, NO hagas preguntas, NO ofrezcas otra cita.
 - Ejemplo (NO literal): "Con todo respeto, esto no me parece serio. Prefiero dejar la sesión hasta acá."\n`
-      : ((unprof.action === "warn" || unprof.action === "withdraw") && unprofNow)
+      : ((unprofAction === "warn" || unprofAction === "withdraw") && unprofNow)
         ? `\n\n[CONDUCTA POCO PROFESIONAL DEL TERAPEUTA — reacciona EN PERSONAJE]
 Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se declara no apto, conducta inapropiada, o te trata como si no fueras real). Todavía no te retiras, pero:
 - Exprésalo como paciente: extrañeza o incomodidad, y una advertencia SUAVE de que si esto sigue así, preferirías terminar la sesión.
@@ -490,7 +501,7 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
     : nameEsc.rupture
       ? "name_evasion"
       : unprofWithdraw
-        ? `unprofessional: ${unprof.category ?? "?"} (x${unprof.count})`
+        ? `unprofessional: ${judged.category ?? "?"} (x${unprofCount})`
         : "";
 
   // Modular las preguntas del paciente por alianza (confianza terapéutica):
