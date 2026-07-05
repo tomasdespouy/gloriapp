@@ -28,7 +28,9 @@ interface Message {
 // Cierre "correcto" de una sesión: hubo despedida O se acordó una próxima cita.
 // Si al finalizar no hubo ninguno de los dos, se avisa del impacto en el vínculo.
 const FAREWELL_RE = /\b(chau|chao|adi[oó]s|nos vemos|hasta (luego|pronto|la pr[oó]xima|ma[ñn]ana)|me despido|me tengo que ir|gracias por (todo|hoy|la sesi[oó]n|tu tiempo|su tiempo)|que (le|te) vaya bien|cu[ií]d(ate|ese)|buena semana|linda semana)\b/i;
-const APPOINTMENT_RE = /\b(pr[oó]xima (sesi[oó]n|semana|cita|vez)|la semana que viene|la otra semana|nos vemos (el|la)|el (lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)|agend|volvemos a vernos|siguiente (sesi[oó]n|cita))\b/i;
+// Contexto de CITA (no una mención cualquiera de un día: "el lunes fui al médico"
+// no cuenta). Requiere intención de agendar / volver a vernos.
+const APPOINTMENT_RE = /\b(pr[oó]xima (sesi[oó]n|semana|cita|vez)|la semana que viene|la otra semana|nos vemos (el|la|pronto|la pr[oó]xima)|te veo (el|la|la pr[oó]xima)|agend(emos|amos|ar|ate|are)|volvemos a vernos|siguiente (sesi[oó]n|cita))\b/i;
 
 interface ChatInterfaceProps {
   patient: Patient;
@@ -1326,7 +1328,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // Cierre "correcto": el estudiante se despidió o acordó una próxima cita en
   // los últimos turnos. Si no, al finalizar se le avisa del impacto en el vínculo.
   const hasProperClosure = () => {
-    const recent = messages.slice(-6).map((m) => m.content).join("  ");
+    // Solo cuenta el cierre hecho por el ALUMNO (sus últimos mensajes): que él se
+    // haya despedido o acordado una próxima cita. La despedida del paciente no
+    // exime al alumno de cerrar bien.
+    const recent = messages.slice(-10).filter((m) => m.role === "user").map((m) => m.content).join("  ");
     return FAREWELL_RE.test(recent) || APPOINTMENT_RE.test(recent);
   };
   // Intento de finalizar desde el modal de confirmación: si hubo intercambio

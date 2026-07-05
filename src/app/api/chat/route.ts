@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat, chatStream, type ChatMessage } from "@/lib/ai";
-import { detectAlerts, isLikelyTruncated, stripPromptLeaks, detectSessionRupture, evaluateUnprofessional, type AlertSpec } from "@/lib/chat-alerts";
+import { detectAlerts, isLikelyTruncated, stripPromptLeaks, detectSessionRupture, evaluateUnprofessional, detectUnprofessional, type AlertSpec } from "@/lib/chat-alerts";
 import { z } from "zod";
 import {
   classifyIntervention, calculateDeltas, applyDeltas,
@@ -459,16 +459,23 @@ Lo que el terapeuta acaba de escribir es hostil, amenazante o irrespetuoso hacia
   // se cuenta a lo largo de la sesión y, según el nivel del paciente, primero
   // se ADVIERTE y luego el paciente se RETIRA por pérdida de confianza.
   const unprof = evaluateUnprofessional(studentMessages, patient.difficulty_level);
-  const unprofWithdraw = unprof.action === "withdraw";
-  const unprofRule =
-    unprof.action === "withdraw"
+  // Falta cometida EN ESTE turno (para no arrastrar el aviso una vez corregido).
+  const unprofNow = userMessages.some((m) => detectUnprofessional(m) !== null);
+  // La ruptura por hostilidad/nombre tiene PRECEDENCIA (evita reglas
+  // contradictorias). Y NO se retira en el turno 1 (un primer mensaje
+  // fragmentado por el debounce no debe cerrar la sesión de entrada).
+  const rupturingElsewhere = isRupture || nameEsc.rupture;
+  const unprofWithdraw = unprof.action === "withdraw" && turnNumber >= 2 && !rupturingElsewhere;
+  const unprofRule = rupturingElsewhere
+    ? ""
+    : unprofWithdraw
       ? `\n\n[RETIRO POR CONDUCTA ANTIPROFESIONAL — PRIORIDAD MÁXIMA]
 El terapeuta ha tenido una conducta impropia o poco profesional de forma repetida (por ejemplo: se declara no apto, te pide ayuda a ti, conducta inapropiada, o te trata como si no fueras una persona real). Perdiste la confianza. Esta regla SOBREESCRIBE cualquier instrucción de largo o estilo.
 - Reacciona EN PERSONAJE con decepción o incomodidad (NO con miedo), de forma BREVE (1 o 2 frases).
 - CIERRA la conversación: di que esto no te parece serio o profesional y que prefieres terminar la sesión acá.
 - NO sigas conversando, NO hagas preguntas, NO ofrezcas otra cita.
 - Ejemplo (NO literal): "Con todo respeto, esto no me parece serio. Prefiero dejar la sesión hasta acá."\n`
-      : unprof.action === "warn"
+      : ((unprof.action === "warn" || unprof.action === "withdraw") && unprofNow)
         ? `\n\n[CONDUCTA POCO PROFESIONAL DEL TERAPEUTA — reacciona EN PERSONAJE]
 Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se declara no apto, conducta inapropiada, o te trata como si no fueras real). Todavía no te retiras, pero:
 - Exprésalo como paciente: extrañeza o incomodidad, y una advertencia SUAVE de que si esto sigue así, preferirías terminar la sesión.
