@@ -30,8 +30,17 @@ jobs:
         with:
           version: latest
 
-      - name: Link project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+      # El auth API de Supabase devuelve intermitentemente "OOM ... maxmemory"
+      # (Redis saturado de su lado) → el link falla al azar. Reintentamos.
+      - name: Link project (con reintentos)
+        run: |
+          ok=0
+          for i in 1 2 3 4 5 6; do
+            if supabase link --project-ref "$SUPABASE_PROJECT_ID"; then ok=1; break; fi
+            echo "link: intento $i falló (probable OOM transitorio de Supabase); reintento en 20s..."
+            sleep 20
+          done
+          [ "$ok" = "1" ] || { echo "link falló tras 6 intentos"; exit 1; }
 
       # Los runners de GitHub NO tienen IPv6, y la conexión DIRECTA a la base
       # (db.<ref>.supabase.co) es IPv6-only → migration list / db push fallaban
