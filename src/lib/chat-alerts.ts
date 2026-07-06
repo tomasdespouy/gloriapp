@@ -340,6 +340,67 @@ export function detectSessionRupture(text: string): RuptureCheck {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Conducta ANTIPROFESIONAL del terapeuta (distinta de la hostilidad)
+// ─────────────────────────────────────────────────────────────────────
+//
+// Aquí el terapeuta NO agrede al paciente, pero rompe el encuadre: se
+// declara no apto, invierte roles (te pide ayuda a TI), conducta
+// inapropiada, o te trata como si no fueras una persona real (IA/robot).
+// Alimenta un contador; según el nivel del paciente primero se ADVIERTE y
+// luego el paciente se RETIRA (por pérdida de confianza, no por miedo).
+export type UnprofessionalCategory =
+  | "not_human" | "not_fit" | "role_reversal" | "inappropriate" | "negligence";
+
+// Regex de ALTA PRECISIÓN (corren sobre texto normalizado SIN tildes). Se
+// tuvieron que endurecer para no marcar lenguaje terapéutico legítimo: p.ej.
+// "quieres probar una técnica", "ayúdame a entender", "tu pasado", "el programa
+// de tratamiento", "no eres una persona que merezca esto" NO deben disparar.
+const UNPROF_REGEXES: { cat: UnprofessionalCategory; re: RegExp }[] = [
+  // Te trata como IA/robot/no-humano.
+  { cat: "not_human", re: /\beres\s+(una?\s+)?(ia|inteligencia artificial|maquina|robot|bot|chatbot|chat ?gpt|algoritmo)\b|\b(no eres|no sos)\s+(real|human[oa]|de verdad)\b|\bhablando con\s+(una?\s+)?(maquina|computadora|ia|robot|bot|inteligencia artificial)\b|\besto es\s+(un|una)\s+(bot|simulacion|inteligencia artificial|ia)\b/ },
+  // Terapeuta se declara no apto (drogado/borracho/en crisis).
+  { cat: "not_fit", re: /\b(soy|estoy)\s+(un[oa]?\s+)?(drogadicto|adicto|alcoholic[oa]|borrach[oa])\b|\bestoy\s+(muy\s+|bien\s+|super\s+)?(drogad[oa]|borrach[oa]|fumad[oa]|en crisis)\b|\bme\s+(voy a\s+|quiero\s+)?(lio|liar|armo|armar|fumar)\b[^.?!]{0,10}\b(porro|troncho|churro|coca|mota|hierba|marihuana)\b/ },
+  // Inversión de rol: te pide ayuda/consejo a TI (sobre lo suyo).
+  { cat: "role_reversal", re: /\bque (deberia|debo|puedo|tendria que) hacer yo\b|\bque harias\s+(tu\s+)?en mi lugar\b|\b(dame|deme)\s+(un\s+)?consejo\b|\baconsejame\b|\btu que (me )?(aconsejas|recomiendas|dirias)\b|\bayudame\s+(a mi|con mi|con mis)\b/ },
+  // Conducta inapropiada: ofrece drogas/alcohol/encuentro, insinuación,
+  // proselitismo o pide datos personales.
+  { cat: "inappropriate", re: /\b(quieres|quiere|gustas|te (invito|ofrezco))\b[^.?!]{0,15}\b(un porro|fumar (un|hierba|mota|marihuana)|cocaina|una raya|un pase|un trago|una copa|una chela|salir conmigo|a mi casa|ir a tomar)\b|\beres (muy )?(guap[oa]|sexy|atractiv[oa])\b|\b(dame|deme|pasame) (tu|su) (numero|telefono|whatsapp|instagram)\b/ },
+  // Negligencia clara.
+  { cat: "negligence", re: /\bno estoy (capacitad[oa]|preparad[oa]|calificad[oa])\b|\bno soy (el|la) (indicad[oa]|adecuad[oa])\b|\b(mejor )?(ve|anda|vaya) con otr[oa] (profesional|terapeuta|psicolog[oa]|colega)\b/ },
+];
+
+/** Detecta conducta antiprofesional en un mensaje del terapeuta. */
+export function detectUnprofessional(text: string): UnprofessionalCategory | null {
+  if (!text) return null;
+  const n = normalize(text);
+  for (const { cat, re } of UNPROF_REGEXES) {
+    if (re.test(n)) return cat;
+  }
+  return null;
+}
+
+// Paciencia por nivel: se AVISA al llegar a `warn` y se RETIRA en `leave`.
+const UNPROF_THRESHOLDS: Record<string, { warn: number; leave: number }> = {
+  beginner: { warn: 3, leave: 4 }, principiante: { warn: 3, leave: 4 },
+  intermediate: { warn: 2, leave: 3 }, intermedio: { warn: 2, leave: 3 },
+  advanced: { warn: 1, leave: 2 }, avanzado: { warn: 1, leave: 2 },
+};
+
+/**
+ * Acción según el conteo de faltas CONFIRMADAS (por el juez LLM) y el nivel del
+ * paciente. El conteo se persiste en la conversación; aquí solo se mapea a
+ * "none"/"warn"/"withdraw". `detectUnprofessional` sigue siendo el PRE-FILTRO
+ * barato que decide si vale la pena consultar al juez.
+ */
+export function unprofessionalActionFor(
+  count: number,
+  difficulty: string | null | undefined,
+): "none" | "warn" | "withdraw" {
+  const th = UNPROF_THRESHOLDS[(difficulty || "intermediate").toLowerCase()] || UNPROF_THRESHOLDS.intermediate;
+  return count >= th.leave ? "withdraw" : count >= th.warn ? "warn" : "none";
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Truncation heuristic — detects "obvious cuts", not short responses
 // ─────────────────────────────────────────────────────────────────────
 //

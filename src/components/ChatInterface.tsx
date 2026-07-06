@@ -25,6 +25,13 @@ interface Message {
   created_at?: string;
 }
 
+// Cierre "correcto" de una sesión: hubo despedida O se acordó una próxima cita.
+// Si al finalizar no hubo ninguno de los dos, se avisa del impacto en el vínculo.
+const FAREWELL_RE = /\b(chau|chao|adi[oó]s|nos vemos|nos hablamos|hasta (luego|pronto|la pr[oó]xima|ma[ñn]ana)|me despido|me tengo que ir|gracias por (la sesi[oó]n|tu tiempo|su tiempo|atenderme)|que (le|te) vaya bien|cu[ií]d(ate|ese))\b/i;
+// Contexto de CITA (no una mención cualquiera de un día: "el lunes fui al médico"
+// no cuenta). Requiere intención de agendar / volver a vernos.
+const APPOINTMENT_RE = /\b(pr[oó]xima (sesi[oó]n|cita)|siguiente (sesi[oó]n|cita)|nos vemos (el|la|pronto|la pr[oó]xima)|te veo (el|la|la pr[oó]xima)|agend(emos|amos|ar|ate|are)|volvemos a vernos)\b/i;
+
 interface ChatInterfaceProps {
   patient: Patient;
   conversationId?: string;
@@ -118,6 +125,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [voiceMode, setVoiceMode] = useState(false);
   const [voiceSpeaking, setVoiceSpeaking] = useState(false); // true = audio playing, hide text
   const [showDisconnect, setShowDisconnect] = useState(false);
+  // Aviso de vínculo: el estudiante finaliza sin cierre correcto (sin despedida
+  // ni próxima cita). Cuadrante con la foto del paciente, igual que la desconexión.
+  const [showAbruptWarning, setShowAbruptWarning] = useState(false);
   // Ruptura/quiebre: el paciente cerró la sesión (hostilidad o nombre evadido).
   // Guarda la razón para mostrar un aviso centrado, igual que la desconexión.
   const [sessionEndInfo, setSessionEndInfo] = useState<{ reason: string } | null>(null);
@@ -597,10 +607,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             autoPlayTtsAndResumeMic(data.message, msgIdx);
           }
 
-          // Session closed by patient — show disconnect modal
+          // Session closed by patient — show disconnect modal. Marca la sesión
+          // como TERMINADA (igual que la ruptura): sin esto el input queda vivo y
+          // el alumno podía "revivir" al paciente presionando Enter.
           if (data.sessionClosed) {
             if (voiceModeRef.current) stopVoiceMode();
             clearSilenceTimers();
+            sessionEndedRef.current = true;
+            setSessionEnded(true);
             setShowDisconnect(true);
           }
         }
@@ -1273,7 +1287,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             // y mostramos un aviso centrado (igual que la desconexión por silencio).
             sessionEndedRef.current = true;
             setSessionEnded(true);
-            setSessionEndInfo({ reason: data.reason === "name_evasion" ? "name_evasion" : "rupture" });
+            setSessionEndInfo({ reason: data.reason === "name_evasion" ? "name_evasion" : data.reason === "unprofessional" ? "unprofessional" : "rupture" });
           }
         }
       }
@@ -1313,6 +1327,29 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  // Cierre "correcto": el estudiante se despidió o acordó una próxima cita en
+  // los últimos turnos. Si no, al finalizar se le avisa del impacto en el vínculo.
+  const hasProperClosure = () => {
+    // Solo cuenta el cierre hecho por el ALUMNO (sus últimos mensajes): que él se
+    // haya despedido o acordado una próxima cita. La despedida del paciente no
+    // exime al alumno de cerrar bien.
+    const recent = messages.filter((m) => m.role === "user").slice(-4).map((m) => m.content).join("  ");
+    return FAREWELL_RE.test(recent) || APPOINTMENT_RE.test(recent);
+  };
+  // Intento de finalizar desde el modal de confirmación: si hubo intercambio
+  // real (>=6 mensajes) pero sin cierre correcto, primero muestra el aviso de
+  // vínculo; si no, finaliza directo.
+  const confirmEnd = () => {
+    // Si la sesión ya terminó (p.ej. quiebre por anti-distracción o ruptura del
+    // paciente), no tiene sentido el aviso de vínculo sobre una sesión muerta.
+    if (!sessionEnded && messages.length >= 6 && !hasProperClosure()) {
+      setShowEndConfirm(false);
+      setShowAbruptWarning(true);
+      return;
+    }
+    handleEndSession();
   };
 
   const handleEndSession = async () => {
@@ -1665,7 +1702,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
             <div className="flex items-center gap-3 pt-1">
               <button
-                onClick={messages.length === 0 ? () => router.push("/dashboard") : handleEndSession}
+                onClick={messages.length === 0 ? () => router.push("/dashboard") : confirmEnd}
                 className={`end-session-btn flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer ${
                   messages.length === 0
                     ? "bg-gray-500 text-white"
@@ -1771,7 +1808,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             <p className="text-sm text-gray-600 leading-relaxed">
               {sessionEndInfo.reason === "name_evasion"
                 ? "El paciente no se sintió en confianza al no saber tu nombre y prefirió terminar la sesión."
-                : "El paciente se sintió incómodo o inseguro con la conversación y decidió retirarse."}
+                : sessionEndInfo.reason === "unprofessional"
+                  ? "El paciente sintió que la conducta no fue profesional y, por pérdida de confianza, prefirió terminar la sesión."
+                  : "El paciente se sintió incómodo o inseguro con la conversación y decidió retirarse."}
             </p>
             <p className="text-xs text-gray-400">
               Esto puede afectar el vínculo terapéutico en futuras sesiones.
@@ -1782,6 +1821,37 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             >
               Ver resumen de sesión
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Aviso de vínculo — el estudiante finaliza SIN cierre correcto (sin
+          despedida ni próxima cita). Mismo cuadrante que la desconexión. */}
+      {showAbruptWarning && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 space-y-5 animate-pop text-center max-h-[calc(100dvh-1.5rem)] overflow-y-auto">
+            <div className="w-20 h-20 rounded-full overflow-hidden mx-auto border-2 border-gray-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imageSrc} alt={patient.name} className="w-full h-full object-cover" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">¿Terminar sin despedirte?</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Si te retiras abruptamente, puede afectar tu vínculo con {patient.name.split(" ")[0]}. Un buen cierre incluye despedirte o acordar una próxima sesión.
+            </p>
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                onClick={() => setShowAbruptWarning(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 transition-colors cursor-pointer"
+              >
+                Volver y cerrar bien
+              </button>
+              <button
+                onClick={() => { setShowAbruptWarning(false); handleEndSession(); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors cursor-pointer"
+              >
+                Finalizar de todos modos
+              </button>
+            </div>
           </div>
         </div>
       )}
