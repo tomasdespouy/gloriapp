@@ -58,14 +58,18 @@ export type ChatMessage = {
 export async function chat(
   messages: ChatMessage[],
   systemPrompt?: string,
-  options?: { lite?: boolean }
+  options?: { lite?: boolean; jsonMode?: boolean }
 ): Promise<string> {
   const model = options?.lite ? chatModel : evalModel;
+  // jsonMode fuerza al API a devolver JSON válido (response_format). Elimina la
+  // clase de fallo "el modelo devolvió prosa/markdown y JSON.parse revienta",
+  // que era la causa probable de las evals perdidas (no rate-limit).
+  const jsonMode = options?.jsonMode ?? false;
 
   // Try primary provider with retries
   const primary = primaryProvider === "openai"
-    ? () => chatOpenAI(messages, systemPrompt, model)
-    : () => chatGemini(messages, systemPrompt);
+    ? () => chatOpenAI(messages, systemPrompt, model, jsonMode)
+    : () => chatGemini(messages, systemPrompt, jsonMode);
 
   try {
     return await withRetry(primary);
@@ -74,8 +78,8 @@ export async function chat(
 
     // Failover to secondary provider
     const secondary = primaryProvider === "openai"
-      ? () => chatGemini(messages, systemPrompt)
-      : () => chatOpenAI(messages, systemPrompt, model);
+      ? () => chatGemini(messages, systemPrompt, jsonMode)
+      : () => chatOpenAI(messages, systemPrompt, model, jsonMode);
 
     try {
       return await secondary();
@@ -164,7 +168,8 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 
 async function chatGemini(
   messages: ChatMessage[],
-  systemPrompt?: string
+  systemPrompt?: string,
+  jsonMode?: boolean
 ): Promise<string> {
   const contents = messages
     .filter((m) => m.role !== "system")
@@ -180,7 +185,10 @@ async function chatGemini(
   const response = await getGemini().models.generateContent({
     model: geminiModel,
     contents,
-    config: { systemInstruction: systemPrompt },
+    config: {
+      systemInstruction: systemPrompt,
+      ...(jsonMode ? { responseMimeType: "application/json" } : {}),
+    },
   });
 
   return response.text || "";
@@ -189,7 +197,8 @@ async function chatGemini(
 async function chatOpenAI(
   messages: ChatMessage[],
   systemPrompt?: string,
-  model?: string
+  model?: string,
+  jsonMode?: boolean
 ): Promise<string> {
   const allMessages: OpenAI.ChatCompletionMessageParam[] = [];
   if (systemPrompt) allMessages.push({ role: "system", content: systemPrompt });
@@ -198,6 +207,7 @@ async function chatOpenAI(
   const response = await getOpenAI().chat.completions.create({
     model: model || evalModel,
     messages: allMessages,
+    ...(jsonMode ? { response_format: { type: "json_object" as const } } : {}),
   });
 
   return response.choices[0]?.message?.content || "";

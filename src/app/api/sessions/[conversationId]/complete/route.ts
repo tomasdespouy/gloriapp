@@ -16,6 +16,7 @@ import {
 } from "@/lib/evaluation-prompt";
 import { canViewStudent } from "@/lib/section-scope";
 import { logEmail } from "@/lib/email-log";
+import { generateSessionSummary } from "@/lib/session-evaluation";
 
 export async function POST(
   request: NextRequest,
@@ -136,12 +137,25 @@ export async function POST(
   try {
     const response = await chat(
       [{ role: "user", content: buildUserMessage(transcript, { sessionNumber: conversation.session_number }) }],
-      EVALUATION_PROMPT
+      EVALUATION_PROMPT,
+      { jsonMode: true }
     );
     const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
     evaluation = normalizeEvaluation(JSON.parse(jsonStr));
-  } catch {
-    return NextResponse.json({ error: "Error al evaluar la sesión" }, { status: 500 });
+  } catch (err) {
+    // Loguea el error REAL en el server (antes se tragaba en silencio): así
+    // diagnosticamos POR QUÉ falla (JSON malformado / timeout / API). Esto NO lo
+    // ve el alumno — va a los logs de Vercel, es un tema nuestro.
+    console.error("[complete] fallo del evaluador LLM:", {
+      conversationId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    // NO frustramos al alumno con un error en pantalla: la sesión ya quedó
+    // `completed` con su autorreflexión guardada. Respondemos "pending" (mismo
+    // estado que ve un piloto) — el cron de barrido generará la evaluación +
+    // resumen + aviso al docente en la próxima corrida. El alumno ve su cierre
+    // normal; la falla es nuestra y se recupera sola.
+    return NextResponse.json({ pending_eval: true });
   }
 
   const overallV2 = evaluation.overall_score_v2;
@@ -357,65 +371,6 @@ export async function POST(
   });
 }
 
-// --- Generate session summary for multi-session memory ---
-async function generateSessionSummary(
-  admin: ReturnType<typeof createAdminClient>,
-  conversationId: string,
-  studentId: string,
-  patientId: string,
-  transcript: string,
-) {
-  // Get session number
-  const { data: conv } = await admin
-    .from("conversations")
-    .select("session_number")
-    .eq("id", conversationId)
-    .single();
-
-  // Get final clinical state
-  const { data: finalState } = await admin
-    .from("clinical_state_log")
-    .select("resistencia, alianza, apertura_emocional, sintomatologia, disposicion_cambio")
-    .eq("conversation_id", conversationId)
-    .order("turn_number", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const summaryResponse = await chat(
-    [{ role: "user", content: `Resume esta sesi\u00f3n terap\u00e9utica de forma neutral y observacional.
-
-TRANSCRIPCI\u00d3N:
-${transcript}
-
-Responde SOLO con JSON v\u00e1lido:
-{
-  "summary": "Resumen narrativo de 80-120 palabras en tercera persona neutral. Qu\u00e9 temas se abordaron, c\u00f3mo reaccion\u00f3 el paciente, qu\u00e9 intervenciones realiz\u00f3 el terapeuta. Incluir datos concretos mencionados (nombres, lugares, eventos).",
-  "key_revelations": ["Dato o informaci\u00f3n cl\u00ednicamente relevante que surgi\u00f3", "Otro dato relevante"],
-  "commitments": ["Acuerdos concretos para la pr\u00f3xima sesi\u00f3n, INCLUYENDO la pr\u00f3xima cita acordada si la hubo, con d\u00eda y hora (ej: 'pr\u00f3xima cita: jueves a las 12:00', 'el paciente registrar\u00e1 cu\u00e1ndo aparece la ansiedad'). Lista vac\u00eda si no se acord\u00f3 nada."],
-  "therapeutic_progress": "Una oraci\u00f3n describiendo el estado de la relaci\u00f3n terap\u00e9utica al final de esta sesi\u00f3n."
-}` }],
-    "Eres un asistente que genera res\u00famenes compactos de sesiones terap\u00e9uticas desde una perspectiva observacional neutral. Solo JSON."
-  );
-
-  try {
-    const cleaned = summaryResponse.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    const parsed = JSON.parse(cleaned);
-
-    await admin.from("session_summaries").upsert({
-      conversation_id: conversationId,
-      student_id: studentId,
-      ai_patient_id: patientId,
-      session_number: conv?.session_number || 1,
-      summary: parsed.summary,
-      key_revelations: parsed.key_revelations || [],
-      commitments: parsed.commitments || [],
-      therapeutic_progress: parsed.therapeutic_progress || "",
-      final_clinical_state: finalState || null,
-    }, { onConflict: "conversation_id" });
-  } catch {
-    // Non-critical — session works without summary
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────
 // Mirror of the synchronous evaluation flow, used by the fast-mode
@@ -450,6 +405,7 @@ async function evaluateAndPersist(ctx: {
   const response = await chat(
     [{ role: "user", content: buildUserMessage(transcript, { sessionNumber }) }],
     EVALUATION_PROMPT,
+    { jsonMode: true },
   );
   const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
   const evaluation = normalizeEvaluation(JSON.parse(jsonStr));

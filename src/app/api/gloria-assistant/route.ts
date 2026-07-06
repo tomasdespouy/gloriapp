@@ -412,7 +412,7 @@ export async function POST(request: NextRequest) {
               const resend = new Resend(resendKey);
               await resend.emails.send({
                 from: "GlorIA <noreply@glor-ia.com>",
-                to: process.env.SUPPORT_EMAIL || "tomasdespouy@gmail.com",
+                to: process.env.SUPPORT_EMAIL || "tomas.despouy@ugm.cl",
                 replyTo: profile?.email || user.email || undefined,
                 subject: `[GlorIA Soporte] Ticket de ${roleLabel.toLowerCase()} — ${name}`,
                 html: `
