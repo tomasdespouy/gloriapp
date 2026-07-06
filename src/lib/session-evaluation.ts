@@ -6,7 +6,9 @@ import {
   buildCompetencyUpsert,
   buildUserMessage,
   normalizeEvaluation,
+  type NormalizedEvaluation,
 } from "@/lib/evaluation-prompt";
+import { calculateSessionXp, getLevelInfo } from "@/lib/gamification";
 import { canViewStudent } from "@/lib/section-scope";
 import { logEmail } from "@/lib/email-log";
 
@@ -137,12 +139,104 @@ export async function notifyInstructors(
 }
 
 /**
- * Evalúa una conversación de punta a punta: evaluación IA + resumen + (opcional)
- * aviso al docente. Idempotente (upsert por conversation_id). Loguea el error
- * REAL del evaluador (antes se tragaba en silencio) para diagnosticar fallas.
- *
- * NOTA: no verifica si ya existe una evaluación — es responsabilidad del caller
- * (el cron solo pasa sesiones sin eval; el botón de re-eval sí quiere sobrescribir).
+ * Otorga la gamificación de una sesión evaluada: XP + racha + logros +
+ * sessions_completed. Se llama SOLO en la PRIMERA evaluación de la sesión (el
+ * caller garantiza la idempotencia) para no doblar XP en re-evaluaciones.
+ * Réplica de la lógica de /complete, para que el cron de recuperación reponga
+ * también el progreso del alumno (no solo la eval clínica).
+ */
+async function awardSessionProgress(
+  admin: Admin,
+  userId: string,
+  evaluation: NormalizedEvaluation,
+  hasReflection: boolean,
+) {
+  const xpEarned = calculateSessionXp(evaluation.overall_score_v2);
+
+  const { data: progress } = await admin
+    .from("student_progress").select("*").eq("student_id", userId).single();
+
+  const today = new Date().toISOString().split("T")[0];
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+
+  let currentStreak = progress?.current_streak || 0;
+  let longestStreak = progress?.longest_streak || 0;
+  if (progress?.last_session_date === today) {
+    // ya practicó hoy, sin cambio de racha
+  } else if (progress?.last_session_date === yesterday) {
+    currentStreak += 1;
+  } else {
+    currentStreak = 1;
+  }
+  if (currentStreak > longestStreak) longestStreak = currentStreak;
+
+  const newTotalXp = (progress?.total_xp || 0) + xpEarned;
+  const newSessionsCompleted = (progress?.sessions_completed || 0) + 1;
+  const levelInfo = getLevelInfo(newTotalXp);
+
+  await admin.from("student_progress").upsert({
+    student_id: userId,
+    level: levelInfo.current.level,
+    level_name: levelInfo.current.name,
+    total_xp: newTotalXp,
+    sessions_completed: newSessionsCompleted,
+    current_streak: currentStreak,
+    longest_streak: longestStreak,
+    last_session_date: today,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "student_id" });
+
+  const { data: existingAchievements } = await admin
+    .from("student_achievements").select("achievement_id, achievements(key)").eq("student_id", userId);
+  const earnedKeys = new Set(
+    existingAchievements?.map((a) => {
+      const ach = a.achievements as unknown as { key: string };
+      return ach?.key;
+    }) || [],
+  );
+  const { data: allAchievements } = await admin.from("achievements").select("*");
+  const s = evaluation.scores;
+  const checks: Record<string, () => boolean> = {
+    first_session: () => newSessionsCompleted >= 1,
+    five_sessions: () => newSessionsCompleted >= 5,
+    ten_sessions: () => newSessionsCompleted >= 10,
+    empathy_master: () => (s.escucha_activa ?? 0) >= 4,
+    listening_master: () => (s.escucha_activa ?? 0) >= 4,
+    rapport_master: () => (s.contencion_afectos ?? 0) >= 4,
+    streak_3: () => currentStreak >= 3,
+    streak_7: () => currentStreak >= 7,
+    first_reflection: () => hasReflection,
+    high_performer: () => evaluation.overall_score_v2 >= 3.5,
+    perfect_session: () => Object.values(s).some((v) => v === 4),
+  };
+  let bonusXp = 0;
+  for (const achievement of allAchievements || []) {
+    if (earnedKeys.has(achievement.key)) continue;
+    const check = checks[achievement.key];
+    if (check && check()) {
+      await admin.from("student_achievements").insert({
+        student_id: userId, achievement_id: achievement.id,
+      });
+      bonusXp += achievement.xp_reward;
+    }
+  }
+  if (bonusXp > 0) {
+    const finalXp = newTotalXp + bonusXp;
+    const finalLevel = getLevelInfo(finalXp);
+    await admin.from("student_progress").update({
+      total_xp: finalXp,
+      level: finalLevel.current.level,
+      level_name: finalLevel.current.name,
+    }).eq("student_id", userId);
+  }
+}
+
+/**
+ * Evalúa una conversación de punta a punta: evaluación IA + resumen + (en la
+ * primera eval) gamificación + (opcional) aviso al docente. Idempotente:
+ *  - Si ya hay una eval APROBADA/publicada por el docente, NO la pisa (skip).
+ *  - Otorga XP/logros/racha SOLO en la primera eval (no dobla en re-evaluaciones).
+ * Loguea el error REAL del evaluador (antes se tragaba) para diagnosticar fallas.
  */
 export async function evaluateConversation(
   admin: Admin,
@@ -155,6 +249,19 @@ export async function evaluateConversation(
     .eq("id", conversationId)
     .maybeSingle();
   if (!conv) return { status: "skipped", error: "not_found" };
+
+  // No pisar una evaluación que el docente ya aprobó/publicó (revocaría el
+  // acceso del alumno a sus resultados y dejaría approved_by/at inconsistentes).
+  // También sirve para saber si es la PRIMERA eval → gamificación una sola vez.
+  const { data: existingEval } = await admin
+    .from("session_competencies")
+    .select("feedback_status")
+    .eq("conversation_id", conversationId)
+    .maybeSingle();
+  if (existingEval && (existingEval.feedback_status === "approved" || existingEval.feedback_status === "evaluated")) {
+    return { status: "skipped", error: "already_approved" };
+  }
+  const isFirstEval = !existingEval;
 
   const { data: messages } = await admin
     .from("messages")
@@ -189,6 +296,16 @@ export async function evaluateConversation(
 
   // Resumen para memoria multi-sesión (no crítico si falla).
   await generateSessionSummary(admin, conversationId, conv.student_id, conv.ai_patient_id, transcript).catch(() => {});
+
+  // Gamificación SOLO en la primera eval (una re-eval no debe doblar XP). Así
+  // el cron de recuperación repone también XP/logros/racha, no solo la eval.
+  if (isFirstEval) {
+    const { count: fbCount } = await admin
+      .from("session_feedback")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conversationId);
+    await awardSessionProgress(admin, conv.student_id, evaluation, (fbCount || 0) > 0).catch(() => {});
+  }
 
   if (opts?.notify) {
     await notifyInstructors(admin, conv.student_id, conv.ai_patient_id, conversationId).catch(() => {});

@@ -33,10 +33,14 @@ export async function POST(request: Request) {
   const result = await evaluateConversation(admin, conversationId, { notify: true });
 
   if (result.status === "skipped") {
-    return NextResponse.json(
-      { error: result.error === "not_found" ? "Conversación no encontrada" : "Sesión muy corta para evaluar (sin conversación)" },
-      { status: result.error === "not_found" ? 404 : 400 },
-    );
+    if (result.error === "not_found") {
+      return NextResponse.json({ error: "Conversación no encontrada" }, { status: 404 });
+    }
+    if (result.error === "already_approved") {
+      // No re-evaluamos: pisaría la evaluación ya aprobada por el docente.
+      return NextResponse.json({ error: "La evaluación ya fue aprobada por el docente; no se re-evalúa." }, { status: 409 });
+    }
+    return NextResponse.json({ error: "Sesión muy corta para evaluar (sin conversación)" }, { status: 400 });
   }
   if (result.status === "error") {
     return NextResponse.json({ error: "Error al evaluar la sesión (LLM)" }, { status: 500 });
