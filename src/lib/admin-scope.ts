@@ -124,6 +124,42 @@ export async function resolveAdminScopeRules(supabase: SupabaseClient, adminId: 
   }));
 }
 
+/**
+ * Verifica que una SECCIÓN caiga dentro del alcance resolviendo su asignatura y
+ * establecimiento REALES desde la BD (no confía en el course_id del cliente).
+ * Cierra el hueco de `matchesScope`, que salta la validación de sección cuando
+ * la regla del admin es "toda la asignatura" (sectionId=null): sin esto un admin
+ * de la asignatura C podría asignar/sembrar a alguien en una sección de la
+ * asignatura D del mismo establecimiento (fuga de alcance). Devuelve el courseId
+ * real para forzar consistencia curso↔sección.
+ */
+export async function sectionInScope(
+  admin: SupabaseClient,
+  scope: Scope,
+  sectionId: string,
+): Promise<{ ok: boolean; courseId: string | null; establishmentId: string | null }> {
+  const { data: sec } = await admin.from("sections").select("course_id").eq("id", sectionId).maybeSingle();
+  if (!sec?.course_id) return { ok: false, courseId: null, establishmentId: null };
+  const courseId = sec.course_id as string;
+  const { data: crs } = await admin.from("courses").select("establishment_id").eq("id", courseId).maybeSingle();
+  const establishmentId = (crs?.establishment_id as string | null) ?? null;
+  const ok = matchesScope(scope, { establishment_id: establishmentId, course_id: courseId, section_id: sectionId });
+  return { ok, courseId, establishmentId };
+}
+
+/** Como `sectionInScope` pero para una ASIGNATURA sin sección. */
+export async function courseInScope(
+  admin: SupabaseClient,
+  scope: Scope,
+  courseId: string,
+): Promise<{ ok: boolean; establishmentId: string | null }> {
+  const { data: crs } = await admin.from("courses").select("establishment_id").eq("id", courseId).maybeSingle();
+  if (!crs) return { ok: false, establishmentId: null };
+  const establishmentId = (crs.establishment_id as string | null) ?? null;
+  const ok = matchesScope(scope, { establishment_id: establishmentId, course_id: courseId, section_id: null });
+  return { ok, establishmentId };
+}
+
 /** Resuelve el alcance de un usuario por su rol (superadmin = todo). */
 export async function resolveScope(supabase: SupabaseClient, userId: string, role: string): Promise<Scope> {
   if (role === "superadmin") return { all: true };

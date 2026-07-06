@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminContext } from "@/lib/admin-helpers";
+import { matchesScope } from "@/lib/admin-scope";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { User } from "lucide-react";
@@ -28,8 +29,10 @@ export default async function UserDetailPage({
 
   if (!userProfile) redirect("/admin/usuarios");
 
-  // Verify access for non-superadmin
-  if (!ctx.isSuperadmin && userProfile.establishment_id && !ctx.establishmentIds.includes(userProfile.establishment_id)) {
+  // Acceso acotado por asignatura/sección (no solo por establecimiento), igual
+  // que la lista (applyScope): evita que un admin de un curso vea la ficha de
+  // alumnos de otros cursos del mismo establecimiento. Superadmin: scope all→true.
+  if (!matchesScope(ctx.scope, userProfile)) {
     redirect("/admin/usuarios");
   }
 

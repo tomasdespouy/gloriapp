@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
-import { matchesScope, resolveAdminScopeRules } from "@/lib/admin-scope";
+import { matchesScope, resolveAdminScopeRules, sectionInScope, courseInScope } from "@/lib/admin-scope";
 
 interface UserRow {
   email: string;
@@ -52,17 +52,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `No puedes crear usuarios con rol '${targetRole}'` }, { status: 403 });
   }
 
+  const admin = createAdminClient();
+
   // Alcance del ADMIN: no puede sembrar usuarios fuera de su establecimiento/
   // asignatura/sección. (create y bulk-import ya lo validan; bulk JSON no lo
-  // hacía → boquete: un admin podía pasar cualquier establishment_id en el body.)
+  // hacía → boquete.) Resolvemos la sección REAL desde la BD para no confiar en
+  // el course_id del body (mismo hueco de matchesScope que se cierra en el PATCH).
   if (callerRole === "admin") {
+    if (!establishment_id) {
+      return NextResponse.json({ error: "Debes indicar un establecimiento" }, { status: 403 });
+    }
     const scope = { all: false as const, rules: await resolveAdminScopeRules(supabase, user.id) };
-    if (!establishment_id || !matchesScope(scope, { establishment_id, course_id: course_id ?? null, section_id: section_id ?? null })) {
-      return NextResponse.json({ error: "Establecimiento, asignatura o sección fuera de tu alcance" }, { status: 403 });
+    if (section_id) {
+      const r = await sectionInScope(admin, scope, section_id);
+      if (!r.ok || r.establishmentId !== establishment_id) {
+        return NextResponse.json({ error: "Sección fuera de tu alcance" }, { status: 403 });
+      }
+    } else if (course_id) {
+      const r = await courseInScope(admin, scope, course_id);
+      if (!r.ok || r.establishmentId !== establishment_id) {
+        return NextResponse.json({ error: "Asignatura fuera de tu alcance" }, { status: 403 });
+      }
+    } else if (!matchesScope(scope, { establishment_id, course_id: null, section_id: null })) {
+      return NextResponse.json({ error: "Establecimiento fuera de tu alcance" }, { status: 403 });
     }
   }
 
-  const admin = createAdminClient();
   const results: { email: string; success: boolean; error?: string }[] = [];
 
   for (const row of users) {
