@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   // Sesiones completadas recientes.
   const { data: convs } = await admin
     .from("conversations")
-    .select("id, active_seconds, created_at")
+    .select("id, active_seconds, created_at, ended_at")
     .eq("status", "completed")
     .gte("created_at", since)
     .order("created_at", { ascending: false });
@@ -57,9 +57,17 @@ export async function GET(request: Request) {
 
   // Candidatas SIN eval. Elegibles = no "tooShort": >=5 min de tiempo activo O
   // >=6 mensajes (mismo criterio que la página de review para saltear la eval).
+  // Cutoff de "asentamiento": NO tocar sesiones que terminaron hace <15 min. En
+  // esa ventana /complete puede seguir corriendo su evaluación (o su after()) y
+  // el cron pisaría/duplicaría (doble aviso al docente, doble trabajo LLM). El
+  // barrido es red de seguridad para fallos YA consumados, no para sesiones en
+  // vuelo. ended_at lo fija /complete al inicio; si faltara, cae a created_at.
+  const settleCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
   const noEval = convs.filter((c) => !evaluated.has(c.id));
   const eligible: string[] = [];
   for (const c of noEval) {
+    const settledAt = c.ended_at || c.created_at;
+    if (settledAt >= settleCutoff) continue; // recién terminada — dale tiempo a /complete
     if ((c.active_seconds || 0) >= 300) { eligible.push(c.id); continue; }
     const { count } = await admin
       .from("messages")
