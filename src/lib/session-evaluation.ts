@@ -195,6 +195,20 @@ export async function evaluateConversation(
     return { status: "error", error: msg };
   }
 
+  // Re-chequeo anti-carrera: el docente pudo APROBAR durante la llamada al LLM
+  // (~20-30s). Si ahora está aprobada, NO la pisamos (dejaría approved_by/at
+  // inconsistentes y le quitaría al alumno los resultados ya publicados). Achica
+  // la ventana del guard inicial de ~30s a ~1ms (no es atómico, pero basta para
+  // un caso que además exige superadmin + docente sobre la misma sesión a la vez).
+  const { data: recheck } = await admin
+    .from("session_competencies")
+    .select("feedback_status")
+    .eq("conversation_id", conversationId)
+    .maybeSingle();
+  if (recheck && (recheck.feedback_status === "approved" || recheck.feedback_status === "evaluated")) {
+    return { status: "skipped", error: "already_approved" };
+  }
+
   await admin.from("session_competencies").upsert(
     buildCompetencyUpsert(evaluation, { conversationId, studentId: conv.student_id, model: activeModelLabel() }),
     { onConflict: "conversation_id" },
