@@ -36,21 +36,21 @@ const STAGE_FALLBACKS: Record<number, string[]> = {
 
 const STAGE_PROMPTS: Record<number, string> = {
   1: `[INSTRUCCI\u00d3N ESPECIAL]
-Ha pasado un minuto sin que el terapeuta escriba nada. Reacciona con un saludo extra\u00f1ado, sutil, como si notaras la pausa. Algunas opciones:
+Ha pasado un rato sin que el terapeuta escriba nada. Reacciona con un saludo extra\u00f1ado, sutil, como si notaras la pausa. Algunas opciones:
 - "Mmm... \u00bfest\u00e1 todo bien por ah\u00ed?"
 - "Me qued\u00e9 pensando si ley\u00f3 lo que dije..."
 - "Bueno... este silencio me incomoda un poco..."
 Elige la reacci\u00f3n que mejor se ajuste a tu personalidad y al momento de la conversaci\u00f3n. Responde en 1 oraci\u00f3n.`,
 
   2: `[INSTRUCCI\u00d3N ESPECIAL]
-Han pasado casi 2 minutos sin que el terapeuta escriba nada. Ya reaccionaste antes al silencio pero siguen sin responder. Ahora pregunta directamente si sigue conectado:
+Ha pasado un buen rato sin que el terapeuta escriba nada. Ya reaccionaste antes al silencio pero siguen sin responder. Ahora pregunta directamente si sigue conectado:
 - "\u00bfSigue ah\u00ed? Me estoy preocupando un poco..."
 - "\u00bfLe llegan mis mensajes? Llevo un rato esperando..."
 - "No s\u00e9 si se cort\u00f3 la conexi\u00f3n o algo..."
 Responde en 1-2 oraciones.`,
 
   3: `[INSTRUCCI\u00d3N ESPECIAL]
-Han pasado 3 minutos sin que el terapeuta responda. Ya preguntaste si estaba ah\u00ed y no hubo respuesta. Ahora avisa que te retirar\u00e1s si no hay respuesta:
+Ha pasado bastante rato sin que el terapeuta responda. Ya preguntaste si estaba ah\u00ed y no hubo respuesta. Ahora avisa que te retirar\u00e1s si no hay respuesta:
 - "Mire, si no tiene tiempo, podemos dejarlo para otro momento..."
 - "Me cuesta mucho estar aqu\u00ed y el silencio me hace sentir que no le importa... Si no responde, creo que me voy."
 - "Voy a esperar un momento m\u00e1s, pero si no hay respuesta tendr\u00e9 que irme."
@@ -81,10 +81,11 @@ export async function POST(request: Request) {
 
   if (!patient) return NextResponse.json({ error: "Paciente no encontrado" }, { status: 404 });
 
-  // The closing stage depends on the patient's pacing profile:
-  // depressive_slow and inhibited_timid have 3 nudges; the rest have 4.
-  // Whatever the number, the last stage always disconnects — we never
-  // want to block the student past the difficulty's patience budget (7/5/3 min).
+  // La última etapa SIEMPRE desconecta. Todos los perfiles tienen ahora 4 etapas
+  // (3 avisos "¿sigue ahí?" + irse), escaladas al presupuesto de paciencia de la
+  // dificultad (8/6/5 min para principiante/intermedio/avanzado). El tipeo del
+  // estudiante suprime los avisos Y el irse (respectsTyping="full"), así que estos
+  // mensajes solo salen cuando NO está escribiendo.
   const pacing = getPacingProfile(patient.pacing_profile);
   const totalStages = pacing.silenceThresholdsMs.length;
   const isClosingStage = stage >= totalStages;

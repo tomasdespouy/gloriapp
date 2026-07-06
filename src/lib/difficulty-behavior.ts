@@ -61,22 +61,27 @@ export type DifficultyBehavior = {
 
 export const DIFFICULTY_BEHAVIOR: Record<DifficultyKey, DifficultyBehavior> = {
   beginner: {
-    patienceMs: 420_000, // 7 min
+    patienceMs: 480_000, // 8 min
+    // "full" en TODOS los niveles: mientras el estudiante escribe (hay texto en
+    // la caja), se suprimen TODOS los nudges INCLUIDO el irse → estar redactando
+    // nunca hace que el paciente te abandone. Si NO escribe, salen los 3 avisos
+    // "¿sigue ahí?" y recién al final se va. (partial/from2 quedan en el tipo por
+    // si se quiere diferenciar a futuro, pero hoy no se usan.)
     respectsTyping: "full",
     offenseSensitivity: "none",
     allianceSpeed: "fast",
     initialStateBias: { resistencia: 0, alianza: 0, apertura: 0 },
   },
   intermediate: {
-    patienceMs: 300_000, // 5 min
-    respectsTyping: "partial",
+    patienceMs: 360_000, // 6 min
+    respectsTyping: "full",
     offenseSensitivity: "mild",
     allianceSpeed: "medium",
     initialStateBias: { resistencia: +1, alianza: -1, apertura: -1 },
   },
   advanced: {
-    patienceMs: 180_000, // 3 min
-    respectsTyping: "from2",
+    patienceMs: 300_000, // 5 min
+    respectsTyping: "full",
     offenseSensitivity: "high",
     allianceSpeed: "slow",
     initialStateBias: { resistencia: +2, alianza: -2, apertura: -2 },

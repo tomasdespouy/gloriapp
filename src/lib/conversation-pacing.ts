@@ -123,7 +123,7 @@ export const PACING_PROFILES: Record<PacingProfileKey, PacingProfile> = {
     thinkingMinMs: 1500,
     thinkingMaxMs: 4000,
     thinkingCeilingMs: 1000,
-    silenceThresholdsMs: [90_000, 180_000, 300_000],
+    silenceThresholdsMs: [90_000, 165_000, 240_000, 300_000],
     introductionProtocol: {
       askNameAtTurn: 5,
       askNameStyle: "suave y autodesvalorizante, casi disculpándose por preguntar",
@@ -141,7 +141,7 @@ export const PACING_PROFILES: Record<PacingProfileKey, PacingProfile> = {
     thinkingMinMs: 1200,
     thinkingMaxMs: 3000,
     thinkingCeilingMs: 1000,
-    silenceThresholdsMs: [90_000, 180_000, 300_000],
+    silenceThresholdsMs: [90_000, 165_000, 240_000, 300_000],
     introductionProtocol: {
       askNameAtTurn: 6,
       askNameStyle: "muy tímido e indirecto, frase entrecortada",
