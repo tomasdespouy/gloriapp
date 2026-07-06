@@ -8,8 +8,11 @@
  * evalúa + resume + avisa al docente, reusando el mismo motor central
  * (`evaluateConversation`). Idempotente: solo toca sesiones sin eval.
  *
- * Auth: Bearer CRON_SECRET. Corre 1×/día por vercel.json; se le puede pegar más
- * seguido con un cron externo (cron-job.org) si hiciera falta.
+ * Auth: Bearer CRON_SECRET. Se dispara con un cron EXTERNO (cron-job.org)
+ * pegándole a GET /api/cron/sweep-evals con el header
+ * `Authorization: Bearer <CRON_SECRET>` — mismo patrón que cleanup-sessions.
+ * No usa el cron de Vercel (el cupo del plan está tomado por otro proyecto).
+ * Recomendado cada ~1-3 h para recuperación rápida; con 1×/día también sirve.
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";

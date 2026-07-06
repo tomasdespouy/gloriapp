@@ -137,18 +137,25 @@ export async function POST(
   try {
     const response = await chat(
       [{ role: "user", content: buildUserMessage(transcript, { sessionNumber: conversation.session_number }) }],
-      EVALUATION_PROMPT
+      EVALUATION_PROMPT,
+      { jsonMode: true }
     );
     const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
     evaluation = normalizeEvaluation(JSON.parse(jsonStr));
   } catch (err) {
-    // Loguea el error REAL (antes se tragaba en silencio): así diagnosticamos
-    // POR QUÉ falla (timeout / JSON malformado / API) en vez de asumir rate-limit.
+    // Loguea el error REAL en el server (antes se tragaba en silencio): así
+    // diagnosticamos POR QUÉ falla (JSON malformado / timeout / API). Esto NO lo
+    // ve el alumno — va a los logs de Vercel, es un tema nuestro.
     console.error("[complete] fallo del evaluador LLM:", {
       conversationId,
       error: err instanceof Error ? err.message : String(err),
     });
-    return NextResponse.json({ error: "Error al evaluar la sesión" }, { status: 500 });
+    // NO frustramos al alumno con un error en pantalla: la sesión ya quedó
+    // `completed` con su autorreflexión guardada. Respondemos "pending" (mismo
+    // estado que ve un piloto) — el cron de barrido generará la evaluación +
+    // resumen + aviso al docente en la próxima corrida. El alumno ve su cierre
+    // normal; la falla es nuestra y se recupera sola.
+    return NextResponse.json({ pending_eval: true });
   }
 
   const overallV2 = evaluation.overall_score_v2;
@@ -398,6 +405,7 @@ async function evaluateAndPersist(ctx: {
   const response = await chat(
     [{ role: "user", content: buildUserMessage(transcript, { sessionNumber }) }],
     EVALUATION_PROMPT,
+    { jsonMode: true },
   );
   const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
   const evaluation = normalizeEvaluation(JSON.parse(jsonStr));

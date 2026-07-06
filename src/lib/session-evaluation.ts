@@ -58,6 +58,7 @@ Responde SOLO con JSON válido:
   "therapeutic_progress": "Una oración describiendo el estado de la relación terapéutica al final de esta sesión."
 }` }],
     "Eres un asistente que genera resúmenes compactos de sesiones terapéuticas desde una perspectiva observacional neutral. Solo JSON.",
+    { jsonMode: true },
   );
 
   try {
@@ -171,6 +172,7 @@ export async function evaluateConversation(
     const response = await chat(
       [{ role: "user", content: buildUserMessage(transcript, { sessionNumber: conv.session_number }) }],
       EVALUATION_PROMPT,
+      { jsonMode: true },
     );
     const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
     evaluation = normalizeEvaluation(JSON.parse(jsonStr));
