@@ -1,14 +1,35 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveAdminScopeRules, scopeAllowsCourse } from "@/lib/admin-scope";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
+  // Solo admin/superadmin (service-role bypassa RLS): sin gate, cualquiera podía
+  // enumerar secciones de cualquier asignatura.
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const callerRole = profile?.role;
+  if (!callerRole || !["admin", "superadmin"].includes(callerRole)) {
+    return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+  }
+
   const admin = createAdminClient();
   const courseId = request.nextUrl.searchParams.get("course_id");
+
+  // Admin: solo secciones de una asignatura de su alcance (resolvemos el
+  // establecimiento de la asignatura y usamos scopeAllowsCourse, que sí
+  // reconoce una regla acotada a una sección de esa misma asignatura).
+  if (callerRole === "admin") {
+    if (!courseId) return NextResponse.json([]);
+    const { data: crs } = await admin.from("courses").select("establishment_id").eq("id", courseId).maybeSingle();
+    const rules = await resolveAdminScopeRules(supabase, user.id);
+    if (!crs || !scopeAllowsCourse({ all: false, rules }, crs.establishment_id as string | null, courseId)) {
+      return NextResponse.json([]);
+    }
+  }
 
   let query = admin.from("sections").select("id, name, course_id, is_active").order("name");
   if (courseId) query = query.eq("course_id", courseId);
