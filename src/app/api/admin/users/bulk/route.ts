@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+import { matchesScope, resolveAdminScopeRules } from "@/lib/admin-scope";
 
 interface UserRow {
   email: string;
@@ -49,6 +50,16 @@ export async function POST(request: Request) {
   const targetRole = role || "student";
   if (!allowedRoles.includes(targetRole)) {
     return NextResponse.json({ error: `No puedes crear usuarios con rol '${targetRole}'` }, { status: 403 });
+  }
+
+  // Alcance del ADMIN: no puede sembrar usuarios fuera de su establecimiento/
+  // asignatura/sección. (create y bulk-import ya lo validan; bulk JSON no lo
+  // hacía → boquete: un admin podía pasar cualquier establishment_id en el body.)
+  if (callerRole === "admin") {
+    const scope = { all: false as const, rules: await resolveAdminScopeRules(supabase, user.id) };
+    if (!establishment_id || !matchesScope(scope, { establishment_id, course_id: course_id ?? null, section_id: section_id ?? null })) {
+      return NextResponse.json({ error: "Establecimiento, asignatura o sección fuera de tu alcance" }, { status: 403 });
+    }
   }
 
   const admin = createAdminClient();

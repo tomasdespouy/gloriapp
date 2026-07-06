@@ -12,6 +12,9 @@ type Props = {
   currentSectionId: string | null;
   currentAdminScope: { course_id: string | null; section_id: string | null } | null;
   establishments: { id: string; name: string }[];
+  /** Solo superadmin puede cambiar rol e institución. Un admin edita nombre y
+   *  asignatura/sección (dentro de su alcance) con esos campos bloqueados. */
+  canEditIdentity: boolean;
 };
 
 type Course = { id: string; name: string; code: string | null };
@@ -28,6 +31,7 @@ export default function UserDetailClient({
   currentSectionId,
   currentAdminScope,
   establishments,
+  canEditIdentity,
 }: Props) {
   const router = useRouter();
   const [fullName, setFullName] = useState(currentFullName);
@@ -159,11 +163,13 @@ export default function UserDetailClient({
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Rol</label>
           <select value={role} onChange={(e) => setRole(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm hover:border-gray-300 cursor-pointer">
+            disabled={!canEditIdentity}
+            className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-sm ${canEditIdentity ? "hover:border-gray-300 cursor-pointer" : "bg-gray-50 text-gray-400 cursor-not-allowed"}`}>
             <option value="student">Alumno</option>
             <option value="instructor">Instructor / Docente</option>
             <option value="admin">Administrador</option>
           </select>
+          {!canEditIdentity && <p className="text-[11px] text-gray-400 mt-1">Solo un superadmin puede cambiar el rol.</p>}
         </div>
 
         {/* Jerarquía: Institución → Asignatura → Sección */}
@@ -174,12 +180,14 @@ export default function UserDetailClient({
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Institución</label>
             <select value={estId} onChange={(e) => setEstId(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white hover:border-gray-300 cursor-pointer">
+              disabled={!canEditIdentity}
+              className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-sm ${canEditIdentity ? "bg-white hover:border-gray-300 cursor-pointer" : "bg-gray-50 text-gray-400 cursor-not-allowed"}`}>
               <option value="">Sin asignar</option>
               {establishments.map((e) => (
                 <option key={e.id} value={e.id}>{e.name}</option>
               ))}
             </select>
+            {!canEditIdentity && <p className="text-[11px] text-gray-400 mt-1">Solo un superadmin puede cambiar el establecimiento.</p>}
           </div>
 
           {/* Asignatura */}

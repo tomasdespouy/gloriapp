@@ -124,8 +124,9 @@ export default async function UserDetailPage({
           </dl>
         </div>
 
-        {/* Edit role/establishment (superadmin only) */}
-        {ctx.isSuperadmin && (
+        {/* Editar: superadmin (todo) o admin (solo alumnos/docentes de su alcance;
+            no puede cambiar rol ni establecimiento → canEditIdentity=false). */}
+        {(ctx.isSuperadmin || userProfile.role === "student" || userProfile.role === "instructor") && (
           <UserDetailClient
             userId={userProfile.id}
             currentFullName={userProfile.full_name || ""}
@@ -135,6 +136,7 @@ export default async function UserDetailPage({
             currentSectionId={userProfile.section_id}
             currentAdminScope={currentAdminScope}
             establishments={establishments || []}
+            canEditIdentity={ctx.isSuperadmin}
           />
         )}
       </div>

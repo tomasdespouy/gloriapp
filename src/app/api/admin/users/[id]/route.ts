@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { logAdminAction } from "@/lib/audit";
+import { matchesScope, resolveAdminScopeRules } from "@/lib/admin-scope";
 
 export async function PATCH(
   request: Request,
@@ -17,21 +18,57 @@ export async function PATCH(
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "superadmin") {
-    return NextResponse.json({ error: "Solo superadmin puede modificar usuarios" }, { status: 403 });
+  const callerRole = profile?.role;
+  if (!callerRole || !["admin", "superadmin"].includes(callerRole)) {
+    return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
   }
 
   const { id } = await params;
   const adminClient = createAdminClient();
 
-  // Block modifications to superadmin accounts
-  const { data: target } = await adminClient.from("profiles").select("role").eq("id", id).single();
-  if (target?.role === "superadmin") {
+  // Target: rol + alcance (para el chequeo del admin). Nadie modifica superadmins.
+  const { data: target } = await adminClient
+    .from("profiles")
+    .select("role, establishment_id, course_id, section_id")
+    .eq("id", id)
+    .single();
+  if (!target) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+  if (target.role === "superadmin") {
     return NextResponse.json({ error: "No se puede modificar una cuenta superadmin" }, { status: 403 });
   }
 
   const body = await request.json();
   const { full_name, role, establishment_id, course_id, section_id, is_disabled, admin_scope } = body;
+
+  // ── Autorización del ADMIN (el superadmin no pasa por acá) ──
+  // Un admin solo edita ESTUDIANTES/DOCENTES DE SU ALCANCE, y solo puede cambiar
+  // nombre / asignatura-sección / activar-desactivar. NO puede: cambiar el rol,
+  // mover de establecimiento, gestionar admins, ni tocar a otros admins/superadmins.
+  if (callerRole === "admin") {
+    if (target.role !== "student" && target.role !== "instructor") {
+      return NextResponse.json({ error: "Como admin solo puedes editar estudiantes y docentes" }, { status: 403 });
+    }
+    const scope = { all: false as const, rules: await resolveAdminScopeRules(supabase, user.id) };
+    if (!matchesScope(scope, target)) {
+      return NextResponse.json({ error: "Usuario fuera de tu alcance" }, { status: 403 });
+    }
+    if (role !== undefined && role !== target.role) {
+      return NextResponse.json({ error: "No puedes cambiar el rol de un usuario" }, { status: 403 });
+    }
+    if (establishment_id !== undefined && establishment_id !== target.establishment_id) {
+      return NextResponse.json({ error: "No puedes cambiar el establecimiento de un usuario" }, { status: 403 });
+    }
+    if (admin_scope !== undefined) {
+      return NextResponse.json({ error: "Solo un superadmin puede asignar administradores" }, { status: 403 });
+    }
+    // Si reasigna asignatura/sección, el DESTINO también debe estar en su alcance
+    // (que no pueda mover a alguien a una sección que no administra).
+    const newCourse = course_id !== undefined ? course_id : target.course_id;
+    const newSection = section_id !== undefined ? section_id : target.section_id;
+    if (!matchesScope(scope, { establishment_id: target.establishment_id, course_id: newCourse, section_id: newSection })) {
+      return NextResponse.json({ error: "Asignatura o sección fuera de tu alcance" }, { status: 403 });
+    }
+  }
 
   const updates: Record<string, unknown> = {};
   if (full_name !== undefined) updates.full_name = full_name;

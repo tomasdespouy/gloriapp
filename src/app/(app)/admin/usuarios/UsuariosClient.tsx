@@ -470,6 +470,15 @@ export default function UsuariosClient({ users, establishments, courses, section
     return u.role === "student" || u.role === "instructor";
   };
 
+  // Gestionar = editar perfil / activar-desactivar. Un admin solo puede sobre
+  // estudiantes/docentes de su alcance (la lista ya viene scoped); nunca sobre
+  // otros admins ni superadmins. El superadmin gestiona a todos salvo superadmins.
+  const canManage = (u: User) => {
+    if (u.role === "superadmin") return false;
+    if (isSuperadmin) return true;
+    return u.role === "student" || u.role === "instructor";
+  };
+
   const SinCredentialesBadge = () => (
     <span
       className="inline-flex items-center text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
@@ -578,7 +587,7 @@ export default function UsuariosClient({ users, establishments, courses, section
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500">{u.sessionCount} {u.sessionCount === 1 ? "sesi\u00F3n" : "sesiones"}</span>
                   <div className="flex items-center gap-2">
-                    {u.role !== "superadmin" && isSuperadmin && (
+                    {canManage(u) && (
                       <button onClick={() => setToggleConfirm(u.id)} disabled={isLoading}
                         className="action-btn action-btn-green"
                         title={isActive ? "Desactivar usuario" : "Activar usuario"}>
@@ -588,7 +597,7 @@ export default function UsuariosClient({ users, establishments, courses, section
                         }
                       </button>
                     )}
-                    {u.role !== "superadmin" && !isSuperadmin && (
+                    {u.role !== "superadmin" && !canManage(u) && (
                       <span className={`text-[10px] font-medium ${isActive ? "text-green-600" : "text-gray-400"}`}>
                         {isActive ? "Activo" : "Inactivo"}
                       </span>
@@ -709,7 +718,7 @@ export default function UsuariosClient({ users, establishments, courses, section
                       <td className="px-4 py-3 text-center">
                         {u.role === "superadmin" ? (
                           <span className="text-[10px] text-gray-300">—</span>
-                        ) : isSuperadmin ? (
+                        ) : canManage(u) ? (
                           <button onClick={() => setToggleConfirm(u.id)} disabled={isLoading}
                             className="action-btn action-btn-green"
                             title={isActive ? "Desactivar usuario" : "Activar usuario"}>
