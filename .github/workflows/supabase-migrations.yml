@@ -33,11 +33,17 @@ jobs:
       - name: Link project
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
 
-      - name: Show pending migrations
-        run: supabase migration list
-
-      - name: Push migrations
-        run: supabase db push --include-all
-
-      - name: Verify final state
-        run: supabase migration list
+      # Los runners de GitHub NO tienen IPv6, y la conexión DIRECTA a la base
+      # (db.<ref>.supabase.co) es IPv6-only → migration list / db push fallaban
+      # con "IPv6 is not supported on your current network". Forzamos la conexión
+      # por el SESSION POOLER (IPv4, puerto 5432, apto para DDL/migraciones) vía
+      # --db-url. La password (ya secreta) se URL-encodea. Región: us-west-2.
+      - name: Push migrations (session pooler / IPv4)
+        run: |
+          ENC_PW=$(jq -rn --arg v "$SUPABASE_DB_PASSWORD" '$v|@uri')
+          DB_URL="postgresql://postgres.${SUPABASE_PROJECT_ID}:${ENC_PW}@aws-0-us-west-2.pooler.supabase.com:5432/postgres"
+          echo "Pendientes:"
+          supabase migration list --db-url "$DB_URL"
+          supabase db push --include-all --db-url "$DB_URL"
+          echo "Estado final:"
+          supabase migration list --db-url "$DB_URL"
