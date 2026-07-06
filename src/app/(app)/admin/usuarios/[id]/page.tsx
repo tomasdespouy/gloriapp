@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminContext } from "@/lib/admin-helpers";
+import { matchesScope } from "@/lib/admin-scope";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { User } from "lucide-react";
@@ -28,8 +29,10 @@ export default async function UserDetailPage({
 
   if (!userProfile) redirect("/admin/usuarios");
 
-  // Verify access for non-superadmin
-  if (!ctx.isSuperadmin && userProfile.establishment_id && !ctx.establishmentIds.includes(userProfile.establishment_id)) {
+  // Acceso acotado por asignatura/sección (no solo por establecimiento), igual
+  // que la lista (applyScope): evita que un admin de un curso vea la ficha de
+  // alumnos de otros cursos del mismo establecimiento. Superadmin: scope all→true.
+  if (!matchesScope(ctx.scope, userProfile)) {
     redirect("/admin/usuarios");
   }
 
@@ -124,8 +127,9 @@ export default async function UserDetailPage({
           </dl>
         </div>
 
-        {/* Edit role/establishment (superadmin only) */}
-        {ctx.isSuperadmin && (
+        {/* Editar: superadmin (todo) o admin (solo alumnos/docentes de su alcance;
+            no puede cambiar rol ni establecimiento → canEditIdentity=false). */}
+        {(ctx.isSuperadmin || userProfile.role === "student" || userProfile.role === "instructor") && (
           <UserDetailClient
             userId={userProfile.id}
             currentFullName={userProfile.full_name || ""}
@@ -135,6 +139,7 @@ export default async function UserDetailPage({
             currentSectionId={userProfile.section_id}
             currentAdminScope={currentAdminScope}
             establishments={establishments || []}
+            canEditIdentity={ctx.isSuperadmin}
           />
         )}
       </div>

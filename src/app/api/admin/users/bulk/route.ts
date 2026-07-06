@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+import { matchesScope, resolveAdminScopeRules, sectionInScope, courseInScope } from "@/lib/admin-scope";
 
 interface UserRow {
   email: string;
@@ -52,6 +53,44 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
+
+  // Para un admin, curso/sección FINALES se RESUELVEN/validan y se escriben ESTOS
+  // (no los del body): si mandan sección válida + course_id fuera de alcance, se
+  // ignora el course_id del body y se usa la asignatura real de la sección.
+  let effCourse: string | null = course_id ?? null;
+  let effSection: string | null = section_id ?? null;
+  // Alcance del ADMIN: no puede sembrar usuarios fuera de su establecimiento/
+  // asignatura/sección. (create y bulk-import ya lo validan; bulk JSON no lo
+  // hacía → boquete.) Resolvemos la sección REAL desde la BD para no confiar en
+  // el course_id del body (mismo hueco de matchesScope que se cierra en el PATCH).
+  if (callerRole === "admin") {
+    if (!establishment_id) {
+      return NextResponse.json({ error: "Debes indicar un establecimiento" }, { status: 403 });
+    }
+    const scope = { all: false as const, rules: await resolveAdminScopeRules(supabase, user.id) };
+    if (section_id) {
+      const r = await sectionInScope(admin, scope, section_id);
+      if (!r.ok || r.establishmentId !== establishment_id) {
+        return NextResponse.json({ error: "Sección fuera de tu alcance" }, { status: 403 });
+      }
+      effSection = section_id;
+      effCourse = r.courseId; // asignatura REAL de la sección (no la del body)
+    } else if (course_id) {
+      const r = await courseInScope(admin, scope, course_id);
+      if (!r.ok || r.establishmentId !== establishment_id) {
+        return NextResponse.json({ error: "Asignatura fuera de tu alcance" }, { status: 403 });
+      }
+      effCourse = course_id;
+      effSection = null;
+    } else {
+      if (!matchesScope(scope, { establishment_id, course_id: null, section_id: null })) {
+        return NextResponse.json({ error: "Establecimiento fuera de tu alcance" }, { status: 403 });
+      }
+      effCourse = null;
+      effSection = null;
+    }
+  }
+
   const results: { email: string; success: boolean; error?: string }[] = [];
 
   for (const row of users) {
@@ -89,8 +128,8 @@ export async function POST(request: Request) {
         // Temporary password → force a change on first login.
         const updates: Record<string, unknown> = { role: rowRole, must_change_password: true };
         if (establishment_id) updates.establishment_id = establishment_id;
-        if (course_id) updates.course_id = course_id;
-        if (section_id) updates.section_id = section_id;
+        if (effCourse) updates.course_id = effCourse;
+        if (effSection) updates.section_id = effSection;
         const { error: profileError } = await admin.from("profiles").update(updates).eq("id", newUser.user.id);
         if (profileError) {
           console.error("[users/bulk] profile update failed", profileError);

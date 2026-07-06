@@ -1,14 +1,31 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveAdminScopeRules } from "@/lib/admin-scope";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
+  // Solo admin/superadmin (usa service-role que bypassa RLS): sin gate, cualquier
+  // usuario autenticado podía enumerar el catálogo de cualquier establecimiento.
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const callerRole = profile?.role;
+  if (!callerRole || !["admin", "superadmin"].includes(callerRole)) {
+    return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+  }
+
   const admin = createAdminClient();
   const establishmentId = request.nextUrl.searchParams.get("establishment_id");
+
+  // Admin: solo asignaturas de un establecimiento de su alcance.
+  if (callerRole === "admin") {
+    const rules = await resolveAdminScopeRules(supabase, user.id);
+    if (!establishmentId || !rules.some((r) => r.establishmentId === establishmentId)) {
+      return NextResponse.json([]);
+    }
+  }
 
   let query = admin.from("courses").select("id, name, code, establishment_id, is_active").order("name");
   if (establishmentId) query = query.eq("establishment_id", establishmentId);
