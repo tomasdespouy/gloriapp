@@ -55,38 +55,16 @@ const DEFAULT_CHAR_DELAY_MS = 28;
 
 // Default silence thresholds; may be overridden per-patient via the
 // "pacing" event. Length of the array == number of nudge stages.
-const DEFAULT_SILENCE_THRESHOLDS_MS = [60_000, 120_000, 210_000, 300_000];
+// Back-loaded a propósito (ver conversation-pacing.ts): el 1er umbral es ~50%
+// del techo para que el primer "¿sigue ahí?" no salga antes de ~2-3 min.
+const DEFAULT_SILENCE_THRESHOLDS_MS = [150_000, 210_000, 255_000, 300_000];
 
-// Cómo el tipeo del estudiante afecta los nudges de "¿sigue ahí?", según el
-// difficulty_level del paciente (llega por el evento "pacing" como
-// respectsTyping). Determinista — no depende del modelo.
-//   full    → mientras escribe, se suprimen TODOS los nudges (principiante).
-//   partial → se suprimen salvo el nudge final/cierre (intermedio).
-//   from2   → se suprime solo el nudge 1; desde el 2, si escribe, pregunta
-//             igual (avanzado).
-// IMPORTANTE: "suprimir" significa CONSUMIR la etapa en silencio (avanzar el
-// contador) SIN emitir el mensaje. Si no se avanzara, como las etapas son
-// secuenciales (nextStage = stage+1), las etapas posteriores de partial/from2
-// nunca se alcanzarían. El reloj de silencio NO se reinicia al tipear.
+// El difficulty_level llega por el evento "pacing" como respectsTyping. Hoy el
+// reloj de silencio se PAUSA mientras la caja de texto está enfocada (ver
+// composeFocusedRef / pauseSilenceClock más abajo), lo que reemplaza al viejo
+// esquema de "suprimir por tipeo". respectsTyping ya no se consume en el
+// cliente; se conserva el tipo por compatibilidad con el contrato del servidor.
 type RespectsTypingMode = "full" | "partial" | "from2";
-function typingSuppressesNudge(
-  mode: RespectsTypingMode,
-  nextStage: number,
-  totalStages: number,
-  isTyping: boolean
-): boolean {
-  if (!isTyping) return false; // no escribe → nunca suprime
-  switch (mode) {
-    case "full":
-      return true; // siempre pausa al tipear
-    case "partial":
-      return nextStage < totalStages; // pausa salvo el nudge final
-    case "from2":
-      return nextStage < 2; // pausa solo el nudge 1
-    default:
-      return true;
-  }
-}
 
 // Multi-message debounce — after the user hits Send, wait this long
 // before calling the AI. Each new Send during the window resets the
@@ -147,8 +125,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // via the SSE "pacing" event without forcing a re-render.
   const charDelayRef = useRef<number>(DEFAULT_CHAR_DELAY_MS);
   const silenceThresholdsRef = useRef<number[]>(DEFAULT_SILENCE_THRESHOLDS_MS);
-  // Modo de respeto al tipeo (capa de dificultad). Lo fija el evento
-  // "pacing"; lo consume el setInterval de silencio vía typingSuppressesNudge.
+  // Modo de respeto al tipeo (capa de dificultad). Lo fija el evento "pacing".
+  // Actualmente NO se consume en el cliente: el reloj de silencio se pausa por
+  // FOCO de la caja (composeFocusedRef), no por tipeo. Se conserva por
+  // compatibilidad con el contrato del servidor y un futuro uso.
   const respectsTypingRef = useRef<RespectsTypingMode>("full");
   // Extra pause after ".?!" + space so sentences breathe naturally.
   // Random in [min, max] ms each time one is hit. 0 disables.
@@ -487,19 +467,13 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     };
   }, [conversationId]);
 
-  // Typing detection — `isTypingRef` is true while the compose box holds at
-  // least one character. Antes esto REINICIABA el reloj de silencio (clear +
-  // restart), pero eso impedía que un avanzado/intermedio preguntara mientras
-  // el estudiante escribe. Ahora el reloj sigue corriendo y la SUPRESIÓN del
-  // nudge se decide por etapa en el setInterval (typingSuppressesNudge),
-  // según respectsTypingRef. Foco con caja vacía sigue contando como silencio.
-  // Legacy no-op signature is kept so existing call sites compile.
-  const handleTypingActivity = useCallback(() => {}, []);
-
-  const isTypingRef = useRef(false);
-  const applyTypingPause = (hasText: boolean) => {
-    isTypingRef.current = hasText;
-  };
+  // Detección de "estudiante trabajando": el reloj de silencio se PAUSA mientras
+  // la caja de texto está enfocada (cursor dentro / escribiendo) y se reanuda al
+  // salir (blur), retomando desde donde iba. Ver composeFocusedRef +
+  // pauseSilenceClock/resumeSilenceClock, más abajo, y los handlers del textarea.
+  // (Antes el tipeo solo SUPRIMÍA el disparo pero el reloj seguía corriendo, así
+  // que al dejar de escribir el nudge saltaba de inmediato — el foco-pausa lo
+  // arregla porque el tiempo redactando no cuenta como silencio.)
 
   // Patient media
   const avatarSlug = patient.name
@@ -557,6 +531,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const silenceStartRef = useRef<number | null>(null);
   const silenceStageRef = useRef(0);
   const silenceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Pausa del reloj de silencio mientras la caja de texto está enfocada.
+  // silencePausedAtRef = instante en que se pausó (null = corriendo).
+  // composeFocusedRef = ¿el textarea tiene el foco ahora?
+  const silencePausedAtRef = useRef<number | null>(null);
+  const composeFocusedRef = useRef(false);
 
   const clearSilenceTimers = () => {
     if (silenceIntervalRef.current) {
@@ -565,6 +544,25 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     }
     silenceStartRef.current = null;
     silenceStageRef.current = 0;
+    silencePausedAtRef.current = null;
+  };
+
+  // Pausa el reloj: mientras el estudiante tiene el cursor en la caja (redactando
+  // o pensando), el silencio NO corre y no dispara avisos. Idempotente.
+  const pauseSilenceClock = () => {
+    if (voiceModeRef.current) return;                // en voz no hay caja de texto
+    if (silenceStartRef.current == null) return;     // no hay reloj corriendo
+    if (silencePausedAtRef.current != null) return;  // ya pausado
+    silencePausedAtRef.current = Date.now();
+  };
+  // Reanuda al salir de la caja (blur): empuja el inicio hacia adelante el lapso
+  // pausado, para que ese tiempo no cuente y el conteo siga desde donde iba.
+  const resumeSilenceClock = () => {
+    if (silencePausedAtRef.current == null) return;
+    if (silenceStartRef.current != null) {
+      silenceStartRef.current += Date.now() - silencePausedAtRef.current;
+    }
+    silencePausedAtRef.current = null;
   };
 
   const fireSilenceStage = async (stage: number) => {
@@ -630,28 +628,22 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     clearSilenceTimers();
     silenceStartRef.current = Date.now();
     silenceStageRef.current = 0;
+    // Si la caja ya está enfocada al (re)arrancar el reloj, arranca PAUSADO: el
+    // estudiante está redactando y el silencio no debe correr hasta que la deje.
+    silencePausedAtRef.current = composeFocusedRef.current ? Date.now() : null;
 
     // Poll every 5s using timestamps — immune to browser tab throttling
     silenceIntervalRef.current = setInterval(() => {
       if (!silenceStartRef.current) return;
+      // Reloj pausado (cursor en la caja / escribiendo): no cuenta ni dispara.
+      if (silencePausedAtRef.current != null) return;
       const elapsed = Date.now() - silenceStartRef.current;
       const thresholds = voiceModeRef.current ? SILENCE_THRESHOLDS_VOICE : silenceThresholdsRef.current;
       const nextStage = silenceStageRef.current + 1;
 
       if (nextStage <= thresholds.length && elapsed >= thresholds[nextStage - 1]) {
-        // Consumimos la etapa SIEMPRE (avanzamos el contador) para que las
-        // etapas posteriores se alcancen; solo el DISPARO del mensaje se
-        // suprime mientras el estudiante escribe, según el modo de dificultad.
-        // El tipeo no aplica en modo voz (no hay caja de texto activa).
         silenceStageRef.current = nextStage;
-        const suppress = !voiceModeRef.current && typingSuppressesNudge(
-          respectsTypingRef.current, nextStage, thresholds.length, isTypingRef.current
-        );
-        if (suppress) {
-          console.log(`[silence] stage ${nextStage} suprimido por tipeo (modo=${respectsTypingRef.current})`);
-        } else {
-          fireSilenceStage(nextStage);
-        }
+        fireSilenceStage(nextStage);
         // Stop polling after the last stage
         if (nextStage >= thresholds.length) {
           clearSilenceTimers();
@@ -1094,7 +1086,6 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     const now = new Date().toISOString();
     setMessages((prev) => [...prev, { role: "user", content: trimmed, created_at: now }]);
-    isTypingRef.current = false;
     lastSentAtRef.current = Date.now();
     setUserTickStage(1);
     setTimeout(() => setUserTickStage((prev) => (prev === 1 ? 2 : prev)), 500);
@@ -2233,8 +2224,6 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
             onChange={(e) => {
               const next = e.target.value;
               setInput(next);
-              handleTypingActivity();
-              applyTypingPause(next.length > 0);
               const el = e.target;
               el.style.height = "auto";
               if (next.length > 0) {
@@ -2242,12 +2231,20 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               }
             }}
             onFocus={(e) => {
+              // El cursor entró a la caja → pausa el reloj de silencio.
+              composeFocusedRef.current = true;
+              pauseSilenceClock();
               if (window.matchMedia("(hover: none)").matches) {
                 const el = e.currentTarget;
                 setTimeout(() => {
                   el.scrollIntoView({ block: "nearest", behavior: "smooth" });
                 }, 300);
               }
+            }}
+            onBlur={() => {
+              // El cursor salió de la caja → reanuda el conteo desde donde iba.
+              composeFocusedRef.current = false;
+              resumeSilenceClock();
             }}
             onKeyDown={handleKeyDown}
             placeholder={sessionEnded ? "La sesión terminó. Ve a la revisión para ver el resumen." : sessionStarted ? "Dirige la sesión como terapeuta…" : "Presiona \"Iniciar sesión\" para comenzar"}
