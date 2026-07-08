@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordInner() {
+  const searchParams = useSearchParams();
+  // Si /auth/confirm rebota un enlace expirado o ya usado, avisamos aquí.
+  const notice =
+    searchParams.get("error") === "enlace_invalido"
+      ? "El enlace de recuperación expiró o ya fue usado. Solicita uno nuevo abajo."
+      : "";
+
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -19,17 +26,27 @@ export default function ForgotPasswordPage() {
     setError("");
     setLoading(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-    });
-
-    if (error) {
-      setError(error.message);
+    // Enviamos el correo de recuperación por Resend (vía API), no por el email
+    // nativo de Supabase, que en producción no entrega de forma confiable.
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "No se pudo procesar la solicitud. Inténtalo de nuevo.");
+        setLoading(false);
+        return;
+      }
+    } catch {
+      setError("No se pudo conectar. Revisa tu conexión e inténtalo de nuevo.");
       setLoading(false);
       return;
     }
 
+    // Respuesta genérica: por seguridad no revelamos si el email existe.
     setSuccess(true);
     setLoading(false);
   };
@@ -69,6 +86,11 @@ export default function ForgotPasswordPage() {
         </div>
       ) : (
         <>
+          {notice && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {notice}
+            </div>
+          )}
           <form onSubmit={handleReset} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -111,5 +133,13 @@ export default function ForgotPasswordPage() {
         </>
       )}
     </>
+  );
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ForgotPasswordInner />
+    </Suspense>
   );
 }
