@@ -31,7 +31,13 @@ export type PacingProfile = {
   /** if the real LLM already took longer than this, skip the
       artificial thinking delay entirely so we don't pile up waits */
   thinkingCeilingMs: number;
-  /** silence nudge thresholds in ms; length defines maxStages */
+  /** Umbrales de nudge de silencio en ms; el largo define maxStages.
+   *  El servidor los ESCALA para que el último = presupuesto de paciencia
+   *  del difficulty_level (ver scaleSilenceThresholds). Las curvas están
+   *  *back-loaded* a propósito: el 1er umbral es ~45-60% del techo, para que
+   *  el primer "¿sigue ahí?" NO salga antes de ~2-3 min y no interrumpa
+   *  intervenciones clínicas largas/reflexivas. (Antes eran front-loaded al
+   *  15-30% → 1er aviso a ~50-80s, que los docentes reportaron como intrusivo.) */
   silenceThresholdsMs: number[];
   /** En la primera sesion el paciente debe preguntar el nombre del
       terapeuta si este no se ha presentado. Cada arquetipo lo hace en
@@ -69,7 +75,7 @@ export const PACING_PROFILES: Record<PacingProfileKey, PacingProfile> = {
     thinkingMinMs: 500,
     thinkingMaxMs: 1500,
     thinkingCeilingMs: 800,
-    silenceThresholdsMs: [45_000, 90_000, 150_000, 300_000],
+    silenceThresholdsMs: [130_000, 190_000, 245_000, 300_000],
     introductionProtocol: {
       askNameAtTurn: 2,
       askNameStyle: "demandante e impaciente",
@@ -87,7 +93,7 @@ export const PACING_PROFILES: Record<PacingProfileKey, PacingProfile> = {
     thinkingMinMs: 900,
     thinkingMaxMs: 2500,
     thinkingCeilingMs: 800,
-    silenceThresholdsMs: [60_000, 120_000, 210_000, 300_000],
+    silenceThresholdsMs: [150_000, 210_000, 255_000, 300_000],
     introductionProtocol: {
       askNameAtTurn: 3,
       askNameStyle: "natural y cálido",
@@ -105,7 +111,7 @@ export const PACING_PROFILES: Record<PacingProfileKey, PacingProfile> = {
     thinkingMinMs: 2000,
     thinkingMaxMs: 4500,
     thinkingCeilingMs: 1200,
-    silenceThresholdsMs: [75_000, 150_000, 240_000, 300_000],
+    silenceThresholdsMs: [165_000, 220_000, 260_000, 300_000],
     introductionProtocol: {
       askNameAtTurn: 4,
       askNameStyle: "introspectivo y curioso, observando la situación",
@@ -123,7 +129,7 @@ export const PACING_PROFILES: Record<PacingProfileKey, PacingProfile> = {
     thinkingMinMs: 1500,
     thinkingMaxMs: 4000,
     thinkingCeilingMs: 1000,
-    silenceThresholdsMs: [90_000, 165_000, 240_000, 300_000],
+    silenceThresholdsMs: [180_000, 230_000, 265_000, 300_000],
     introductionProtocol: {
       askNameAtTurn: 5,
       askNameStyle: "suave y autodesvalorizante, casi disculpándose por preguntar",
@@ -141,7 +147,7 @@ export const PACING_PROFILES: Record<PacingProfileKey, PacingProfile> = {
     thinkingMinMs: 1200,
     thinkingMaxMs: 3000,
     thinkingCeilingMs: 1000,
-    silenceThresholdsMs: [90_000, 165_000, 240_000, 300_000],
+    silenceThresholdsMs: [180_000, 230_000, 265_000, 300_000],
     introductionProtocol: {
       askNameAtTurn: 6,
       askNameStyle: "muy tímido e indirecto, frase entrecortada",
