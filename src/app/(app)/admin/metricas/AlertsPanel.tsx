@@ -144,7 +144,12 @@ export default function AlertsPanel() {
             </thead>
             <tbody>
               {alerts.map((a) => (
-                <tr key={a.id} className={`border-b border-gray-100 ${a.reviewed_at ? "opacity-50" : ""}`}>
+                <tr
+                  key={a.id}
+                  onClick={() => setOpenConv(a)}
+                  className={`group border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${a.reviewed_at ? "opacity-50" : ""}`}
+                  title="Ver conversación completa"
+                >
                   <td className="px-3 py-2">
                     <span className={`text-xs font-semibold rounded-full px-2 py-0.5 border ${SEV_STYLES[a.severity]}`}>
                       {ALERT_SEVERITY_LABELS[a.severity]}
@@ -158,17 +163,17 @@ export default function AlertsPanel() {
                   </td>
                   <td className="px-3 py-2 text-gray-600">{a.patient_name ?? "—"}</td>
                   <td className="px-3 py-2 text-gray-600 max-w-xs">
-                    <button
-                      onClick={() => setOpenConv(a)}
-                      className="text-left line-clamp-2 hover:text-sidebar hover:underline cursor-pointer"
-                      title="Ver conversación completa"
-                    >{a.sample ?? "(ver conversación)"}</button>
+                    <div className="line-clamp-2 group-hover:text-sidebar">
+                      {a.sample?.trim()
+                        ? a.sample
+                        : <span className="italic text-gray-400">Paciente sin respuesta · ver conversación</span>}
+                    </div>
                     {a.matched_terms && <div className="text-xs text-gray-400 mt-0.5">[{a.matched_terms}]</div>}
                   </td>
                   <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{fmt(a.created_at)}</td>
                   <td className="px-3 py-2">
                     <button
-                      onClick={() => markReviewed(a.id, !a.reviewed_at)}
+                      onClick={(e) => { e.stopPropagation(); void markReviewed(a.id, !a.reviewed_at); }}
                       className={`flex items-center gap-1 text-xs cursor-pointer ${a.reviewed_at ? "text-gray-400" : "text-green-600 hover:text-green-700"}`}
                       title={a.reviewed_at ? "Marcar como no revisada" : "Marcar como revisada"}
                     >
