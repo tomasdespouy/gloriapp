@@ -739,7 +739,7 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({
               type: "error",
-              value: "Disculpa, no me llegó tu último mensaje. ¿Me lo puedes repetir, por favor?",
+              value: "Disculpe, no me llegó su último mensaje. ¿Me lo puede repetir, por favor?",
               recoverable: true,
             })}\n\n`)
           );
