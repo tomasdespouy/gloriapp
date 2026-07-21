@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { chat, chatStream, type ChatMessage } from "@/lib/ai";
+import { chat, chatStream, secondaryProvider, type ChatMessage } from "@/lib/ai";
 import { detectAlerts, isLikelyTruncated, stripPromptLeaks, detectSessionRupture, unprofessionalActionFor, detectUnprofessional, type AlertSpec, type UnprofessionalCategory } from "@/lib/chat-alerts";
 import { judgeUnprofessional } from "@/lib/unprofessional-judge";
 import { z } from "zod";
@@ -616,13 +616,25 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
         }
 
         const reader = chatStream(sanitizedHistory, systemPrompt).getReader();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: "token", value })}\n\n`)
-          );
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: "token", value })}\n\n`)
+            );
+          }
+        } catch (streamErr) {
+          // Ambos proveedores fallaron o devolvieron vacío en streaming. NO lo
+          // propagamos al catch externo (que mostraría un error técnico crudo):
+          // dejamos rawResponse vacío para que el path de truncación/reintento de
+          // abajo reintente (forzando el secundario) y, si tampoco hay respuesta,
+          // muestre el aviso recuperable "vuelve a enviar tu último mensaje".
+          logger.warn("chat_stream_failover_failed", {
+            conversationId, turnNumber,
+            error: streamErr instanceof Error ? streamErr.message : String(streamErr),
+          });
         }
 
         const rawResponse = chunks.join("");
@@ -657,7 +669,11 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
         if (firstCheck.truncated) {
           retryAttempted = true;
           try {
-            const retry = await chat(sanitizedHistory, systemPrompt, { lite: true });
+            // Reintento en el OTRO proveedor: si el primario devolvió vacío
+            // (glitch), reintentar el mismo modelo suele repetir el vacío.
+            // Forzamos el secundario para de verdad usar el fallback que ya
+            // teníamos pero que no se disparaba (vacío no lanzaba excepción).
+            const retry = await chat(sanitizedHistory, systemPrompt, { lite: true, forceProvider: secondaryProvider });
             const retryStripped = stripPromptLeaks(retry).cleaned;
             const retryPolished = polishAndLog(retryStripped, {
               conversationId,
