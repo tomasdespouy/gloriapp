@@ -3,6 +3,7 @@ import OpenAI from "openai";
 
 // --- Provider config ---
 const primaryProvider = process.env.LLM_PROVIDER || "openai";
+const secondaryProvider = primaryProvider === "openai" ? "gemini" : "openai";
 
 // --- Model config ---
 // CHAT_MODEL: used for patient conversations (fast, cheap)
@@ -58,7 +59,7 @@ export type ChatMessage = {
 export async function chat(
   messages: ChatMessage[],
   systemPrompt?: string,
-  options?: { lite?: boolean; jsonMode?: boolean }
+  options?: { lite?: boolean; jsonMode?: boolean; forceProvider?: "openai" | "gemini" }
 ): Promise<string> {
   const model = options?.lite ? chatModel : evalModel;
   // jsonMode fuerza al API a devolver JSON válido (response_format). Elimina la
@@ -66,28 +67,34 @@ export async function chat(
   // que era la causa probable de las evals perdidas (no rate-limit).
   const jsonMode = options?.jsonMode ?? false;
 
-  // Try primary provider with retries
-  const primary = primaryProvider === "openai"
-    ? () => chatOpenAI(messages, systemPrompt, model, jsonMode)
-    : () => chatGemini(messages, systemPrompt, jsonMode);
+  // Orden de proveedores: forceProvider (si viene) primero, luego el otro como
+  // failover. Sin forceProvider = comportamiento normal (primario → secundario).
+  // Se usa forceProvider en el reintento del chat de paciente: si el primario
+  // devolvió VACÍO, reintentar el mismo modelo probablemente repita el vacío,
+  // así que forzamos el secundario para de verdad usar el fallback.
+  const firstProvider = options?.forceProvider ?? primaryProvider;
+  const order = firstProvider === "openai" ? ["openai", "gemini"] : ["gemini", "openai"];
+  const call = (prov: string) =>
+    prov === "openai"
+      ? () => chatOpenAI(messages, systemPrompt, model, jsonMode)
+      : () => chatGemini(messages, systemPrompt, jsonMode);
 
-  try {
-    return await withRetry(primary);
-  } catch (primaryErr) {
-    console.warn(`[ai] Primary provider (${primaryProvider}) failed, attempting failover:`, primaryErr instanceof Error ? primaryErr.message : primaryErr);
-
-    // Failover to secondary provider
-    const secondary = primaryProvider === "openai"
-      ? () => chatGemini(messages, systemPrompt, jsonMode)
-      : () => chatOpenAI(messages, systemPrompt, model, jsonMode);
-
+  let lastErr: unknown;
+  for (let i = 0; i < order.length; i++) {
+    const prov = order[i];
     try {
-      return await secondary();
-    } catch (secondaryErr) {
-      console.error(`[ai] Failover also failed:`, secondaryErr instanceof Error ? secondaryErr.message : secondaryErr);
-      throw primaryErr; // throw original error
+      return await withRetry(call(prov));
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (i < order.length - 1) {
+        console.warn(`[ai] Provider "${prov}" failed (${msg}); failing over to "${order[i + 1]}".`);
+      } else {
+        console.error(`[ai] All providers failed (last: ${prov} — ${msg}).`);
+      }
     }
   }
+  throw lastErr;
 }
 
 /**
@@ -191,7 +198,11 @@ async function chatGemini(
     },
   });
 
-  return response.text || "";
+  const text = response.text || "";
+  // Una completación vacía no lanza excepción por sí sola; la convertimos en
+  // error para que el failover de chat() pase al otro proveedor.
+  if (!text.trim()) throw new Error("empty_completion (gemini)");
+  return text;
 }
 
 async function chatOpenAI(
@@ -210,7 +221,14 @@ async function chatOpenAI(
     ...(jsonMode ? { response_format: { type: "json_object" as const } } : {}),
   });
 
-  return response.choices[0]?.message?.content || "";
+  const text = response.choices[0]?.message?.content || "";
+  // Vacío = error, para disparar el failover al otro proveedor. finish_reason
+  // distingue glitch (stop/length) de filtro de contenido (content_filter).
+  if (!text.trim()) {
+    const reason = response.choices[0]?.finish_reason ?? "unknown";
+    throw new Error(`empty_completion (openai, finish_reason=${reason})`);
+  }
+  return text;
 }
 
 // --- Streaming (with timeout) ---
@@ -243,11 +261,16 @@ function chatStreamGemini(
           config: { systemInstruction: systemPrompt },
         });
 
+        let emittedAny = false;
         for await (const chunk of stream) {
           const text = chunk.text;
-          if (text) controller.enqueue(text);
+          if (text) { emittedAny = true; controller.enqueue(text); }
         }
         clearTimeout(timeout);
+        if (!emittedAny) {
+          controller.error(new Error("empty_stream (gemini)"));
+          return;
+        }
         controller.close();
       } catch (err) {
         clearTimeout(timeout);
@@ -279,11 +302,23 @@ function chatStreamOpenAI(
           stream: true,
         });
 
+        let emittedAny = false;
+        let finishReason: string | null = null;
         for await (const chunk of stream) {
           const text = chunk.choices[0]?.delta?.content;
-          if (text) controller.enqueue(text);
+          if (chunk.choices[0]?.finish_reason) finishReason = chunk.choices[0].finish_reason;
+          if (text) { emittedAny = true; controller.enqueue(text); }
         }
         clearTimeout(timeout);
+        // Completación vacía: NO lanza excepción por sí sola, así que el failover
+        // de chatStream nunca se enteraría. La convertimos en error — solo si no
+        // emitimos NADA, para no duplicar texto ya enviado río abajo — para que
+        // caiga al proveedor secundario. finish_reason distingue glitch
+        // (stop/length) de filtro de contenido (content_filter).
+        if (!emittedAny) {
+          controller.error(new Error(`empty_stream (openai, finish_reason=${finishReason ?? "unknown"})`));
+          return;
+        }
         controller.close();
       } catch (err) {
         clearTimeout(timeout);
@@ -293,4 +328,4 @@ function chatStreamOpenAI(
   });
 }
 
-export { primaryProvider as currentProvider, chatModel, evalModel };
+export { primaryProvider as currentProvider, secondaryProvider, chatModel, evalModel };

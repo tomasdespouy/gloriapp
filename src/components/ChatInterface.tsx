@@ -1268,7 +1268,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               const updated = [...prev];
               updated[updated.length - 1] = {
                 role: "assistant",
-                content: "Error: " + data.value,
+                // Los fallos recuperables (p. ej. el paciente "no recibió" el
+                // mensaje por un vacío del LLM) van en voz del paciente, sin el
+                // prefijo "Error:" que sí conservan los errores técnicos reales.
+                content: data.recoverable ? data.value : "Error: " + data.value,
                 created_at: new Date().toISOString(),
               };
               return updated;
