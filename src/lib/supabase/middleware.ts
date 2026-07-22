@@ -55,7 +55,6 @@ export async function updateSession(request: NextRequest) {
     // Se auto-autoriza con Bearer CRON_SECRET o sesión superadmin (para lotes).
     !pathname.startsWith("/api/admin/reeval-session") &&
     !pathname.startsWith("/piloto/") &&
-    !pathname.startsWith("/ANGLO") &&
     !pathname.startsWith("/paulina")
   ) {
     const url = request.nextUrl.clone();
