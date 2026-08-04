@@ -143,8 +143,18 @@ export default function UsuariosClient({ users, establishments, courses, section
     return sortDir === "asc" ? cmp : -cmp;
   });
 
+  // Gestionar = editar perfil / activar-desactivar / reasignar / credenciales.
+  // Un admin solo puede sobre estudiantes/docentes de su alcance (la lista ya
+  // viene scoped); nunca sobre otros admins ni superadmins. El superadmin
+  // gestiona a todos salvo superadmins.
+  const canManage = (u: User) => {
+    if (u.role === "superadmin") return false;
+    if (isSuperadmin) return true;
+    return u.role === "student" || u.role === "instructor";
+  };
+
   // Bulk selection computed values
-  const selectableIds = filtered.filter((u) => u.role !== "superadmin").map((u) => u.id);
+  const selectableIds = filtered.filter(canManage).map((u) => u.id);
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => bulkSelectedIds.has(id));
   const someSelected = bulkSelectedIds.size > 0;
 
@@ -470,15 +480,6 @@ export default function UsuariosClient({ users, establishments, courses, section
     return u.role === "student" || u.role === "instructor";
   };
 
-  // Gestionar = editar perfil / activar-desactivar. Un admin solo puede sobre
-  // estudiantes/docentes de su alcance (la lista ya viene scoped); nunca sobre
-  // otros admins ni superadmins. El superadmin gestiona a todos salvo superadmins.
-  const canManage = (u: User) => {
-    if (u.role === "superadmin") return false;
-    if (isSuperadmin) return true;
-    return u.role === "student" || u.role === "instructor";
-  };
-
   const SinCredentialesBadge = () => (
     <span
       className="inline-flex items-center text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
@@ -560,7 +561,7 @@ export default function UsuariosClient({ users, establishments, courses, section
               <div key={u.id} className={`bg-white rounded-xl border border-gray-200 p-4 shadow-sm ${isLoading ? "opacity-50" : ""} ${!isActive ? "opacity-60" : ""} ${isChecked ? "ring-2 ring-sidebar/30 border-sidebar/40" : ""}`}>
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <div className="flex items-center gap-2.5">
-                    {isSuperadmin && u.role !== "superadmin" && (
+                    {canManage(u) && (
                       <input
                         type="checkbox"
                         checked={isChecked}
@@ -645,18 +646,16 @@ export default function UsuariosClient({ users, establishments, courses, section
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
-                  {isSuperadmin && (
-                    <th className="px-4 py-3 w-10">
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        onChange={bulkToggleAll}
-                        disabled={bulkProcessing || selectableIds.length === 0}
-                        className="w-4 h-4 rounded border-gray-300 text-sidebar focus:ring-sidebar"
-                        title={allSelected ? "Deseleccionar todos" : "Seleccionar todos en esta página"}
-                      />
-                    </th>
-                  )}
+                  <th className="px-4 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={bulkToggleAll}
+                      disabled={bulkProcessing || selectableIds.length === 0}
+                      className="w-4 h-4 rounded border-gray-300 text-sidebar focus:ring-sidebar"
+                      title={allSelected ? "Deseleccionar todos" : "Seleccionar todos en esta página"}
+                    />
+                  </th>
                   <SortHeader label="Nombre" sortKeyName="full_name" />
                   <SortHeader label="Email" sortKeyName="email" />
                   <SortHeader label="Rol" sortKeyName="role" align="center" />
@@ -677,21 +676,19 @@ export default function UsuariosClient({ users, establishments, courses, section
 
                   return (
                     <tr key={u.id} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${isLoading ? "opacity-50" : ""} ${!isActive ? "bg-gray-50 opacity-60" : ""} ${isChecked ? "bg-sidebar/5" : ""}`}>
-                      {isSuperadmin && (
-                        <td className="px-4 py-3 w-10">
-                          {u.role !== "superadmin" ? (
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => bulkToggleOne(u.id)}
-                              disabled={bulkProcessing}
-                              className="w-4 h-4 rounded border-gray-300 text-sidebar focus:ring-sidebar"
-                            />
-                          ) : (
-                            <span />
-                          )}
-                        </td>
-                      )}
+                      <td className="px-4 py-3 w-10">
+                        {canManage(u) ? (
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => bulkToggleOne(u.id)}
+                            disabled={bulkProcessing}
+                            className="w-4 h-4 rounded border-gray-300 text-sidebar focus:ring-sidebar"
+                          />
+                        ) : (
+                          <span />
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <p className="text-sm font-medium text-gray-900">{u.full_name || "—"}</p>
                       </td>
@@ -775,7 +772,7 @@ export default function UsuariosClient({ users, establishments, courses, section
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={isSuperadmin ? 11 : 10} className="text-center text-sm text-gray-400 py-8">Sin usuarios</td>
+                    <td colSpan={11} className="text-center text-sm text-gray-400 py-8">Sin usuarios</td>
                   </tr>
                 )}
               </tbody>
@@ -821,8 +818,10 @@ export default function UsuariosClient({ users, establishments, courses, section
         )}
       </div>
 
-      {/* Bulk actions bar */}
-      {isSuperadmin && someSelected && (
+      {/* Bulk actions bar — un admin ve solo las acciones que el servidor le
+          autoriza sobre su alcance (activar/desactivar, reasignar, credenciales).
+          Restablecer datos y Borrar siguen siendo superadmin-only en la API. */}
+      {someSelected && (
         <div className="fixed bottom-0 left-0 right-0 md:left-[260px] bg-white border-t border-gray-200 shadow-lg p-4 z-40">
           <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
             <div className="flex items-center gap-3">
@@ -857,14 +856,22 @@ export default function UsuariosClient({ users, establishments, courses, section
                 >
                   <ToggleLeft size={16} /> Desactivar seleccionados
                 </button>
+                {isSuperadmin && (
+                  <button
+                    onClick={() => setBulkResetConfirm(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
+                  >
+                    <RotateCcw size={16} /> Restablecer datos
+                  </button>
+                )}
                 <button
-                  onClick={() => setBulkResetConfirm(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
-                >
-                  <RotateCcw size={16} /> Restablecer datos
-                </button>
-                <button
-                  onClick={() => { setReassignEstId(""); setReassignCourseId(""); setReassignSectionId(""); setBulkReassignOpen(true); }}
+                  onClick={() => {
+                    // Con una sola institución en el alcance (caso típico del
+                    // admin), la preseleccionamos: dejarla vacía haría fallar el
+                    // guardado con "no puedes cambiar el establecimiento".
+                    setReassignEstId(establishments.length === 1 ? establishments[0].id : "");
+                    setReassignCourseId(""); setReassignSectionId(""); setBulkReassignOpen(true);
+                  }}
                   className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-sidebar/30 text-sidebar bg-sidebar/5 hover:bg-sidebar/10 transition-colors cursor-pointer"
                 >
                   <Pencil size={16} /> Reasignar
@@ -875,12 +882,14 @@ export default function UsuariosClient({ users, establishments, courses, section
                 >
                   <KeyRound size={16} /> Enviar credenciales
                 </button>
-                <button
-                  onClick={() => { setBulkDeleteText(""); setBulkDeleteConfirm(true); }}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors cursor-pointer"
-                >
-                  <Trash2 size={16} /> Borrar
-                </button>
+                {isSuperadmin && (
+                  <button
+                    onClick={() => { setBulkDeleteText(""); setBulkDeleteConfirm(true); }}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors cursor-pointer"
+                  >
+                    <Trash2 size={16} /> Borrar
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -71,6 +71,32 @@ export function scopeAllowsCourse(scope: Scope, establishmentId: string | null |
   return scope.rules.some((r) => r.establishmentId === establishmentId && (r.courseId === null || r.courseId === courseId));
 }
 
+/**
+ * ¿El alcance cubre el establecimiento COMPLETO (regla sin acotar por asignatura
+ * ni sección)? Es el requisito para CREAR una asignatura: una asignatura nueva
+ * nace fuera de un alcance acotado (el admin ni siquiera podría verla después),
+ * así que un admin de una sola asignatura/sección no crea estructura por encima
+ * de su perímetro.
+ */
+export function scopeAllowsEstablishmentWide(scope: Scope, establishmentId: string | null | undefined): boolean {
+  if (scope.all) return true;
+  if (!establishmentId) return false;
+  return scope.rules.some((r) => r.establishmentId === establishmentId && r.courseId === null && r.sectionId === null);
+}
+
+/**
+ * ¿El alcance permite CREAR/ADMINISTRAR secciones dentro de esta asignatura?
+ * Exige que la regla no esté acotada a UNA sección (si lo estuviera, crear una
+ * sección hermana ampliaría su propio perímetro).
+ */
+export function scopeAllowsSectionCreation(
+  scope: Scope,
+  establishmentId: string | null | undefined,
+  courseId: string,
+): boolean {
+  return matchesScope(scope, { establishment_id: establishmentId, course_id: courseId, section_id: null });
+}
+
 /** ¿El alcance permite ver/elegir esta SECCIÓN? (para dropdowns). */
 export function scopeAllowsSection(
   scope: Scope,

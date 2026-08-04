@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminContext } from "@/lib/admin-helpers";
+import { applyScope, scopeAllowsCourse, scopeAllowsEstablishmentWide, scopeAllowsSectionCreation } from "@/lib/admin-scope";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Building2 } from "lucide-react";
@@ -37,8 +38,14 @@ export default async function EstablishmentDetailPage({
     admin.from("profiles").select("id, full_name, email").eq("role", "admin"),
     admin.from("courses").select("*").eq("establishment_id", id).order("name"),
     admin.from("sections").select("*").order("name"),
-    admin.from("profiles").select("id, full_name, email, role, course_id, section_id")
-      .eq("establishment_id", id).order("full_name"),
+    // Docentes/alumnos acotados al alcance del que mira: un admin de una
+    // asignatura no ve el listado completo del establecimiento (mismo criterio
+    // que /admin/usuarios). Superadmin → applyScope no toca la query.
+    applyScope(
+      admin.from("profiles").select("id, full_name, email, role, course_id, section_id")
+        .eq("establishment_id", id).order("full_name"),
+      ctx.scope,
+    ),
     admin.from("establishment_patients").select("ai_patient_id").eq("establishment_id", id),
     admin.from("ai_patients").select("id, name, age, occupation, difficulty_level, country, is_active, tags, country_origin, country_residence").order("name"),
     admin.from("establishment_modules").select("module_key, is_active").eq("establishment_id", id),
@@ -53,10 +60,19 @@ export default async function EstablishmentDetailPage({
     .map((a) => ({ ...a, ...(scopeByAdmin.get(a.id) || { course_id: null, section_id: null }) }));
   const availableAdmins = (allAdminUsers || []).filter((a) => !assignedAdminIds.has(a.id));
 
+  // Un admin acotado a una asignatura/sección solo ve esa parte del catálogo.
+  const visibleCourses = (courses || []).filter((c) => scopeAllowsCourse(ctx.scope, id, c.id));
+
+  // Permisos de creación de estructura académica dentro de esta institución.
+  const canCreateCourse = scopeAllowsEstablishmentWide(ctx.scope, id);
+  const sectionEditableCourseIds = visibleCourses
+    .filter((c) => scopeAllowsSectionCreation(ctx.scope, id, c.id))
+    .map((c) => c.id as string);
+
   // Map sections to their courses
   type SectionRow = { id: string; name: string; course_id: string; is_active: boolean };
   const courseSections: Record<string, SectionRow[]> = {};
-  (courses || []).forEach((c) => { courseSections[c.id] = []; });
+  visibleCourses.forEach((c) => { courseSections[c.id] = []; });
   (sections || []).forEach((s) => {
     if (courseSections[s.course_id]) courseSections[s.course_id].push(s as SectionRow);
   });
@@ -98,8 +114,10 @@ export default async function EstablishmentDetailPage({
           establishment={establishment}
           assignedAdmins={assignedAdmins}
           availableAdmins={availableAdmins}
-          courses={courses || []}
+          courses={visibleCourses}
           courseSections={courseSections}
+          canCreateCourse={canCreateCourse}
+          sectionEditableCourseIds={sectionEditableCourseIds}
           instructors={instructors}
           students={students}
           isSuperadmin={ctx.isSuperadmin}
