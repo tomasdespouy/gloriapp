@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import HelpTip from "@/components/HelpTip";
+import { accessBlockDetail, accessBlockLabel, type AccessBlock } from "@/lib/access-status";
 
 type User = {
   id: string;
@@ -29,6 +30,8 @@ type User = {
   lastActivity: string | null;
   created_at: string;
   credentials_sent_at: string | null;
+  /** Por qué esta cuenta no puede entrar (o { kind: "none" }). */
+  accessBlock: AccessBlock;
 };
 
 export type CourseOption = { id: string; name: string; establishment_id: string | null; is_active?: boolean };
@@ -48,6 +51,7 @@ type Props = {
   initialEst: string;
   initialCourse: string;
   initialSection: string;
+  initialEstado: string;
 };
 
 type SortKey = "full_name" | "email" | "role" | "establishmentName" | "courseName" | "sectionName" | "sessionCount";
@@ -56,7 +60,7 @@ type SortDir = "asc" | "desc";
 // Resultado por persona del envío masivo de credenciales (para el reporte).
 type CredResult = { id: string; name: string; email: string; status: "sent" | "failed"; reason?: string };
 
-export default function UsuariosClient({ users, establishments, courses, sections, isSuperadmin, totalCount, currentPage, perPage, initialSearch, initialRole, initialEst, initialCourse, initialSection }: Props) {
+export default function UsuariosClient({ users, establishments, courses, sections, isSuperadmin, totalCount, currentPage, perPage, initialSearch, initialRole, initialEst, initialCourse, initialSection, initialEstado }: Props) {
   const router = useRouter();
   const searchParamsHook = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
@@ -64,6 +68,7 @@ export default function UsuariosClient({ users, establishments, courses, section
   const [estFilter, setEstFilter] = useState(initialEst);
   const [courseFilter, setCourseFilter] = useState(initialCourse);
   const [sectionFilter, setSectionFilter] = useState(initialSection);
+  const [estadoFilter, setEstadoFilter] = useState(initialEstado);
   const [isPending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -480,6 +485,27 @@ export default function UsuariosClient({ users, establishments, courses, section
     return u.role === "student" || u.role === "instructor";
   };
 
+  // Insignia del motivo por el que la cuenta no puede entrar. Rojo = la cuenta
+  // está apagada; ámbar = la ventana del piloto la deja fuera; azul = solo
+  // tiene que definir su clave al entrar (no es un bloqueo permanente).
+  const AccessBlockBadge = ({ block }: { block: AccessBlock }) => {
+    if (!block || block.kind === "none") return null;
+    const tone =
+      block.kind === "disabled"
+        ? "text-red-700 bg-red-50 border-red-200"
+        : block.kind === "pilot"
+          ? "text-amber-700 bg-amber-50 border-amber-200"
+          : "text-sky-700 bg-sky-50 border-sky-200";
+    return (
+      <span
+        className={`inline-flex items-center text-[9px] font-semibold border rounded-full px-1.5 py-0.5 whitespace-nowrap ${tone}`}
+        title={accessBlockDetail(block)}
+      >
+        {accessBlockLabel(block)}
+      </span>
+    );
+  };
+
   const SinCredentialesBadge = () => (
     <span
       className="inline-flex items-center text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
@@ -549,6 +575,15 @@ export default function UsuariosClient({ users, establishments, courses, section
             <option value="">Todas las secciones</option>
             {sections.filter((s) => s.course_id === courseFilter).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
+          <select value={estadoFilter} onChange={(e) => { setEstadoFilter(e.target.value); navigate({ estado: e.target.value }); }}
+            title="Motivo por el que una cuenta no puede entrar a la plataforma"
+            className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm shadow-sm hover:border-gray-300 cursor-pointer">
+            <option value="">Cualquier estado de acceso</option>
+            <option value="bloqueado">Solo los bloqueados</option>
+            <option value="desactivado">Desactivados</option>
+            <option value="piloto">Bloqueados por el piloto</option>
+            <option value="clave">Con clave temporal pendiente</option>
+          </select>
         </div>
 
         {/* Mobile card layout */}
@@ -577,6 +612,7 @@ export default function UsuariosClient({ users, establishments, courses, section
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <p className="text-xs text-gray-500">{u.email}</p>
                   {u.credentials_sent_at === null && <SinCredentialesBadge />}
+                  <AccessBlockBadge block={u.accessBlock} />
                 </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 mb-3">
                   {u.establishmentName && <span>{u.establishmentName}</span>}
@@ -693,9 +729,10 @@ export default function UsuariosClient({ users, establishments, courses, section
                         <p className="text-sm font-medium text-gray-900">{u.full_name || "—"}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-xs text-gray-500">{u.email}</p>
                           {u.credentials_sent_at === null && <SinCredentialesBadge />}
+                          <AccessBlockBadge block={u.accessBlock} />
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
