@@ -14,6 +14,7 @@ import {
   ChartBarIcon,
   BookOpenIcon as BookOpenDuoIcon,
   LightbulbIcon,
+  BuildingIcon,
 } from "./SidebarTileIcons";
 import { useSidebar } from "./SidebarContext";
 import Link from "next/link";
@@ -87,6 +88,7 @@ const adminSections = (isSuperadmin: boolean): NavSection[] =>
           // Rol admin: misma familia de íconos duotone que estudiante/docente.
           items: [
             { icon: PanelIcon, label: "Panel", href: "/admin/dashboard" },
+            { icon: BuildingIcon, label: "Mi institución", href: "/admin/establecimientos" },
             { icon: UsersDuoIcon, label: "Usuarios", href: "/admin/usuarios" },
             { icon: UserDuoIcon, label: "Pacientes IA", href: "/perfiles" },
             { icon: BookOpenDuoIcon, label: "Retroalimentación", href: "/admin/retroalimentacion" },

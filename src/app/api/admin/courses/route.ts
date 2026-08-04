@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
-import { resolveAdminScopeRules } from "@/lib/admin-scope";
+import { resolveAdminScopeRules, scopeAllowsEstablishmentWide } from "@/lib/admin-scope";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -40,10 +40,26 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "superadmin") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  const callerRole = profile?.role;
+  if (!callerRole || !["admin", "superadmin"].includes(callerRole)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
 
   const { name, code, establishment_id } = await request.json();
   if (!name || !establishment_id) return NextResponse.json({ error: "name y establishment_id requeridos" }, { status: 400 });
+
+  // Un admin solo crea asignaturas en un establecimiento que administra COMPLETO
+  // (regla sin acotar). Si su alcance está limitado a una asignatura/sección, la
+  // asignatura nueva nacería fuera de su propio perímetro.
+  if (callerRole === "admin") {
+    const rules = await resolveAdminScopeRules(supabase, user.id);
+    if (!scopeAllowsEstablishmentWide({ all: false, rules }, establishment_id)) {
+      return NextResponse.json(
+        { error: "Su alcance está acotado a una asignatura: no puede crear asignaturas nuevas" },
+        { status: 403 },
+      );
+    }
+  }
 
   const admin = createAdminClient();
   const { data, error } = await admin.from("courses").insert({ name, code: code || null, establishment_id }).select().single();

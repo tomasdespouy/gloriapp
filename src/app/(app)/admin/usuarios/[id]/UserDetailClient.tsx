@@ -15,6 +15,10 @@ type Props = {
   /** Solo superadmin puede cambiar rol e institución. Un admin edita nombre y
    *  asignatura/sección (dentro de su alcance) con esos campos bloqueados. */
   canEditIdentity: boolean;
+  /** Crear ASIGNATURAS requiere alcance sobre el establecimiento completo. */
+  canCreateCourse: boolean;
+  /** Asignaturas donde se pueden crear SECCIONES. null = todas (superadmin). */
+  sectionEditableCourseIds: string[] | null;
 };
 
 type Course = { id: string; name: string; code: string | null };
@@ -32,6 +36,8 @@ export default function UserDetailClient({
   currentAdminScope,
   establishments,
   canEditIdentity,
+  canCreateCourse,
+  sectionEditableCourseIds,
 }: Props) {
   const router = useRouter();
   const [fullName, setFullName] = useState(currentFullName);
@@ -52,6 +58,7 @@ export default function UserDetailClient({
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageIsError, setMessageIsError] = useState(false);
 
   // Load courses when establishment changes
   useEffect(() => {
@@ -78,6 +85,7 @@ export default function UserDetailClient({
   const handleSave = async () => {
     setLoading(true);
     setMessage("");
+    setMessageIsError(false);
 
     const res = await fetch(`/api/admin/users/${userId}`, {
       method: "PATCH",
@@ -101,6 +109,7 @@ export default function UserDetailClient({
     if (!res.ok) {
       const data = await res.json();
       setMessage(data.error || "Error al actualizar");
+      setMessageIsError(true);
     } else {
       setMessage("Actualizado correctamente");
       router.refresh();
@@ -112,8 +121,14 @@ export default function UserDetailClient({
   const [newCourse, setNewCourse] = useState("");
   const [newSection, setNewSection] = useState("");
 
+  // Crear sección solo en asignaturas del alcance (null = todas, superadmin).
+  const canCreateSection = !!courseId && courseId !== ALL &&
+    (sectionEditableCourseIds === null || sectionEditableCourseIds.includes(courseId));
+
   const createCourse = async () => {
     if (!newCourse.trim() || !estId) return;
+    setMessage("");
+    setMessageIsError(false);
     const res = await fetch("/api/admin/courses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -124,11 +139,18 @@ export default function UserDetailClient({
       setCourses((prev) => [...prev, data]);
       setCourseId(data.id);
       setNewCourse("");
+    } else {
+      // Antes el fallo se tragaba en silencio: el campo simplemente no hacía nada.
+      const d = await res.json().catch(() => ({}));
+      setMessageIsError(true);
+      setMessage(d.error || "Error al crear la asignatura");
     }
   };
 
   const createSection = async () => {
     if (!newSection.trim() || !courseId) return;
+    setMessage("");
+    setMessageIsError(false);
     const res = await fetch("/api/admin/sections", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -139,6 +161,10 @@ export default function UserDetailClient({
       setSections((prev) => [...prev, data]);
       setSectionId(data.id);
       setNewSection("");
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setMessageIsError(true);
+      setMessage(d.error || "Error al crear la sección");
     }
   };
 
@@ -213,12 +239,14 @@ export default function UserDetailClient({
                   Define QUÉ ve/administra el admin: Todas = todo el establecimiento; una asignatura/sección = solo eso; Sin asignar = no ve nada.
                 </p>
               )}
-              <div className="flex items-center gap-2 mt-1.5">
-                <input type="text" value={newCourse} onChange={(e) => setNewCourse(e.target.value)}
-                  placeholder="Nueva asignatura..." className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs" />
-                <button onClick={createCourse} disabled={!newCourse.trim()}
-                  className="text-xs text-sidebar font-medium hover:underline disabled:opacity-40">Crear</button>
-              </div>
+              {canCreateCourse && (
+                <div className="flex items-center gap-2 mt-1.5">
+                  <input type="text" value={newCourse} onChange={(e) => setNewCourse(e.target.value)}
+                    placeholder="Nueva asignatura..." className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs" />
+                  <button onClick={createCourse} disabled={!newCourse.trim()}
+                    className="text-xs text-sidebar font-medium hover:underline disabled:opacity-40">Crear</button>
+                </div>
+              )}
             </div>
           )}
 
@@ -233,19 +261,21 @@ export default function UserDetailClient({
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
-              <div className="flex items-center gap-2 mt-1.5">
-                <input type="text" value={newSection} onChange={(e) => setNewSection(e.target.value)}
-                  placeholder="Nueva sección..." className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs" />
-                <button onClick={createSection} disabled={!newSection.trim()}
-                  className="text-xs text-sidebar font-medium hover:underline disabled:opacity-40">Crear</button>
-              </div>
+              {canCreateSection && (
+                <div className="flex items-center gap-2 mt-1.5">
+                  <input type="text" value={newSection} onChange={(e) => setNewSection(e.target.value)}
+                    placeholder="Nueva sección..." className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs" />
+                  <button onClick={createSection} disabled={!newSection.trim()}
+                    className="text-xs text-sidebar font-medium hover:underline disabled:opacity-40">Crear</button>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
       {message && (
-        <p className={`text-sm mt-3 ${message.includes("Error") ? "text-red-500" : "text-green-600"}`}>
+        <p className={`text-sm mt-3 ${messageIsError ? "text-red-500" : "text-green-600"}`}>
           {message}
         </p>
       )}

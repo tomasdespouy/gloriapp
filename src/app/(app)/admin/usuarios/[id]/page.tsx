@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminContext } from "@/lib/admin-helpers";
-import { matchesScope } from "@/lib/admin-scope";
+import { matchesScope, scopeAllowsEstablishmentWide, scopeAllowsSectionCreation } from "@/lib/admin-scope";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { User } from "lucide-react";
@@ -63,6 +63,21 @@ export default async function UserDetailPage({
     : "—";
 
   const currentEstName = establishments?.find((e) => e.id === userProfile.establishment_id)?.name || "Sin asignar";
+
+  // Qué estructura académica puede CREAR quien está mirando esta ficha.
+  // Asignatura → solo con alcance sobre el establecimiento completo.
+  // Sección → solo dentro de asignaturas de su alcance (null = todas, superadmin).
+  const canCreateCourse = scopeAllowsEstablishmentWide(ctx.scope, userProfile.establishment_id);
+  let sectionEditableCourseIds: string[] | null = null;
+  if (!ctx.isSuperadmin) {
+    const estId = userProfile.establishment_id;
+    const { data: estCourses } = estId
+      ? await createAdminClient().from("courses").select("id").eq("establishment_id", estId)
+      : { data: [] };
+    sectionEditableCourseIds = (estCourses || [])
+      .filter((c) => scopeAllowsSectionCreation(ctx.scope, estId, c.id as string))
+      .map((c) => c.id as string);
+  }
 
   // Alcance actual del admin (de admin_establishments) para pre-cargar el form.
   // null = "Sin asignar" (sin fila = no ve nada); course/section NULL = "Todas".
@@ -140,6 +155,8 @@ export default async function UserDetailPage({
             currentAdminScope={currentAdminScope}
             establishments={establishments || []}
             canEditIdentity={ctx.isSuperadmin}
+            canCreateCourse={canCreateCourse}
+            sectionEditableCourseIds={sectionEditableCourseIds}
           />
         )}
       </div>

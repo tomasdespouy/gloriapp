@@ -29,13 +29,17 @@ type Props = {
   assignedPatientIds: string[];
   estCountry: string | null;
   modules: { module_key: string; is_active: boolean }[];
+  /** Crear ASIGNATURAS requiere alcance sobre el establecimiento completo. */
+  canCreateCourse: boolean;
+  /** Asignaturas donde este usuario puede crear SECCIONES. */
+  sectionEditableCourseIds: string[];
 };
 
 const TABS = [
   { key: "general", label: "General", icon: Settings },
-  { key: "modules", label: "M\u00f3dulos", icon: Puzzle },
-  { key: "patients", label: "Pacientes", icon: UserRound },
-  { key: "admins", label: "Administradores", icon: ShieldCheck },
+  { key: "modules", label: "M\u00f3dulos", icon: Puzzle, superadminOnly: true },
+  { key: "patients", label: "Pacientes", icon: UserRound, superadminOnly: true },
+  { key: "admins", label: "Administradores", icon: ShieldCheck, superadminOnly: true },
   { key: "courses", label: "Asignaturas", icon: BookOpen },
   { key: "instructors", label: "Docentes", icon: GraduationCap },
   { key: "students", label: "Alumnos", icon: Users },
@@ -43,12 +47,15 @@ const TABS = [
 
 export default function InstitutionTabs(props: Props) {
   const [tab, setTab] = useState("general");
+  // M\u00f3dulos, Pacientes y Administradores son configuraci\u00f3n de la instituci\u00f3n:
+  // sus acciones ya son superadmin-only en la API, as\u00ed que no se muestran al admin.
+  const tabs = TABS.filter((t) => props.isSuperadmin || !t.superadminOnly);
 
   return (
     <div>
       {/* Tab bar */}
       <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
@@ -68,7 +75,7 @@ export default function InstitutionTabs(props: Props) {
       {tab === "modules" && <TabModules estId={String(props.establishment.id)} modules={props.modules} isSuperadmin={props.isSuperadmin} />}
       {tab === "patients" && <TabPatients estId={String(props.establishment.id)} allPatients={props.allPatients} assignedPatientIds={props.assignedPatientIds} estCountry={props.estCountry} isSuperadmin={props.isSuperadmin} />}
       {tab === "admins" && <TabAdmins estId={String(props.establishment.id)} assigned={props.assignedAdmins} available={props.availableAdmins} courses={props.courses} courseSections={props.courseSections} />}
-      {tab === "courses" && <TabCourses estId={String(props.establishment.id)} courses={props.courses} courseSections={props.courseSections} />}
+      {tab === "courses" && <TabCourses estId={String(props.establishment.id)} courses={props.courses} courseSections={props.courseSections} isSuperadmin={props.isSuperadmin} canCreateCourse={props.canCreateCourse} sectionEditableCourseIds={props.sectionEditableCourseIds} />}
       {tab === "instructors" && <TabInstructors estId={String(props.establishment.id)} instructors={props.instructors} courses={props.courses} courseSections={props.courseSections} />}
       {tab === "students" && <TabStudents estId={String(props.establishment.id)} students={props.students} courses={props.courses} courseSections={props.courseSections} />}
     </div>
@@ -316,7 +323,10 @@ function TabAdmins({ estId, assigned, available, courses, courseSections }: { es
 // ════════════════════════════════════════════
 // TAB: Asignaturas + Secciones
 // ════════════════════════════════════════════
-function TabCourses({ estId, courses, courseSections }: { estId: string; courses: Course[]; courseSections: Record<string, Section[]> }) {
+function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCourse, sectionEditableCourseIds }: {
+  estId: string; courses: Course[]; courseSections: Record<string, Section[]>;
+  isSuperadmin: boolean; canCreateCourse: boolean; sectionEditableCourseIds: string[];
+}) {
   const router = useRouter();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [newCourse, setNewCourse] = useState("");
@@ -332,11 +342,14 @@ function TabCourses({ estId, courses, courseSections }: { estId: string; courses
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newCourse.trim(), establishment_id: estId }),
       });
-      if (!res.ok) throw new Error("Error del servidor");
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Error del servidor");
+      }
       toast.success("Asignatura creada");
       setNewCourse(""); router.refresh();
-    } catch {
-      toast.error("Error al crear la asignatura");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al crear la asignatura");
     } finally {
       setLoading(false);
     }
@@ -365,11 +378,14 @@ function TabCourses({ estId, courses, courseSections }: { estId: string; courses
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newSectionName.trim(), course_id: courseId }),
       });
-      if (!res.ok) throw new Error("Error del servidor");
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Error del servidor");
+      }
       toast.success("Sección creada");
       setNewSectionName(""); setNewSectionFor(null); router.refresh();
-    } catch {
-      toast.error("Error al crear la sección");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al crear la sección");
     } finally {
       setLoading(false);
     }
@@ -377,15 +393,17 @@ function TabCourses({ estId, courses, courseSections }: { estId: string; courses
 
   return (
     <div className="space-y-3">
-      {/* Create course */}
-      <div className="flex items-center gap-2">
-        <input value={newCourse} onChange={(e) => setNewCourse(e.target.value)} placeholder="Nombre de la asignatura..."
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-        <button onClick={createCourse} disabled={loading || !newCourse.trim()}
-          className="flex items-center gap-1.5 bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
-          <Plus size={14} /> Crear asignatura
-        </button>
-      </div>
+      {/* Create course — requiere alcance sobre la institución completa */}
+      {canCreateCourse && (
+        <div className="flex items-center gap-2">
+          <input value={newCourse} onChange={(e) => setNewCourse(e.target.value)} placeholder="Nombre de la asignatura..."
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          <button onClick={createCourse} disabled={loading || !newCourse.trim()}
+            className="flex items-center gap-1.5 bg-sidebar text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sidebar-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+            <Plus size={14} /> Crear asignatura
+          </button>
+        </div>
+      )}
 
       {/* Course list */}
       {courses.map((course) => {
@@ -405,8 +423,10 @@ function TabCourses({ estId, courses, courseSections }: { estId: string; courses
                 <p className="text-sm font-semibold text-gray-900">{course.name}</p>
                 <p className="text-[10px] text-gray-400">{secs.length} {secs.length === 1 ? "sección" : "secciones"}</p>
               </div>
-              <button onClick={(e) => { e.stopPropagation(); deleteCourse(course.id); }}
-                className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-1 rounded cursor-pointer transition-colors"><Trash2 size={14} /></button>
+              {isSuperadmin && (
+                <button onClick={(e) => { e.stopPropagation(); deleteCourse(course.id); }}
+                  className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-1 rounded cursor-pointer transition-colors"><Trash2 size={14} /></button>
+              )}
             </div>
 
             {isOpen && (
@@ -425,12 +445,12 @@ function TabCourses({ estId, courses, courseSections }: { estId: string; courses
                     <button onClick={() => { setNewSectionFor(null); setNewSectionName(""); }}
                       className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer"><X size={14} /></button>
                   </div>
-                ) : (
+                ) : sectionEditableCourseIds.includes(course.id) ? (
                   <button onClick={() => setNewSectionFor(course.id)}
                     className="flex items-center gap-1 text-xs text-sidebar font-medium hover:underline cursor-pointer">
                     <Plus size={12} /> Agregar sección
                   </button>
-                )}
+                ) : null}
               </div>
             )}
           </div>
@@ -438,7 +458,9 @@ function TabCourses({ estId, courses, courseSections }: { estId: string; courses
       })}
 
       {courses.length === 0 && (
-        <p className="text-xs text-gray-400 text-center py-6">No hay asignaturas. Crea la primera arriba.</p>
+        <p className="text-xs text-gray-400 text-center py-6">
+          {canCreateCourse ? "No hay asignaturas. Crea la primera arriba." : "No hay asignaturas dentro de su alcance."}
+        </p>
       )}
     </div>
   );

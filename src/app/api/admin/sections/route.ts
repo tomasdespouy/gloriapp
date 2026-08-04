@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
-import { resolveAdminScopeRules, scopeAllowsCourse } from "@/lib/admin-scope";
+import { resolveAdminScopeRules, scopeAllowsCourse, courseInScope } from "@/lib/admin-scope";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -44,12 +44,26 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "superadmin") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  const callerRole = profile?.role;
+  if (!callerRole || !["admin", "superadmin"].includes(callerRole)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
 
   const { name, course_id } = await request.json();
   if (!name || !course_id) return NextResponse.json({ error: "name y course_id requeridos" }, { status: 400 });
 
   const admin = createAdminClient();
+
+  // Un admin crea secciones solo dentro de una asignatura de su alcance, y solo
+  // si su regla NO está acotada a una sección (crear una sección hermana
+  // ampliaría su propio perímetro). `courseInScope` resuelve el establecimiento
+  // real de la asignatura desde la BD: no confía en el cliente.
+  if (callerRole === "admin") {
+    const rules = await resolveAdminScopeRules(supabase, user.id);
+    const { ok } = await courseInScope(admin, { all: false, rules }, course_id);
+    if (!ok) return NextResponse.json({ error: "Sin permisos sobre esta asignatura" }, { status: 403 });
+  }
+
   const { data, error } = await admin.from("sections").insert({ name, course_id }).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

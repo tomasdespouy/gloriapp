@@ -185,6 +185,18 @@ export function UsersDuoIcon({ size = 28 }: IconProps) {
   );
 }
 
+/** Edificio institucional — menú admin, "Mi institución". */
+export function BuildingIcon({ size = 28 }: IconProps) {
+  return (
+    <svg {...baseSvg(size)} className="icon-building">
+      <path d="M4.5 20 L4.5 6.5 L13.5 3.5 L13.5 20 Z" fill={DUO_FILL} fillOpacity={DUO_OPACITY} stroke={STROKE} strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M13.5 20 L13.5 10 L19.5 12 L19.5 20 Z" fill={DUO_FILL} fillOpacity={DUO_OPACITY} stroke={STROKE} strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M3 20 L21 20" stroke={STROKE} strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M7.5 9 L10.5 8 M7.5 12.5 L10.5 11.5 M7.5 16 L10.5 15" stroke={STROKE} strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // ── Routing ───────────────────────────────────────────────────────
 
 export const TILE_ICON_BY_HREF: Record<string, React.ComponentType<IconProps>> = {
