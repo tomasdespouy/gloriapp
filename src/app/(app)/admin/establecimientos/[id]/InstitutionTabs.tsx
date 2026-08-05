@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   Settings, ShieldCheck, BookOpen, GraduationCap, Users,
   Plus, Trash2, ChevronDown, ChevronRight, UserPlus, X,
-  UserRound, Check, Globe, Star, Puzzle,
+  UserRound, Check, Globe, Star, Puzzle, Pencil,
 } from "lucide-react";
 import { MODULE_DEFINITIONS } from "@/lib/modules";
 import EstablishmentForm from "../EstablishmentForm";
@@ -104,6 +105,17 @@ function TabGeneral({ establishment, isSuperadmin }: { establishment: Record<str
     <div className="bg-white rounded-2xl border border-gray-200 p-6">
       <EstablishmentForm establishment={establishment as { id: string; name: string; slug: string; country?: string; logo_url?: string; website_url?: string; contact_name?: string; contact_email?: string; is_active?: boolean }} />
     </div>
+  );
+}
+
+// Los listados de esta ficha son de solo lectura: la edición de una persona
+// vive en su ficha de Usuarios. Sin este enlace había que salir a buscarla.
+function EditarPersonaLink({ id }: { id: string }) {
+  return (
+    <Link href={`/admin/usuarios/${id}`}
+      className="flex items-center gap-1 text-xs text-sidebar font-medium hover:underline cursor-pointer shrink-0">
+      <Pencil size={12} /> Editar
+    </Link>
   );
 }
 
@@ -328,7 +340,9 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
   isSuperadmin: boolean; canCreateCourse: boolean; sectionEditableCourseIds: string[];
 }) {
   const router = useRouter();
-  const [expanded, setExpanded] = useState<string | null>(null);
+  // Todas las asignaturas nacen desplegadas: "Agregar sección" vivía escondido
+  // tras un clic sin señal visual y nadie lo encontraba. Se puede plegar.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [newCourse, setNewCourse] = useState("");
   const [newSectionFor, setNewSectionFor] = useState<string | null>(null);
   const [newSectionName, setNewSectionName] = useState("");
@@ -408,14 +422,19 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
       {/* Course list */}
       {courses.map((course) => {
         const secs = courseSections[course.id] || [];
-        const isOpen = expanded === course.id;
+        const isOpen = !collapsed.has(course.id);
+        const toggle = () => setCollapsed((prev) => {
+          const next = new Set(prev);
+          if (next.has(course.id)) next.delete(course.id); else next.add(course.id);
+          return next;
+        });
         return (
           <div key={course.id} className={`bg-white rounded-2xl border border-gray-200 overflow-hidden ${loading ? "opacity-50" : ""}`}>
             <div
-              onClick={() => setExpanded(isOpen ? null : course.id)}
+              onClick={toggle}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setExpanded(isOpen ? null : course.id); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggle(); }}
               className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors cursor-pointer">
               {isOpen ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
               <BookOpen size={16} className="text-sidebar" />
@@ -436,19 +455,23 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
                     <span className="text-gray-700">{s.name}</span>
                   </div>
                 ))}
+                {secs.length === 0 && (
+                  <p className="text-xs text-gray-400 px-3 py-1">Esta asignatura todavía no tiene secciones.</p>
+                )}
                 {newSectionFor === course.id ? (
                   <div className="flex items-center gap-2">
                     <input value={newSectionName} onChange={(e) => setNewSectionName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && newSectionName.trim()) createSection(course.id); }}
                       placeholder="Nombre de la sección..." className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs" autoFocus />
                     <button onClick={() => createSection(course.id)} disabled={!newSectionName.trim()}
-                      className="text-xs text-sidebar font-medium hover:underline disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">Crear</button>
+                      className="bg-sidebar text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-sidebar-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">Crear</button>
                     <button onClick={() => { setNewSectionFor(null); setNewSectionName(""); }}
                       className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer"><X size={14} /></button>
                   </div>
                 ) : sectionEditableCourseIds.includes(course.id) ? (
                   <button onClick={() => setNewSectionFor(course.id)}
-                    className="flex items-center gap-1 text-xs text-sidebar font-medium hover:underline cursor-pointer">
-                    <Plus size={12} /> Agregar sección
+                    className="w-full flex items-center justify-center gap-1.5 border border-dashed border-sidebar/40 text-sidebar rounded-lg py-2 text-xs font-medium hover:bg-sidebar/5 transition-colors cursor-pointer">
+                    <Plus size={13} /> Agregar sección
                   </button>
                 ) : null}
               </div>
@@ -524,8 +547,8 @@ function TabInstructors({ estId, instructors, courses, courseSections }: { estId
               const course = courses.find((c) => c.id === t.course_id);
               const section = Object.values(courseSections).flat().find((s) => s.id === t.section_id);
               return (
-                <div key={t.id} className="flex items-center justify-between py-2.5 px-3 bg-gray-50 rounded-xl">
-                  <div>
+                <div key={t.id} className="flex items-center justify-between gap-3 py-2.5 px-3 bg-gray-50 rounded-xl">
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900">{t.full_name || t.email}</p>
                     <p className="text-[10px] text-gray-400">
                       {t.email}
@@ -533,6 +556,7 @@ function TabInstructors({ estId, instructors, courses, courseSections }: { estId
                       {section && <span> &middot; {section.name}</span>}
                     </p>
                   </div>
+                  <EditarPersonaLink id={t.id} />
                 </div>
               );
             })}
@@ -699,8 +723,8 @@ function TabStudents({ estId, students, courses, courseSections }: { estId: stri
               const course = courses.find((c) => c.id === s.course_id);
               const section = Object.values(courseSections).flat().find((sec) => sec.id === s.section_id);
               return (
-                <div key={s.id} className="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded-lg transition-colors">
-                  <div>
+                <div key={s.id} className="flex items-center justify-between gap-3 py-2 px-3 hover:bg-gray-50 rounded-lg transition-colors">
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900">{s.full_name || s.email}</p>
                     <p className="text-[10px] text-gray-400">
                       {s.email}
@@ -708,6 +732,7 @@ function TabStudents({ estId, students, courses, courseSections }: { estId: stri
                       {section && <span> &middot; {section.name}</span>}
                     </p>
                   </div>
+                  <EditarPersonaLink id={s.id} />
                 </div>
               );
             })}
