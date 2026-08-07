@@ -217,7 +217,11 @@ Reglas de oro:
       .order("created_at", { ascending: false })
       .limit(MAX_HISTORY),
     memoryPromise,
-    supabase.from("conversations").select("prompt_snapshot, session_number, unprofessional_count").eq("id", conversationId).single(),
+    // `student:profiles(full_name)` viene embebido (sin roundtrip extra): es la
+    // red de seguridad del detector de presentacion — si el alumno escribio su
+    // propio nombre de pila de una forma que los patrones no anticipan, cuenta
+    // igual como presentado y el paciente no le exige el nombre.
+    supabase.from("conversations").select("prompt_snapshot, session_number, unprofessional_count, student:profiles(full_name)").eq("id", conversationId).single(),
   ]);
 
   let chronological = (history || []).reverse();
@@ -412,11 +416,14 @@ Si el/la terapeuta recién te saluda y NO te hizo una pregunta directa: tu mensa
   const studentMessages = chronological
     .filter((m) => m.role === "user")
     .map((m) => m.content);
+  const studentFullName =
+    (convRow?.student as { full_name?: string | null } | null | undefined)?.full_name ?? null;
   const introductionRule = buildIntroductionRule(
     pacingProfile,
     turnNumber,
     convRow?.session_number,
     studentMessages,
+    studentFullName,
   );
 
   // Reciprocidad (Caso A): si el terapeuta se presento por su nombre en
@@ -425,7 +432,7 @@ Si el/la terapeuta recién te saluda y NO te hizo una pregunta directa: tu mensa
   const selfIntroductionRule = buildSelfIntroductionRule(
     turnNumber,
     convRow?.session_number,
-    hasStudentIntroducedName(userMessages),
+    hasStudentIntroducedName(userMessages, studentFullName),
   );
 
   // Dato fijo: si el estudiante se presento por su nombre en algun
@@ -457,7 +464,7 @@ Lo que el terapeuta acaba de escribir es hostil, amenazante o irrespetuoso hacia
 
   // Escalada por nombre evadido (insistir → quiebre) y pregunta por la
   // próxima cita si el terapeuta cierra la sesión sin dar fecha.
-  const nameEsc = buildNameEscalation(pacingProfile, turnNumber, convRow?.session_number, studentMessages);
+  const nameEsc = buildNameEscalation(pacingProfile, turnNumber, convRow?.session_number, studentMessages, studentFullName);
   const closingAppointmentRule = buildClosingAppointmentRule(userMessages);
 
   // Conducta ANTIPROFESIONAL del terapeuta (rompe el encuadre SIN agredir):
