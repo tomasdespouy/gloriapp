@@ -208,18 +208,55 @@ export function thinkingDelayFor(profile: PacingProfile, realElapsedMs: number):
  *
  * Returns true si CUALQUIER mensaje del estudiante matchea.
  */
-export function hasStudentIntroducedName(messages: string[]): boolean {
+/**
+ * Formas en que un terapeuta entrega su nombre. La version original solo
+ * cubria "me llamo / mi nombre es / aqui le habla / Soy X" con el nombre
+ * OBLIGATORIAMENTE capitalizado, y dejaba fuera lo que la gente escribe de
+ * verdad: "puedes decirme Sofia", "llamame X", "te saluda X", "soy sofia"
+ * en minuscula. Una alumna respondio "Puedes decirme Sofia o Sofi" cuando la
+ * paciente le pregunto el nombre y el sistema la siguio contando como "nunca
+ * se presento": tres turnos despues le cerro la sesion (caso practica CAP UGM,
+ * 6-ago-2026).
+ *
+ * El error es ASIMETRICO: un falso positivo solo hace que la paciente no
+ * pregunte el nombre; un falso negativo TERMINA la sesion de un alumno que si
+ * se presento. Por eso ahora se peca de permisivo.
+ *
+ * `studentFullName` (del perfil) es la red de seguridad definitiva: si el
+ * alumno escribio su propio nombre de pila en cualquier forma que no
+ * anticipamos, se considera presentado.
+ */
+export function hasStudentIntroducedName(messages: string[], studentFullName?: string | null): boolean {
+  const firstName = firstNameOf(studentFullName);
+  if (firstName) {
+    const re = new RegExp(`(^|[^a-z])${escapeRegex(firstName)}([^a-z]|$)`, "i");
+    if (messages.some((m) => re.test(stripAccents(m)))) return true;
+  }
   for (const msg of messages) {
     if (/\bme\s+llamo\s+\S/i.test(msg)) return true;
-    if (/\bmi\s+nombre\s+es\s+\S/i.test(msg)) return true;
+    if (/\bmi\s+nombre\s+(?:es\s+)?\S/i.test(msg)) return true;
     if (/\baqu[ií]\s+(?:le\s+)?habla\s+\S/i.test(msg)) return true;
-    // "soy X" / "Soy X" — el verbo es case-insensitive pero el nombre
-    // DEBE arrancar con mayuscula (capitalizado). Asi diferenciamos
-    // "soy Tomas" (nombre propio) de "soy chilena", "soy estudiante",
-    // "soy de Argentina", "soy una persona" (todos lowercase tras "soy").
-    if (/\b[Ss]oy\s+(?:el\s+|la\s+)?(?:doctor[ae]?\s+|psic[oó]log[ao]\s+|terapeuta\s+)?[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+/.test(msg)) return true;
+    if (/\b(?:te|le)\s+(?:saluda|habla)\s+\S/i.test(msg)) return true;
+    // "puedes decirme X" / "llamame X" / "dime X" / "digame X"
+    if (/\b(?:pued[eo]s?|pod[eé]s|puede)\s+(?:decirme|llamarme|tratarme\s+de)\s+\S/i.test(msg)) return true;
+    if (/\b(?:ll[aá]m[ae]me|ll[aá]meme|d[ií]game|dime)\s+\S/i.test(msg)) return true;
+    // "soy X" — ahora acepta minuscula (la gente no capitaliza al tipear) y se
+    // apoya en NOT_A_NAME para descartar roles, nacionalidades y muletillas.
+    const m = msg.match(/\b[Ss]oy\s+(?:el\s+|la\s+)?(?:doctor[ae]?\s+|psic[oó]log[ao]\s+|terapeuta\s+)?([A-Za-zÁÉÍÓÚÑáéíóúñ]+)/);
+    if (m && !NOT_A_NAME.has(stripAccents(m[1]))) return true;
   }
   return false;
+}
+
+/** Primer nombre util (>=3 letras, sin tildes) o null. */
+function firstNameOf(fullName?: string | null): string | null {
+  if (!fullName) return null;
+  const first = stripAccents(fullName.trim()).split(/\s+/)[0] || "";
+  return first.length >= 3 ? first : null;
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // Palabras que NO son nombres aunque aparezcan capitalizadas tras "Soy"
@@ -233,6 +270,12 @@ const NOT_A_NAME = new Set([
   "estudiante", "psicologo", "psicologa", "terapeuta", "doctor", "doctora",
   "alumno", "alumna", "practicante", "interno", "interna", "profesional",
   "supervisor", "supervisora", "nuevo", "nueva", "yo",
+  // Palabras funcionales: necesarias ahora que "soy x" acepta minusculas
+  // ("soy tu terapeuta", "soy quien te acompana", "soy la persona que...").
+  "tu", "su", "mi", "el", "la", "un", "una", "quien", "alguien", "parte",
+  "todo", "toda", "muy", "tan", "solo", "sola", "mas", "menos", "aqui",
+  "consciente", "capaz", "responsable", "docente", "profesor", "profesora",
+  "tuyo", "tuya", "suyo", "suya", "de", "del", "para", "por", "como",
 ]);
 
 function stripAccents(s: string): string {
@@ -253,16 +296,23 @@ function capitalizeName(s: string): string {
  * llamo X" / "mi nombre es X" son de alta confianza.
  */
 export function extractStudentName(messages: string[]): string | null {
-  const NAME = "([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)";
+  // Case-insensitive: la gente tipea su nombre en minuscula. capitalizeName
+  // se encarga de dejarlo presentable para que el paciente lo use.
+  const NAME = "([A-Za-zÁÉÍÓÚÑáéíóúñ]+)";
+  const HIGH_CONFIDENCE = [
+    `\\bme\\s+llamo\\s+${NAME}`,
+    `\\bmi\\s+nombre\\s+(?:es\\s+)?${NAME}`,
+    `\\baqu[ií]\\s+(?:le\\s+)?habla\\s+${NAME}`,
+    `\\b(?:te|le)\\s+(?:saluda|habla)\\s+${NAME}`,
+    `\\b(?:pued[eo]s?|pod[eé]s|puede)\\s+(?:decirme|llamarme|tratarme\\s+de)\\s+${NAME}`,
+    `\\b(?:ll[aá]m[ae]me|ll[aá]meme|d[ií]game|dime)\\s+${NAME}`,
+    `\\b[Ss]oy\\s+(?:el\\s+|la\\s+)?(?:doctor[ae]?\\s+|psic[oó]log[ao]\\s+|terapeuta\\s+)?${NAME}`,
+  ];
   for (const msg of messages) {
-    let m: RegExpMatchArray | null;
-    if ((m = msg.match(new RegExp(`\\bme\\s+llamo\\s+${NAME}`, "i")))) return capitalizeName(m[1]);
-    if ((m = msg.match(new RegExp(`\\bmi\\s+nombre\\s+es\\s+${NAME}`, "i")))) return capitalizeName(m[1]);
-    if ((m = msg.match(new RegExp(`\\baqu[ií]\\s+(?:le\\s+)?habla\\s+${NAME}`, "i")))) return capitalizeName(m[1]);
-    // "Soy (el/la doctor/psicologo/terapeuta) X" — el nombre DEBE estar
-    // capitalizado (case-sensitive) y no ser una nacionalidad/rol.
-    if ((m = msg.match(new RegExp(`\\b[Ss]oy\\s+(?:el\\s+|la\\s+)?(?:doctor[ae]?\\s+|psic[oó]log[ao]\\s+|terapeuta\\s+)?${NAME}`)))) {
-      if (!NOT_A_NAME.has(stripAccents(m[1]))) return capitalizeName(m[1]);
+    for (const pattern of HIGH_CONFIDENCE) {
+      const m = msg.match(new RegExp(pattern, "i"));
+      // NOT_A_NAME evita fijar "chilena", "estudiante" o "tu" como nombre.
+      if (m && !NOT_A_NAME.has(stripAccents(m[1]))) return capitalizeName(m[1]);
     }
   }
   return null;
@@ -285,12 +335,13 @@ export function buildIntroductionRule(
   turnNumber: number,
   sessionNumber: number | null | undefined,
   studentMessages: string[],
+  studentFullName?: string | null,
 ): string {
   const intro = profile.introductionProtocol;
   if (!intro) return "";
   if (turnNumber !== intro.askNameAtTurn) return "";
   if (sessionNumber != null && sessionNumber !== 1) return "";
-  if (hasStudentIntroducedName(studentMessages)) return "";
+  if (hasStudentIntroducedName(studentMessages, studentFullName)) return "";
 
   const variants = intro.askNameVariants
     .map((v, i) => `  ${i + 1}. "${v}"`)
@@ -335,7 +386,11 @@ El terapeuta se presento por su nombre. Es natural devolver el gesto: en esta re
 - No te extiendas, no expliques por que viniste, no hagas preguntas. Solo tu nombre + un saludo breve.\n`;
 }
 
-const INSIST_GRACE = 2; // turnos de insistencia tras el ask antes del quiebre
+// Turnos de insistencia tras el ask antes del quiebre. Subido de 2 a 3
+// (6-ago-2026): en practica profesional el corte llegaba demasiado rapido —
+// el paciente pregunta, insiste dos veces y cierra. Con 3, insiste una vez
+// mas antes de irse, que es lo que un paciente real haria.
+const INSIST_GRACE = 3;
 
 /**
  * Escalada cuando el terapeuta NO entrega su nombre tras habérselo
@@ -350,11 +405,12 @@ export function buildNameEscalation(
   turnNumber: number,
   sessionNumber: number | null | undefined,
   studentMessages: string[],
+  studentFullName?: string | null,
 ): { rule: string; rupture: boolean } {
   const intro = profile.introductionProtocol;
   if (!intro) return { rule: "", rupture: false };
   if (sessionNumber != null && sessionNumber !== 1) return { rule: "", rupture: false };
-  if (hasStudentIntroducedName(studentMessages)) return { rule: "", rupture: false };
+  if (hasStudentIntroducedName(studentMessages, studentFullName)) return { rule: "", rupture: false };
 
   const ask = intro.askNameAtTurn;
   if (turnNumber <= ask) return { rule: "", rupture: false }; // el ask inicial lo maneja buildIntroductionRule
