@@ -386,7 +386,11 @@ El terapeuta se presento por su nombre. Es natural devolver el gesto: en esta re
 - No te extiendas, no expliques por que viniste, no hagas preguntas. Solo tu nombre + un saludo breve.\n`;
 }
 
-const INSIST_GRACE = 2; // turnos de insistencia tras el ask antes del quiebre
+// Turnos de insistencia tras el ask antes del quiebre. Subido de 2 a 3
+// (6-ago-2026): en practica profesional el corte llegaba demasiado rapido —
+// el paciente pregunta, insiste dos veces y cierra. Con 3, insiste una vez
+// mas antes de irse, que es lo que un paciente real haria.
+const INSIST_GRACE = 3;
 
 /**
  * Escalada cuando el terapeuta NO entrega su nombre tras habérselo
