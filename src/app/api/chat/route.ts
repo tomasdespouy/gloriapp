@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat, chatStream, secondaryProvider, type ChatMessage } from "@/lib/ai";
 import { detectAlerts, isLikelyTruncated, stripPromptLeaks, detectSessionRupture, unprofessionalActionFor, detectUnprofessional, type AlertSpec, type UnprofessionalCategory } from "@/lib/chat-alerts";
+import { judgeHostility } from "@/lib/hostility-judge";
 import { judgeUnprofessional } from "@/lib/unprofessional-judge";
 import { z } from "zod";
 import {
@@ -176,8 +177,10 @@ Reglas de oro:
 
     if (existing) {
       conversationId = existing.id;
-      // Re-activate if it was abandoned; pin prompt if not already snapshotted
-      const updates: Record<string, unknown> = { status: "active" };
+      // Re-activate if it was abandoned; pin prompt if not already snapshotted.
+      // end_reason se limpia: si la sesión vuelve a estar viva, el motivo de
+      // cierre anterior ya no describe su estado.
+      const updates: Record<string, unknown> = { status: "active", end_reason: null };
       if (!existing.prompt_snapshot) {
         updates.prompt_snapshot = buildEnrichedPrompt(patient);
       }
@@ -447,12 +450,22 @@ Si el/la terapeuta recién te saluda y NO te hizo una pregunta directa: tu mensa
   // Ruptura de sesión: si el estudiante amenaza o agrede al paciente de
   // forma dirigida, el paciente se retira y cierra la sesión. Se evalúan
   // todos los mensajes del burst; basta uno hostil.
-  let ruptureReason = "";
+  //
+  // HÍBRIDO (igual que la conducta antiprofesional): las keywords solo
+  // SOSPECHAN; un juez LLM CONFIRMA antes de cerrar. Sin esa confirmación, un
+  // tamizaje de riesgo legítimo ("¿has pensado en hacerte daño?") o la cita de
+  // un insulto ajeno cerraban la sesión sin aviso. Como el prefiltro dispara en
+  // un puñado de turnos, el juez casi nunca corre.
+  let ruptureSuspicion = "";
   for (const m of userMessages) {
     const r = detectSessionRupture(m);
-    if (r.rupture) { ruptureReason = r.reason; break; }
+    if (r.rupture) { ruptureSuspicion = r.reason; break; }
   }
-  const isRupture = ruptureReason !== "";
+  const isRupture = ruptureSuspicion !== "" && (await judgeHostility(userMessages.join(" ")));
+  const ruptureReason = isRupture ? ruptureSuspicion : "";
+  if (ruptureSuspicion && !isRupture) {
+    logger.info("rupture_prefilter_dismissed", { conversationId, turnNumber, suspicion: ruptureSuspicion });
+  }
   const ruptureRule = isRupture
     ? `\n\n[RUPTURA DE LA SESIÓN — EL TERAPEUTA TE AGREDIÓ O AMENAZÓ — PRIORIDAD MÁXIMA]
 Lo que el terapeuta acaba de escribir es hostil, amenazante o irrespetuoso hacia ti. Esto NO es aceptable y te hace sentir inseguro(a). Esta regla SOBREESCRIBE cualquier instrucción previa sobre el largo o el estilo de tu respuesta.
@@ -870,7 +883,10 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
         // bloquee el input. El mensaje de cierre del paciente ya se
         // streameó arriba; aquí solo marcamos el fin de la sesión.
         if (sessionEndsNow) {
-          await supabase.from("conversations").update({ status: "completed" }).eq("id", conversationId);
+          // end_reason queda persistido para que el docente vea POR QUÉ se
+          // cerró la sesión (antes solo vivía en los logs) y para poder
+          // auditar falsos positivos sin releer transcripciones.
+          await supabase.from("conversations").update({ status: "completed", end_reason: endReason }).eq("id", conversationId);
           logger.warn("chat_session_rupture", { conversationId, turnNumber, reason: endReason });
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: "session_ended", reason: isRupture ? "rupture" : nameEsc.rupture ? "name_evasion" : "unprofessional" })}\n\n`)

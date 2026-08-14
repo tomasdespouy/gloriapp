@@ -17,6 +17,8 @@ export type DrawerConversation = {
   active_seconds: number;
   message_count: number;
   overall_score: number | null;
+  /** Motivo del cierre automático cuando el paciente se retira. NULL = cierre normal. */
+  end_reason?: string | null;
 };
 
 type TranscriptMessage = { role: string; content: string; created_at: string };
@@ -27,6 +29,17 @@ const dayKey = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { time
 // Etiqueta de día legible para el separador, p. ej. "miércoles, 27 de mayo de 2026".
 const dayLabel = (iso: string) =>
   new Date(iso).toLocaleDateString("es-CL", { timeZone: TZ, weekday: "long", day: "numeric", month: "long", year: "numeric" });
+// El paciente puede retirarse y cerrar la sesión solo. El motivo se persiste en
+// conversations.end_reason con un prefijo estable; acá se traduce a algo que el
+// docente entienda sin leer la transcripción completa.
+const endReasonLabel = (reason: string | null | undefined): string | null => {
+  if (!reason) return null;
+  if (reason.startsWith("directed_threat")) return "El paciente se retiró: amenaza dirigida";
+  if (reason.startsWith("disrespect")) return "El paciente se retiró: trato irrespetuoso";
+  if (reason.startsWith("name_evasion")) return "El paciente se retiró: el terapeuta nunca se presentó";
+  if (reason.startsWith("unprofessional")) return "El paciente se retiró: conducta poco profesional";
+  return "El paciente cerró la sesión";
+};
 const timeLabel = (iso: string) =>
   new Date(iso).toLocaleTimeString("es-CL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
 // Brecha legible entre dos mensajes ("3 h", "2 días", "45 min").
@@ -194,6 +207,11 @@ export default function ConversationsDrawer({
                         </>
                       )}
                     </div>
+                    {endReasonLabel(c.end_reason) && (
+                      <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-2">
+                        {endReasonLabel(c.end_reason)}
+                      </p>
+                    )}
                     <div className="flex items-center gap-2 mt-2">
                       <button
                         onClick={() => setOpenConvoId(c.id)}

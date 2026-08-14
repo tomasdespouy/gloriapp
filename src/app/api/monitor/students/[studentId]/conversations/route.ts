@@ -31,6 +31,7 @@ export async function GET(
       ended_at,
       created_at,
       active_seconds,
+      end_reason,
       ai_patients ( name )
     `)
     .eq("student_id", studentId)
@@ -45,6 +46,7 @@ export async function GET(
     ended_at: string | null;
     created_at: string;
     active_seconds: number | null;
+    end_reason: string | null;
     ai_patients: { name: string } | { name: string }[] | null;
   }>;
 
@@ -86,6 +88,7 @@ export async function GET(
       ended_at: c.ended_at,
       created_at: c.created_at,
       active_seconds: c.active_seconds || 0,
+      end_reason: c.end_reason,
       message_count: messageCountMap.get(c.id) || 0,
       overall_score: comp?.score ?? null,
       feedback_status: comp?.status ?? null,
