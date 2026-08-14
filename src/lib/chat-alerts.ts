@@ -310,9 +310,31 @@ export function detectAlerts(
 // Scoped to SECOND-PERSON, patient-directed hostility ("te voy a matar",
 // "eres un idiota") so it does NOT fire on legitimate clinical content
 // the patient recounts in third person ("su esposo la quiso matar").
+//
+// An INTENT FRAME ("voy a", "quiero", "debería") is mandatory whenever the
+// verb is an infinitive or an enclitic. Without it, a second-person harm verb
+// is almost always suicide-risk SCREENING, not aggression: "¿has pensado en
+// hacerte daño?", "¿alguna vez pensaste en matarte?", "¿te lastimas?". Those
+// used to match — and silently ended the session at the most valuable moment
+// of the interview (real case, 13-ago-2026). First-person conjugations ("te
+// mato", "te reviento") need no frame: they ARE the threat.
 
-const DIRECTED_THREAT_RE =
-  /\bte\s+(?:voy\s+a\s+|quiero\s+|deberia(?:n)?\s+)?(?:mat(?:ar|o)|peg(?:ar|o)|golpe(?:ar|o)|apu[nñ]al|acuchill|viol(?:ar|o)|revent|destroz|lastim|hacer\s+da[nñ]o)|\b(?:voy\s+a\s+)?(?:matarte|pegarte|golpearte|apu[nñ]alarte|violarte|lastimarte|reventarte|destrozarte|hacerte\s+da[nñ]o)\b/i;
+const THREAT_FRAME = String.raw`(?:voy\s+a|vamos\s+a|quiero|queremos|pienso|deberia(?:n)?|debiera|podria)`;
+const THREAT_INF = String.raw`(?:matar|pegar|golpear|apu[nñ]alar|acuchillar|violar|reventar|destrozar|lastimar|hacer\s+(?:much[oí]simo\s+|mucho\s+|harto\s+)?da[nñ]o)`;
+const THREAT_1P = String.raw`(?:mato|pego|golpeo|apu[nñ]alo|acuchillo|violo|reviento|destrozo|lastimo|matare|pegare|golpeare|reventare|destrozare|lastimare|hago\s+da[nñ]o|hare\s+da[nñ]o)`;
+const THREAT_ENCLITIC = String.raw`(?:matarte|pegarte|golpearte|apu[nñ]alarte|acuchillarte|violarte|reventarte|destrozarte|lastimarte|hacerte\s+(?:much[oí]simo\s+|mucho\s+|harto\s+)?da[nñ]o)`;
+
+const DIRECTED_THREAT_RE = new RegExp(
+  [
+    // "te voy a matar", "te quiero pegar", "te debería reventar"
+    String.raw`\bte\s+${THREAT_FRAME}\s+${THREAT_INF}\b`,
+    // "te mato", "te reviento", "te haré daño" — amenaza en 1ª persona.
+    String.raw`\bte\s+${THREAT_1P}\b`,
+    // "voy a matarte", "quiero hacerte daño" — el marco es OBLIGATORIO.
+    String.raw`\b${THREAT_FRAME}\s+${THREAT_ENCLITIC}\b`,
+  ].join("|"),
+  "i",
+);
 
 export type RuptureCheck = { rupture: boolean; reason: string };
 
@@ -324,6 +346,11 @@ export type RuptureCheck = { rupture: boolean; reason: string };
  *   1. Directed violent threats in 2nd person ("te voy a matar").
  *   2. Direct insults/disrespect toward the patient (reuses the
  *      disrespect term list — "eres un idiota", "no sirves").
+ *
+ * This is only the cheap PRE-FILTER: it flags a suspicion. Keywords cannot
+ * tell an insult from a quotation of one ("¿qué siente cuando su jefe le
+ * dice 'idiota'?"), so the caller must confirm with `judgeHostility` before
+ * ending a session — see src/lib/hostility-judge.ts.
  */
 export function detectSessionRupture(text: string): RuptureCheck {
   if (!text) return { rupture: false, reason: "" };
