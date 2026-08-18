@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import HelpTip from "@/components/HelpTip";
+import LogoUrlField from "@/components/LogoUrlField";
 
 type Establishment = {
   id?: string;
@@ -132,16 +133,14 @@ export default function EstablishmentForm({
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="https://www.ugm.cl" />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-gray-600 mb-1">URL del logo<HelpTip text="URL directa a la imagen del logotipo (PNG o SVG recomendado)" /></label>
-            <input type="url" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="https://..." />
-            {logoUrl && (
-              <div className="mt-2 flex items-center gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={logoUrl} alt="Preview" className="h-10 w-auto rounded bg-sidebar p-1" />
-                <span className="text-[10px] text-gray-400">Vista previa (fondo real del sidebar)</span>
-              </div>
-            )}
+            <LogoUrlField
+              value={logoUrl}
+              onChange={setLogoUrl}
+              initialValue={establishment?.logo_url || ""}
+              uploadSlug={slug}
+              label="Logo de la institución"
+              helper={<>Se muestra en la barra lateral de todos los usuarios de la institución.</>}
+            />
           </div>
         </div>
       </div>
