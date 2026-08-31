@@ -8,26 +8,27 @@
  * latir y a los 5 min se abandona. Da gracia desde `created_at` para sesiones
  * recién creadas.
  *
- * Pensado para correr cada ~5 min. En Vercel Hobby el cron interno solo corre
- * 1 vez al día (sirve de respaldo); el disparo frecuente se hace con un cron
- * externo (p. ej. cron-job.org) pegando a este endpoint con el header
- * `Authorization: Bearer <CRON_SECRET>`.
+ * Pensado para correr cada ~5 min. Hoy lo dispara un cron EXTERNO
+ * (cron-job.org) con el header `Authorization: Bearer <CRON_SECRET>`, además
+ * del cron nativo diario declarado en vercel.json.
+ *
+ * NOTA: el proyecto está en plan Vercel Pro (crons nativos ilimitados, con
+ * granularidad de minutos), así que este disparo externo ya no es obligatorio.
+ * Migrarlo es un cambio aparte: hay que apagar el externo en la misma ventana
+ * para no duplicar corridas.
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { canViewStudent } from "@/lib/section-scope";
 import { logEmail } from "@/lib/email-log";
+import { requireCron } from "@/lib/cron-auth";
 
 const INACTIVITY_MS = 5 * 60 * 1000;
 const MIN_MSGS_REPORT = 6; // conversación "real" digna de reporte al docente
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  const rejected = requireCron(request);
+  if (rejected) return rejected;
   const admin = createAdminClient();
 
   const { data: active, error: fetchError } = await admin

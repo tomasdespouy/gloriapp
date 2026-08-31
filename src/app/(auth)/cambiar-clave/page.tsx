@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { TEMP_PASSWORD_RE } from "@/lib/credentials/temp-password";
 
 export default function CambiarClavePage() {
   const [password, setPassword] = useState("");
@@ -21,7 +22,9 @@ export default function CambiarClavePage() {
     }
     // The temporary password follows the "Gloria_XXXXXX" pattern — block it so
     // the user can't keep (a variant of) the credential we emailed them.
-    if (/^Gloria_/i.test(password)) {
+    // El patrón vive en src/lib/credentials/temp-password.ts junto al generador,
+    // para que cambiar el prefijo no deje esta validación desincronizada.
+    if (TEMP_PASSWORD_RE.test(password)) {
       setError("Elige una contraseña distinta a la temporal que te enviamos.");
       return;
     }
