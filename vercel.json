@@ -11,12 +11,19 @@
     },
     "src/app/api/admin/research/scan/poll/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/cron/dispatch-credentials/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
     {
       "path": "/api/cron/cleanup-sessions",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/dispatch-credentials",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

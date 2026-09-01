@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { pilotEnrollSchema, parseBody } from "@/lib/validation/schemas";
 import { getGloriaLogoUrl } from "@/lib/email-assets";
 import { getAppUrl } from "@/lib/app-url";
+import { generateTempPassword } from "@/lib/credentials/temp-password";
 
 // Public endpoint — no auth check (the public consent page hits this).
 // Whitelisted in src/lib/supabase/middleware.ts via /api/public/ prefix.
@@ -331,16 +332,6 @@ export async function POST(
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
-
-function generateTempPassword(): string {
-  const chars =
-    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  let p = "Gloria_";
-  for (let i = 0; i < 6; i++) {
-    p += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return p;
-}
 
 function getClientIp(request: Request): string | null {
   // Vercel forwards the original IP in x-forwarded-for; cf-connecting-ip
