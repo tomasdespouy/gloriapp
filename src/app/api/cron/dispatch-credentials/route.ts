@@ -65,6 +65,16 @@ async function ejecutarCorrida({ dryRun }: Opts) {
   const admin = createAdminClient();
   const elapsed = () => Date.now() - t0;
 
+  // ── 0. ¿Está la migración aplicada en este entorno? ───────────────────────
+  // El deploy y la migración corren en procesos separados, así que el worker
+  // puede existir antes que sus tablas. Se detecta una vez y se sale limpio,
+  // en vez de fallar en cada consulta cada 5 minutos sin decir por qué.
+  const sonda = await admin.from("dispatch_runtime").select("id").limit(1);
+  if (sonda.error && (sonda.error.code === "42P01" || sonda.error.code === "PGRST205")) {
+    console.warn("[dispatch-credentials] migración pendiente en este entorno; no hay nada que despachar");
+    return NextResponse.json({ esquemaPendiente: true, enviados: 0 }, { status: 200 });
+  }
+
   // ── 1. Mantenimiento ──────────────────────────────────────────────────────
   // Va ANTES del chequeo de freno a propósito: si el freno dura 6 horas (cuota
   // agotada) y el mantenimiento estuviera después, nadie rescataría las filas

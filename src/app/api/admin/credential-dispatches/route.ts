@@ -252,7 +252,14 @@ export async function GET(request: Request) {
   if (soloAbiertos) q = q.is("closed_at", null);
 
   const { data: batches, error } = await q;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // El código puede llegar a producción antes que su migración. Mientras eso
+    // dure, el panel debe desaparecer, no romper la página de usuarios.
+    if (error.code === "42P01" || error.code === "PGRST205") {
+      return NextResponse.json({ batches: [], esquemaPendiente: true });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   const ids = (batches ?? []).map((b) => b.id);
   const stats = ids.length
