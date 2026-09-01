@@ -59,15 +59,21 @@ export async function PATCH(request: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     // Setting a new password from the profile also satisfies the first-login
     // forced change, so clear the flag.
-    // `password_set_at` marca que esta contraseña la eligió la persona: es lo
-    // que impide que un envío programado se la reemplace después. Sin esta
-    // escritura, quien cambia su clave desde "Mi perfil" (en vez de por el
-    // cambio forzado) queda expuesto a que un envío diferido se la destruya.
+    //
+    // Van SEPARADAS a propósito: limpiar el flag es lo que deja entrar a la
+    // persona, y `password_set_at` (que protege su contraseña de un envío
+    // programado) es una mejora prescindible. Juntas en un solo UPDATE, un
+    // despliegue anterior a su migración tumbaba las dos y encerraba al usuario.
     const admin = createAdminClient();
-    await admin
+    await admin.from("profiles").update({ must_change_password: false }).eq("id", user.id);
+
+    const { error: marcaError } = await admin
       .from("profiles")
-      .update({ must_change_password: false, password_set_at: new Date().toISOString() })
+      .update({ password_set_at: new Date().toISOString() })
       .eq("id", user.id);
+    if (marcaError) {
+      console.warn("[profile] no se pudo marcar password_set_at:", marcaError.message);
+    }
   }
 
   return NextResponse.json({ success: true });

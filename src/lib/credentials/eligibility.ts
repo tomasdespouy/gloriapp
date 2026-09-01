@@ -268,10 +268,7 @@ export async function loadDispatchContext(
 
   const [profilesRes, batchesRes, parentsRes] = await Promise.all([
     userIds.length
-      ? admin
-          .from("profiles")
-          .select("id, email, full_name, role, is_disabled, password_set_at, credentials_sent_at, establishment_id, course_id, section_id")
-          .in("id", userIds)
+      ? cargarPerfiles(admin, userIds)
       : Promise.resolve({ data: [] as ProfileRow[] }),
     admin
       .from("credential_batches")
@@ -317,6 +314,32 @@ export async function loadDispatchContext(
   const lastSignIn = await loadLastSignIn(admin, userIds);
 
   return { now: Date.now(), profiles, batches, pilots, lastSignIn, schedulers, parentSentAt };
+}
+
+/**
+ * Lee los perfiles del chunk. Si `password_set_at` todavía no existe en este
+ * entorno (deploy anterior a su migración), reintenta sin esa columna: la
+ * guarda de "ya inició sesión" sigue protegiendo igual, que es la regla por
+ * omisión.
+ */
+async function cargarPerfiles(
+  admin: SupabaseClient,
+  userIds: string[],
+): Promise<{ data: ProfileRow[] }> {
+  const COLS =
+    "id, email, full_name, role, is_disabled, password_set_at, credentials_sent_at, establishment_id, course_id, section_id";
+  const r = await admin.from("profiles").select(COLS).in("id", userIds);
+  if (!r.error) return { data: (r.data ?? []) as ProfileRow[] };
+
+  const falta = r.error.code === "42703" || (r.error.message || "").includes("password_set_at");
+  if (!falta) throw new Error("No se pudieron leer los perfiles: " + r.error.message);
+
+  console.warn("[eligibility] password_set_at no existe todavía; se usa solo last_sign_in_at");
+  const sin = await admin
+    .from("profiles")
+    .select(COLS.replace("password_set_at, ", ""))
+    .in("id", userIds);
+  return { data: ((sin.data ?? []) as unknown[]).map((p) => ({ ...(p as object), password_set_at: null })) as ProfileRow[] };
 }
 
 /**
