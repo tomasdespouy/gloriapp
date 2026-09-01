@@ -17,7 +17,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { evaluateConversation } from "@/lib/session-evaluation";
-import { requireCron } from "@/lib/cron-auth";
 
 export const maxDuration = 300;
 
@@ -25,8 +24,12 @@ const LOOKBACK_DAYS = 7;
 const MAX_PER_RUN = 8; // cada eval es una llamada LLM ~20-30s; entra en 300s.
 
 export async function GET(request: Request) {
-  const rejected = requireCron(request);
-  if (rejected) return rejected;
+  const authHeader = request.headers.get("authorization");
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const admin = createAdminClient();
   const since = new Date(Date.now() - LOOKBACK_DAYS * 86400000).toISOString();
 

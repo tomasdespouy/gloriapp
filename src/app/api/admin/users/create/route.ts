@@ -1,12 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+import { Resend } from "resend";
 import { logAdminAction } from "@/lib/audit";
 import { createUserSchema, parseBody } from "@/lib/validation/schemas";
+import { getAppUrl } from "@/lib/app-url";
+import { logEmail } from "@/lib/email-log";
 import { matchesScope, resolveAdminScopeRules } from "@/lib/admin-scope";
-import { generateTempPassword } from "@/lib/credentials/temp-password";
-import { renderCredentialsEmail } from "@/lib/emails/credentials-template";
-import { sendTransactional } from "@/lib/emails/send";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -92,7 +92,10 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  const tempPassword = generateTempPassword();
+  // Generate temporary password
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let tempPassword = "Gloria_";
+  for (let i = 0; i < 6; i++) tempPassword += chars[Math.floor(Math.random() * chars.length)];
 
   // Create user via Supabase Admin API with password
   const { data: newUser, error: createError } = await admin.auth.admin.createUser({
@@ -140,45 +143,83 @@ export async function POST(request: Request) {
     }
   }
 
-  // Entrega de credenciales. Toda la mecánica de correo vive en
-  // src/lib/emails/*: la plantilla es la misma que usan el reenvío manual y el
-  // worker programado, así que las tres rutas mandan exactamente el mismo HTML.
+  // Send welcome email with credentials (only if requested)
+  const appUrl = getAppUrl();
+  const roleLabels: Record<string, string> = {
+    student: "Estudiante", instructor: "Docente", admin: "Administrador", superadmin: "Superadministrador",
+  };
   let emailSent = false;
-  let emailError: string | null = null;
 
+  let emailError: unknown = null;
   if (send_credentials) {
-    // Marca institucional del correo (opcional: si no hay logo, se omite la fila).
-    let institutionName: string | null = null;
-    let institutionLogoUrl: string | null = null;
-    if (validatedEstablishmentId) {
-      const { data: est } = await admin
-        .from("establishments")
-        .select("name, logo_url")
-        .eq("id", validatedEstablishmentId)
-        .single();
-      institutionName = est?.name ?? null;
-      institutionLogoUrl = est?.logo_url ?? null;
+    try {
+      const resendKey = process.env.RESEND_API_KEY;
+      if (resendKey) {
+        const resend = new Resend(resendKey);
+        const { error: sendError } = await resend.emails.send({
+          from: "GlorIA <noreply@glor-ia.com>",
+          to: email,
+          subject: "Bienvenido/a a GlorIA — Tus credenciales de acceso",
+          html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #4A55A2; padding: 24px 32px; border-radius: 12px 12px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">Bienvenido/a a GlorIA</h1>
+              <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">Plataforma de Entrenamiento Clínico con IA</p>
+            </div>
+            <div style="background: #f9f9f9; padding: 32px; border: 1px solid #e5e5e5; border-top: none; border-radius: 0 0 12px 12px;">
+              <p style="font-size: 15px; color: #333;">Hola <strong>${full_name}</strong>,</p>
+              <p style="font-size: 14px; color: #555; line-height: 1.6;">
+                Se ha creado tu cuenta en GlorIA con el rol de <strong>${roleLabels[role || "student"]}</strong>.
+                A continuación encontrarás tus credenciales de acceso:
+              </p>
+              <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                <p style="margin: 0 0 8px; font-size: 13px; color: #888;">CREDENCIALES DE ACCESO</p>
+                <table style="width: 100%; font-size: 14px;">
+                  <tr>
+                    <td style="padding: 6px 0; color: #666; width: 120px;">Plataforma:</td>
+                    <td style="padding: 6px 0;"><a href="${appUrl}/login" style="color: #4A55A2;">${appUrl}</a></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 6px 0; color: #666;">Email:</td>
+                    <td style="padding: 6px 0; font-weight: bold;">${email}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 6px 0; color: #666;">Contraseña:</td>
+                    <td style="padding: 6px 0; font-weight: bold; font-family: monospace; font-size: 16px; letter-spacing: 1px;">${tempPassword}</td>
+                  </tr>
+                </table>
+              </div>
+              <p style="font-size: 14px; color: #555; line-height: 1.6;">
+                <strong>Cómo ingresar:</strong>
+              </p>
+              <ol style="font-size: 14px; color: #555; line-height: 1.8; padding-left: 20px;">
+                <li>Ingresa a <a href="${appUrl}/login" style="color: #4A55A2;">${appUrl}/login</a></li>
+                <li>Escribe tu email y la contraseña temporal indicada arriba</li>
+                <li>Te recomendamos cambiar tu contraseña en tu primera sesión</li>
+              </ol>
+              <p style="font-size: 13px; color: #999; margin-top: 24px; border-top: 1px solid #eee; padding-top: 16px;">
+                Si tienes problemas para acceder, contacta a tu docente o al equipo de soporte.
+              </p>
+            </div>
+          </div>
+        `,
+        });
+        if (sendError) {
+          // Resend didn't throw — it returned an error object. Log so the
+          // failure is visible in Vercel logs and leave emailSent=false.
+          console.error("[users/create] resend error", { email, sendError });
+          emailError = sendError;
+        } else {
+          emailSent = true;
+        }
+      }
+    } catch (e) {
+      console.error("[users/create] resend threw", { email, error: e });
+      emailError = e;
     }
-
-    const { subject, html } = renderCredentialsEmail({
-      variant: "bienvenida",
-      fullName: full_name,
-      email,
-      tempPassword,
-      institutionName,
-      institutionLogoUrl,
-    });
-
-    const res = await sendTransactional({
-      to: email,
-      subject,
-      html,
-      type: "credentials",
-      userId: newUser?.user?.id ?? null,
-    });
-    emailSent = res.ok;
-    emailError = res.error;
   }
+
+  if (send_credentials) await logEmail("credentials", email, emailSent);
 
   // Only mark credentials_sent_at when the email was actually sent.
   // This lets the admin retry from the UI if the initial send failed or was skipped.
@@ -204,6 +245,6 @@ export async function POST(request: Request) {
     tempPassword,
     emailSent,
     credentialsSent: emailSent,
-    emailError,
+    emailError: emailError ? String((emailError as { message?: string })?.message || emailError) : null,
   }, { status: 201 });
 }

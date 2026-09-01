@@ -38,10 +38,7 @@ export default function ResetPasswordPage() {
 
     // Also clear the first-login flag, so a user who resets via email isn't
     // sent back to /cambiar-clave after logging in.
-    // Un reintento: si esta llamada falla, la persona ya tiene contraseña propia
-    // pero el servidor no lo sabe, y `password_set_at` queda sin escribir — que
-    // es justo la marca que impide que un envío programado se la reemplace.
-    await marcarClavePropia();
+    await fetch("/api/profile/clear-password-flag", { method: "POST" }).catch(() => {});
 
     setSuccess(true);
     setLoading(false);
@@ -124,21 +121,4 @@ export default function ResetPasswordPage() {
       )}
     </>
   );
-}
-
-/**
- * Avisa al servidor que la persona fijó su propia contraseña. Se reintenta una
- * vez porque de esta escritura depende `password_set_at`, la marca que protege
- * la contraseña recién elegida de un envío programado de credenciales.
- */
-async function marcarClavePropia(): Promise<void> {
-  for (let intento = 0; intento < 2; intento++) {
-    try {
-      const res = await fetch("/api/profile/clear-password-flag", { method: "POST" });
-      if (res.ok) return;
-    } catch {
-      // reintentamos abajo
-    }
-  }
-  console.error("[clear-password-flag] no se pudo marcar la clave como propia");
 }

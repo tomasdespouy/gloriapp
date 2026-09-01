@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { TEMP_PASSWORD_RE } from "@/lib/credentials/temp-password";
 
 export default function CambiarClavePage() {
   const [password, setPassword] = useState("");
@@ -22,9 +21,7 @@ export default function CambiarClavePage() {
     }
     // The temporary password follows the "Gloria_XXXXXX" pattern — block it so
     // the user can't keep (a variant of) the credential we emailed them.
-    // El patrón vive en src/lib/credentials/temp-password.ts junto al generador,
-    // para que cambiar el prefijo no deje esta validación desincronizada.
-    if (TEMP_PASSWORD_RE.test(password)) {
+    if (/^Gloria_/i.test(password)) {
       setError("Elige una contraseña distinta a la temporal que te enviamos.");
       return;
     }
@@ -44,10 +41,7 @@ export default function CambiarClavePage() {
     }
 
     // Clear the must_change_password flag so the layout gate lets the user in.
-    // Un reintento: si esta llamada falla, la persona ya tiene contraseña propia
-    // pero el servidor no lo sabe, y `password_set_at` queda sin escribir — que
-    // es justo la marca que impide que un envío programado se la reemplace.
-    await marcarClavePropia();
+    await fetch("/api/profile/clear-password-flag", { method: "POST" }).catch(() => {});
 
     // Full navigation so the server layout re-evaluates the (now cleared) gate.
     window.location.href = "/dashboard";
@@ -115,21 +109,4 @@ export default function CambiarClavePage() {
       </form>
     </>
   );
-}
-
-/**
- * Avisa al servidor que la persona fijó su propia contraseña. Se reintenta una
- * vez porque de esta escritura depende `password_set_at`, la marca que protege
- * la contraseña recién elegida de un envío programado de credenciales.
- */
-async function marcarClavePropia(): Promise<void> {
-  for (let intento = 0; intento < 2; intento++) {
-    try {
-      const res = await fetch("/api/profile/clear-password-flag", { method: "POST" });
-      if (res.ok) return;
-    } catch {
-      // reintentamos abajo
-    }
-  }
-  console.error("[clear-password-flag] no se pudo marcar la clave como propia");
 }
