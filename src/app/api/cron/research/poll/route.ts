@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { Resend } from "resend";
+import { requireCron } from "@/lib/cron-auth";
 import {
   DEFAULT_NOTIFY_EMAIL,
   DEADLINE_WINDOW_DAYS,
@@ -33,12 +34,8 @@ type JobRow = {
 };
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  const rejected = requireCron(request);
+  if (rejected) return rejected;
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: "OPENAI_API_KEY no configurada" }, { status: 500 });
   }

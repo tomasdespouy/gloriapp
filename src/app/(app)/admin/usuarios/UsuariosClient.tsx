@@ -7,12 +7,14 @@ import {
   ToggleLeft, ToggleRight, Trash2, RotateCcw, Pencil,
   ChevronLeft, ChevronRight,
   Upload, FileText, AlertCircle, CheckCircle,
-  CheckSquare, X, Loader2, KeyRound, Download,
+  CheckSquare, X, Loader2, KeyRound, Download, CalendarClock,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import HelpTip from "@/components/HelpTip";
 import { accessBlockDetail, accessBlockLabel, type AccessBlock } from "@/lib/access-status";
+import ProgramarEnvioModal from "./ProgramarEnvioModal";
+import EnviosProgramados from "./EnviosProgramados";
 
 type User = {
   id: string;
@@ -125,6 +127,9 @@ export default function UsuariosClient({ users, establishments, courses, section
   const [bulkResetConfirm, setBulkResetConfirm] = useState(false);
   // Bulk send credentials (resets temp password + emails each selected user).
   const [bulkSendCredsConfirm, setBulkSendCredsConfirm] = useState(false);
+  // Envío programado: corre en el servidor, sobrevive a cerrar el navegador.
+  const [programarOpen, setProgramarOpen] = useState(false);
+  const [enviosRefresh, setEnviosRefresh] = useState(0);
   const [credsReport, setCredsReport] = useState<CredResult[] | null>(null);
   // Bulk hard delete — requires typing a confirmation word.
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
@@ -536,6 +541,7 @@ export default function UsuariosClient({ users, establishments, courses, section
       </header>
 
       <div className={`px-4 sm:px-8 pb-8 space-y-4 ${someSelected ? "pb-24" : ""}`}>
+        <EnviosProgramados refreshKey={enviosRefresh} />
         {showCreateForm && <CreateUserForm establishments={establishments} courses={courses} sections={sections} isSuperadmin={isSuperadmin} onClose={() => setShowCreateForm(false)} />}
 
         {showCsvImport && <CsvImportSection onClose={() => setShowCsvImport(false)} />}
@@ -917,7 +923,13 @@ export default function UsuariosClient({ users, establishments, courses, section
                   onClick={() => setBulkSendCredsConfirm(true)}
                   className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors cursor-pointer"
                 >
-                  <KeyRound size={16} /> Enviar credenciales
+                  <KeyRound size={16} /> Enviar ahora
+                </button>
+                <button
+                  onClick={() => setProgramarOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-sidebar/30 text-sidebar bg-sidebar/5 hover:bg-sidebar/10 transition-colors cursor-pointer"
+                >
+                  <CalendarClock size={16} /> Programar envío
                 </button>
                 {isSuperadmin && (
                   <button
@@ -931,6 +943,18 @@ export default function UsuariosClient({ users, establishments, courses, section
             )}
           </div>
         </div>
+      )}
+
+      {/* Programar envío de credenciales (servidor) */}
+      {programarOpen && (
+        <ProgramarEnvioModal
+          userIds={Array.from(bulkSelectedIds)}
+          onClose={() => setProgramarOpen(false)}
+          onScheduled={() => {
+            setBulkSelectedIds(new Set());
+            setEnviosRefresh((n) => n + 1);
+          }}
+        />
       )}
 
       {/* Bulk send credentials confirmation modal */}
