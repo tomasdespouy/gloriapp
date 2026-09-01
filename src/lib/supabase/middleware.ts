@@ -48,6 +48,16 @@ export async function updateSession(request: NextRequest) {
     !pathname.startsWith("/api/public/") &&
     // Formulario de contacto del landing — público por diseño.
     !pathname.startsWith("/api/contact") &&
+    // "Recuperar contraseña" lo usa, POR DEFINICIÓN, gente SIN sesión. La
+    // página /forgot-password ya estaba permitida, pero su endpoint no: el POST
+    // caía en este redirect a /login, que responde 405 a un POST, y el
+    // formulario mostraba "No se pudo procesar la solicitud". Funcionaba solo si
+    // el navegador ya tenía sesión, que es justo el caso que no importa.
+    // Se lista la ruta exacta y no todo /api/auth/, para que agregar un endpoint
+    // ahí en el futuro no lo vuelva público sin querer.
+    // La ruta es segura para exponer: responde siempre lo mismo exista o no el
+    // correo (anti-enumeración) y no cambia ninguna contraseña por sí sola.
+    pathname !== "/api/auth/forgot-password" &&
     // Vercel Cron hits these with Authorization: Bearer $CRON_SECRET.
     // The endpoints verify the secret themselves, so the middleware
     // must let the request through without redirecting to /login.
