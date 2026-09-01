@@ -9,7 +9,7 @@
  * panel es el lugar donde se responde, con el motivo por persona.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   CalendarClock, ChevronDown, ChevronRight, X, Loader2,
   CircleCheck, CircleAlert, CircleMinus, Clock,
@@ -70,12 +70,13 @@ export default function EnviosProgramados({ refreshKey }: { refreshKey: number }
   const [filas, setFilas] = useState<Fila[]>([]);
   const [cargandoFilas, setCargandoFilas] = useState(false);
   const [reprogramando, setReprogramando] = useState<string | null>(null);
+  const pedidoRef = useRef<string | null>(null);
   const [nuevaFecha, setNuevaFecha] = useState("");
 
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const res = await fetch("/api/admin/credential-dispatches?abiertos=1");
+      const res = await fetch("/api/admin/credential-dispatches");
       const data = await res.json();
       if (res.ok) setBatches(data.batches ?? []);
     } catch {
@@ -106,44 +107,73 @@ export default function EnviosProgramados({ refreshKey }: { refreshKey: number }
       return;
     }
     setAbierto(id);
+    setFilas([]);
     setCargandoFilas(true);
+    // Marca de cuál petición es esta. Si el admin abre otro lote mientras esta
+    // viaja, la respuesta que llegue tarde no debe pisar las filas del que está
+    // mirando ahora — mostraría personas de OTRO envío.
+    pedidoRef.current = id;
     try {
       const res = await fetch(`/api/admin/credential-dispatches/${id}`);
       const data = await res.json();
+      if (pedidoRef.current !== id) return;
       if (res.ok) setFilas(data.filas ?? []);
+      else toast.error(data.error || "No se pudo cargar el detalle");
+    } catch {
+      if (pedidoRef.current === id) toast.error("No se pudo conectar para cargar el detalle");
     } finally {
-      setCargandoFilas(false);
+      if (pedidoRef.current === id) setCargandoFilas(false);
     }
   };
 
   const cancelar = async (b: Batch) => {
     const pend = (b.stats?.pendientes ?? 0) + (b.stats?.procesando ?? 0);
     if (!confirm(`¿Cancelar este envío? Quedan ${pend} correo(s) sin salir. Los ya enviados no se pueden deshacer.`)) return;
-    const res = await fetch(`/api/admin/credential-dispatches/${b.id}`, { method: "DELETE" });
-    const data = await res.json();
-    if (!res.ok) {
-      toast.error(data.error || "No se pudo cancelar");
-      return;
+    try {
+      const res = await fetch(`/api/admin/credential-dispatches/${b.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "No se pudo cancelar");
+        return;
+      }
+      toast.success(`Envío cancelado. ${data.canceladas} correo(s) no saldrán.`);
+      cargar();
+    } catch {
+      toast.error("No se pudo conectar. El envío NO fue cancelado: vuelve a intentarlo.");
     }
-    toast.success(`Envío cancelado. ${data.canceladas} correo(s) no saldrán.`);
-    cargar();
   };
 
   const reprogramar = async (b: Batch) => {
     if (!nuevaFecha) return;
-    const res = await fetch(`/api/admin/credential-dispatches/${b.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ startsAt: chileLocalToUtcIso(nuevaFecha) }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      toast.error(data.error || "No se pudo reprogramar");
-      return;
+    const iso = chileLocalToUtcIso(nuevaFecha);
+
+    // Una fecha en el pasado deja todas las filas vencidas y el despachador las
+    // manda en la corrida siguiente. Puede ser lo que el admin quiere, pero
+    // nunca debería pasarle por accidente al corregir un día.
+    if (new Date(iso).getTime() < Date.now()) {
+      const ok = confirm(
+        "La fecha que elegiste ya pasó. Si continúas, los correos saldrán en los próximos minutos. ¿Seguir?",
+      );
+      if (!ok) return;
     }
-    toast.success(`Envío movido. ${data.movidas} correo(s) reprogramados.`);
-    setReprogramando(null);
-    cargar();
+
+    try {
+      const res = await fetch(`/api/admin/credential-dispatches/${b.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startsAt: iso }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "No se pudo reprogramar");
+        return;
+      }
+      toast.success(`Envío movido. ${data.movidas} correo(s) reprogramados.`);
+      setReprogramando(null);
+      cargar();
+    } catch {
+      toast.error("No se pudo conectar. El envío quedó en su fecha original.");
+    }
   };
 
   if (cargando && !batches.length) return null;
@@ -177,6 +207,9 @@ export default function EnviosProgramados({ refreshKey }: { refreshKey: number }
                   <p className="text-sm font-medium text-gray-900 truncate">
                     {b.label || "Envío sin nombre"}
                     {cancelado && <span className="ml-2 text-xs text-red-600">cancelado</span>}
+                    {!cancelado && b.closed_at && (
+                      <span className="ml-2 text-xs text-gray-400">terminado</span>
+                    )}
                   </p>
                   <p className="text-xs text-gray-500">
                     {enVuelo > 0 ? (

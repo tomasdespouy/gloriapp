@@ -13,7 +13,7 @@
  * así que el número que apruebas es el que va a ocurrir.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { CalendarClock, Users, TriangleAlert, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { chileLocalToUtcIso, formatChileDateTime, utcIsoToChileLocal } from "@/lib/datetime-cl";
@@ -55,7 +55,16 @@ export default function ProgramarEnvioModal({ userIds, onClose, onScheduled }: P
   const [customIntro, setCustomIntro] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [cargandoPreview, setCargandoPreview] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+
+  /**
+   * El id se genera UNA vez, al abrir el modal. Es la clave de idempotencia que
+   * el servidor usa para que reintentar el mismo envío no lo duplique: si se
+   * regenerara en cada clic, dos clics seguidos crearían dos lotes y la persona
+   * recibiría dos correos con dos claves distintas.
+   */
+  const batchIdRef = useRef<string>(crypto.randomUUID());
 
   const startsAtIso = (() => {
     try {
@@ -70,6 +79,7 @@ export default function ProgramarEnvioModal({ userIds, onClose, onScheduled }: P
   const cargarPreview = useCallback(async () => {
     if (!startsAtIso) return;
     setCargandoPreview(true);
+    setPreviewError(null);
     try {
       const res = await fetch("/api/admin/credential-dispatches", {
         method: "POST",
@@ -84,12 +94,12 @@ export default function ProgramarEnvioModal({ userIds, onClose, onScheduled }: P
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || "No se pudo calcular la vista previa");
+        setPreviewError(data.error || "No se pudo calcular la vista previa");
         return;
       }
       setPreview(data);
     } catch {
-      toast.error("Error de conexión al calcular la vista previa");
+      setPreviewError("No se pudo conectar para calcular la vista previa");
     } finally {
       setCargandoPreview(false);
     }
@@ -114,7 +124,7 @@ export default function ProgramarEnvioModal({ userIds, onClose, onScheduled }: P
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          batchId: crypto.randomUUID(),
+          batchId: batchIdRef.current,
           label: label.trim() || null,
           userIds,
           startsAt: startsAtIso,
@@ -340,6 +350,16 @@ export default function ProgramarEnvioModal({ userIds, onClose, onScheduled }: P
                   Es una estimación: si alguien ingresa a la plataforma antes de la fecha, se le
                   omitirá automáticamente para no romperle la contraseña que haya elegido.
                 </p>
+              </div>
+            ) : previewError ? (
+              <div className="space-y-2">
+                <p className="text-sm text-red-700">{previewError}</p>
+                <button
+                  onClick={cargarPreview}
+                  className="text-xs font-semibold text-sidebar underline cursor-pointer"
+                >
+                  Reintentar
+                </button>
               </div>
             ) : (
               <p className="text-sm text-gray-500">Calculando…</p>

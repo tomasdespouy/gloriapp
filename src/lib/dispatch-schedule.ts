@@ -62,15 +62,38 @@ export function scheduleRange(count: number, startsAtIso: string, pace: Pace): S
 /**
  * Costo real medido por correo: rotar la contraseña vía la Admin API, llamar a
  * Resend y escribir dos veces la fila ≈ 0,9 s, más 0,7 s de espaciado para no
- * pasar el límite del proveedor. Se usa para estimar cuánto durará el despacho
- * de una tanda y decírselo al admin antes de confirmar.
+ * pasar el límite del proveedor.
  */
 export const SECONDS_PER_EMAIL = 1.6;
 
-/** Minutos que tarda en vaciarse la tanda más grande. */
+/**
+ * Estos dos DEBEN coincidir con las constantes del worker
+ * (src/app/api/cron/dispatch-credentials/route.ts) y con el schedule del cron
+ * en vercel.json. Si allá cambian y acá no, la interfaz promete un tiempo que
+ * el despachador no puede cumplir.
+ */
+export const MAX_POR_CORRIDA = 50;
+export const MINUTOS_ENTRE_CORRIDAS = 5;
+
+/**
+ * Minutos que tarda en vaciarse una tanda, contando el techo del despachador.
+ *
+ * No basta con multiplicar por el costo de cada correo: el worker manda como
+ * máximo 50 por corrida y las corridas van cada 5 minutos, así que una tanda de
+ * 200 no tarda 5 minutos sino cerca de 20, repartidos en cuatro corridas. Antes
+ * la pantalla decía lo primero y era mentira.
+ */
 export function estimatedMinutesPerTanda(count: number, pace: Pace): number {
   const enTanda = pace.perBatch > 0 ? Math.min(pace.perBatch, count) : count;
-  return Math.ceil((enTanda * SECONDS_PER_EMAIL) / 60);
+  if (enTanda <= 0) return 0;
+
+  const corridas = Math.ceil(enTanda / MAX_POR_CORRIDA);
+  // Las corridas completas esperan el intervalo del cron; la última solo tarda
+  // lo que le toma despachar sus propios correos.
+  const enLaUltima = enTanda - (corridas - 1) * MAX_POR_CORRIDA;
+  const minutosUltima = (enLaUltima * SECONDS_PER_EMAIL) / 60;
+
+  return Math.max(1, Math.ceil((corridas - 1) * MINUTOS_ENTRE_CORRIDAS + minutosUltima));
 }
 
 /**

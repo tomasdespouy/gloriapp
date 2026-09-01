@@ -40,6 +40,29 @@ ALTER TABLE public.profiles
 COMMENT ON COLUMN public.profiles.password_set_at IS
   'Instante en que la persona fijó su propia contraseña (lo escribe el servidor en /api/profile/clear-password-flag). NULL = nunca, o cuenta anterior al 2026-08-31 (sin backfill posible).';
 
+-- La columna decide si un envío programado toca o no una cuenta, así que NO
+-- puede ser auto-escribible: las políticas de profiles permiten a cada persona
+-- actualizar su propia fila, y sin esta guarda un estudiante podría ponerse
+-- password_set_at desde el navegador y excluirse para siempre de todo envío.
+-- Solo el servidor (service_role) puede moverla.
+CREATE OR REPLACE FUNCTION public.profiles_guard_password_set_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $$
+BEGIN
+  IF NEW.password_set_at IS DISTINCT FROM OLD.password_set_at
+     AND current_user NOT IN ('service_role', 'postgres', 'supabase_admin') THEN
+    NEW.password_set_at := OLD.password_set_at;
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS profiles_guard_password_set_at_trg ON public.profiles;
+CREATE TRIGGER profiles_guard_password_set_at_trg
+  BEFORE UPDATE OF password_set_at ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.profiles_guard_password_set_at();
+
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2. email_log: hoy es (id, type, recipient, success, sent_at) y no permite
@@ -121,11 +144,33 @@ CREATE TABLE IF NOT EXISTS public.credential_batches (
 
   CONSTRAINT credential_batches_ritmo_chk CHECK (
     (per_batch = 0 AND every_minutes = 0) OR (per_batch > 0 AND every_minutes > 0)
-  ),
-  CONSTRAINT credential_batches_programa_chk CHECK (
-    source <> 'programa' OR pilot_id IS NOT NULL
   )
+  -- OJO: "source='programa' exige pilot_id" NO puede ser un CHECK. pilot_id se
+  -- vuelve NULL solo por la acción referencial ON DELETE SET NULL al borrar el
+  -- piloto, y un CHECK evaluaría esa fila resultante como inválida, abortando
+  -- el DELETE del piloto para siempre con un 23514 opaco. Va como trigger de
+  -- INSERT más abajo.
 );
+
+-- Exige pilot_id solo al CREAR el lote (o al cambiarle el origen), nunca ante
+-- la acción referencial que lo pone en NULL.
+CREATE OR REPLACE FUNCTION public.credential_batches_programa_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $$
+BEGIN
+  IF NEW.source = 'programa' AND NEW.pilot_id IS NULL THEN
+    RAISE EXCEPTION 'un lote con source=programa exige pilot_id'
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS credential_batches_programa_ins ON public.credential_batches;
+CREATE TRIGGER credential_batches_programa_ins
+  BEFORE INSERT OR UPDATE OF source ON public.credential_batches
+  FOR EACH ROW EXECUTE FUNCTION public.credential_batches_programa_guard();
 
 DROP TRIGGER IF EXISTS set_credential_batches_updated_at ON public.credential_batches;
 CREATE TRIGGER set_credential_batches_updated_at
@@ -365,16 +410,22 @@ ALTER TABLE public.credential_batches    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.credential_dispatches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.dispatch_runtime      ENABLE ROW LEVEL SECURITY;
 
+-- Solo lectura para el superadmin sobre los LOTES: son metadatos (nombre,
+-- fecha, ritmo) y no contienen nada sensible. Escribir sigue pasando por las
+-- rutas server, que revalidan alcance.
 DROP POLICY IF EXISTS "Superadmin gestiona lotes de credenciales" ON public.credential_batches;
-CREATE POLICY "Superadmin gestiona lotes de credenciales"
-  ON public.credential_batches FOR ALL TO authenticated
-  USING (public.get_my_role() = 'superadmin')
-  WITH CHECK (public.get_my_role() = 'superadmin');
+DROP POLICY IF EXISTS "Superadmin lee lotes de credenciales" ON public.credential_batches;
+CREATE POLICY "Superadmin lee lotes de credenciales"
+  ON public.credential_batches FOR SELECT TO authenticated
+  USING (public.get_my_role() = 'superadmin');
 
+-- credential_dispatches: SIN POLÍTICAS, igual que email_log.
+-- La tabla guarda `pending_password` en texto plano (la clave temporal, viva,
+-- entre que se genera y que sale el correo). Una política para `authenticated`
+-- la dejaría legible con la anon key desde el navegador de cualquier sesión de
+-- superadmin, vía PostgREST, sin pasar por ninguna ruta nuestra. Todo el acceso
+-- va por rutas server con service-role, que seleccionan columnas explícitas y
+-- nunca incluyen pending_password.
 DROP POLICY IF EXISTS "Superadmin gestiona entregas de credenciales" ON public.credential_dispatches;
-CREATE POLICY "Superadmin gestiona entregas de credenciales"
-  ON public.credential_dispatches FOR ALL TO authenticated
-  USING (public.get_my_role() = 'superadmin')
-  WITH CHECK (public.get_my_role() = 'superadmin');
 
 -- dispatch_runtime: sin políticas (solo service-role).
