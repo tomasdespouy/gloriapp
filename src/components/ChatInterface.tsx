@@ -1611,6 +1611,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
 
           <SessionTimer
             sessionStarted={sessionStarted}
+            sessionEnded={sessionEnded}
             conversationId={conversationId}
             initialActiveSeconds={initialActiveSeconds}
             onTick={handleTimerTick}
