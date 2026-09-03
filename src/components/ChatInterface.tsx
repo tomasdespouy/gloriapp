@@ -1108,6 +1108,16 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       return;
     }
 
+    // Dictado por voz en modo texto: al enviar, el micrófono se apaga YA.
+    // Antes solo el modo voz lo detenía, así que el reconocedor seguía vivo y
+    // el indicador "Grabando audio" quedaba encendido hasta que el navegador
+    // cortaba solo por silencio — varios segundos después de enviar.
+    if (isRecording) {
+      micLockedRef.current = false;
+      setMicLocked(false);
+      stopRecording();
+    }
+
     // Text mode: if the AI already started streaming, abort it. The
     // half-typed assistant message is dropped — a fresh response with
     // the extra user input fires once the debounce elapses again.
@@ -1459,7 +1469,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       // Italic: *text* (single asterisks, not inside bold)
       .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
       // Non-verbal cues: [action]
-      .replace(/\[([^\]]*)\]/g, '<span class="text-gray-400 italic text-xs">[$1]</span>');
+      // Lenguaje no verbal. Se mantiene en corchetes y en cursiva para que se
+      // lea como acotación, pero al MISMO tamaño que el diálogo: en text-xs y
+      // gris claro costaba leerlo, que es justo lo contrario de lo que se
+      // busca (el gesto es información clínica, no decoración).
+      .replace(/\[([^\]]*)\]/g, '<span class="text-gray-600 italic">[$1]</span>');
     return sanitizeHTML(html);
   };
 
