@@ -138,6 +138,11 @@ export async function POST(request: Request) {
   const direccion = `[ACOTACI\u00d3N DE DIRECCI\u00d3N \u2014 no lo dice el/la terapeuta, no la menciones]
 El/la terapeuta NO ha escrito nada. Su \u00faltimo mensaje sigue siendo el mismo de antes.
 Lo que viene NO es una respuesta a ninguna pregunta: es tu reacci\u00f3n al SILENCIO.
+
+[QUI\u00c9N HABLA \u2014 no te equivoques de rol]
+NADIE te ha preguntado nada. El que rompe el silencio eres T\u00da.
+Si escribieras "s\u00ed, aqu\u00ed estoy", "sigo ac\u00e1" o parecido, estar\u00edas CONTESTANDO una pregunta que
+nadie te hizo. Es al rev\u00e9s: quien pregunta, se extra\u00f1a o se despide eres t\u00fa.
 ${stagePrompt}${antiRepeat}`;
 
   // Try the LLM, but never let a failure leave the patient mute. Falls
