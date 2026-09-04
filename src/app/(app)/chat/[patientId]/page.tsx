@@ -19,7 +19,7 @@ export default async function ChatPage({
   // Use admin client to bypass RLS (students may not have direct ai_patients read access)
   const { data: patient, error: patientError } = await createAdminClient()
     .from("ai_patients")
-    .select("id, name, age, occupation, presenting_problem, difficulty_level, voice_id")
+    .select("id, name, age, occupation, presenting_problem, difficulty_level, voice_id, is_active")
     .eq("id", patientId)
     .single();
 
@@ -28,6 +28,18 @@ export default async function ChatPage({
   if (!patient) notFound();
 
   const userProfile = await getUserProfile();
+
+  // Un paciente inactivo es un BORRADOR: está fuera del catálogo mientras se
+  // revisa. Pero esta página usa el cliente admin (salta RLS) y sin esta
+  // comprobación cualquiera con el enlace podía abrir una sesión con él.
+  //
+  // Se deja pasar a docentes, admin y superadmin a propósito: son quienes tienen
+  // que probar el borrador para poder aprobarlo. Al estudiante no le existe.
+  if (!patient.is_active) {
+    const rol = userProfile?.realRole;
+    const puedeRevisar = rol === "instructor" || rol === "admin" || rol === "superadmin";
+    if (!puedeRevisar) notFound();
+  }
 
   // Bloqueo suave: si en la última sesión con este paciente quedó acordada
   // una próxima cita (capturada en commitments), la mostramos como aviso al
