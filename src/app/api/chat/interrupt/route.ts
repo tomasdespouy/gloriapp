@@ -7,6 +7,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { resolveConversationPrompt, PATIENT_PROMPT_COLUMNS } from "@/lib/patient-prompt";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat } from "@/lib/ai";
 import { NextResponse } from "next/server";
@@ -24,9 +25,10 @@ export async function POST(request: Request) {
   }
 
   // Get patient (admin bypasses RLS)
-  const { data: patient } = await createAdminClient()
+  const admin = createAdminClient();
+  const { data: patient } = await admin
     .from("ai_patients")
-    .select("name, system_prompt")
+    .select(`name, ${PATIENT_PROMPT_COLUMNS}`)
     .eq("id", patientId)
     .single();
 
@@ -78,7 +80,9 @@ Elige UNA reacción breve. Sé auténtico con tu personalidad.`,
   }
 
   const recentAssistant = history.filter(m => m.role === "assistant").map(m => m.content);
-  const reactionPrompt = `${patient.system_prompt}
+  // Mismo prompt que rige el chat de esta conversación (ver patient-prompt.ts).
+  const promptBase = await resolveConversationPrompt(admin, conversationId, patient);
+  const reactionPrompt = `${promptBase}
 
 [REGLA ANTI-REPETICIÓN ABSOLUTA]
 Estas son TODAS tus respuestas anteriores en esta sesión:

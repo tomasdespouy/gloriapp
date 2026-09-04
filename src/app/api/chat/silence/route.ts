@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { resolveConversationPrompt, PATIENT_PROMPT_COLUMNS } from "@/lib/patient-prompt";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat } from "@/lib/ai";
 import { NextResponse } from "next/server";
@@ -73,9 +74,10 @@ export async function POST(request: Request) {
   const { patientId, conversationId, stage = 1 } = await request.json();
 
   // Get patient (admin bypasses RLS)
-  const { data: patient } = await createAdminClient()
+  const admin = createAdminClient();
+  const { data: patient } = await admin
     .from("ai_patients")
-    .select("name, system_prompt, pacing_profile")
+    .select(`name, pacing_profile, ${PATIENT_PROMPT_COLUMNS}`)
     .eq("id", patientId)
     .single();
 
@@ -122,7 +124,11 @@ export async function POST(request: Request) {
   // (ej. "la semana pasada" tras haber dicho "hace minutos"). El historial
   // ya va en `history`; aqu\u00ed reforzamos que NO se contradiga.
   const coherencia = `\n\n[COHERENCIA \u2014 PRIORIDAD]\nMant\u00e9n TOTAL coherencia con lo que YA dijiste en esta conversaci\u00f3n (ver el historial reciente): NO te contradigas sobre cu\u00e1ndo fue la \u00faltima sesi\u00f3n, fechas, ni datos personales. Respeta el tiempo real: si la \u00faltima sesi\u00f3n fue hace minutos u horas, NO digas "la semana pasada". Este es un mensaje por el silencio, NO repitas un recuento de la sesi\u00f3n anterior.`;
-  const silencePrompt = `${patient.system_prompt}${coherencia}`;
+  // Mismo prompt que rige el chat de esta conversación (snapshot congelado
+  // o composición con enriquecimiento). Antes iba el system_prompt crudo y el
+  // paciente perdía sus lugares y frases justo al reaccionar al silencio.
+  const promptBase = await resolveConversationPrompt(admin, conversationId, patient);
+  const silencePrompt = `${promptBase}${coherencia}`;
 
   // La instrucción del silencio va como ÚLTIMO turno, no enterrada en el system
   // prompt. El historial termina con el propio mensaje del paciente: si la
@@ -132,6 +138,11 @@ export async function POST(request: Request) {
   const direccion = `[ACOTACI\u00d3N DE DIRECCI\u00d3N \u2014 no lo dice el/la terapeuta, no la menciones]
 El/la terapeuta NO ha escrito nada. Su \u00faltimo mensaje sigue siendo el mismo de antes.
 Lo que viene NO es una respuesta a ninguna pregunta: es tu reacci\u00f3n al SILENCIO.
+
+[QUI\u00c9N HABLA \u2014 no te equivoques de rol]
+NADIE te ha preguntado nada. El que rompe el silencio eres T\u00da.
+Si escribieras "s\u00ed, aqu\u00ed estoy", "sigo ac\u00e1" o parecido, estar\u00edas CONTESTANDO una pregunta que
+nadie te hizo. Es al rev\u00e9s: quien pregunta, se extra\u00f1a o se despide eres t\u00fa.
 ${stagePrompt}${antiRepeat}`;
 
   // Try the LLM, but never let a failure leave the patient mute. Falls
