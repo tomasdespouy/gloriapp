@@ -6,7 +6,7 @@
 
 export const DEFAULT_CONSENT_TEXT = `Consentimiento Informado — Piloto GlorIA
 
-Por favor lee con calma. Si tienes dudas antes de aceptar, escríbenos a soporte@glor-ia.com.
+Por favor lee con calma. Si tienes dudas antes de aceptar, escríbenos a info@glor-ia.com.
 
 ¿Qué es GlorIA?
 GlorIA es una plataforma de aprendizaje basada en inteligencia artificial diseñada para que estudiantes de psicología practiquen entrevistas clínicas en un entorno seguro, sin riesgo para personas reales. Cada conversación queda registrada y es evaluada automáticamente por IA conforme a un marco de diez competencias clínicas.
@@ -25,7 +25,7 @@ Participar voluntariamente en sesiones de práctica con pacientes simulados dura
 Tus datos serán utilizados única y exclusivamente para fines investigativos y formativos del proyecto GlorIA, en condiciones de confidencialidad. Cualquier publicación o reporte derivado del piloto presentará los resultados de forma agregada y anonimizada — tu nombre no aparecerá nunca asociado a tus respuestas individuales. Tus datos no serán compartidos con terceros ajenos al proyecto.
 
 Tus derechos
-- Puedes retirar tu consentimiento en cualquier momento, escribiéndonos a soporte@glor-ia.com.
+- Puedes retirar tu consentimiento en cualquier momento, escribiéndonos a info@glor-ia.com.
 - Puedes solicitar acceso a una copia de tus datos personales en cualquier momento.
 - Puedes solicitar la eliminación de tus datos al finalizar el piloto.
 
@@ -33,7 +33,7 @@ Al firmar este consentimiento, declaro que he leído y comprendido la informaci�
 
 export const DEFAULT_CONSENT_TEXT_ANON = `Consentimiento Informado — Piloto GlorIA (participación anónima)
 
-Por favor lee con calma. Si tienes dudas antes de aceptar, escríbenos a soporte@glor-ia.com.
+Por favor lee con calma. Si tienes dudas antes de aceptar, escríbenos a info@glor-ia.com.
 
 ¿Qué es GlorIA?
 GlorIA es una plataforma de aprendizaje basada en inteligencia artificial diseñada para que estudiantes de psicología practiquen entrevistas clínicas en un entorno seguro, sin riesgo para personas reales. Cada conversación queda registrada y es evaluada automáticamente por IA conforme a un marco de diez competencias clínicas.

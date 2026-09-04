@@ -110,7 +110,7 @@ export async function POST(request: Request) {
                 puedes ignorar este correo: tu contraseña no cambiará.
               </p>
               <p style="font-size: 13px; color: #999; margin-top: 24px; border-top: 1px solid #eee; padding-top: 16px;">
-                ¿Problemas para acceder? Escribe a <a href="mailto:soporte@glor-ia.com" style="color: #4A55A2;">soporte@glor-ia.com</a> o contacta a tu docente. — <a href="${appUrl}/login" style="color: #4A55A2;">${appUrl}/login</a>
+                ¿Problemas para acceder? Escribe a <a href="mailto:info@glor-ia.com" style="color: #4A55A2;">info@glor-ia.com</a> o contacta a tu docente. — <a href="${appUrl}/login" style="color: #4A55A2;">${appUrl}/login</a>
               </p>
             </div>
           </div>

@@ -1972,7 +1972,7 @@ function Step3Preview({
                   <p className="text-sm text-gray-600">Con entusiasmo,</p>
                   <p className="text-sm text-gray-900 font-bold mt-0.5">Equipo GlorIA</p>
                   <p className="text-[11px] text-gray-400 mt-0.5">
-                    Si tienes problemas para acceder, escríbenos a soporte@glor-ia.com
+                    Si tienes problemas para acceder, escríbenos a info@glor-ia.com
                   </p>
                 </div>
               </div>

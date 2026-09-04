@@ -208,7 +208,7 @@ export function renderCredentialsEmail(p: CredentialsEmailParams): {
           <p style="font-size: 14px; color: #333; margin: 4px 0 0; font-weight: 700;">Equipo GlorIA</p>
           <p style="font-size: 12px; color: #999; margin: 8px 0 0;">
             Si tienes problemas para acceder, escr&iacute;benos a
-            <a href="mailto:soporte@glor-ia.com" style="color: #4A55A2;">soporte@glor-ia.com</a>
+            <a href="mailto:info@glor-ia.com" style="color: #4A55A2;">info@glor-ia.com</a>
           </p>
         </div>
       </div>

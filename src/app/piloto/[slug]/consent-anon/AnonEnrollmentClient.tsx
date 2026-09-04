@@ -192,10 +192,10 @@ function StepConsent(props: {
       <p className="text-sm text-gray-600">
         Lee con calma. Si tienes dudas, escríbenos a{" "}
         <a
-          href="mailto:soporte@glor-ia.com"
+          href="mailto:info@glor-ia.com"
           className="text-[#4A55A2] underline"
         >
-          soporte@glor-ia.com
+          info@glor-ia.com
         </a>{" "}
         antes de aceptar.
       </p>
