@@ -318,7 +318,7 @@ function generateInviteEmail(opts: {
             Equipo GlorIA
           </p>
           <p style="font-size: 12px; color: #999; margin: 4px 0 0;">
-            Si tienes problemas para acceder, escr\u00edbenos a soporte@glor-ia.com
+            Si tienes problemas para acceder, escr\u00edbenos a info@glor-ia.com
           </p>
         </div>
       </div>

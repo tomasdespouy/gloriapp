@@ -56,7 +56,7 @@ export default async function PilotAnonEnrollmentPage({
     return (
       <ClosedNotice
         title="Piloto no disponible"
-        message="Este piloto fue desactivado. Si crees que es un error, escríbenos a soporte@glor-ia.com."
+        message="Este piloto fue desactivado. Si crees que es un error, escríbenos a info@glor-ia.com."
       />
     );
   }

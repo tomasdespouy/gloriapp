@@ -115,7 +115,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "Este correo ya firmó el consentimiento para este piloto. Si perdiste tus credenciales, escríbenos a soporte@glor-ia.com.",
+          "Este correo ya firmó el consentimiento para este piloto. Si perdiste tus credenciales, escríbenos a info@glor-ia.com.",
       },
       { status: 409 },
     );
@@ -460,7 +460,7 @@ function buildCredentialsEmail(opts: {
           <p style="font-size: 14px; color: #555; margin: 0;">Con entusiasmo,</p>
           <p style="font-size: 14px; color: #333; margin: 4px 0 0; font-weight: 700;">Equipo GlorIA</p>
           <p style="font-size: 12px; color: #999; margin: 4px 0 0;">
-            Si tienes problemas para acceder, escr&iacute;benos a soporte@glor-ia.com
+            Si tienes problemas para acceder, escr&iacute;benos a info@glor-ia.com
           </p>
         </div>
       </div>

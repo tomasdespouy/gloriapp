@@ -422,10 +422,10 @@ function Step2Consent(props: {
       <p className="text-sm text-gray-600">
         Lee con calma. Si tienes dudas, escríbenos a{" "}
         <a
-          href="mailto:soporte@glor-ia.com"
+          href="mailto:info@glor-ia.com"
           className="text-[#4A55A2] underline"
         >
-          soporte@glor-ia.com
+          info@glor-ia.com
         </a>{" "}
         antes de aceptar.
       </p>
@@ -558,7 +558,7 @@ function Step3Done({
           Te enviamos las credenciales de acceso a{" "}
           <strong>{result.email}</strong>. Revisa tu bandeja de entrada y la
           carpeta de spam. Si no llega en los próximos 5 minutos, escríbenos
-          a <strong>soporte@glor-ia.com</strong>.
+          a <strong>info@glor-ia.com</strong>.
         </div>
       )}
     </div>

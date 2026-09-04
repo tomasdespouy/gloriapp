@@ -12,11 +12,11 @@ const MESSAGES: Record<string, { title: string; body: string }> = {
   },
   ended: {
     title: "El piloto ha finalizado",
-    body: "El periodo de acceso al piloto en GlorIA ha terminado. Si necesitas continuar usando la plataforma, contacta al equipo a soporte@glor-ia.com.",
+    body: "El periodo de acceso al piloto en GlorIA ha terminado. Si necesitas continuar usando la plataforma, contacta al equipo a info@glor-ia.com.",
   },
   cancelado: {
     title: "El piloto fue desactivado",
-    body: "El piloto en el que participabas ha sido desactivado por el administrador. Si crees que es un error, contacta a soporte@glor-ia.com.",
+    body: "El piloto en el que participabas ha sido desactivado por el administrador. Si crees que es un error, contacta a info@glor-ia.com.",
   },
 };
 
