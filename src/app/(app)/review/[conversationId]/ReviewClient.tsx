@@ -638,38 +638,11 @@ export default function ReviewClient({
                         5 preguntas para pensar como terapeuta. Responde las que puedas.
                       </p>
                     </div>
-                    {/* Audio recorder button - right side */}
-                    <div className="flex-shrink-0 ml-4">
-                      {audioProcessing !== "idle" ? (
-                        <div className="flex items-center gap-2">
-                          <Loader2 size={16} className="animate-spin text-sidebar" />
-                          <span className="text-xs font-medium text-sidebar">
-                            {audioProcessing === "transcribing" ? "Transcribiendo..." : "Organizando..."}
-                          </span>
-                        </div>
-                      ) : isRecording ? (
-                        <button
-                          onClick={stopRecording}
-                          className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition-colors cursor-pointer"
-                        >
-                          <Square size={14} />
-                          <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                          {formatDuration(recordingSeconds)}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={startRecording}
-                          className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors shadow-sm cursor-pointer"
-                        >
-                          <Mic size={16} />
-                          Grabar reflexión en audio
-                        </button>
-                      )}
-                    </div>
+                    {/* Grabación por audio retirada a pedido del usuario: la
+                        autorreflexión se escribe. La lógica (startRecording /
+                        stopRecording / transcripción) queda en el archivo, sin
+                        punto de entrada en la interfaz, por si se retoma. */}
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-2">
-                    Revisar siempre las transcripciones, la IA puede generar imprecisiones.
-                  </p>
                 </div>
 
                 {/* Question cards */}

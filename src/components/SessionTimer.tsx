@@ -8,7 +8,8 @@
  * Solo se modifica si cambia la lógica del temporizador en sí.
  *
  * Responsabilidades:
- * - Cuenta wall-clock time desde que la sesión inicia
+ * - Cuenta el tiempo REAL de trabajo: no corre con la pestaña oculta ni
+ *   después de que la sesión terminó
  * - Muestra MM:SS en el header del chat
  * - Persiste active_seconds a BD cada 15s
  * - Envía beacon al desmontar para no perder tiempo
@@ -21,6 +22,13 @@ import { Clock } from "lucide-react";
 interface SessionTimerProps {
   /** Whether the session has started */
   sessionStarted: boolean;
+  /**
+   * La sesión ya terminó (el paciente se retiró, o se cerró formalmente).
+   * El reloj se detiene aquí y no cuando el alumno cierra la ventana: antes,
+   * dejar la pestaña abierta tras la despedida sumaba media hora que nadie
+   * trabajó.
+   */
+  sessionEnded?: boolean;
   /** Conversation ID (needed for persistence) */
   conversationId?: string;
   /** Seconds carried over from a previous/resumed session */
@@ -31,64 +39,103 @@ interface SessionTimerProps {
 
 export default function SessionTimer({
   sessionStarted,
+  sessionEnded = false,
   conversationId,
   initialActiveSeconds,
   onTick,
 }: SessionTimerProps) {
   const [displaySeconds, setDisplaySeconds] = useState(initialActiveSeconds);
-  const sessionStartRef = useRef(initialActiveSeconds > 0 ? Date.now() : 0);
-  const activeSecondsRef = useRef(initialActiveSeconds);
+
+  // Segundos ya acumulados y confirmados. A diferencia de la versión anterior,
+  // NO se deriva de un único instante de inicio: se va sumando por tramos, y
+  // los tramos en que la pestaña está oculta simplemente no se suman.
+  const acumuladoRef = useRef(initialActiveSeconds);
+  // Instante en que empezó el tramo activo actual. null = el reloj está detenido.
+  const tramoDesdeRef = useRef<number | null>(null);
   const onTickRef = useRef(onTick);
 
-  // Keep callback ref fresh without re-triggering effect
   useEffect(() => {
     onTickRef.current = onTick;
   }, [onTick]);
 
   useEffect(() => {
-    if (!sessionStarted) return;
-
-    // Set start time when session begins (if not already set from resume)
-    if (sessionStartRef.current === 0) {
-      sessionStartRef.current = Date.now();
+    if (!sessionStarted || sessionEnded) {
+      // Cierra el tramo abierto, si lo había, para no perder lo trabajado.
+      if (tramoDesdeRef.current !== null) {
+        acumuladoRef.current += Math.round((Date.now() - tramoDesdeRef.current) / 1000);
+        tramoDesdeRef.current = null;
+        setDisplaySeconds(acumuladoRef.current);
+        onTickRef.current?.(acumuladoRef.current);
+      }
+      return;
     }
-    const start = sessionStartRef.current;
 
-    const tick = () => {
-      const elapsed = initialActiveSeconds + Math.round((Date.now() - start) / 1000);
-      activeSecondsRef.current = elapsed;
-      setDisplaySeconds(elapsed);
-      onTickRef.current?.(elapsed);
+    const visible = () =>
+      typeof document === "undefined" || document.visibilityState === "visible";
+
+    const abrirTramo = () => {
+      if (tramoDesdeRef.current === null) tramoDesdeRef.current = Date.now();
+    };
+    const cerrarTramo = () => {
+      if (tramoDesdeRef.current !== null) {
+        acumuladoRef.current += Math.round((Date.now() - tramoDesdeRef.current) / 1000);
+        tramoDesdeRef.current = null;
+      }
     };
 
+    if (visible()) abrirTramo();
+
+    const total = () =>
+      acumuladoRef.current +
+      (tramoDesdeRef.current !== null
+        ? Math.round((Date.now() - tramoDesdeRef.current) / 1000)
+        : 0);
+
+    const tick = () => {
+      const t = total();
+      setDisplaySeconds(t);
+      onTickRef.current?.(t);
+    };
     const interval = setInterval(tick, 1000);
 
-    // Persist every 15 seconds
-    const persistInterval = setInterval(() => {
-      if (conversationId && activeSecondsRef.current > 0) {
+    // La pestaña oculta no es trabajo: se cierra el tramo y se reabre al volver.
+    const onVisibility = () => {
+      if (visible()) abrirTramo();
+      else {
+        cerrarTramo();
+        tick();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    const persistir = (usarBeacon: boolean) => {
+      const t = total();
+      if (!conversationId || t <= 0) return;
+      const cuerpo = JSON.stringify({ active_seconds: t });
+      if (usarBeacon && navigator.sendBeacon) {
+        navigator.sendBeacon(
+          `/api/sessions/${conversationId}/active-time`,
+          new Blob([cuerpo], { type: "application/json" }),
+        );
+      } else {
         fetch(`/api/sessions/${conversationId}/active-time`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ active_seconds: activeSecondsRef.current }),
+          body: cuerpo,
         }).catch(() => {});
       }
-    }, 15000);
+    };
+
+    const persistInterval = setInterval(() => persistir(false), 15000);
 
     return () => {
       clearInterval(interval);
       clearInterval(persistInterval);
-      // Final persist on unmount
-      if (conversationId && activeSecondsRef.current > 0) {
-        navigator.sendBeacon?.(
-          `/api/sessions/${conversationId}/active-time`,
-          new Blob(
-            [JSON.stringify({ active_seconds: activeSecondsRef.current })],
-            { type: "application/json" }
-          )
-        );
-      }
+      document.removeEventListener("visibilitychange", onVisibility);
+      cerrarTramo();
+      persistir(true);
     };
-  }, [conversationId, sessionStarted, initialActiveSeconds]);
+  }, [conversationId, sessionStarted, sessionEnded, initialActiveSeconds]);
 
   const formatTimer = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, "0");

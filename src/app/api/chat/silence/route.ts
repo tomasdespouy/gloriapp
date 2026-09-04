@@ -100,11 +100,13 @@ export async function POST(request: Request) {
 
   const history = (recentMsgs || []).reverse();
 
-  // Check what was already said to avoid repetition
-  const prevSilenceMsgs = history
-    .filter((m) => m.role === "assistant")
-    .map((m) => m.content)
-    .join(" | ");
+  // Lo último que dijo el paciente. Sirve para pedirle que no lo reformule:
+  // NO se le pide "decir lo mismo con otras palabras" — esa instrucción es la
+  // que producía paráfrasis de la respuesta anterior en vez de una reacción al
+  // silencio.
+  const ultimoDelPaciente = [...history]
+    .reverse()
+    .find((m) => m.role === "assistant")?.content?.trim() ?? "";
 
   // Map the (possibly shorter) profile stage to a prompt template.
   // Rule: the last stage always uses the closing template (4); the
@@ -112,15 +114,25 @@ export async function POST(request: Request) {
   // profile we use templates 1, 2, 4 (skip the intermediate insist).
   const promptStageKey = isClosingStage ? 4 : stage;
   const stagePrompt = STAGE_PROMPTS[promptStageKey] || STAGE_PROMPTS[1];
-  const antiRepeat = prevSilenceMsgs
-    ? `\n\n[ANTI-REPETICI\u00d3N] Ya dijiste esto antes: "${prevSilenceMsgs}". NO repitas estas frases. Usa palabras y estructura COMPLETAMENTE diferentes.`
+  const antiRepeat = ultimoDelPaciente
+    ? `\n- Tu \u00faltimo mensaje fue: "${ultimoDelPaciente}". NO lo repitas NI lo reformules: el/la terapeuta no ha escrito nada nuevo, as\u00ed que no hay nada que responder.`
     : "";
   // Grounding de coherencia: sin esto, el nudge se genera solo con el
   // system_prompt base y puede contradecir lo dicho en la conversaci\u00f3n
   // (ej. "la semana pasada" tras haber dicho "hace minutos"). El historial
   // ya va en `history`; aqu\u00ed reforzamos que NO se contradiga.
   const coherencia = `\n\n[COHERENCIA \u2014 PRIORIDAD]\nMant\u00e9n TOTAL coherencia con lo que YA dijiste en esta conversaci\u00f3n (ver el historial reciente): NO te contradigas sobre cu\u00e1ndo fue la \u00faltima sesi\u00f3n, fechas, ni datos personales. Respeta el tiempo real: si la \u00faltima sesi\u00f3n fue hace minutos u horas, NO digas "la semana pasada". Este es un mensaje por el silencio, NO repitas un recuento de la sesi\u00f3n anterior.`;
-  const silencePrompt = `${patient.system_prompt}${coherencia}\n\n${stagePrompt}${antiRepeat}`;
+  const silencePrompt = `${patient.system_prompt}${coherencia}`;
+
+  // La instrucción del silencio va como ÚLTIMO turno, no enterrada en el system
+  // prompt. El historial termina con el propio mensaje del paciente: si la
+  // instrucción queda lejos, el modelo continúa el hilo (vuelve a contestar lo
+  // que ya contestó) en vez de reaccionar a la pausa. Se marca claramente como
+  // acotación de dirección para que no la lea como si hablara el terapeuta.
+  const direccion = `[ACOTACI\u00d3N DE DIRECCI\u00d3N \u2014 no lo dice el/la terapeuta, no la menciones]
+El/la terapeuta NO ha escrito nada. Su \u00faltimo mensaje sigue siendo el mismo de antes.
+Lo que viene NO es una respuesta a ninguna pregunta: es tu reacci\u00f3n al SILENCIO.
+${stagePrompt}${antiRepeat}`;
 
   // Try the LLM, but never let a failure leave the patient mute. Falls
   // back to a hardcoded line for the current stage if the model errors,
@@ -128,7 +140,10 @@ export async function POST(request: Request) {
   let response: string | null = null;
   try {
     response = await chat(
-      history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      [
+        ...history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+        { role: "user" as const, content: direccion },
+      ],
       silencePrompt
     );
   } catch (err) {
