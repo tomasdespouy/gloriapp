@@ -58,6 +58,10 @@ export async function updateSession(request: NextRequest) {
     // La ruta es segura para exponer: responde siempre lo mismo exista o no el
     // correo (anti-enumeración) y no cambia ninguna contraseña por sí sola.
     pathname !== "/api/auth/forgot-password" &&
+    // Canje del enlace de recuperacion: lo usa gente SIN sesion, igual que el
+    // formulario. Se listan las rutas exactas y no todo /api/auth/ para que
+    // agregar un endpoint ahi no lo vuelva publico sin querer.
+    pathname !== "/api/auth/confirm" &&
     // Vercel Cron hits these with Authorization: Bearer $CRON_SECRET.
     // The endpoints verify the secret themselves, so the middleware
     // must let the request through without redirecting to /login.
