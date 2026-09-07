@@ -43,6 +43,11 @@ interface ChatInterfaceProps {
   /** Rol REAL del usuario (no el impersonado). La guardia anti-distracción
    *  solo aplica a "student". */
   userRole?: string | null;
+  /**
+   * Minutos de entrevista que espera la asignatura del alumno. null = la
+   * asignatura no configuró expectativa y no se avisa nada.
+   */
+  minSessionMinutes?: number | null;
 }
 
 type Phase = "idle" | "thinking" | "writing";
@@ -74,7 +79,7 @@ type RespectsTypingMode = "full" | "partial" | "from2";
 const SEND_DEBOUNCE_MS = 4000;
 const SEND_INDICATOR_DELAY_MS = 1500;
 
-export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "", nextAppointment = null, userRole = null }: ChatInterfaceProps) {
+export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "", nextAppointment = null, userRole = null, minSessionMinutes = null }: ChatInterfaceProps) {
   console.log("[ChatInterface] Mount:", { patient: patient.name, patientId: patient.id, conversationId: initialConvId, initialMessagesCount: initialMessages.length, voiceId: patient.voice_id });
   const userInitials = userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -105,7 +110,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [showDisconnect, setShowDisconnect] = useState(false);
   // Aviso de vínculo: el estudiante finaliza sin cierre correcto (sin despedida
   // ni próxima cita). Cuadrante con la foto del paciente, igual que la desconexión.
+  // Un solo aviso antes de finalizar, con los motivos que apliquen.
+  //
+  // Antes esto era solo el aviso de vínculo. Al sumar la expectativa de
+  // duración quedaban dos modales encadenados para el caso más común (sesión
+  // corta Y sin despedida), y encadenar interrupciones enseña a hacer clic sin
+  // leer. Un modal que enumera lo que falta se lee; dos seguidos se cierran.
   const [showAbruptWarning, setShowAbruptWarning] = useState(false);
+  const [endWarnShort, setEndWarnShort] = useState(false);
   // Ruptura/quiebre: el paciente cerró la sesión (hostilidad o nombre evadido).
   // Guarda la razón para mostrar un aviso centrado, igual que la desconexión.
   const [sessionEndInfo, setSessionEndInfo] = useState<{ reason: string } | null>(null);
@@ -1342,14 +1354,23 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     const recent = messages.filter((m) => m.role === "user").slice(-4).map((m) => m.content).join("  ");
     return FAREWELL_RE.test(recent) || APPOINTMENT_RE.test(recent);
   };
-  // Intento de finalizar desde el modal de confirmación: si hubo intercambio
-  // real (>=6 mensajes) pero sin cierre correcto, primero muestra el aviso de
-  // vínculo; si no, finaliza directo.
+  // Intento de finalizar desde el modal de confirmación. Se juntan los motivos
+  // por los que vale la pena que el alumno lo piense dos veces —la entrevista
+  // va corta para lo que pide su asignatura, o se estaría yendo sin cerrar— y
+  // se muestran en UN aviso. Ninguno bloquea: siempre puede finalizar igual.
   const confirmEnd = () => {
     // Si la sesión ya terminó (p.ej. quiebre por anti-distracción o ruptura del
-    // paciente), no tiene sentido el aviso de vínculo sobre una sesión muerta.
-    if (!sessionEnded && messages.length >= 6 && !hasProperClosure()) {
+    // paciente), no tiene sentido advertir sobre una sesión muerta.
+    if (sessionEnded) {
+      handleEndSession();
+      return;
+    }
+    const minutos = Math.floor(activeSecondsRef.current / 60);
+    const corta = !!minSessionMinutes && minutos < minSessionMinutes;
+    const sinCierre = messages.length >= 6 && !hasProperClosure();
+    if (corta || sinCierre) {
       setShowEndConfirm(false);
+      setEndWarnShort(corta);
       setShowAbruptWarning(true);
       return;
     }
@@ -1858,16 +1879,30 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={imageSrc} alt={patient.name} className="w-full h-full object-cover" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900">¿Terminar sin despedirte?</h3>
-            <p className="text-sm text-gray-600 leading-relaxed">
-              Si te retiras abruptamente, puede afectar tu vínculo con {patient.name.split(" ")[0]}. Un buen cierre incluye despedirte o acordar una próxima sesión.
-            </p>
+            <h3 className="text-lg font-bold text-gray-900">
+              {endWarnShort ? "¿Finalizar ya?" : "¿Terminar sin despedirte?"}
+            </h3>
+            {endWarnShort && (
+              <p className="text-sm text-gray-600 leading-relaxed">
+                En tu asignatura se espera que la entrevista dure al menos{" "}
+                <strong>{minSessionMinutes} minutos</strong>. Llevas{" "}
+                <strong>{Math.floor(activeSecondsRef.current / 60)}</strong>. Hay preguntas que
+                reci&eacute;n aparecen cuando la conversaci&oacute;n se sostiene en el tiempo.
+              </p>
+            )}
+            {messages.length >= 6 && !hasProperClosure() && (
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Adem&aacute;s, si te retiras abruptamente puede afectar tu v&iacute;nculo con{" "}
+                {patient.name.split(" ")[0]}. Un buen cierre incluye despedirte o acordar una
+                pr&oacute;xima sesi&oacute;n.
+              </p>
+            )}
             <div className="flex items-center gap-3 pt-1">
               <button
                 onClick={() => setShowAbruptWarning(false)}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 transition-colors cursor-pointer"
               >
-                Volver y cerrar bien
+                {endWarnShort ? "Continuar la sesión" : "Volver y cerrar bien"}
               </button>
               <button
                 onClick={() => { setShowAbruptWarning(false); handleEndSession(); }}

@@ -67,3 +67,58 @@ export async function POST(request: Request) {
 
   return NextResponse.json(data, { status: 201 });
 }
+
+/**
+ * Ajusta la expectativa de duración de una asignatura.
+ *
+ * Es lo único que se edita por acá; nombre y código se manejan al crear. El
+ * valor es informativo para el alumno (un aviso al finalizar antes de tiempo),
+ * nunca un bloqueo, así que no hay razón para restringirlo más que el resto
+ * del catálogo.
+ */
+export async function PATCH(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const callerRole = profile?.role;
+  if (!callerRole || !["admin", "superadmin"].includes(callerRole)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
+  const { id, min_session_minutes } = await request.json();
+  if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
+
+  // null apaga el aviso. Cualquier otra cosa tiene que ser un entero sensato:
+  // la restricción también está en la base, pero un 400 explica mejor que un 500.
+  let minutos: number | null = null;
+  if (min_session_minutes !== null && min_session_minutes !== undefined && min_session_minutes !== "") {
+    minutos = Number(min_session_minutes);
+    if (!Number.isInteger(minutos) || minutos < 1 || minutos > 180) {
+      return NextResponse.json({ error: "Los minutos deben ser un entero entre 1 y 180" }, { status: 400 });
+    }
+  }
+
+  const admin = createAdminClient();
+
+  // El alcance se comprueba contra el establecimiento REAL de la asignatura,
+  // no contra uno que mande el cliente.
+  const { data: course } = await admin
+    .from("courses").select("id, establishment_id").eq("id", id).maybeSingle();
+  if (!course) return NextResponse.json({ error: "Asignatura no encontrada" }, { status: 404 });
+
+  if (callerRole === "admin") {
+    const rules = await resolveAdminScopeRules(supabase, user.id);
+    const alcanza = rules.some(
+      (r) => r.establishmentId === course.establishment_id && (!r.courseId || r.courseId === course.id),
+    );
+    if (!alcanza) return NextResponse.json({ error: "Asignatura fuera de su alcance" }, { status: 403 });
+  }
+
+  const { error } = await admin
+    .from("courses").update({ min_session_minutes: minutos }).eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ id, min_session_minutes: minutos });
+}

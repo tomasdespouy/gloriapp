@@ -13,7 +13,7 @@ import { MODULE_DEFINITIONS } from "@/lib/modules";
 import EstablishmentForm from "../EstablishmentForm";
 
 type Profile = { id: string; full_name: string | null; email: string; role?: string; course_id?: string | null; section_id?: string | null };
-type Course = { id: string; name: string; code: string | null; establishment_id: string; is_active: boolean };
+type Course = { id: string; name: string; code: string | null; establishment_id: string; is_active: boolean; min_session_minutes?: number | null };
 type Section = { id: string; name: string; course_id: string; is_active: boolean };
 type Patient = { id: string; name: string; age: number | null; occupation: string | null; difficulty_level: string | null; country: string[] | null; is_active: boolean; tags: string[] | null; country_origin: string | null; country_residence: string | null };
 
@@ -347,6 +347,35 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
   const [newSectionFor, setNewSectionFor] = useState<string | null>(null);
   const [newSectionName, setNewSectionName] = useState("");
   const [loading, setLoading] = useState(false);
+  // Expectativa de duración por asignatura, editable en línea.
+  const [minutos, setMinutos] = useState<Record<string, string>>({});
+  const [guardando, setGuardando] = useState<string | null>(null);
+  const [guardado, setGuardado] = useState<string | null>(null);
+
+  const valorMinutos = (c: Course) =>
+    minutos[c.id] ?? (c.min_session_minutes != null ? String(c.min_session_minutes) : "");
+
+  const guardarMinutos = async (courseId: string, valor: string | null) => {
+    setGuardando(courseId);
+    setGuardado(null);
+    try {
+      const res = await fetch("/api/admin/courses", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: courseId, min_session_minutes: valor }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        throw new Error(d?.error || "No se pudo guardar");
+      }
+      setGuardado(courseId);
+      router.refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "No se pudo guardar");
+    } finally {
+      setGuardando(null);
+    }
+  };
 
   const createCourse = async () => {
     if (!newCourse.trim()) return;
@@ -450,6 +479,48 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
 
             {isOpen && (
               <div className="border-t border-gray-100 px-5 py-3 space-y-2 bg-gray-50 animate-fade-in">
+                {/* Expectativa de duración. Vive en la asignatura y no en el
+                    establecimiento porque es una decisión pedagógica: dos
+                    asignaturas de la misma universidad pueden pedir formatos
+                    distintos. Vacío = sin aviso. */}
+                <div className="bg-white rounded-lg px-3 py-2.5 space-y-1.5">
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={valorMinutos(course) !== ""}
+                      onChange={(e) => {
+                        const v = e.target.checked ? "20" : "";
+                        setMinutos((p) => ({ ...p, [course.id]: v }));
+                        guardarMinutos(course.id, e.target.checked ? "20" : null);
+                      }}
+                      className="cursor-pointer"
+                    />
+                    Avisar si el alumno finaliza antes de
+                    <input
+                      type="number"
+                      min={1}
+                      max={180}
+                      disabled={valorMinutos(course) === ""}
+                      value={valorMinutos(course)}
+                      onChange={(e) => setMinutos((p) => ({ ...p, [course.id]: e.target.value }))}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v && v !== String(course.min_session_minutes ?? "")) guardarMinutos(course.id, v);
+                      }}
+                      className="w-16 border border-gray-200 rounded px-2 py-1 text-sm disabled:bg-gray-50 disabled:text-gray-300"
+                    />
+                    minutos
+                    {guardando === course.id && <span className="text-[11px] text-gray-400">guardando&hellip;</span>}
+                    {guardado === course.id && guardando !== course.id && (
+                      <span className="text-[11px] text-emerald-600">guardado</span>
+                    )}
+                  </label>
+                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                    El alumno ve un aviso al finalizar antes de ese tiempo y puede continuar o
+                    finalizar igual. Nunca lo bloquea.
+                  </p>
+                </div>
+
                 {secs.map((s) => (
                   <div key={s.id} className="flex items-center justify-between py-1.5 px-3 bg-white rounded-lg text-sm">
                     <span className="text-gray-700">{s.name}</span>

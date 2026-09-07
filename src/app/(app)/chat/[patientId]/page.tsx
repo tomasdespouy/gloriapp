@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
 import { ChatInterface } from "@/components/ChatInterface";
 import { getUserProfile } from "@/lib/supabase/user-profile";
+import { getMinSessionMinutes } from "@/lib/session-expectations";
 
 export default async function ChatPage({
   params,
@@ -28,6 +29,9 @@ export default async function ChatPage({
   if (!patient) notFound();
 
   const userProfile = await getUserProfile();
+
+  // Expectativa de duración de la asignatura del alumno. null = sin aviso.
+  const minSessionMinutes = userProfile?.id ? await getMinSessionMinutes(userProfile.id) : null;
 
   // Un paciente inactivo es un BORRADOR: está fuera del catálogo mientras se
   // revisa. Pero esta página usa el cliente admin (salta RLS) y sin esta
@@ -82,6 +86,7 @@ export default async function ChatPage({
   return (
     <div className="h-full overflow-hidden flex flex-col bg-[#FAFAFA]" style={{ height: "calc(100dvh - 48px)" }}>
       <ChatInterface
+        minSessionMinutes={minSessionMinutes}
         patient={patient}
         conversationId={conversationId}
         initialMessages={initialMessages}
