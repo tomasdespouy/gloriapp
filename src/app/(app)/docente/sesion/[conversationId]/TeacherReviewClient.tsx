@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { getPatientImageUrl } from "@/lib/patient-assets";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import CompetencyTooltip from "@/components/CompetencyTooltip";
+import ConversationDocxButton from "@/components/ConversationDocxButton";
 import { getEvidenceList } from "@/lib/evaluation-prompt";
 
 interface Message {
@@ -352,6 +353,7 @@ export default function TeacherReviewClient({
               Paciente: {patient.name} ({patient.age} años, {patient.occupation})
             </p>
           </div>
+          <ConversationDocxButton conversationId={conversationId} />
           {!isApproved && (
             <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full flex items-center gap-1">
               <Clock size={10} />
