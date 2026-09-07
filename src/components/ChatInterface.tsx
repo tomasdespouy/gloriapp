@@ -1378,6 +1378,21 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       } catch { /* navigate anyway */ }
     }
 
+    // Cerrar la sesión ACÁ, no al enviar la reflexión.
+    //
+    // Antes esto solo navegaba: la conversación seguía "activa" mientras el
+    // estudiante respondía las preguntas, y el cron de limpieza la marcaba
+    // "abandonada" por debajo. Al volver del historial, una sesión abandonada
+    // abre "Retomar conversación" en vez del formulario, así que la reflexión
+    // quedaba inalcanzable y la ficha tampoco se le abría al docente (esa
+    // vista exige status completed). Le pasó a 12 alumnas de UPC en una clase.
+    //
+    // Es idempotente y no bloquea: si falla, /complete igual cierra la sesión
+    // al enviar la reflexión, que es como funcionaba hasta ahora.
+    try {
+      await fetch(`/api/sessions/${conversationId}/leave-reflection`, { method: "POST" });
+    } catch { /* navigate anyway */ }
+
     router.push(`/review/${conversationId}`);
   };
 

@@ -12,6 +12,7 @@ import type { CompetencyScores, CompetencyScoresV2 } from "@/lib/gamification";
 import { getEvidenceList } from "@/lib/evaluation-prompt";
 import { getPatientImageUrl } from "@/lib/patient-assets";
 import { setNavigationGuard } from "@/lib/navigation-guard";
+import { guardarBorrador, leerBorrador, borrarBorrador } from "@/lib/reflection-draft";
 
 type ActionItem = {
   id: string;
@@ -217,6 +218,41 @@ export default function ReviewClient({
   const [clinicalHypothesis, setClinicalHypothesis] = useState("");
   const [sessionNotes, setSessionNotes] = useState(initialSessionNotes);
   const [showEmptyConfirm, setShowEmptyConfirm] = useState(false);
+  // Un envío que falla tiene que decirlo. Antes el catch devolvía al
+  // formulario en silencio y el estudiante se iba creyendo que había quedado
+  // guardado; así perdimos autorreflexiones sin que nadie se enterara.
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // Al abrir el formulario: si quedó un borrador de esta misma sesión, se
+  // repone. Cubre el caso de cerrar el navegador con las respuestas escritas
+  // pero sin enviar, que es cuando más rabia da perderlas.
+  useEffect(() => {
+    if (step !== "reflect") return;
+    const d = leerBorrador(conversationId);
+    if (!d) return;
+    setAllianceFraming((v) => v || d.allianceFraming);
+    setRuptureMoment((v) => v || d.ruptureMoment);
+    setNonverbalCues((v) => v || d.nonverbalCues);
+    setInterventionTypes((v) => v || d.interventionTypes);
+    setClinicalHypothesis((v) => v || d.clinicalHypothesis);
+    setDraftRestored(true);
+    // Solo al montar en modo formulario: repone una vez y no vuelve a pisar
+    // lo que el estudiante escriba después.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Guardado del borrador con retardo: escribir en localStorage en cada tecla
+  // es innecesario, y 600 ms es más que suficiente para no perder nada.
+  useEffect(() => {
+    if (step !== "reflect") return;
+    const t = setTimeout(() => {
+      guardarBorrador(conversationId, {
+        allianceFraming, ruptureMoment, nonverbalCues, interventionTypes, clinicalHypothesis,
+      });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [step, conversationId, allianceFraming, ruptureMoment, nonverbalCues, interventionTypes, clinicalHypothesis]);
   // Navigation guard: si el estudiante intenta navegar fuera (sidebar)
   // mientras está en step="reflect", interceptamos y mostramos
   // confirmación. Si confirma "Salir", navegamos a la URL pendiente
@@ -461,6 +497,10 @@ export default function ReviewClient({
         setResults(data);
       }
 
+      // Recién acá: el servidor confirmó. Borrar antes dejaría al estudiante
+      // sin borrador Y sin respuestas guardadas si la petición fallaba.
+      borrarBorrador(conversationId);
+
       // Trigger any pending experience survey now that the student has
       // completed their post-session reflection. SurveyModal in
       // (app)/layout.tsx listens for this event and refetches active
@@ -470,10 +510,14 @@ export default function ReviewClient({
       }
     } catch {
       setStep("reflect");
+      setSubmitError(
+        "No pudimos guardar tus respuestas. Revisa tu conexión y vuelve a intentarlo — lo que escribiste sigue acá.",
+      );
     }
   };
 
   const trySubmit = () => {
+    setSubmitError(null);
     const allEmpty = !allianceFraming.trim() && !ruptureMoment.trim() && !nonverbalCues.trim() && !interventionTypes.trim() && !clinicalHypothesis.trim();
     if (allEmpty) {
       setShowEmptyConfirm(true);
@@ -645,6 +689,16 @@ export default function ReviewClient({
                   </div>
                 </div>
 
+                {draftRestored && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                    <p className="text-sm text-amber-800 leading-relaxed">
+                      Recuperamos lo que hab&iacute;as escrito la vez anterior. Rev&iacute;salo y
+                      env&iacute;alo cuando est&eacute; listo &mdash; hasta que lo env&iacute;es no
+                      queda guardado en la plataforma.
+                    </p>
+                  </div>
+                )}
+
                 {/* Question cards */}
                 <div className="grid grid-cols-1 gap-3">
                 {([
@@ -734,6 +788,13 @@ export default function ReviewClient({
                     rows={3}
                   />
                 </div>
+
+                {submitError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                    <p className="text-sm font-semibold text-red-700">No se pudo enviar</p>
+                    <p className="text-xs text-red-600 mt-0.5 leading-relaxed">{submitError}</p>
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div className="flex gap-3 pt-1">

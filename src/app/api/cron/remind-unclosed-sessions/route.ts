@@ -2,27 +2,40 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { logEmail } from "@/lib/email-log";
 import { requireCron } from "@/lib/cron-auth";
-import { countMessagesByConversation } from "@/lib/message-counts";
-import { unclosedSessionHtml, unclosedSessionSubject } from "@/lib/emails/unclosed-session";
+import {
+  unclosedSessionHtml,
+  unclosedSessionSubject,
+  type ReminderKind,
+} from "@/lib/emails/unclosed-session";
 import { getGloriaLogoUrl } from "@/lib/email-assets";
 import { getAppUrl } from "@/lib/app-url";
+import { countMessagesByConversation } from "@/lib/message-counts";
 
 /**
- * CRON: le avisa al ESTUDIANTE que dejó una sesión sin cerrar.
+ * CRON: le avisa al ESTUDIANTE que su sesión quedó a medio camino.
  *
  * El docente ya se entera (lo hace cleanup-sessions al abandonarla), pero el
  * estudiante no se enteraba de nada: se iba creyendo que había terminado y su
  * retroalimentación nunca llegaba. Este cron cierra ese hueco.
  *
- * La secuencia completa: el alumno cierra la pestaña → a los 5 min
- * cleanup-sessions marca la conversación "abandoned" → una hora después de eso,
- * si sigue sin evaluar, este cron le escribe una vez.
+ * Cubre los DOS finales posibles, que necesitan instrucciones distintas:
+ *
+ *   abandoned  → cerró el navegador durante la entrevista. La conversación
+ *                sigue abierta: tiene que retomarla y finalizarla.
+ *   completed sin evaluación NI autorreflexión → cerró bien la sesión pero se
+ *                fue del formulario. No tiene que volver a hablar con el
+ *                paciente: entra al historial y las preguntas se abren solas.
+ *
+ * El segundo caso se vuelve MÁS frecuente desde que "Finalizar sesión" cierra
+ * la conversación al entrar al formulario (antes ese mismo alumno terminaba
+ * como "abandoned"). Es el precio correcto: la sesión queda bien registrada y
+ * la reflexión sigue alcanzable, pero hay que ir a buscar a quien no la envió.
  *
  * Tres filtros que no son caprichos:
  *
  * - MIN_AGE (1 h): lo que pidió el negocio, y además evita escribirle a alguien
- *   que se fue a almorzar y volvió. Con menos margen el correo llegaría mientras
- *   la persona todavía está trabajando en la sesión.
+ *   que se fue a almorzar y volvió. También deja pasar de sobra la evaluación
+ *   en segundo plano del modo rápido, que tarda segundos.
  *
  * - MAX_AGE (48 h): el freno de mano. Sin él, la PRIMERA corrida en producción
  *   le escribiría a todo el historial de la plataforma de una vez — cientos de
@@ -50,8 +63,8 @@ export async function GET(request: Request) {
 
   const { data: candidatas, error } = await admin
     .from("conversations")
-    .select("id, student_id, ai_patient_id, created_at, ended_at")
-    .eq("status", "abandoned")
+    .select("id, student_id, ai_patient_id, created_at, ended_at, status")
+    .in("status", ["abandoned", "completed"])
     .is("student_reminder_sent_at", null)
     .gte("ended_at", desde)
     .lte("ended_at", hasta)
@@ -65,13 +78,21 @@ export async function GET(request: Request) {
 
   const ids = candidatas.map((c) => c.id);
 
-  // Ya evaluada = el alumno volvió y la cerró por su cuenta, o el docente la
-  // reevaluó. En cualquier caso ya no corresponde el recordatorio.
+  // Ya evaluada = terminó el circuito. No corresponde recordatorio.
   const { data: evaluadas } = await admin
     .from("session_competencies")
     .select("conversation_id")
     .in("conversation_id", ids);
   const yaEvaluada = new Set((evaluadas || []).map((x) => x.conversation_id));
+
+  // Con autorreflexión guardada pero sin evaluación: el alumno SÍ respondió y
+  // lo que falló fue el evaluador. Escribirle "te faltan las preguntas" sería
+  // culparlo de un problema nuestro, así que estas quedan fuera.
+  const { data: conReflexion } = await admin
+    .from("session_feedback")
+    .select("conversation_id")
+    .in("conversation_id", ids);
+  const yaReflexiono = new Set((conReflexion || []).map((x) => x.conversation_id));
 
   // Paginado obligatorio: un .in() pelado se corta en 1000 filas sin avisar,
   // y acá un conteo bajo por error marcaría la sesión como atendida para
@@ -87,11 +108,15 @@ export async function GET(request: Request) {
   }
 
   const reales = candidatas.filter(
-    (c) => !yaEvaluada.has(c.id) && (cuenta.get(c.id) || 0) >= MIN_MSGS,
+    (c) =>
+      !yaEvaluada.has(c.id) &&
+      !yaReflexiono.has(c.id) &&
+      (cuenta.get(c.id) || 0) >= MIN_MSGS,
   );
+  const esReal = new Set(reales.map((c) => c.id));
 
   // Las descartadas también se marcan: no hay que volver a mirarlas nunca más.
-  const descartadas = candidatas.filter((c) => !reales.includes(c)).map((c) => c.id);
+  const descartadas = candidatas.filter((c) => !esReal.has(c.id)).map((c) => c.id);
   if (descartadas.length) {
     await admin
       .from("conversations")
@@ -126,6 +151,7 @@ export async function GET(request: Request) {
 
   let avisados = 0;
   let fallidos = 0;
+  const porTipo: Record<ReminderKind, number> = { sin_cerrar: 0, sin_reflexion: 0 };
 
   for (const c of reales) {
     const a = alumno.get(c.student_id);
@@ -138,8 +164,10 @@ export async function GET(request: Request) {
       continue;
     }
 
+    const kind: ReminderKind = c.status === "completed" ? "sin_reflexion" : "sin_cerrar";
     const nombrePaciente = paciente.get(c.ai_patient_id || "") || "tu paciente";
     const html = unclosedSessionHtml({
+      kind,
       studentName: a.full_name || "",
       patientName: nombrePaciente,
       sessionDate: c.created_at,
@@ -161,7 +189,7 @@ export async function GET(request: Request) {
         body: JSON.stringify({
           from: "GlorIA <noreply@glor-ia.com>",
           to: a.email,
-          subject: unclosedSessionSubject(nombrePaciente),
+          subject: unclosedSessionSubject(kind, nombrePaciente),
           html,
         }),
       });
@@ -187,6 +215,7 @@ export async function GET(request: Request) {
         providerMessageId: body?.id ?? null,
       });
       avisados++;
+      porTipo[kind]++;
     } catch {
       fallidos++;
       await logEmail("unclosed_session", a.email, false, { userId: a.id });
@@ -197,6 +226,7 @@ export async function GET(request: Request) {
     avisados,
     fallidos,
     descartadas: descartadas.length,
+    ...porTipo,
     message: `Recordatorio enviado a ${avisados} estudiantes`,
   });
 }

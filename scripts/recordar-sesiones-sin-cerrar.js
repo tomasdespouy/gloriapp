@@ -34,6 +34,10 @@ const flag = (n) => {
 const EST = flag("--est");
 const PRUEBA = flag("--prueba");
 const ENVIAR = args.includes("--enviar");
+// Solo para --prueba: fuerza la variante del correo ("sin_cerrar" o
+// "sin_reflexion") aunque los datos reales sean del otro caso. Sirve para
+// revisar el texto de una variante que hoy no tiene casos.
+const TIPO = flag("--tipo");
 const MIN_MSGS = 6;
 
 if (!EST) {
@@ -96,15 +100,13 @@ async function enviar(to, asunto, cuerpo, idem) {
     .from("conversations")
     .select(`${COLS}, student_reminder_sent_at`)
     .in("student_id", alumnos.map((a) => a.id))
-    .eq("status", "abandoned");
+    .in("status", ["abandoned", "completed"]);
 
   // La columna student_reminder_sent_at solo existe después de aplicar la
   // migración 20260907120000. Sin ella se puede LISTAR y previsualizar (no
   // toca nada), pero no enviar: sin la marca no habría forma de garantizar
   // que a nadie le llegue el mismo correo dos veces.
-  let hayMarca = true;
   if (errConv && /student_reminder_sent_at/.test(errConv.message || "")) {
-    hayMarca = false;
     if (ENVIAR) {
       console.error("\nNo se puede enviar todavía: falta aplicar la migración");
       console.error("supabase/migrations/20260907120000_conversations_student_reminder.sql");
@@ -116,7 +118,7 @@ async function enviar(to, asunto, cuerpo, idem) {
       .from("conversations")
       .select(COLS)
       .in("student_id", alumnos.map((a) => a.id))
-      .eq("status", "abandoned"));
+      .in("status", ["abandoned", "completed"]));
   }
 
   // Sin este chequeo, un error de consulta se veía igual que "no hay nada que enviar".
@@ -126,11 +128,17 @@ async function enviar(to, asunto, cuerpo, idem) {
   }
 
   const ids = (cs || []).map((c) => c.id);
-  if (!ids.length) return console.log("No hay sesiones abandonadas en este establecimiento.");
+  if (!ids.length) return console.log("No hay sesiones en este establecimiento.");
 
   const { data: evals } = await s
     .from("session_competencies").select("conversation_id").in("conversation_id", ids);
   const evaluada = new Set((evals || []).map((x) => x.conversation_id));
+
+  // Con autorreflexión guardada el alumno ya hizo su parte: si falta la
+  // evaluación, el problema es nuestro y no corresponde escribirle.
+  const { data: refl } = await s
+    .from("session_feedback").select("conversation_id").in("conversation_id", ids);
+  const reflexionada = new Set((refl || []).map((x) => x.conversation_id));
 
   // Paginado explícito: un .in() pelado se corta en 1000 filas sin avisar, y
   // un conteo bajo por error dejaría fuera a estudiantes que sí deben recibir
@@ -162,6 +170,7 @@ async function enviar(to, asunto, cuerpo, idem) {
     return (
       a && a.email && !a.is_disabled &&
       !evaluada.has(c.id) &&
+      !reflexionada.has(c.id) &&
       !c.student_reminder_sent_at &&
       (cuenta[c.id] || 0) >= MIN_MSGS
     );
@@ -170,6 +179,9 @@ async function enviar(to, asunto, cuerpo, idem) {
   const datos = (c) => {
     const a = porId.get(c.student_id);
     return {
+      // "abandoned" = quedó abierta y hay que retomarla. "completed" sin
+      // reflexión = solo le faltan las preguntas, no debe volver al chat.
+      kind: c.status === "completed" ? "sin_reflexion" : "sin_cerrar",
       studentName: a.full_name || "",
       patientName: paciente.get(c.ai_patient_id) || "tu paciente",
       sessionDate: c.created_at,
@@ -183,16 +195,17 @@ async function enviar(to, asunto, cuerpo, idem) {
   for (const c of objetivo) {
     const a = porId.get(c.student_id);
     console.log(
-      `   ${(a.full_name || "").padEnd(38).slice(0, 38)} ${String(cuenta[c.id]).padStart(3)} msgs  ` +
-        `${paciente.get(c.ai_patient_id) || "?"}  ${c.created_at.slice(0, 10)}  ${a.email}`,
+      `   ${(a.full_name || "").padEnd(34).slice(0, 34)} ` +
+        `${(c.status === "completed" ? "sin reflexión" : "sin cerrar  ").padEnd(14)} ` +
+        `${String(cuenta[c.id]).padStart(3)} msgs  ${c.created_at.slice(0, 10)}  ${a.email}`,
     );
   }
 
   if (PRUEBA) {
     const c = objetivo[0];
     if (!c) return console.log("\nNada que previsualizar.");
-    const d = datos(c);
-    await enviar(PRUEBA, `[PRUEBA] ${unclosedSessionSubject(d.patientName)}`, unclosedSessionHtml(d), null);
+    const d = { ...datos(c), ...(TIPO ? { kind: TIPO } : {}) };
+    await enviar(PRUEBA, `[PRUEBA ${d.kind}] ${unclosedSessionSubject(d.kind, d.patientName)}`, unclosedSessionHtml(d), null);
     console.log(`\nCorreo de prueba enviado a ${PRUEBA} (con los datos de ${d.studentName}).`);
     console.log("Ningún estudiante recibió nada y no se marcó ninguna conversación.");
     return;
@@ -210,7 +223,7 @@ async function enviar(to, asunto, cuerpo, idem) {
     try {
       await enviar(
         a.email,
-        unclosedSessionSubject(d.patientName),
+        unclosedSessionSubject(d.kind, d.patientName),
         unclosedSessionHtml(d),
         `unclosed-session-${c.id}`,
       );

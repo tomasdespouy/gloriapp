@@ -9,6 +9,17 @@
  * estudiantes apretaría el equivocado y saldría sin cerrar nada. Por eso acá
  * se nombra el botón por su etiqueta real y se aclara que no es el de salir.
  *
+ * Hay DOS situaciones distintas y el correo no puede tratarlas igual:
+ *
+ *   "sin_cerrar"  — la conversación quedó abierta (el alumno cerró el
+ *                   navegador durante la entrevista). Tiene que retomarla y
+ *                   recién ahí finalizarla.
+ *   "sin_reflexion" — la conversación sí se cerró, pero se fue del formulario
+ *                   sin enviar las preguntas. NO necesita volver a conversar
+ *                   con el paciente: entra al historial, toca la sesión y el
+ *                   formulario se abre solo. Decirle que "retome" acá sería
+ *                   mandarlo a hablar de nuevo con el paciente sin motivo.
+ *
  * La plantilla la usan el cron de recordatorios y el envío puntual a una
  * cohorte, para que ambos digan exactamente lo mismo.
  *
@@ -19,7 +30,11 @@
  * como parámetros en vez de resolverse acá adentro.
  */
 
+/** Qué le falta al estudiante. Ver el encabezado del archivo. */
+export type ReminderKind = "sin_cerrar" | "sin_reflexion";
+
 export type UnclosedSessionEmail = {
+  kind: ReminderKind;
   studentName: string;
   patientName: string;
   /** Fecha de la sesión en ISO; se muestra para que reconozca cuál es. */
@@ -33,8 +48,10 @@ export type UnclosedSessionEmail = {
 
 const TZ = "America/Santiago";
 
-export function unclosedSessionSubject(patientName: string): string {
-  return `Tu sesión con ${patientName} quedó sin cerrar`;
+export function unclosedSessionSubject(kind: ReminderKind, patientName: string): string {
+  return kind === "sin_reflexion"
+    ? `Te faltan las preguntas de tu sesión con ${patientName}`
+    : `Tu sesión con ${patientName} quedó sin cerrar`;
 }
 
 export function unclosedSessionHtml(o: UnclosedSessionEmail): string {
@@ -46,15 +63,55 @@ export function unclosedSessionHtml(o: UnclosedSessionEmail): string {
     month: "long",
   });
   const primerNombre = (o.studentName || "").trim().split(/\s+/)[0] || "";
+  const sinReflexion = o.kind === "sin_reflexion";
+
+  const titulo = sinReflexion ? "Te faltan las preguntas" : "Te falta un paso";
+  const bajada = sinReflexion
+    ? "Tu autorreflexión quedó sin enviar"
+    : "Tu sesión quedó abierta y sin retroalimentación";
+
+  const explicacion = sinReflexion
+    ? `Cerraste bien la sesión, pero saliste antes de enviar las preguntas de
+       autorreflexión. La retroalimentación sobre tus competencias se genera
+       con esas respuestas, así que todavía no la tienes. Son dos minutos.`
+    : `Pero la sesión quedó abierta: saliste sin finalizarla. La retroalimentación
+       sobre tus competencias solo se genera cuando la cierras, así que todavía
+       no la tienes. Son dos minutos.`;
+
+  // Los pasos son distintos y esto importa: al que solo le falta la
+  // autorreflexión NO hay que mandarlo a "retomar", porque eso lo devuelve a
+  // conversar con el paciente sin ninguna necesidad.
+  const pasos = sinReflexion
+    ? `<li>Entra a GlorIA y anda a <strong>Historial</strong>.</li>
+       <li>Toca la sesión con ${o.patientName}: las preguntas se abren solas.</li>
+       <li>Respóndelas y aprieta <strong>enviar</strong>.</li>`
+    : `<li>Entra a GlorIA y anda a <strong>Historial</strong>.</li>
+       <li>Toca la sesión con ${o.patientName} y aprieta <strong>Retomar</strong>.</li>
+       <li>
+         Ya en la conversación, arriba a la derecha, aprieta el botón rojo que dice
+         <strong>Finalizar sesión</strong>.
+       </li>
+       <li>Responde la autorreflexión breve que aparece.</li>`;
+
+  // El aviso del botón confuso solo aplica a quien tiene que volver al chat.
+  const avisoBoton = sinReflexion
+    ? ""
+    : `<div style="background: #FFF7ED; border-left: 4px solid #F59E0B; border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 0 0 24px;">
+         <p style="font-size: 13px; color: #92400E; margin: 0; line-height: 1.5;">
+           No confundas ese botón con el <strong>Cerrar sesión</strong> del menú de tu perfil:
+           ese te saca de la plataforma y deja la sesión igual de abierta. El que necesitas
+           dice <strong>Finalizar sesión</strong> y está dentro de la conversación.
+         </p>
+       </div>`;
 
   return `
     <div style="font-family: Calibri, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1A1A1A;">
       <div style="background: #4A55A2; padding: 24px 32px; border-radius: 12px 12px 0 0;">
         <div style="display: flex; align-items: center; justify-content: space-between;">
           <div>
-            <h1 style="color: white; margin: 0; font-size: 22px;">Te falta un paso</h1>
+            <h1 style="color: white; margin: 0; font-size: 22px;">${titulo}</h1>
             <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 13px;">
-              Tu sesión quedó abierta y sin retroalimentación
+              ${bajada}
             </p>
           </div>
           <img src="${logoUrl}" alt="GlorIA" width="120" height="40" style="height: 40px; width: auto; display: block;" />
@@ -72,9 +129,7 @@ export function unclosedSessionHtml(o: UnclosedSessionEmail): string {
         </p>
 
         <p style="font-size: 14px; color: #555; line-height: 1.6; margin: 0 0 20px;">
-          Pero la sesión quedó abierta: saliste sin finalizarla. La retroalimentación sobre
-          tus competencias solo se genera cuando la cierras, así que todavía no la tienes.
-          Son dos minutos.
+          ${explicacion}
         </p>
 
         <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px 24px; margin: 0 0 22px;">
@@ -82,23 +137,11 @@ export function unclosedSessionHtml(o: UnclosedSessionEmail): string {
             Cómo cerrarla
           </p>
           <ol style="font-size: 14px; color: #555; line-height: 1.8; padding-left: 20px; margin: 0;">
-            <li>Entra a GlorIA y anda a <strong>Historial</strong>.</li>
-            <li>Toca la sesión con ${o.patientName} y aprieta <strong>Retomar</strong>.</li>
-            <li>
-              Ya en la conversación, arriba a la derecha, aprieta el botón rojo que dice
-              <strong>Finalizar sesión</strong>.
-            </li>
-            <li>Responde la autorreflexión breve que aparece.</li>
+            ${pasos}
           </ol>
         </div>
 
-        <div style="background: #FFF7ED; border-left: 4px solid #F59E0B; border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 0 0 24px;">
-          <p style="font-size: 13px; color: #92400E; margin: 0; line-height: 1.5;">
-            No confundas ese botón con el <strong>Cerrar sesión</strong> del menú de tu perfil:
-            ese te saca de la plataforma y deja la sesión igual de abierta. El que necesitas
-            dice <strong>Finalizar sesión</strong> y está dentro de la conversación.
-          </p>
-        </div>
+        ${avisoBoton}
 
         <div style="text-align: center; margin: 0 0 8px;">
           <a href="${appUrl}/historial"
