@@ -16,10 +16,17 @@ export default function ConversationDocxButton({
   conversationId,
   variant = "button",
   label = "Descargar .docx",
+  source = "docente",
 }: {
   conversationId: string;
   variant?: "button" | "link";
   label?: string;
+  /**
+   * Qué ruta usar. "docente" pasa por el alcance del monitor; "propia" solo
+   * verifica que la conversación sea del que la pide. El documento resultante
+   * es idéntico — lo que cambia es quién tiene derecho a pedirlo.
+   */
+  source?: "docente" | "propia";
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -28,7 +35,11 @@ export default function ConversationDocxButton({
     setLoading(true);
     let objectUrl: string | null = null;
     try {
-      const res = await fetch(`/api/docente/sesion/${conversationId}/docx`);
+      const endpoint =
+        source === "propia"
+          ? `/api/sessions/${conversationId}/docx`
+          : `/api/docente/sesion/${conversationId}/docx`;
+      const res = await fetch(endpoint);
       if (!res.ok) {
         const detail = await res.json().catch(() => null);
         throw new Error(detail?.error || `Error ${res.status}`);

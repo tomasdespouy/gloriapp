@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getPatientImageUrl } from "@/lib/patient-assets";
+import ConversationDocxButton from "@/components/ConversationDocxButton";
 import {
   Search, ChevronRight, Brain, Clock, CheckCircle2,
   MessageSquare, List, LayoutGrid, TrendingUp, Save, ArrowLeft,
@@ -256,7 +257,7 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
         </button>
 
         {/* Header */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex items-center gap-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-wrap items-center gap-4">
           <div className="w-11 h-11 rounded-full bg-sidebar overflow-hidden flex-shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={getPatientImageUrl(slug)} alt="" className="w-full h-full object-cover" />
@@ -282,6 +283,7 @@ export default function HistorialClient({ sessions, summaryMap, observations: in
               </div>
             );
           })()}
+          <ConversationDocxButton conversationId={session.id} source="propia" />
           {(comp?.feedback_status === "approved" || comp?.feedback_status === "evaluated") && (
             <button
               onClick={() => router.push(`/review/${session.id}`)}

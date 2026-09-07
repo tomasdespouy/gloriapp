@@ -1,24 +1,21 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getMonitorAuthority, canAccessStudent } from "@/lib/monitor/scope";
 import { buildConversationDocx, conversationDocxFilename } from "@/lib/conversation-docx";
 import { loadConversationDocxInput } from "@/lib/conversation-docx-data";
 import { uuidSchema } from "@/lib/validation/schemas";
 
 /**
- * Descarga de una conversación en .docx desde la mirada del docente.
+ * El estudiante descarga SU propia conversación en .docx.
  *
- * Mismo doble candado que el visor inline del monitor:
- *   (1) el que pide tiene autoridad de monitor (instructor, admin, superadmin,
- *       honrando impersonación), y
- *   (2) el alumno dueño de la conversación cae dentro de su alcance.
+ * La autorización es la más simple posible y por eso la más segura: la
+ * conversación tiene que ser suya. No hay alcance, ni rol, ni parámetro del
+ * cliente que pueda ampliarla — se compara el dueño de la conversación contra
+ * la sesión autenticada y nada más.
  *
- * El alumno se deriva de la conversación, no lo manda el cliente: así no hay
- * un id que validar. Quien ya podía leer la transcripción en pantalla puede
- * descargarla; esto no abre nada nuevo, solo cambia el formato.
- *
- * El estudiante descarga la suya por /api/sessions/[id]/docx, que arma el
- * mismo documento con otra autorización.
+ * Es el mismo documento que descarga el docente (misma carga de datos, mismo
+ * generador). Un estudiante ya puede leer su transcripción completa en el
+ * historial, así que esto solo cambia el formato.
  */
 
 export const runtime = "nodejs";
@@ -28,8 +25,9 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
-  const auth = await getMonitorAuthority();
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const { conversationId } = await params;
   if (!uuidSchema.safeParse(conversationId).success) {
@@ -42,8 +40,10 @@ export async function GET(
     return NextResponse.json({ error: loaded.error }, { status: loaded.status });
   }
 
-  if (!(await canAccessStudent(auth, loaded.studentId))) {
-    return NextResponse.json({ error: "Conversación fuera de su alcance" }, { status: 403 });
+  // 404 y no 403 a propósito: pedir una conversación ajena no debería
+  // confirmarle a nadie que existe.
+  if (loaded.studentId !== user.id) {
+    return NextResponse.json({ error: "Conversación no encontrada" }, { status: 404 });
   }
 
   const buffer = await buildConversationDocx(loaded.input);
