@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { XCircle } from "lucide-react";
+import ConversationDocxButton from "@/components/ConversationDocxButton";
 
 // Visor de conversaciones de una persona — fuente única de verdad.
 // Es presentacional + fetch genérico por URL: cada vista (monitor de
@@ -227,6 +228,7 @@ export default function ConversationsDrawer({
                       >
                         Ficha completa ↗
                       </a>
+                      <ConversationDocxButton conversationId={c.id} variant="link" />
                       {allowReeval && c.message_count >= 2 && (
                         reeval[c.id] === "done" ? (
                           <span className="text-[11px] text-emerald-600">✓ Evaluación enviada al docente</span>
@@ -249,12 +251,15 @@ export default function ConversationsDrawer({
 
           {openConvoId && (
             <div className="p-4 space-y-3">
-              <button
-                onClick={() => setOpenConvoId(null)}
-                className="text-[11px] text-sidebar hover:underline cursor-pointer"
-              >
-                ← Volver al listado
-              </button>
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  onClick={() => setOpenConvoId(null)}
+                  className="text-[11px] text-sidebar hover:underline cursor-pointer"
+                >
+                  ← Volver al listado
+                </button>
+                <ConversationDocxButton conversationId={openConvoId} variant="link" />
+              </div>
 
               {(() => {
                 const convo = conversations?.find((c) => c.id === openConvoId);

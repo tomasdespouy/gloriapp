@@ -7,6 +7,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { COMPETENCY_INFO } from "./competency-definitions";
+import { cappedActiveSeconds } from "./active-seconds";
 
 export const COMPETENCY_KEYS = [
   "setting_terapeutico",
@@ -45,24 +46,6 @@ type RawConversation = {
   ended_at: string | null;
 };
 
-// Cap per-conversation active_seconds to a sane bound. SessionTimer counts
-// wall-clock time without checking document.visibilityState, so a tab left
-// open after the chat ended can balloon a 15-min session into 30+ hours.
-// Cap to min(stored value, wall-clock + 5min de gracia, 90min absoluto).
-const ABSOLUTE_CAP_SECONDS = 5400;
-const WALL_CLOCK_GRACE_SECONDS = 300;
-
-function cappedActiveSeconds(c: RawConversation): number {
-  const raw = c.active_seconds;
-  if (typeof raw !== "number" || raw <= 0) return 0;
-  let cap = ABSOLUTE_CAP_SECONDS;
-  if (c.started_at && c.ended_at) {
-    const wall =
-      (new Date(c.ended_at).getTime() - new Date(c.started_at).getTime()) / 1000;
-    if (wall > 0) cap = Math.min(cap, wall + WALL_CLOCK_GRACE_SECONDS);
-  }
-  return Math.min(raw, cap);
-}
 
 type RawCompetencyRow = {
   conversation_id: string;
