@@ -2379,15 +2379,16 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4 animate-pop">
             <h3 className="text-base font-bold text-gray-900">Estás en sesión</h3>
             <p className="text-sm text-gray-600 leading-relaxed">
-              Para concluir, debes apretar <strong>Cerrar sesión</strong>. Mientras la sesión esté
-              abierta no puedes navegar a otras secciones del sitio.
+              Para concluir, debes apretar <strong>Finalizar sesi&oacute;n</strong>, el bot&oacute;n rojo
+              de arriba a la derecha. Mientras la sesi&oacute;n est&eacute; abierta no puedes navegar a
+              otras secciones del sitio.
             </p>
             <div className="flex items-center gap-3 pt-1">
               <button
                 onClick={() => { setNavGuardOpen(false); handleEndSession(); }}
                 className="flex-1 bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 cursor-pointer transition-opacity"
               >
-                Cerrar sesión
+                Finalizar sesi&oacute;n
               </button>
               <button
                 onClick={() => setNavGuardOpen(false)}
