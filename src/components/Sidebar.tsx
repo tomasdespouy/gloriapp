@@ -4,7 +4,7 @@ import {
   Home, User, History, BarChart3, BookOpen, Info,
   Users, ClipboardCheck, LayoutDashboard, Building2,
   FlaskConical, DollarSign, Activity, FileText,
-  Briefcase, Rocket, Bell, ArrowLeft, ArrowRight,
+  Briefcase, Rocket, Bell, ArrowLeft, ArrowRight, Mail,
 } from "lucide-react";
 import {
   TILE_ICON_BY_HREF,
@@ -79,6 +79,7 @@ const adminSections = (isSuperadmin: boolean): NavSection[] =>
           items: [
             { icon: FlaskConical, label: "Investigación y Fondos", href: "/admin/investigacion" },
             { icon: FileText, label: "Informes técnicos", href: "/admin/informes" },
+            { icon: Mail, label: "Informe semanal", href: "/admin/informe-semanal" },
             { icon: Briefcase, label: "CRM", href: "/admin/crm" },
           ],
         },

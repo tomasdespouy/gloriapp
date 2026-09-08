@@ -62,6 +62,9 @@ export async function updateSession(request: NextRequest) {
     // formulario. Se listan las rutas exactas y no todo /api/auth/ para que
     // agregar un endpoint ahi no lo vuelva publico sin querer.
     pathname !== "/api/auth/confirm" &&
+    // Lo llama Resend, no una persona: nunca va a traer sesión. La ruta
+    // verifica la firma del webhook por su cuenta y rechaza sin ella.
+    pathname !== "/api/webhooks/resend" &&
     // Vercel Cron hits these with Authorization: Bearer $CRON_SECRET.
     // The endpoints verify the secret themselves, so the middleware
     // must let the request through without redirecting to /login.

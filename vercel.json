@@ -14,6 +14,9 @@
     },
     "src/app/api/cron/dispatch-credentials/route.ts": {
       "maxDuration": 120
+    },
+    "src/app/api/cron/informe-semanal/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -28,6 +31,14 @@
     {
       "path": "/api/cron/remind-unclosed-sessions",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/informe-semanal",
+      "schedule": "0 10 * * 1"
+    },
+    {
+      "path": "/api/cron/informe-semanal",
+      "schedule": "0 11 * * 1"
     }
   ]
 }
