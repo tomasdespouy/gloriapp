@@ -52,7 +52,13 @@ const num = (n: number, dec = 0) =>
   n.toLocaleString("es-CL", { minimumFractionDigits: dec, maximumFractionDigits: dec });
 
 /** Barra proporcional sobre la escala completa (0 a 4), dibujada con bloques. */
-const barra = (v: number) => "█".repeat(Math.max(1, Math.round((v / 4) * 20)));
+const barra = (v: number) => {
+  // Sin el mínimo de 1 bloque, un 0,52 se veía como 3 bloques igual que un 0,15.
+  // Con él, un 0,0 se vería como algo. Se dibuja lo proporcional y punto: si es
+  // cero, no hay barra.
+  const n = Math.round((v / 4) * 20);
+  return n <= 0 ? "·" : "█".repeat(n);
+};
 
 type TablaOpts = { izquierda?: number[]; color?: (fila: string[], col: number) => string | null };
 
@@ -144,7 +150,7 @@ export async function buildWeeklyReportDocx(d: WeeklyReportData): Promise<Buffer
   if (conDatos.length) {
     cuerpo.push(h2("Perfil de competencias de la cohorte"));
     cuerpo.push(p(txt(
-      `${t.evaluaciones} sesiones evaluadas, sobre el marco de 10 competencias de Valdés y Gómez, en escala de 1 a 4. La columna n son las sesiones con evidencia suficiente: las que no la ofrecen se excluyen del promedio en vez de puntuarse con cero.`,
+      `${t.evaluaciones} sesiones evaluadas, sobre el marco de 10 competencias de Valdés y Gómez, en escala de 0 a 4. La columna n son las sesiones donde la competencia era evaluable; las que no aplicaban quedan fuera del promedio. Un cero no significa "no se midió": significa que había oportunidad y no se tomó.`,
       { color: GREY, size: 17 }), { after: 80, line: 220 }));
     const mejor = conDatos[0], peor = conDatos[conDatos.length - 1];
     cuerpo.push(tabla(

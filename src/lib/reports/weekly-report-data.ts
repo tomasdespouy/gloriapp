@@ -13,10 +13,13 @@ import { countMessagesByConversation } from "@/lib/message-counts";
  *
  * Dos reglas heredadas de los informes escritos a mano, que no son detalles:
  *
- *  - La escala de la rúbrica es 1 a 4 y el 0 significa "no observado", NO una
- *    nota. Promediar incluyendo los ceros da cifras falsas (conducta no verbal
- *    pasaba de 1,00 real a 0,52). Acá los ceros se excluyen y cada promedio
- *    declara sobre cuántas sesiones se calculó.
+ *  - El 0 y el NA NO son lo mismo, y confundirlos falsea los promedios hacia
+ *    arriba. En session_competencies, NULL es "no aplicaba" (viene con su
+ *    justificación en na_justifications) y 0 es "el estudiante lo omitió
+ *    habiendo oportunidad", que es una nota real y penaliza. Ver
+ *    buildCompetencyUpsert, que es lo que escribe. Acá se excluye el NULL y se
+ *    cuenta el 0. Excluir también los ceros subía conducta no verbal de 0,52 a
+ *    1,00 y objetivos de 0,80 a 1,65: media rúbrica de diferencia.
  *  - El tiempo de sesión pasa por cappedActiveSeconds, el mismo tope que usan
  *    los informes de piloto, para que una pestaña olvidada no invente horas.
  */
@@ -244,10 +247,10 @@ export async function buildWeeklyReportData(
   // ── Perfil de competencias ─────────────────────────────────────────────────
   const filasComp: FilaCompetencia[] = [];
   for (const c of COMPETENCIAS) {
-    // El 0 es "no observado": se excluye del promedio, no se promedia como nota.
+    // NULL (NA) fuera; 0 (omitido) dentro, porque es una nota.
     const vals = evaluaciones
       .map((e) => (e as Record<string, unknown>)[c.key])
-      .filter((v): v is number => typeof v === "number" && v > 0);
+      .filter((v): v is number => typeof v === "number");
     filasComp.push({
       label: c.label,
       promedio: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0,
@@ -293,9 +296,10 @@ export async function buildWeeklyReportData(
 
   const filasLong: FilaLongitudinal[] = [];
   for (const c of COMPETENCIAS) {
-    const pares = conDos
-      .map((v) => [Number(v[0][c.key]), Number(v[v.length - 1][c.key])])
-      .filter(([a, b]) => a > 0 && b > 0);
+    const pares: [number, number][] = conDos
+      .map((v) => [v[0][c.key], v[v.length - 1][c.key]])
+      .filter((par) => typeof par[0] === "number" && typeof par[1] === "number")
+      .map((par) => [Number(par[0]), Number(par[1])]);
     if (pares.length < MIN_PARES_LONGITUDINAL) continue;
     const p1 = pares.reduce((s, [a]) => s + a, 0) / pares.length;
     const p2 = pares.reduce((s, [, b]) => s + b, 0) / pares.length;
