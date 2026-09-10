@@ -314,6 +314,15 @@ const cuerpo=[
     filasComp.map(f=>[f.label,n2(f.prom),String(f.n),barra(f.prom)]),[0.30,0.14,0.08,0.48],
     {izquierda:[3],color:(f)=>f[0]===filasComp[0].label?VERDE:f[0]===filasComp[filasComp.length-1].label?ALERTA:null}),
 
+  h2("El ciclo de devolución"),
+  p(txt("GlorIA propone una evaluación al terminar la sesión, pero el estudiante no la ve hasta que su docente la revisa y la aprueba. Ese paso es el que hoy separa a una sección de las otras dos.",{color:GREY,size:17}),{after:80,line:220}),
+  tabla(["Sección","Docente","Generadas","Aprobadas","Pendientes","Días (mediana)"],
+    filasDev,[0.20,0.28,0.13,0.13,0.13,0.13],
+    {color:(f,i)=>i===4&&Number(f[4])>0?ALERTA:null}),
+  p([txt(`De las ${comp.length} evaluaciones generadas, ${comp.filter(c=>["approved","evaluated"].includes(c.feedback_status)).length} ya llegaron al estudiante y ${comp.filter(c=>c.feedback_status==="pending").length} esperan revisión.`,{color:GREY,size:17}),
+     txt(` En las que sí se revisaron, la mediana entre que GlorIA propone la evaluación y el docente la aprueba es de ${(()=>{const d=comp.filter(c=>c.approved_at).map(c=>(Date.parse(c.approved_at)-Date.parse(c.created_at))/86400000); return d.length?n1(med(d)):"—";})()} días. Ninguna nota propuesta fue modificada, y se escribieron ${(fb||[]).filter(f=>(f.teacher_comment||"").trim()).length} comentarios de supervisión propios.`,{color:GREY,size:17})],
+    {before:90,after:0,line:220}),
+
   new Paragraph({children:[new PageBreak()]}),
 
   h2("Mirada longitudinal"),
