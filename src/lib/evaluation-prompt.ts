@@ -19,7 +19,11 @@ import {
 } from "./competency-rubric";
 import { COMPETENCY_KEYS_V2 } from "./gamification";
 
-export const RUBRIC_VERSION = "v3.0";
+// v3.1 (10-sep-2026): en conducta_no_verbal, el 0 y el 1 dejaron de describir
+// la misma conducta. Las evaluaciones anteriores llevan "v3.0" en
+// ai_original.rubric_version, así que un informe puede distinguirlas y no
+// comparar puntajes de esa competencia a través del corte.
+export const RUBRIC_VERSION = "v3.1";
 
 /**
  * Shape de la salida esperada del LLM.

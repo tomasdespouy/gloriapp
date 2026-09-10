@@ -137,10 +137,19 @@ export const COMPETENCY_RUBRIC: Record<CompetencyKey, CompetencyRubric> = {
   conducta_no_verbal: {
     na_criteria:
       "Modalidad puramente textual sin indicadores no verbales observables (chat sin pausas largas, emojis, escritura entrecortada o paráfrasis de gestos).",
+    // El 0 y el 1 describían la misma conducta —"no integró" e "ignora"— y el
+    // evaluador repartía entre ambos sin criterio: en UPC quedaron 43 ceros y
+    // 46 unos para exactamente lo mismo, y el promedio de la competencia
+    // dependía de esa moneda al aire. Ahora el 0 es "no nombró ninguna señal"
+    // y el 1 es "la nombró de pasada, sin darle sentido", que sí se distinguen
+    // leyendo la transcripción.
+    //
+    // Los niveles 2, 3 y 4 NO se tocan: funcionan. En UGM hay 34 evaluaciones
+    // en nivel 2, 11 en 3 y 7 en 4, así que el techo no es el problema.
     omitido_criteria:
-      "El paciente manifestó señales no verbales identificables (suspiros mencionados, silencios extensos, descripciones corporales) y el estudiante no las integró.",
+      "El paciente emitió señales no verbales identificables (suspiros, silencios extensos, gestos descritos) y el estudiante no nombró NINGUNA en toda la sesión.",
     levels: {
-      1: "Ignora señales no verbales explícitas del paciente aunque sean centrales para entender su estado.",
+      1: "Alude a lo no verbal de forma vaga o genérica ('te noto distinta', 'te veo tensa') sin identificar la señal concreta que observó ni volver sobre ella.",
       2: "Detecta alguna señal (ej. silencios) pero no la integra en su intervención ni la nombra para el paciente.",
       3: "Nombra señales no verbales relevantes y las conecta explícitamente con el contenido verbal del paciente.",
       4: "Integra fluidamente lo verbal y lo no verbal; usa la conducta no verbal como pista para profundizar; chequea su lectura con el paciente.",

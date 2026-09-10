@@ -24,6 +24,8 @@ type ActionItem = {
 };
 
 interface Props {
+  /** Gestos que el paciente mostró en esta sesión, extraídos de la transcripción. */
+  gestosDelPaciente?: string[];
   conversationId: string;
   patient: { id?: string; name: string; age: number; occupation: string; difficulty_level: string };
   sessionNumber: number;
@@ -175,6 +177,7 @@ function ConversationPanel({
 }
 
 export default function ReviewClient({
+  gestosDelPaciente = [],
   conversationId,
   patient,
   sessionNumber,
@@ -725,7 +728,14 @@ export default function ReviewClient({
                     dimension: "ENTREVISTA",
                     color: "border-l-emerald-500",
                     label: "Conducta no verbal",
-                    placeholder: "El paciente mostr\u00f3 se\u00f1ales no verbales (suspiros, mirar al suelo, cruzar brazos). \u00bfLas notaste? \u00bfLas integraste en tu intervenci\u00f3n?",
+                    // Con los gestos reales de SU sesi\u00f3n la pregunta deja de
+                    // ser abstracta. En UPC el paciente emiti\u00f3 gestos en el 61%
+                    // de sus mensajes y los estudiantes no nombraron ninguno en
+                    // 1.709 mensajes: no los ignoran, no los ven.
+                    gestos: gestosDelPaciente,
+                    placeholder: gestosDelPaciente.length
+                      ? "\u00bfCu\u00e1l de estos gestos te dijo algo que las palabras no dec\u00edan? \u00bfLo nombraste durante la sesi\u00f3n?"
+                      : "El paciente mostr\u00f3 se\u00f1ales no verbales (suspiros, mirar al suelo, cruzar brazos). \u00bfLas notaste? \u00bfLas integraste en tu intervenci\u00f3n?",
                     value: nonverbalCues,
                     onChange: setNonverbalCues,
                   },
@@ -765,6 +775,20 @@ export default function ReviewClient({
                         </div>
                       </div>
                     </div>
+                    {"gestos" in q && q.gestos.length > 0 && (
+                      <div className="mb-2 rounded-lg bg-emerald-50/70 border border-emerald-100 px-3 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 mb-1">
+                          Lo que {patient.name.split(" ")[0]} hizo con su cuerpo en esta sesión
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {q.gestos.map((g, i) => (
+                            <span key={i} className="text-[11px] text-emerald-900 bg-white border border-emerald-100 rounded px-1.5 py-0.5">
+                              {g}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <textarea
                       value={q.value}
                       onChange={(e) => q.onChange(e.target.value)}

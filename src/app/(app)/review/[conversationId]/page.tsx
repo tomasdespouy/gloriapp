@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import ReviewClient from "./ReviewClient";
 import { isPilotActive } from "@/lib/pilot-helpers";
+import { extraerGestos } from "@/lib/nonverbal-cues";
 
 export default async function ReviewPage({
   params,
@@ -48,6 +49,13 @@ export default async function ReviewPage({
     .select("id, role, content, created_at")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
+
+  // Los gestos que el paciente mostró, para devolvérselos en la pregunta de
+  // conducta no verbal. Se le muestran los primeros: la lista completa de una
+  // sesión de 40 mensajes abruma y deja de leerse.
+  const gestosDelPaciente = extraerGestos(
+    (messages || []).filter((m) => m.role === "assistant").map((m) => m.content as string),
+  ).slice(0, 8);
 
   // Use active_seconds from client tracking (accurate) for duration
   const activeSeconds = conversation.active_seconds || 0;
@@ -134,6 +142,7 @@ export default async function ReviewPage({
 
   return (
     <ReviewClient
+      gestosDelPaciente={gestosDelPaciente}
       conversationId={conversationId}
       patient={{ ...patient, id: conversation.ai_patient_id }}
       sessionNumber={conversation.session_number}
