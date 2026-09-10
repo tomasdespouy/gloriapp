@@ -34,6 +34,10 @@ export type InterventionType =
   | "interpretacion"
   | "normalizacion"
   | "resumen"
+  // Saludo, presentación, confidencialidad, "tome asiento", "este es un
+  // espacio seguro". Antes caía en "otro" y no movía nada, pese a ser la
+  // conducta que la rúbrica puntúa como setting terapéutico.
+  | "encuadre"
   | "otro";
 
 export type StateTransition = {
@@ -119,6 +123,9 @@ const TRANSITION_RULES: StateTransition[] = [
   // Resumen: demuestra escucha → sube alianza
   { intervention: "resumen", deltas: { alianza: 0.5, resistencia: -0.3 } },
 
+  // Encuadre: presentarse y dar seguridad baja la guardia, sin abrir todavía.
+  { intervention: "encuadre", deltas: { resistencia: -0.4, alianza: 0.4 } },
+
   // Otro: efecto neutro
   { intervention: "otro", deltas: {} },
 ];
@@ -137,8 +144,21 @@ export function classifyIntervention(text: string): InterventionType {
     return "silencio_terapeutico";
   }
 
-  // Directividad: "debería", "tiene que", "haga esto"
-  if (lower.match(/deberias?|tienes? que|haga|necesitas?|le recomiendo|mi consejo/)) {
+  // Directividad: "debería", "tiene que", "haga esto".
+  //
+  // Con límites de palabra y verbo explícito. Antes "necesitas?" capturaba
+  // "¿qué necesitas?" —que es una pregunta abierta— y "haga" capturaba
+  // "hagamos", que es colaborativo, no directivo. Como esta rama va primero,
+  // esos casos nunca llegaban a clasificarse como pregunta.
+  //
+  // "haz" quedó FUERA: en escritura informal es casi siempre "has" mal
+  // escrito ("¿qué haz tenido?", "¿haz visto a tu ex?"), o sea una pregunta.
+  // Clasificarla como directividad le subía la resistencia al paciente por
+  // un error de ortografía del estudiante.
+  if (
+    lower.match(/\bdeberia(s|n|mos)?\b|\btien(e|es|en)\s+que\b|\bhay que\b|\bhaga\b|\ble recomiendo\b|\bmi consejo\b/) ||
+    lower.match(/\bnecesitas?\s+(hacer|cambiar|dejar|empezar|comenzar|ir|hablar|buscar|intentar)\b/)
+  ) {
     return "directividad";
   }
 
@@ -162,8 +182,21 @@ export function classifyIntervention(text: string): InterventionType {
     return "reformulacion";
   }
 
-  // Validación empática
-  if (lower.match(/entiendo como|debe ser dificil|puedo imaginar|eso suena|se nota que|comprendo|me imagino lo/)) {
+  // Validación empática.
+  //
+  // Los patrones anteriores capturaban 70 de 1.605 turnos (4%) y por eso la
+  // validación correlacionaba 0,01 con el resultado pese a tener el delta más
+  // alto por turno: casi nunca se detectaba. Se agregan las formas que la
+  // gente escribe de verdad.
+  //
+  // "entiendo" a secas queda FUERA a propósito: es muletilla de transición
+  // ("entiendo, ¿desde cuándo te sientes así?") y contarla como validación
+  // inflaría la categoría con turnos que en realidad son preguntas.
+  if (
+    lower.match(/entiendo (como|que|lo que|tu|su)|comprendo|me imagino lo|puedo imaginar/) ||
+    lower.match(/debe (haber )?ser (dificil|duro|complicado|pesado|agotador)|que dificil|eso suena/) ||
+    lower.match(/lamento (mucho|que)|siento (mucho|que estes)|se nota que|valoro que|gracias por (compartir|contarme|confiar|abrirte)/)
+  ) {
     return "validacion_empatica";
   }
 
@@ -172,19 +205,57 @@ export function classifyIntervention(text: string): InterventionType {
     return "resumen";
   }
 
-  // Pregunta cerrada (sí/no)
-  if (lower.match(/\?/) && lower.match(/^(tiene|ha |le |es |fue |puede|esta |hay |siente)/)) {
+  // ── Preguntas ────────────────────────────────────────────────────────────
+  //
+  // NO se exige signo de interrogación. Antes las tres ramas lo pedían, y en
+  // escritura informal mucha gente no lo pone: "cuéntame un poco más sobre ti"
+  // caía en "otro", que tiene delta cero. Eran 578 de 1.605 turnos de UPC
+  // (36%) que no movían al paciente en absoluto — cuatro sesiones terminaron
+  // con el paciente exactamente igual que al empezar, no porque el estudiante
+  // lo hiciera mal sino porque nada de lo que escribió se clasificó.
+
+  // Invitación a elaborar: es una pregunta abierta aunque no lleve "?".
+  if (
+    lower.match(/\b(cuent[ae]me|coment[ae]me|habl[ae]me|dig[ae]me|dime|describeme|explicame|platicame|profundicemos|ampliame)\b/) ||
+    lower.match(/\b(quisiera|quiero|me gustaria|me interesa|necesito)\s+(saber|conocer|entender|preguntarte|preguntarle)\b/)
+  ) {
+    return "pregunta_abierta";
+  }
+
+  // Pregunta cerrada (sí/no): empieza con verbo conjugado.
+  if (lower.match(/^\s*¿?\s*(tiene|tienes|ha |has |le |es |eres|fue |puede|puedes|esta |estas|hay |siente|sientes|alguna vez)\b/)) {
     return "pregunta_cerrada";
   }
 
-  // Pregunta abierta
-  if (lower.match(/\?/) && lower.match(/como |que |por que |cuando |donde |cual |cuenteme|digame|hableme/)) {
+  // Pregunta abierta: pronombre interrogativo en cualquier parte de la frase.
+  if (lower.match(/\b(como|que|por que|porque|cuando|donde|cual|cuales|quien|cuanto|cuanta)\b/) && lower.match(/\?|^\s*¿/)) {
     return "pregunta_abierta";
   }
 
-  // Default: if has question mark, it's a question
+  // Pronombre interrogativo al INICIO, sin signos: "como te encuentras hoy",
+  // "que tal tu dia". Se exige al inicio a propósito — un "que" en medio de la
+  // frase suele ser conjunción ("me alegro que hayas venido"), no pregunta.
+  if (
+    lower.match(/^\s*¿?\s*(como|que|por que|porque|cuando|donde|cual|cuales|quien|cuanto|cuanta)\b/) ||
+    lower.match(/[,;]\s*¿?\s*(que|como|por que|cuando|donde|cual|cuales|quien|cuanto)\s+(te|le|me|se|es|son|fue|ha|has|tal|hace|haces|siente|sientes|trae|paso|pasa)\b/)
+  ) {
+    return "pregunta_abierta";
+  }
+
+  // Con signo de interrogación y sin más señales, sigue siendo una pregunta.
   if (lower.includes("?")) {
     return "pregunta_abierta";
+  }
+
+  // Encuadre: saludo, presentación, confidencialidad, invitación a acomodarse.
+  if (
+    lower.match(/\b(bienvenid[ao]|tome asiento|ponte comod|pongase comod|adelante)\b/) ||
+    lower.match(/\bmi nombre\b|\bme llamo\b|\bsoy (tu|su|la|el) (psicolog|terapeuta)|\bsere (tu|su) (psicolog|terapeuta)/) ||
+    lower.match(/\b(un gusto|mucho gusto|es un placer|encantad[ao]|gracias por venir)\b/) ||
+    lower.match(/\b(confidencial|espacio seguro|lugar seguro|entre nosotr|no sale de aqui|queda entre)\b/) ||
+    lower.match(/^\s*(muy\s+)?(hola|buenos dias|buenas tardes|buenas noches|buen dia|buenas)\b/)
+  ) {
+    return "encuadre";
   }
 
   return "otro";
@@ -278,5 +349,6 @@ export const INTERVENTION_LABELS: Record<InterventionType, string> = {
   interpretacion: "Interpretación",
   normalizacion: "Normalización",
   resumen: "Resumen",
+  encuadre: "Encuadre",
   otro: "Otra intervención",
 };
