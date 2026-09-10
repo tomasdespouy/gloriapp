@@ -135,24 +135,29 @@ export const COMPETENCY_RUBRIC: Record<CompetencyKey, CompetencyRubric> = {
     },
   },
   conducta_no_verbal: {
-    na_criteria:
-      "Modalidad puramente textual sin indicadores no verbales observables (chat sin pausas largas, emojis, escritura entrecortada o paráfrasis de gestos).",
-    // El 0 y el 1 describían la misma conducta —"no integró" e "ignora"— y el
-    // evaluador repartía entre ambos sin criterio: en UPC quedaron 43 ceros y
-    // 46 unos para exactamente lo mismo, y el promedio de la competencia
-    // dependía de esa moneda al aire. Ahora el 0 es "no nombró ninguna señal"
-    // y el 1 es "la nombró de pasada, sin darle sentido", que sí se distinguen
-    // leyendo la transcripción.
+    // ESCALERA REHECHA (10-sep-2026). La anterior no era monótona: el 1 pedía
+    // aludir a lo no verbal y el 2 decía "no la nombra para el paciente", o sea
+    // exigía MENOS y puntuaba MÁS. Y el 2 nunca discriminó: en UGM el evaluador
+    // le puso 2 tanto a "entiendo" (no aborda nada) como a "te veo algo cansada"
+    // conectado con el malestar, que es un nivel más arriba.
     //
-    // Los niveles 2, 3 y 4 NO se tocan: funcionan. En UGM hay 34 evaluaciones
-    // en nivel 2, 11 en 3 y 7 en 4, así que el techo no es el problema.
+    // Ahora cada escalón agrega exactamente UNA cosa observable en la
+    // transcripción:
+    //   0 no nombra nada · 1 alude sin decir qué · 2 nombra la señal concreta
+    //   · 3 le da sentido · 4 lo verifica con el paciente
+    //
+    // Los puntajes emitidos con la rúbrica anterior (ai_original.rubric_version
+    // "v3.0") NO son comparables con los nuevos en esta competencia: lo que
+    // antes era 3 suele ser 4 acá, porque conectar y chequear se separaron.
+    na_criteria:
+      "Modalidad puramente textual sin indicadores no verbales observables: el paciente no describió gestos, silencios ni cambios corporales en toda la sesión.",
     omitido_criteria:
-      "El paciente emitió señales no verbales identificables (suspiros, silencios extensos, gestos descritos) y el estudiante no nombró NINGUNA en toda la sesión.",
+      "El paciente emitió señales no verbales identificables (suspiros, silencios extensos, gestos descritos entre corchetes) y el estudiante no nombró NINGUNA en toda la sesión.",
     levels: {
-      1: "Alude a lo no verbal de forma vaga o genérica ('te noto distinta', 'te veo tensa') sin identificar la señal concreta que observó ni volver sobre ella.",
-      2: "Detecta alguna señal (ej. silencios) pero no la integra en su intervención ni la nombra para el paciente.",
-      3: "Nombra señales no verbales relevantes y las conecta explícitamente con el contenido verbal del paciente.",
-      4: "Integra fluidamente lo verbal y lo no verbal; usa la conducta no verbal como pista para profundizar; chequea su lectura con el paciente.",
+      1: "Alude a lo no verbal en general, sin decir qué observó: '¿estás ahí?', 'te noto distinta', 'te veo rara'. El paciente no puede saber a qué se refiere.",
+      2: "Nombra la señal concreta que observó ('veo que suspiraste', 'te veo cansada', 'estás jugando con tus manos') pero se queda ahí: no le atribuye significado ni la vincula con lo que se está hablando.",
+      3: "Nombra la señal Y le da sentido clínico o la conecta con el contenido verbal: 'cuando hablas de tu hijo, suspiras — parece que ese tema pesa'.",
+      4: "Además de nombrarla y darle sentido, la usa para profundizar y CHEQUEA su lectura con el paciente ('¿es así?', '¿me equivoco?'), quedando abierto a que lo corrija.",
     },
   },
   contencion_afectos: {

@@ -256,10 +256,13 @@ const bloqueCaso=(x)=>{
     return (corte>n*0.6?trozo.slice(0,corte):trozo)+"…";
   };
   return [
-    p([txt(`${x.etiqueta}   ${n1(x.a)} → ${n1(x.b)}`,{bold:true,size:18}),
-       txt(`   (${x.d>=0?"+":""}${n1(x.d)})`,{color:x.d>=0?VERDE:ALERTA,bold:true,size:18}),
-       txt(`     ${x.comp}: ${x.x} → ${x.y}`,{color:FAINT,size:16})],
-      {before:150,after:45}),
+    p(txt(x.etiqueta,{bold:true,size:19}),{before:160,after:30}),
+    p([txt("Promedio general de la sesión  ",{color:FAINT,size:16}),
+       txt(`${n1(x.a)} → ${n1(x.b)}`,{bold:true,size:17}),
+       txt(`  (${x.d>=0?"+":""}${n1(x.d)})`,{color:x.d>=0?VERDE:ALERTA,bold:true,size:17}),
+       txt("      Competencia que más se movió  ",{color:FAINT,size:16}),
+       txt(`${x.comp} ${x.x} → ${x.y}`,{bold:true,size:17})],
+      {after:45,line:230}),
     tabla(["Sesión","Lo que escribió la estudiante","Nivel"],
       [["1.ª",`"${recorte(x.c1?.quote,190)}"`,String(x.x)],
        ["2.ª",`"${recorte(x.c2?.quote,190)}"`,String(x.y)]],
@@ -319,6 +322,7 @@ const cuerpo=[
     {after:80,line:220}),
   tabla(["Competencia","1.ª sesión","2.ª sesión","Cambio","n"],filasLong,[0.36,0.16,0.16,0.16,0.16],
     {color:(f,i)=>i===3?(f[3].startsWith("+")?VERDE:ALERTA):null}),
+  p(txt("El promedio general de una sesión es el promedio de sus competencias evaluables: las que no aplicaban a esa entrevista no entran. Por eso dos sesiones de la misma alumna pueden promediarse sobre distinto número de competencias.",{color:FAINT,size:16}),{before:80,after:0,line:220}),
 
   h2("Tres que subieron"),
   ...suben.flatMap(bloqueCaso),
@@ -378,7 +382,9 @@ const doc=new Document({
   }],
 });
 
-const OUT=path.join(ROOT,"informes","upc-informe-"+new Date().toLocaleDateString("en-CA",{timeZone:"America/Santiago"})+".docx");
+// Permite un nombre de salida distinto: el archivo anterior suele quedar
+// abierto en Word mientras se revisa, y Windows lo bloquea.
+const OUT=process.argv[2] || path.join(ROOT,"informes","upc-informe-"+new Date().toLocaleDateString("en-CA",{timeZone:"America/Santiago"})+".docx");
 const buf=await Packer.toBuffer(doc);
 fs.writeFileSync(OUT,buf);
 console.log("escrito:",OUT,"("+Math.round(buf.length/1024)+" KB)");
