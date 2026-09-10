@@ -25,6 +25,11 @@ const EST = flag("--est");
 const ARCHIVO = flag("--archivo");
 const ENVIAR = args.includes("--enviar");
 const TITULAR = flag("--titular");
+// Reenvío deliberado de la misma semana: agrega un sufijo a la clave de período
+// para no chocar con el índice único, y queda registrado como corrida aparte.
+// Sin esto habría que borrar la corrida anterior, y se perdería el rastro de
+// que se mandó dos veces.
+const REENVIO = args.includes("--reenvio");
 
 if (!EST || !ARCHIVO) {
   console.error("Uso: --est <uuid> --archivo <ruta> [--titular \"...\"] [--enviar]");
@@ -111,9 +116,9 @@ const html = `
 // Registro de la corrida, igual que el cron.
 const { data: run, error: errRun } = await s.from("report_runs").insert({
   establishment_id: EST,
-  period_key: semanaISO(),
+  period_key: REENVIO ? `${semanaISO()}-r${Date.now().toString(36).slice(-4)}` : semanaISO(),
   recipients: subs.length,
-  triggered_by: "manual",
+  triggered_by: REENVIO ? "reenvío" : "manual",
   note: `Documento revisado a mano: ${nombreArchivo}`,
 }).select("id").single();
 
@@ -133,7 +138,7 @@ for (const d of subs) {
       headers: {
         Authorization: `Bearer ${RESEND}`,
         "Content-Type": "application/json",
-        "Idempotency-Key": `informe-manual-${EST}-${semanaISO()}-${d.email}`,
+        "Idempotency-Key": `informe-manual-${EST}-${run.id}-${d.email}`,
       },
       body: JSON.stringify({
         from: "GlorIA <noreply@glor-ia.com>",
