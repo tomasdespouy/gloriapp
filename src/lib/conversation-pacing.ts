@@ -236,6 +236,12 @@ export function hasStudentIntroducedName(messages: string[], studentFullName?: s
     if (/\bme\s+llamo\s+\S/i.test(msg)) return true;
     if (/\bmi\s+nombre\s+(?:es\s+)?\S/i.test(msg)) return true;
     if (/\baqu[ií]\s+(?:le\s+)?habla\s+\S/i.test(msg)) return true;
+    // "me presento…" es un intento de presentación aunque el nombre venga con
+    // un typo o en una construcción que los otros patrones no anticipan. Una
+    // alumna escribió "me presento son la psicologa Marcela" ("son" por "soy")
+    // y el detector no vio ninguna presentación. Acá conviene ser generoso: el
+    // costo de un falso negativo es cortarle la entrevista a quien sí se presentó.
+    if (/\bme\s+presento\b/i.test(msg)) return true;
     if (/\b(?:te|le)\s+(?:saluda|habla)\s+\S/i.test(msg)) return true;
     // "puedes decirme X" / "llamame X" / "dime X" / "digame X"
     if (/\b(?:pued[eo]s?|pod[eé]s|puede)\s+(?:decirme|llamarme|tratarme\s+de)\s+\S/i.test(msg)) return true;
@@ -406,10 +412,27 @@ export function buildNameEscalation(
   sessionNumber: number | null | undefined,
   studentMessages: string[],
   studentFullName?: string | null,
+  /**
+   * Nombre del terapeuta ya conocido, venga de donde venga (incluida la
+   * memoria de la conversación). Es la defensa contra la ventana de contexto.
+   */
+  knownTherapistName?: string | null,
 ): { rule: string; rupture: boolean } {
   const intro = profile.introductionProtocol;
   if (!intro) return { rule: "", rupture: false };
   if (sessionNumber != null && sessionNumber !== 1) return { rule: "", rupture: false };
+
+  // Si ya sabemos cómo se llama, se presentó. Punto.
+  //
+  // Esto NO es redundante con la línea de abajo: studentMessages son los
+  // últimos MAX_HISTORY (50) mensajes, así que en una entrevista larga la
+  // presentación del turno 1 se sale de la ventana y el paciente "olvida" que
+  // se la dieron. Pasó de verdad: 7 sesiones cortadas en producción por
+  // "evadir el nombre", las 7 con el nombre dado al principio — una de ellas
+  // tras 104 mensajes y 50 minutos de entrevista. El nombre persistido no se
+  // sale de ninguna ventana.
+  if (knownTherapistName && knownTherapistName.trim()) return { rule: "", rupture: false };
+
   if (hasStudentIntroducedName(studentMessages, studentFullName)) return { rule: "", rupture: false };
 
   const ask = intro.askNameAtTurn;

@@ -62,6 +62,63 @@ function buildTermRegex(terms: string[]): RegExp {
   return new RegExp(`(?:^|[\\s.,;:!?¡¿'"()\\[\\]-])(${escaped.join("|")})(?=$|[\\s.,;:!?¡¿'"()\\[\\]-])`, "gi");
 }
 
+/**
+ * ¿Esta mención de autolesión es un falso positivo?
+ *
+ * Dos formas, las dos verificadas contra datos de producción:
+ *
+ *  1. NEGACIÓN. El paciente responde "No, no pienso en hacerme daño" a un
+ *     tamizaje bien hecho, y salta una alerta crítica. O sea: la alerta premia
+ *     al alumno que hizo lo correcto.
+ *  2. TAMIZAJE. El propio estudiante pregunta "¿has pensado en hacerte daño?".
+ *     Preguntar por riesgo es la conducta que la rúbrica espera; marcarlo como
+ *     señal de riesgo del estudiante es leer al revés.
+ *
+ * Se juzga oración por oración y SOLO las que contienen el término: una
+ * negación de la frase anterior no absuelve a la siguiente. Si el texto
+ * visible no contiene ninguna, devuelve false — no se puede afirmar que sea
+ * falso positivo lo que no se está viendo (el sample viene recortado).
+ */
+const NEGADORES = /\b(?:no|nunca|jamas|ni|tampoco|niega)\b/gi;
+// Segunda persona + verbo de indagación: "has pensado", "te has hecho",
+// "quieres hacerte", "sientes ganas de". Es el estudiante preguntando.
+const TAMIZAJE =
+  /\b(?:has|habias|hubo|tienes|tuviste|sientes|piensas|pensaste|quieres|alguna vez)\b|\bte\s+has\b|\bhacerte\b|\blastimarte\b/i;
+
+function esFalsoPositivoDeAutolesion(text: string, source: AlertSource): boolean {
+  const normalizado = normalize(text);
+
+  // El tamizaje se evalúa sobre el mensaje ENTERO y no por oración: una
+  // pregunta de riesgo suele repartirse en dos ("¿has tenido ideas de no estar
+  // en este mundo? ¿o relacionadas con el suicidio?") y la mitad que trae el
+  // término no lleva el verbo que la delata como pregunta.
+  if (source === "user" && TAMIZAJE.test(normalizado)) return true;
+  const oraciones = normalizado.split(/[.!?;¡¿\n]+/);
+
+  const conTermino: { oracion: string; desde: number }[] = [];
+  for (const o of oraciones) {
+    SELF_HARM_RE.lastIndex = 0;
+    const m = SELF_HARM_RE.exec(o);
+    if (m) conTermino.push({ oracion: o, desde: m.index });
+  }
+  SELF_HARM_RE.lastIndex = 0;
+
+  // Nada visible que juzgar: no se descarta a ciegas.
+  if (!conTermino.length) return false;
+
+  return conTermino.every(({ oracion, desde }) => {
+    // La negación tiene que estar ANTES del término en la misma oración:
+    // "no pienso en hacerme daño" sí; "quiero hacerme daño, no aguanto" no.
+    NEGADORES.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = NEGADORES.exec(oracion)) !== null) {
+      if (m.index < desde) { NEGADORES.lastIndex = 0; return true; }
+    }
+    NEGADORES.lastIndex = 0;
+    return false;
+  });
+}
+
 function findMatches(text: string, regex: RegExp): string[] {
   const normalized = normalize(text);
   const hits = new Set<string>();
@@ -249,8 +306,12 @@ export function detectAlerts(
   }
 
   // 4. Self-harm / suicide ideation
+  //
+  // La negación se descarta ANTES de levantar la alerta: un paciente que dice
+  // "no pienso en hacerme daño" está respondiendo bien a un tamizaje, no
+  // manifestando riesgo. Ver vieneNegado.
   const selfHarmHits = findMatches(text, SELF_HARM_RE);
-  if (selfHarmHits.length > 0) {
+  if (selfHarmHits.length > 0 && !esFalsoPositivoDeAutolesion(text, source)) {
     alerts.push({
       kind: "self_harm",
       severity: source === "user" ? "critical" : "high",

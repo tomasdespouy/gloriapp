@@ -1421,9 +1421,21 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // El paciente "nota" cuando el terapeuta pierde la atención: cambiar de
   // pestaña o pegar texto de otra parte. 1ª vez: advertencia. 2ª vez:
   // quiebre y cierre de la sesión (bloquea el input, igual que la ruptura).
-  const registerDistraction = () => {
+  const registerDistraction = (kind: "paste" | "tab_switch") => {
     if (sessionEndedRef.current) return;
     distractionsRef.current += 1;
+    // Se deja registro en el servidor: hasta ahora el conteo vivía solo acá
+    // y se perdía al cerrar la pestaña, que es justo cuando más interesa
+    // saberlo. Best-effort a propósito: nadie debería quedarse sin conversar
+    // porque no se pudo anotar que cambió de pestaña.
+    if (conversationId) {
+      fetch(`/api/sessions/${conversationId}/distraccion`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind }),
+        keepalive: true,
+      }).catch(() => {});
+    }
     if (distractionsRef.current === 1) {
       setDistractionWarning(true);
     } else {
@@ -1454,10 +1466,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // el cambio de pestaña solo cuando watchTabSwitch (paciente "avanzado").
   useEffect(() => {
     if (!sessionStarted || !antiDistractionEnabled) return;
-    const onVis = () => { if (document.visibilityState === "hidden") registerDistraction(); };
+    const onVis = () => { if (document.visibilityState === "hidden") registerDistraction("tab_switch"); };
     const onPaste = (e: ClipboardEvent) => {
       const t = e.clipboardData?.getData("text") ?? "";
-      if (t.length > 220) registerDistraction();
+      if (t.length > 220) registerDistraction("paste");
     };
     if (watchTabSwitch) document.addEventListener("visibilitychange", onVis);
     document.addEventListener("paste", onPaste);

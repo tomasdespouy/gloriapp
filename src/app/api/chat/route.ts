@@ -477,7 +477,7 @@ Lo que el terapeuta acaba de escribir es hostil, amenazante o irrespetuoso hacia
 
   // Escalada por nombre evadido (insistir → quiebre) y pregunta por la
   // próxima cita si el terapeuta cierra la sesión sin dar fecha.
-  const nameEsc = buildNameEscalation(pacingProfile, turnNumber, convRow?.session_number, studentMessages, studentFullName);
+  const nameEsc = buildNameEscalation(pacingProfile, turnNumber, convRow?.session_number, studentMessages, studentFullName, therapistName);
   const closingAppointmentRule = buildClosingAppointmentRule(userMessages);
 
   // Conducta ANTIPROFESIONAL del terapeuta (rompe el encuadre SIN agredir):
