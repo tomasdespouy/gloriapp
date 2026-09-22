@@ -69,12 +69,14 @@ export async function POST(request: Request) {
 }
 
 /**
- * Ajusta la expectativa de duración de una asignatura.
+ * Ajusta la asignatura: su nombre y/o la expectativa de duración.
  *
- * Es lo único que se edita por acá; nombre y código se manejan al crear. El
- * valor es informativo para el alumno (un aviso al finalizar antes de tiempo),
- * nunca un bloqueo, así que no hay razón para restringirlo más que el resto
- * del catálogo.
+ * El código no se edita por acá (se fija al crear). El alcance para renombrar
+ * es el mismo con que la asignatura se muestra en el catálogo del admin
+ * (`scopeAllowsCourse`, ver `visibleCourses` en la página que consume esto):
+ * si la ve, la puede renombrar. Los minutos son solo informativos (un aviso
+ * al finalizar antes de tiempo, nunca un bloqueo), así que tampoco hay razón
+ * para restringirlos más que el resto del catálogo.
  */
 export async function PATCH(request: Request) {
   const supabase = await createClient();
@@ -87,17 +89,32 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  const { id, min_session_minutes } = await request.json();
+  const { id, min_session_minutes, name } = await request.json();
   if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
 
-  // null apaga el aviso. Cualquier otra cosa tiene que ser un entero sensato:
-  // la restricción también está en la base, pero un 400 explica mejor que un 500.
-  let minutos: number | null = null;
-  if (min_session_minutes !== null && min_session_minutes !== undefined && min_session_minutes !== "") {
-    minutos = Number(min_session_minutes);
-    if (!Number.isInteger(minutos) || minutos < 1 || minutos > 180) {
-      return NextResponse.json({ error: "Los minutos deben ser un entero entre 1 y 180" }, { status: 400 });
+  // Cada campo se actualiza solo si vino en el body — un PATCH que solo manda
+  // el nombre no debe pisar los minutos guardados, y viceversa.
+  let minutos: number | null | undefined;
+  if (min_session_minutes !== undefined) {
+    minutos = null;
+    // null apaga el aviso. Cualquier otra cosa tiene que ser un entero sensato:
+    // la restricción también está en la base, pero un 400 explica mejor que un 500.
+    if (min_session_minutes !== null && min_session_minutes !== "") {
+      minutos = Number(min_session_minutes);
+      if (!Number.isInteger(minutos) || minutos < 1 || minutos > 180) {
+        return NextResponse.json({ error: "Los minutos deben ser un entero entre 1 y 180" }, { status: 400 });
+      }
     }
+  }
+
+  let nombre: string | undefined;
+  if (name !== undefined) {
+    nombre = String(name).trim();
+    if (!nombre) return NextResponse.json({ error: "El nombre no puede estar vacío" }, { status: 400 });
+  }
+
+  if (minutos === undefined && nombre === undefined) {
+    return NextResponse.json({ error: "Nada para actualizar" }, { status: 400 });
   }
 
   const admin = createAdminClient();
@@ -116,9 +133,13 @@ export async function PATCH(request: Request) {
     if (!alcanza) return NextResponse.json({ error: "Asignatura fuera de su alcance" }, { status: 403 });
   }
 
+  const updates: Record<string, unknown> = {};
+  if (minutos !== undefined) updates.min_session_minutes = minutos;
+  if (nombre !== undefined) updates.name = nombre;
+
   const { error } = await admin
-    .from("courses").update({ min_session_minutes: minutos }).eq("id", id);
+    .from("courses").update(updates).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ id, min_session_minutes: minutos });
+  return NextResponse.json({ id, ...updates });
 }

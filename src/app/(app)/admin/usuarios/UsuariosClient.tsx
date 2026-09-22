@@ -13,6 +13,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import HelpTip from "@/components/HelpTip";
 import { accessBlockDetail, accessBlockLabel, type AccessBlock } from "@/lib/access-status";
+import { scopeAllowsEstablishmentWide, scopeAllowsSectionCreation, type Scope } from "@/lib/admin-scope";
 import ProgramarEnvioModal from "./ProgramarEnvioModal";
 import EnviosProgramados from "./EnviosProgramados";
 
@@ -45,6 +46,7 @@ type Props = {
   courses: CourseOption[];
   sections: SectionOption[];
   isSuperadmin: boolean;
+  scope: Scope;
   totalCount: number;
   currentPage: number;
   perPage: number;
@@ -62,7 +64,7 @@ type SortDir = "asc" | "desc";
 // Resultado por persona del envío masivo de credenciales (para el reporte).
 type CredResult = { id: string; name: string; email: string; status: "sent" | "failed"; reason?: string };
 
-export default function UsuariosClient({ users, establishments, courses, sections, isSuperadmin, totalCount, currentPage, perPage, initialSearch, initialRole, initialEst, initialCourse, initialSection, initialEstado }: Props) {
+export default function UsuariosClient({ users, establishments, courses, sections, isSuperadmin, scope, totalCount, currentPage, perPage, initialSearch, initialRole, initialEst, initialCourse, initialSection, initialEstado }: Props) {
   const router = useRouter();
   const searchParamsHook = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
@@ -542,7 +544,7 @@ export default function UsuariosClient({ users, establishments, courses, section
 
       <div className={`px-4 sm:px-8 pb-8 space-y-4 ${someSelected ? "pb-24" : ""}`}>
         <EnviosProgramados refreshKey={enviosRefresh} />
-        {showCreateForm && <CreateUserForm establishments={establishments} courses={courses} sections={sections} isSuperadmin={isSuperadmin} onClose={() => setShowCreateForm(false)} />}
+        {showCreateForm && <CreateUserForm establishments={establishments} courses={courses} sections={sections} isSuperadmin={isSuperadmin} scope={scope} onClose={() => setShowCreateForm(false)} />}
 
         {showCsvImport && <CsvImportSection onClose={() => setShowCsvImport(false)} />}
 
@@ -1755,7 +1757,7 @@ function CsvImportSection({ onClose }: { onClose: () => void }) {
   );
 }
 
-function CreateUserForm({ establishments, courses, sections, isSuperadmin, onClose }: { establishments: { id: string; name: string }[]; courses: CourseOption[]; sections: SectionOption[]; isSuperadmin: boolean; onClose: () => void }) {
+function CreateUserForm({ establishments, courses, sections, isSuperadmin, scope, onClose }: { establishments: { id: string; name: string }[]; courses: CourseOption[]; sections: SectionOption[]; isSuperadmin: boolean; scope: Scope; onClose: () => void }) {
   const [mode, setMode] = useState<"single" | "text" | "excel">("single");
   // No silent default: the admin must consciously pick a role. Defaulting to
   // "student" caused docentes to be created as students by accident.
@@ -1764,10 +1766,81 @@ function CreateUserForm({ establishments, courses, sections, isSuperadmin, onClo
   const [courseId, setCourseId] = useState("");
   const [sectionId, setSectionId] = useState("");
 
+  // Asignaturas/secciones creadas en esta misma sesión del formulario, para
+  // que aparezcan de inmediato en los desplegables sin recargar la página
+  // (los props vienen de un server component y solo se refrescan con
+  // router.refresh()/reload). Se fusionan con lo que llegó por props.
+  const [newCourses, setNewCourses] = useState<CourseOption[]>([]);
+  const [newSections, setNewSections] = useState<SectionOption[]>([]);
+  const allCourses = [...courses, ...newCourses];
+  const allSections = [...sections, ...newSections];
+
   // Cascading options: courses belong to the selected institution, sections
   // belong to the selected course.
-  const estCourses = estId ? courses.filter((c) => c.establishment_id === estId) : [];
-  const courseSections = courseId ? sections.filter((s) => s.course_id === courseId) : [];
+  const estCourses = estId ? allCourses.filter((c) => c.establishment_id === estId) : [];
+  const courseSections = courseId ? allSections.filter((s) => s.course_id === courseId) : [];
+
+  // Mismas reglas que /api/admin/courses y /api/admin/sections (ver
+  // src/lib/admin-scope.ts): una asignatura nueva exige alcance de
+  // establecimiento completo; una sección nueva exige que el alcance no esté
+  // acotado a UNA sección de esa asignatura.
+  const canCreateCourse = !!estId && scopeAllowsEstablishmentWide(scope, estId);
+  const canCreateSection = !!courseId && scopeAllowsSectionCreation(scope, estId, courseId);
+
+  const [addingCourse, setAddingCourse] = useState(false);
+  const [newCourseName, setNewCourseName] = useState("");
+  const [creatingCourse, setCreatingCourse] = useState(false);
+  const [addingSection, setAddingSection] = useState(false);
+  const [newSectionName, setNewSectionName] = useState("");
+  const [creatingSection, setCreatingSection] = useState(false);
+
+  const createCourseInline = async () => {
+    const name = newCourseName.trim();
+    if (!name || !estId) return;
+    setCreatingCourse(true);
+    try {
+      const res = await fetch("/api/admin/courses", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, establishment_id: estId }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "Error del servidor");
+      setNewCourses((prev) => [...prev, { id: d.id, name, establishment_id: estId }]);
+      setCourseId(d.id);
+      setSectionId("");
+      setNewCourseName("");
+      setAddingCourse(false);
+      toast.success("Asignatura creada");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al crear la asignatura");
+    } finally {
+      setCreatingCourse(false);
+    }
+  };
+
+  const createSectionInline = async () => {
+    const name = newSectionName.trim();
+    if (!name || !courseId) return;
+    setCreatingSection(true);
+    try {
+      const res = await fetch("/api/admin/sections", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, course_id: courseId }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "Error del servidor");
+      setNewSections((prev) => [...prev, { id: d.id, name, course_id: courseId }]);
+      setSectionId(d.id);
+      setNewSectionName("");
+      setAddingSection(false);
+      toast.success("Sección creada");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al crear la sección");
+    } finally {
+      setCreatingSection(false);
+    }
+  };
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ created: number; failed: number; results?: { email: string; success: boolean; error?: string }[] } | null>(null);
@@ -1915,7 +1988,7 @@ function CreateUserForm({ establishments, courses, sections, isSuperadmin, onClo
             </div>
             <div>
               <label className="block text-[10px] font-medium text-gray-500 mb-1">Institución</label>
-              <select value={estId} onChange={(e) => { setEstId(e.target.value); setCourseId(""); setSectionId(""); }} className={`${inputClass} hover:border-gray-300 cursor-pointer`}>
+              <select value={estId} onChange={(e) => { setEstId(e.target.value); setCourseId(""); setSectionId(""); setAddingCourse(false); setNewCourseName(""); setAddingSection(false); setNewSectionName(""); }} className={`${inputClass} hover:border-gray-300 cursor-pointer`}>
                 <option value="">Sin asignar</option>
                 {establishments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
               </select>
@@ -1926,10 +1999,30 @@ function CreateUserForm({ establishments, courses, sections, isSuperadmin, onClo
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-medium text-gray-500 mb-1">Asignatura<HelpTip text="Define la sección que verá el docente. Selecciona primero una institución." /></label>
-              <select value={courseId} onChange={(e) => { setCourseId(e.target.value); setSectionId(""); }} disabled={!estId} className={`${inputClass} hover:border-gray-300 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed`}>
+              <select value={courseId} onChange={(e) => { setCourseId(e.target.value); setSectionId(""); setAddingSection(false); setNewSectionName(""); }} disabled={!estId} className={`${inputClass} hover:border-gray-300 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed`}>
                 <option value="">Sin asignar</option>
                 {estCourses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              {canCreateCourse && (
+                addingCourse ? (
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <input value={newCourseName} onChange={(e) => setNewCourseName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && newCourseName.trim()) createCourseInline(); }}
+                      placeholder="Nombre de la asignatura..." className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-sidebar/20" autoFocus disabled={creatingCourse} />
+                    <button onClick={createCourseInline} disabled={!newCourseName.trim() || creatingCourse}
+                      className="bg-sidebar text-white px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-sidebar-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap">
+                      {creatingCourse ? "Creando…" : "Crear"}
+                    </button>
+                    <button onClick={() => { setAddingCourse(false); setNewCourseName(""); }} disabled={creatingCourse}
+                      className="text-gray-400 hover:text-gray-600 cursor-pointer disabled:opacity-40"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <button onClick={() => setAddingCourse(true)}
+                    className="mt-1.5 flex items-center gap-1 text-xs text-sidebar hover:underline cursor-pointer">
+                    <Plus size={12} /> Crear asignatura nueva
+                  </button>
+                )
+              )}
             </div>
             <div>
               <label className="block text-[10px] font-medium text-gray-500 mb-1">Sección</label>
@@ -1937,6 +2030,26 @@ function CreateUserForm({ establishments, courses, sections, isSuperadmin, onClo
                 <option value="">Sin asignar</option>
                 {courseSections.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
+              {canCreateSection && (
+                addingSection ? (
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <input value={newSectionName} onChange={(e) => setNewSectionName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && newSectionName.trim()) createSectionInline(); }}
+                      placeholder="Nombre de la sección..." className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-sidebar/20" autoFocus disabled={creatingSection} />
+                    <button onClick={createSectionInline} disabled={!newSectionName.trim() || creatingSection}
+                      className="bg-sidebar text-white px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-sidebar-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap">
+                      {creatingSection ? "Creando…" : "Crear"}
+                    </button>
+                    <button onClick={() => { setAddingSection(false); setNewSectionName(""); }} disabled={creatingSection}
+                      className="text-gray-400 hover:text-gray-600 cursor-pointer disabled:opacity-40"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <button onClick={() => setAddingSection(true)}
+                    className="mt-1.5 flex items-center gap-1 text-xs text-sidebar hover:underline cursor-pointer">
+                    <Plus size={12} /> Crear sección nueva
+                  </button>
+                )
+              )}
             </div>
           </div>
 

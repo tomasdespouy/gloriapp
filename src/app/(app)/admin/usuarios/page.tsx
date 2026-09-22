@@ -229,6 +229,7 @@ export default async function UsuariosPage({
       courses={allCourses || []}
       sections={allSections || []}
       isSuperadmin={ctx.isSuperadmin}
+      scope={ctx.scope}
       totalCount={totalCount || 0}
       currentPage={currentPage}
       perPage={perPage}

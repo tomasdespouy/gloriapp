@@ -34,6 +34,8 @@ type Props = {
   canCreateCourse: boolean;
   /** Asignaturas donde este usuario puede crear SECCIONES. */
   sectionEditableCourseIds: string[];
+  /** Secciones donde este usuario puede RENOMBRAR (más estricto que verla). */
+  sectionRenameableIds: string[];
 };
 
 const TABS = [
@@ -76,7 +78,7 @@ export default function InstitutionTabs(props: Props) {
       {tab === "modules" && <TabModules estId={String(props.establishment.id)} modules={props.modules} isSuperadmin={props.isSuperadmin} />}
       {tab === "patients" && <TabPatients estId={String(props.establishment.id)} allPatients={props.allPatients} assignedPatientIds={props.assignedPatientIds} estCountry={props.estCountry} isSuperadmin={props.isSuperadmin} />}
       {tab === "admins" && <TabAdmins estId={String(props.establishment.id)} assigned={props.assignedAdmins} available={props.availableAdmins} courses={props.courses} courseSections={props.courseSections} />}
-      {tab === "courses" && <TabCourses estId={String(props.establishment.id)} courses={props.courses} courseSections={props.courseSections} isSuperadmin={props.isSuperadmin} canCreateCourse={props.canCreateCourse} sectionEditableCourseIds={props.sectionEditableCourseIds} />}
+      {tab === "courses" && <TabCourses estId={String(props.establishment.id)} courses={props.courses} courseSections={props.courseSections} isSuperadmin={props.isSuperadmin} canCreateCourse={props.canCreateCourse} sectionEditableCourseIds={props.sectionEditableCourseIds} sectionRenameableIds={props.sectionRenameableIds} />}
       {tab === "instructors" && <TabInstructors estId={String(props.establishment.id)} instructors={props.instructors} courses={props.courses} courseSections={props.courseSections} />}
       {tab === "students" && <TabStudents estId={String(props.establishment.id)} students={props.students} courses={props.courses} courseSections={props.courseSections} />}
     </div>
@@ -335,9 +337,9 @@ function TabAdmins({ estId, assigned, available, courses, courseSections }: { es
 // ════════════════════════════════════════════
 // TAB: Asignaturas + Secciones
 // ════════════════════════════════════════════
-function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCourse, sectionEditableCourseIds }: {
+function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCourse, sectionEditableCourseIds, sectionRenameableIds }: {
   estId: string; courses: Course[]; courseSections: Record<string, Section[]>;
-  isSuperadmin: boolean; canCreateCourse: boolean; sectionEditableCourseIds: string[];
+  isSuperadmin: boolean; canCreateCourse: boolean; sectionEditableCourseIds: string[]; sectionRenameableIds: string[];
 }) {
   const router = useRouter();
   // Todas las asignaturas nacen desplegadas: "Agregar sección" vivía escondido
@@ -351,6 +353,16 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
   const [minutos, setMinutos] = useState<Record<string, string>>({});
   const [guardando, setGuardando] = useState<string | null>(null);
   const [guardado, setGuardado] = useState<string | null>(null);
+  // Renombrar asignatura/sección en línea. Cada asignatura visible ya cumple
+  // el alcance para renombrarla (mismo chequeo que la muestra); las secciones
+  // usan la lista explícita porque un admin acotado a UNA sección ve también
+  // a sus hermanas sin poder tocarlas.
+  const [editingCourse, setEditingCourse] = useState<string | null>(null);
+  const [courseNameDraft, setCourseNameDraft] = useState("");
+  const [savingCourseName, setSavingCourseName] = useState<string | null>(null);
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [sectionNameDraft, setSectionNameDraft] = useState("");
+  const [savingSectionName, setSavingSectionName] = useState<string | null>(null);
 
   const valorMinutos = (c: Course) =>
     minutos[c.id] ?? (c.min_session_minutes != null ? String(c.min_session_minutes) : "");
@@ -374,6 +386,56 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
       alert(e instanceof Error ? e.message : "No se pudo guardar");
     } finally {
       setGuardando(null);
+    }
+  };
+
+  const guardarNombreCurso = async (courseId: string, actual: string) => {
+    const nombre = courseNameDraft.trim();
+    if (!nombre) { toast.error("El nombre no puede estar vacío"); return; }
+    if (nombre === actual) { setEditingCourse(null); return; }
+    setSavingCourseName(courseId);
+    try {
+      const res = await fetch("/api/admin/courses", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: courseId, name: nombre }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Error del servidor");
+      }
+      toast.success("Nombre actualizado");
+      setEditingCourse(null);
+      router.refresh();
+    } catch (e) {
+      // Se deja el editor abierto con lo escrito: perder el texto tras un
+      // error de red sería peor que el error mismo.
+      toast.error(e instanceof Error ? e.message : "Error al renombrar la asignatura");
+    } finally {
+      setSavingCourseName(null);
+    }
+  };
+
+  const guardarNombreSeccion = async (sectionId: string, actual: string) => {
+    const nombre = sectionNameDraft.trim();
+    if (!nombre) { toast.error("El nombre no puede estar vacío"); return; }
+    if (nombre === actual) { setEditingSection(null); return; }
+    setSavingSectionName(sectionId);
+    try {
+      const res = await fetch("/api/admin/sections", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: sectionId, name: nombre }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Error del servidor");
+      }
+      toast.success("Nombre actualizado");
+      setEditingSection(null);
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al renombrar la sección");
+    } finally {
+      setSavingSectionName(null);
     }
   };
 
@@ -467,8 +529,32 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
               className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors cursor-pointer">
               {isOpen ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
               <BookOpen size={16} className="text-sidebar" />
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-gray-900">{course.name}</p>
+              <div className="flex-1 min-w-0">
+                {editingCourse === course.id ? (
+                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      value={courseNameDraft}
+                      onChange={(e) => setCourseNameDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") guardarNombreCurso(course.id, course.name);
+                        if (e.key === "Escape") setEditingCourse(null);
+                      }}
+                      disabled={savingCourseName === course.id}
+                      autoFocus
+                      className="text-sm font-semibold text-gray-900 border border-sidebar/40 rounded-lg px-2 py-1 flex-1 min-w-0 focus:outline-none focus:ring-2 focus:ring-sidebar/20 disabled:opacity-50"
+                    />
+                    <button onClick={() => guardarNombreCurso(course.id, course.name)} disabled={savingCourseName === course.id || !courseNameDraft.trim()}
+                      className="text-sidebar hover:bg-sidebar/10 p-1.5 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"><Check size={14} /></button>
+                    <button onClick={() => setEditingCourse(null)} disabled={savingCourseName === course.id}
+                      className="text-gray-400 hover:text-gray-600 p-1.5 rounded cursor-pointer disabled:opacity-40"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-semibold text-gray-900">{course.name}</p>
+                    <button onClick={(e) => { e.stopPropagation(); setEditingCourse(course.id); setCourseNameDraft(course.name); }}
+                      className="text-gray-300 hover:text-sidebar p-0.5 rounded cursor-pointer transition-colors"><Pencil size={12} /></button>
+                  </div>
+                )}
                 <p className="text-[10px] text-gray-400">{secs.length} {secs.length === 1 ? "sección" : "secciones"}</p>
               </div>
               {isSuperadmin && (
@@ -521,11 +607,40 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
                   </p>
                 </div>
 
-                {secs.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between py-1.5 px-3 bg-white rounded-lg text-sm">
-                    <span className="text-gray-700">{s.name}</span>
-                  </div>
-                ))}
+                {secs.map((s) => {
+                  const canRenameSection = isSuperadmin || sectionRenameableIds.includes(s.id);
+                  return (
+                    <div key={s.id} className="flex items-center justify-between py-1.5 px-3 bg-white rounded-lg text-sm">
+                      {editingSection === s.id ? (
+                        <div className="flex items-center gap-1.5 flex-1">
+                          <input
+                            value={sectionNameDraft}
+                            onChange={(e) => setSectionNameDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") guardarNombreSeccion(s.id, s.name);
+                              if (e.key === "Escape") setEditingSection(null);
+                            }}
+                            disabled={savingSectionName === s.id}
+                            autoFocus
+                            className="flex-1 min-w-0 border border-sidebar/40 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-sidebar/20 disabled:opacity-50"
+                          />
+                          <button onClick={() => guardarNombreSeccion(s.id, s.name)} disabled={savingSectionName === s.id || !sectionNameDraft.trim()}
+                            className="text-sidebar hover:bg-sidebar/10 p-1 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"><Check size={13} /></button>
+                          <button onClick={() => setEditingSection(null)} disabled={savingSectionName === s.id}
+                            className="text-gray-400 hover:text-gray-600 p-1 rounded cursor-pointer disabled:opacity-40"><X size={13} /></button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-700">{s.name}</span>
+                          {canRenameSection && (
+                            <button onClick={() => { setEditingSection(s.id); setSectionNameDraft(s.name); }}
+                              className="text-gray-300 hover:text-sidebar p-0.5 rounded cursor-pointer transition-colors"><Pencil size={12} /></button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 {secs.length === 0 && (
                   <p className="text-xs text-gray-400 px-3 py-1">Esta asignatura todavía no tiene secciones.</p>
                 )}
