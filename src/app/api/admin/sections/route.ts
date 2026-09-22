@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
-import { resolveAdminScopeRules, scopeAllowsCourse, courseInScope } from "@/lib/admin-scope";
+import { resolveAdminScopeRules, scopeAllowsCourse, courseInScope, sectionInScope } from "@/lib/admin-scope";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -68,4 +68,44 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json(data, { status: 201 });
+}
+
+/**
+ * Renombra una sección.
+ *
+ * El alcance para renombrar es más estricto que el de crear: `sectionInScope`
+ * exige que, si la regla del admin está acotada a UNA sección, sea justo
+ * esta. Un admin con esa regla ve (en la ficha de la asignatura) también las
+ * secciones hermanas, pero no puede tocarlas — igual que hoy no puede crear
+ * una sección hermana desde ese mismo alcance.
+ */
+export async function PATCH(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const callerRole = profile?.role;
+  if (!callerRole || !["admin", "superadmin"].includes(callerRole)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
+  const { id, name } = await request.json();
+  if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
+  const nombre = String(name ?? "").trim();
+  if (!nombre) return NextResponse.json({ error: "El nombre no puede estar vacío" }, { status: 400 });
+
+  const admin = createAdminClient();
+
+  if (callerRole === "admin") {
+    const rules = await resolveAdminScopeRules(supabase, user.id);
+    const { ok } = await sectionInScope(admin, { all: false, rules }, id);
+    if (!ok) return NextResponse.json({ error: "Sección fuera de su alcance" }, { status: 403 });
+  }
+
+  const { data, error } = await admin.from("sections").update({ name: nombre }).eq("id", id).select().maybeSingle();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: "Sección no encontrada" }, { status: 404 });
+
+  return NextResponse.json(data);
 }

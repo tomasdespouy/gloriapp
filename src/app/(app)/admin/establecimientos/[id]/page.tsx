@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminContext } from "@/lib/admin-helpers";
-import { applyScope, scopeAllowsCourse, scopeAllowsEstablishmentWide, scopeAllowsSectionCreation } from "@/lib/admin-scope";
+import { applyScope, scopeAllowsCourse, scopeAllowsEstablishmentWide, scopeAllowsSectionCreation, scopeAllowsSection } from "@/lib/admin-scope";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Building2 } from "lucide-react";
@@ -77,6 +77,15 @@ export default async function EstablishmentDetailPage({
     if (courseSections[s.course_id]) courseSections[s.course_id].push(s as SectionRow);
   });
 
+  // Renombrar una sección exige un alcance más fino que verla: un admin
+  // acotado a UNA sección ve (dentro de su asignatura visible) también a sus
+  // hermanas, pero no puede tocarlas — mismo criterio que ya rige para crear
+  // una sección hermana desde ese alcance.
+  const sectionRenameableIds = Object.values(courseSections)
+    .flat()
+    .filter((s) => scopeAllowsSection(ctx.scope, id, s.course_id, s.id))
+    .map((s) => s.id);
+
   const instructors = (profiles || []).filter((p) => p.role === "instructor");
   const students = (profiles || []).filter((p) => p.role === "student");
 
@@ -118,6 +127,7 @@ export default async function EstablishmentDetailPage({
           courseSections={courseSections}
           canCreateCourse={canCreateCourse}
           sectionEditableCourseIds={sectionEditableCourseIds}
+          sectionRenameableIds={sectionRenameableIds}
           instructors={instructors}
           students={students}
           isSuperadmin={ctx.isSuperadmin}
