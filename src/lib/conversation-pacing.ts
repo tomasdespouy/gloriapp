@@ -242,6 +242,11 @@ export function hasStudentIntroducedName(messages: string[], studentFullName?: s
     // y el detector no vio ninguna presentación. Acá conviene ser generoso: el
     // costo de un falso negativo es cortarle la entrevista a quien sí se presentó.
     if (/\bme\s+presento\b/i.test(msg)) return true;
+    // Sesiones en pareja/grupo (frecuentes en USB Cali): "nos presentamos" o
+    // "somos X y Y" — no sabemos cuál de los dos nombres es el que escribe,
+    // pero sí sabemos que SE presentaron. Mismo criterio generoso de arriba.
+    if (/\bnos\s+presentamos\b/i.test(msg)) return true;
+    if (/\bsomos\s+[A-Za-zÁÉÍÓÚÑáéíóúñ]+(?:\s+[A-Za-zÁÉÍÓÚÑáéíóúñ]+)?\s+y\s+[A-Za-zÁÉÍÓÚÑáéíóúñ]+/i.test(msg)) return true;
     if (/\b(?:te|le)\s+(?:saluda|habla)\s+\S/i.test(msg)) return true;
     // "puedes decirme X" / "llamame X" / "dime X" / "digame X"
     if (/\b(?:pued[eo]s?|pod[eé]s|puede)\s+(?:decirme|llamarme|tratarme\s+de)\s+\S/i.test(msg)) return true;

@@ -211,7 +211,7 @@ Reglas de oro:
     role: "user" as const,
     content,
   }));
-  const [, { data: history }, memoryResult, { data: convRow }] = await Promise.all([
+  const [, { data: history }, memoryResult, { data: convRow }, { data: openingHistory }] = await Promise.all([
     supabase.from("messages").insert(userRowsToInsert),
     supabase
       .from("messages")
@@ -225,6 +225,20 @@ Reglas de oro:
     // propio nombre de pila de una forma que los patrones no anticipan, cuenta
     // igual como presentado y el paciente no le exige el nombre.
     supabase.from("conversations").select("prompt_snapshot, session_number, unprofessional_count, student:profiles(full_name)").eq("id", conversationId).single(),
+    // Los primeros mensajes de la conversación, aparte de la ventana de los
+    // últimos MAX_HISTORY: en una entrevista larga (50+ mensajes) la
+    // presentación del terapeuta en el turno 1 se sale de esa ventana y el
+    // detector de nombre "olvida" que se presentó — pasó de verdad en USB
+    // Cali (7 sesiones cerradas por "evadir el nombre" el 2026-09-24, todas
+    // con el nombre dado al principio). El protocolo de identificación solo
+    // corre en sesión 1 y se resuelve dentro de los primeros ~9 turnos, así
+    // que estos primeros mensajes bastan para no perderla nunca.
+    supabase
+      .from("messages")
+      .select("role, content")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true })
+      .limit(16),
   ]);
 
   let chronological = (history || []).reverse();
@@ -416,9 +430,18 @@ Si el/la terapeuta recién te saluda y NO te hizo una pregunta directa: tu mensa
   // Protocolo de identificacion: en la primera sesion, en el turno
   // definido por el arquetipo del paciente, si el estudiante no se
   // presento por su nombre, el paciente se lo pregunta. Una sola vez.
-  const studentMessages = chronological
+  //
+  // Se une con los mensajes de apertura (openingHistory) para que la
+  // presentación del turno 1 nunca se pierda aunque ya haya salido de la
+  // ventana de los últimos MAX_HISTORY mensajes — ver el comentario junto
+  // a esa consulta.
+  const openingStudentMessages = (openingHistory || [])
     .filter((m) => m.role === "user")
     .map((m) => m.content);
+  const studentMessages = [
+    ...openingStudentMessages,
+    ...chronological.filter((m) => m.role === "user").map((m) => m.content),
+  ];
   const studentFullName =
     (convRow?.student as { full_name?: string | null } | null | undefined)?.full_name ?? null;
   const introductionRule = buildIntroductionRule(
