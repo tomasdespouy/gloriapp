@@ -70,7 +70,6 @@ interface Props {
   feedbackStatus: "pending" | "approved" | "evaluated";
   summary?: string | null;
   messageCount?: number;
-  heatStates?: { turn_number: number; sintomatologia: number; resistencia: number; alianza: number; apertura_emocional: number }[];
 }
 
 const COMP_V2_LABELS: { key: string; label: string; domain: string }[] = [
@@ -119,24 +118,6 @@ function highlightMatches(text: string, q: string): ReactNode {
   return out;
 }
 
-// Heatmap: "temperatura emocional" del paciente por turno. v1 usa la
-// sintomatología del estado clínico (0-10) como intensidad; el color va de frío
-// (calma) a caliente (intensidad). v2 podrá usar etiquetas de emoción del LLM.
-function heatColor(intensity: number): string {
-  if (intensity < 0.25) return "#60a5fa"; // azul — calma
-  if (intensity < 0.45) return "#34d399"; // verde — distendido
-  if (intensity < 0.65) return "#fbbf24"; // ámbar — activado
-  if (intensity < 0.82) return "#fb923c"; // naranja — tenso
-  return "#ef4444"; // rojo — muy intenso
-}
-function heatLabel(intensity: number): string {
-  if (intensity < 0.25) return "calma";
-  if (intensity < 0.45) return "distendido";
-  if (intensity < 0.65) return "activado";
-  if (intensity < 0.82) return "tenso";
-  return "muy intenso";
-}
-
 export default function TeacherReviewClient({
   conversationId,
   student,
@@ -149,7 +130,6 @@ export default function TeacherReviewClient({
   feedbackStatus,
   summary,
   messageCount,
-  heatStates,
 }: Props) {
   const [comment, setComment] = useState(feedback?.teacher_comment || "");
   const isEvaluated = feedbackStatus === "evaluated";
@@ -400,16 +380,6 @@ export default function TeacherReviewClient({
     setActiveMatch(next);
     msgRefs.current[matchIds[next]]?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
-
-  // Heatmap emocional del paciente (a partir del log de estado clínico por turno)
-  const heat = (heatStates || []).map((s) => {
-    const intensity = Math.max(0, Math.min(1, (Number(s.sintomatologia) || 0) / 10));
-    return { turn: s.turn_number, intensity, color: heatColor(intensity), label: heatLabel(intensity) };
-  });
-  const heatGradient = heat.length > 1
-    ? `linear-gradient(to bottom, ${heat.map((h, i) => `${h.color} ${(i / (heat.length - 1)) * 100}%`).join(", ")})`
-    : heat.length === 1 ? heat[0].color : "transparent";
-  const assistantMsgIds = chatMessages.filter((m) => m.role !== "user").map((m) => m.id);
 
   const patientSlug = patient.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
   const patientImgUrl = getPatientImageUrl(patientSlug);
@@ -670,7 +640,6 @@ export default function TeacherReviewClient({
               )}
             </div>
           </div>
-          <ConversationDocxButton conversationId={conversationId} />
           {!isApproved && (
             <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full flex items-center gap-1 flex-shrink-0">
               <Clock size={10} /> Por revisar
@@ -690,14 +659,16 @@ export default function TeacherReviewClient({
       </header>
 
       <div className="px-4 sm:px-8 py-6">
-        {/* Píldoras: qué módulos mostrar */}
-        <div className="flex gap-1.5 mb-4">
+        {/* Píldoras: qué módulos mostrar. Color propio (naranjo) y tamaño más
+            grande para distinguirlas de los botones de acción, que usan el
+            indigo de la marca. */}
+        <div className="flex gap-2 mb-4">
           {MODULE_KEYS.map((key) => (
             <button
               key={key}
               onClick={() => toggleModule(key)}
-              className={`text-[11px] font-semibold px-3.5 py-1.5 rounded-full border transition-colors cursor-pointer ${
-                activeModules[key] ? "bg-sidebar text-white border-sidebar" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+              className={`text-sm font-bold px-5 py-2.5 rounded-full border-2 transition-colors cursor-pointer ${
+                activeModules[key] ? "bg-orange-500 text-white border-orange-500" : "bg-white text-gray-500 border-gray-200 hover:border-orange-300"
               }`}
             >
               {MODULE_LABELS[key]}
@@ -715,6 +686,7 @@ export default function TeacherReviewClient({
               <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 flex-shrink-0 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Transcripción del chat</p>
+                  <ConversationDocxButton conversationId={conversationId} />
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative flex-1 max-w-[240px]">
@@ -739,24 +711,7 @@ export default function TeacherReviewClient({
                   )}
                 </div>
               </div>
-              <div className="flex gap-2 p-4 flex-1 min-h-0">
-                {heat.length > 0 && (
-                  <div className="shrink-0 flex flex-col items-center gap-1" title="Calor emocional del paciente durante la sesión">
-                    <div className="relative w-3.5 rounded-full overflow-hidden border border-gray-200 flex-1" style={{ background: heatGradient }}>
-                      {heat.map((h, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => { const id = assistantMsgIds[i]; if (id) msgRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "center" }); }}
-                          className="block w-full cursor-pointer hover:opacity-60"
-                          style={{ height: `${100 / heat.length}%` }}
-                          title={`Turno ${h.turn} · ${h.label} · intensidad ${(h.intensity * 10).toFixed(0)}/10`}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-[8px] text-gray-400">calor</span>
-                  </div>
-                )}
+              <div className="flex p-4 flex-1 min-h-0">
                 <div className="flex-1 min-h-0 overflow-y-auto space-y-4">
                   {chatMessages.map((msg) => {
                     const isStudent = msg.role === "user";

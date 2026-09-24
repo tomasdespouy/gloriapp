@@ -471,5 +471,5 @@ export function buildClosingAppointmentRule(userMessages: string[]): string {
   if (hasDate) return "";
 
   return `\n\n[CIERRE SIN FECHA — PREGUNTA POR LA PROXIMA CITA]
-El terapeuta esta cerrando la sesion pero no dijo cuando es la proxima vez. ANTES de despedirte, preguntale de forma natural para cuando quedan, en tu estilo y breve: "¿Y para cuando quedamos?", "¿que dia nos vemos?", "¿la proxima semana a la misma hora?", "¿que dia me dijo?". No te despidas sin preguntarlo.\n`;
+El terapeuta esta cerrando la sesion pero solo dijo algo vago ("la proxima semana", "la otra semana"), SIN decir que dia. ANTES de despedirte, pidele el DIA EXACTO (lunes, martes, etc.), en tu estilo y breve: "¿Y que dia de la proxima semana quedamos?", "¿que dia nos vemos, para anotarlo?", "¿que dia me dijo, para no olvidarme?". NO te despidas repitiendo solo "la proxima semana" o "a la misma hora" sin mas: eso no es un dia, sigue siendo vago. Pide el dia concreto.\n`;
 }
