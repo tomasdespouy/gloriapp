@@ -1,7 +1,15 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { authorizeFeedbackAccess } from "@/lib/feedback-auth";
 import { chat } from "@/lib/ai";
+import { LEARNING_DATA } from "@/lib/learning-data";
 import { NextRequest, NextResponse } from "next/server";
+
+// Catálogo real de módulos de /aprendizaje, uno por competencia. Se pasa al
+// LLM para que cite módulos que existen — antes los inventaba (ver
+// [[project_feedback_advance_gestoras]]).
+const MODULE_CATALOG: Record<string, string> = Object.fromEntries(
+  LEARNING_DATA.map((c) => [c.key, c.name]),
+);
 
 // GET: list action items for a conversation or student
 export async function GET(request: NextRequest) {
@@ -98,9 +106,63 @@ Responde SOLO con el comentario.` }],
     return NextResponse.json({ comment: commentSuggestion });
   }
 
+  // Confirmar calibración: una sola llamada que redacta fortalezas y áreas de
+  // mejora a partir de las notas ya calibradas por el docente (no se dispara
+  // por cada nota que mueve, solo cuando confirma).
+  if (body.action === "suggest_strengths_areas") {
+    const { student_name, evaluation_summary } = body;
+
+    const result = await chat(
+      [{ role: "user", content: `Eres un supervisor clínico experto evaluando a un estudiante de psicología llamado ${student_name}.
+
+Estas son las notas de competencias, ya calibradas por el supervisor, con la evidencia de la sesión:
+
+${evaluation_summary}
+
+Redacta exactamente 2 fortalezas y 2 áreas de mejora a partir de estas notas y esta evidencia.
+
+Calibra el lenguaje a la evidencia disponible: evita "domina", "siempre/nunca" o afirmaciones categóricas si la evidencia es puntual — usa "se observan señales de...", "de manera incipiente..." en esos casos, y reserva el lenguaje categórico para patrones que se repiten de forma consistente. Las áreas de mejora describen lo observado en ESTA sesión, no un rasgo permanente del estudiante; evita "no sabe" o "no puede", usa "no se observó en esta sesión" o similar.
+
+Responde ÚNICAMENTE en este formato, sin nada antes ni después y SIN numerar las líneas (nada de "1." ni "-" al inicio):
+FORTALEZAS:
+primera fortaleza, específica y anclada en la evidencia
+segunda fortaleza
+AREAS:
+primera área de mejora, específica y anclada en la evidencia
+segunda área de mejora` }],
+      "Eres un supervisor clínico con mentalidad de crecimiento. Responde en español con tildes correctas."
+    );
+
+    // Por si el modelo numera igual las líneas: se quita cualquier "1.", "2)",
+    // "-" o "•" inicial antes de guardarlas.
+    const stripLeadingMarker = (s: string) => s.replace(/^\s*(?:[-•]|\d+[.)])\s*/, "").trim();
+    const strengthsMatch = result.match(/FORTALEZAS:\s*([\s\S]*?)(?:AREAS:|$)/i);
+    const areasMatch = result.match(/AREAS:\s*([\s\S]*)$/i);
+    const strengths = (strengthsMatch?.[1] || "").split("\n").map(stripLeadingMarker).filter((s) => s.length > 3);
+    const areas_to_improve = (areasMatch?.[1] || "").split("\n").map(stripLeadingMarker).filter((s) => s.length > 3);
+
+    return NextResponse.json({ strengths, areas_to_improve });
+  }
+
   // AI suggestion mode
   if (body.action === "suggest") {
-    const { conversation_id, student_name, evaluation_summary } = body;
+    const { conversation_id, student_name, evaluation_summary, dimensions } = body;
+
+    // El supervisor puede acotar a las competencias que le interesan (por
+    // defecto, sin selección, se dejan las 10 disponibles como catálogo pero
+    // se pide el mismo total de siempre). Cuando hay selección, un accionable
+    // por dimensión elegida — así el conteo tiene sentido para el docente en
+    // vez de ser "exactamente 3" sin relación con lo que quiso revisar.
+    const selectedKeys: string[] = Array.isArray(dimensions)
+      ? dimensions.filter((k: unknown): k is string => typeof k === "string" && k in MODULE_CATALOG)
+      : [];
+    const catalogKeys = selectedKeys.length > 0 ? selectedKeys : Object.keys(MODULE_CATALOG);
+    const catalogText = catalogKeys.map((k) => `- ${MODULE_CATALOG[k]}`).join("\n");
+    const count = selectedKeys.length > 0 ? selectedKeys.length : 3;
+
+    const focusInstruction = selectedKeys.length > 0
+      ? `El docente pidió enfocar los accionables EN ESTAS competencias (una por cada una, en este orden): ${selectedKeys.map((k) => MODULE_CATALOG[k]).join(", ")}.`
+      : `Elige las competencias más relevantes según la evaluación.`;
 
     const suggestion = await chat(
       [{ role: "user", content: `Eres un docente supervisor de psicología clínica con mentalidad de crecimiento.
@@ -109,15 +171,20 @@ Un estudiante llamado ${student_name} completó una sesión de práctica. Aquí 
 
 ${evaluation_summary}
 
-Genera exactamente 3 accionables específicos para la próxima sesión (ni más ni menos). Cada accionable debe:
+Módulos de aprendizaje que EXISTEN en la plataforma (sección Aprendizaje) — cita SOLO estos nombres, exactamente como están escritos, nunca inventes uno:
+${catalogText}
+
+${focusInstruction}
+
+Genera exactamente ${count} accionable${count === 1 ? "" : "s"} específico${count === 1 ? "" : "s"} para la próxima sesión (ni más ni menos). Cada accionable debe:
 1. Ser específico y observable (no genérico)
 2. Tener mentalidad de crecimiento (no punitivo)
 3. Incluir una acción concreta que el estudiante puede practicar
-4. Si es pertinente, sugerir un módulo de aprendizaje de la plataforma
+4. Si es pertinente, sugerir uno de los módulos listados arriba, con su nombre exacto
 
 Formato: una línea por accionable, sin numeración. Ejemplo:
 Practicar reformulaciones usando la estructura "Si entiendo bien, lo que me dice es..." en los primeros 5 minutos de la sesión
-Revisar el módulo de Escucha Activa en la sección de Aprendizaje antes de la próxima sesión
+Revisar el módulo de Escucha activa en la sección de Aprendizaje antes de la próxima sesión
 
 Responde SOLO con los accionables, sin introducción ni cierre.` }],
       "Eres un supervisor clínico con mentalidad de crecimiento. Responde en español."

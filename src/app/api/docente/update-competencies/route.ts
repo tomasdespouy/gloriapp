@@ -2,14 +2,21 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { authorizeFeedbackAccess } from "@/lib/feedback-auth";
 import { NextResponse } from "next/server";
 
-// Only these fields can be edited by instructors
+// Only these fields can be edited by instructors.
+// OJO: hasta aquí este set traía nombres de una rúbrica anterior
+// (alianza_terapeutica, empatia_validacion, etc.) que ya no son columnas de
+// session_competencies — de las 10 competencias V2 (Valdés & Gómez, 2023)
+// solo 3 coincidían por casualidad (setting_terapeutico, motivo_consulta,
+// escucha_activa); los ajustes del docente a las otras 7 (datos_contextuales,
+// objetivos, actitud_no_valorativa, optimismo, presencia, conducta_no_verbal,
+// contencion_afectos) y al overall_score_v2 se filtraban en silencio y nunca
+// llegaban a guardarse.
 const ALLOWED_FIELDS = new Set([
   "ai_commentary", "strengths", "areas_to_improve",
-  "setting_terapeutico", "motivo_consulta", "alianza_terapeutica",
-  "escucha_activa", "empatia_validacion", "preguntas_exploracion",
-  "conceptualizacion_clinica", "tecnicas_intervenciones",
-  "manejo_silencio_ritmo", "cierre_sintesis", "autoconciencia_limites",
-  "overall_score",
+  "setting_terapeutico", "motivo_consulta", "datos_contextuales", "objetivos",
+  "escucha_activa", "actitud_no_valorativa", "optimismo", "presencia",
+  "conducta_no_verbal", "contencion_afectos",
+  "overall_score_v2", "overall_score",
 ]);
 
 export async function POST(request: Request) {
