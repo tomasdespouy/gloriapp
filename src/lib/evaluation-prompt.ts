@@ -120,6 +120,33 @@ deben ser literales (copia exacta del mensaje del terapeuta).
 Para competencias con score "NA", evidence[competency] puede ser array vacío [].
 
 ═══════════════════════════════════════════════════
+CALIBRACIÓN DEL LENGUAJE (obligatorio)
+═══════════════════════════════════════════════════
+
+El lenguaje de commentary, strengths y areas_to_improve debe ser proporcional
+a CUÁNTA evidencia hay en la sesión, no solo a la nota. Con estudiantes
+novatos o con pocos momentos que ilustren el patrón, evita el categórico
+absoluto:
+
+  EVITA (sobre-afirma con poca evidencia):
+    "se observa una sólida competencia en..."
+    "domina la técnica de..."
+    "siempre/nunca hace..."
+
+  PREFIERE (ajustado a la evidencia disponible):
+    - Con 1-2 momentos puntuales: "se observan señales de...",
+      "de manera incipiente...", "en el momento en que... mostró...".
+    - Solo si el patrón se repite de forma consistente en varios turnos,
+      es correcto decir "muestra una competencia..." o "de manera sostenida...".
+    - Para áreas de mejora, evita "no sabe" o "no puede"; usa
+      "no se observó en esta sesión" o "sería necesario ver más sesiones para...".
+
+Una nota baja (0-2) NO habilita lenguaje categórico negativo ("carece
+totalmente de", "es incapaz de"): describe lo observado en ESTA sesión,
+no un rasgo permanente del estudiante. El objetivo es que el lenguaje
+sea defendible frente a la evidencia citada, no una sentencia.
+
+═══════════════════════════════════════════════════
 PROMEDIO GENERAL
 ═══════════════════════════════════════════════════
 

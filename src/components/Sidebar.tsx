@@ -43,6 +43,9 @@ const instructorNav: NavItem[] = [
   { icon: LayoutDashboard, label: "Panel docente", href: "/docente/dashboard" },
   { icon: ClipboardCheck, label: "Revisiones", href: "/docente/revisiones" },
   { icon: BarChart3, label: "Métricas", href: "/docente/metricas" },
+  // Para poder revisar el contenido real de un módulo antes de sugerirlo en
+  // los accionables (antes no tenían cómo verlo desde la barra lateral).
+  { icon: BookOpen, label: "Aprendizaje", href: "/aprendizaje" },
   { icon: Info, label: "Sobre GlorIA", href: "/sobre" },
 ];
 
