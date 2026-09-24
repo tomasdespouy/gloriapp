@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft, Brain, BookOpen, GraduationCap, Send, CheckCircle, Save,
+  ArrowLeft, Brain, GraduationCap, Send, CheckCircle, Save,
   MessageSquare, Clock, Sparkles, Loader2,
-  Search, ChevronUp, ChevronDown, ChevronRight, Maximize2, RefreshCw, X,
+  Search, ChevronUp, ChevronDown, ChevronRight, RefreshCw, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getPatientImageUrl } from "@/lib/patient-assets";
@@ -632,12 +632,6 @@ export default function TeacherReviewClient({
               <span className="text-[11px] text-gray-400 flex items-center gap-1 flex-shrink-0">
                 <MessageSquare size={11} /> {messageCount || chatMessages.length} mensajes
               </span>
-              {summary && (
-                <span className="text-[11px] text-sidebar flex items-center gap-1 min-w-0 truncate border-l border-gray-200 pl-2" title={summary}>
-                  <Sparkles size={11} className="flex-shrink-0" />
-                  <span className="truncate">Resumen IA: {summary}</span>
-                </span>
-              )}
             </div>
           </div>
           {!isApproved && (
@@ -682,12 +676,12 @@ export default function TeacherReviewClient({
         >
           {/* ═══ Columna: Conversación ═══ */}
           {activeModules.chat && (
-            <div className="bg-white rounded-xl border border-gray-200 lg:sticky lg:top-6 lg:max-h-[72vh] flex flex-col min-h-0">
-              <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 flex-shrink-0 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Transcripción del chat</p>
-                  <ConversationDocxButton conversationId={conversationId} />
-                </div>
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden lg:sticky lg:top-6 lg:max-h-[72vh] flex flex-col min-h-0">
+              <div className="bg-sidebar px-4 py-3 flex items-center justify-between gap-2 flex-shrink-0">
+                <p className="text-sm font-semibold text-white">Conversación</p>
+                <ConversationDocxButton conversationId={conversationId} variant="inverse" />
+              </div>
+              <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative flex-1 max-w-[240px]">
                     <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -711,6 +705,12 @@ export default function TeacherReviewClient({
                   )}
                 </div>
               </div>
+              {summary && (
+                <div className="mx-4 mt-3 bg-sidebar/5 border border-sidebar/10 rounded-lg px-3 py-2.5 flex-shrink-0">
+                  <p className="text-[10px] font-bold text-sidebar uppercase tracking-wide mb-1">Resumen IA</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">{summary}</p>
+                </div>
+              )}
               <div className="flex p-4 flex-1 min-h-0">
                 <div className="flex-1 min-h-0 overflow-y-auto space-y-4">
                   {chatMessages.map((msg) => {
@@ -739,13 +739,12 @@ export default function TeacherReviewClient({
 
           {/* ═══ Columna: Reflexión ═══ */}
           {activeModules.reflect && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5 lg:sticky lg:top-6 lg:max-h-[72vh] flex flex-col min-h-0">
-              <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-                <BookOpen size={16} className="text-gray-500" />
-                <h3 className="text-sm font-semibold text-gray-900">Reflexión del alumno</h3>
-                <span className="text-[10px] text-gray-400 ml-auto">al cerrar la sesión</span>
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden lg:sticky lg:top-6 lg:max-h-[72vh] flex flex-col min-h-0">
+              <div className="bg-sidebar px-4 py-3 flex items-center justify-between gap-2 flex-shrink-0">
+                <p className="text-sm font-semibold text-white">Reflexión</p>
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
+              <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-3">
+                <p className="text-[11px] text-gray-400">Se completa cuando el alumno cierra la sesión.</p>
                 {!hasReflection && <p className="text-xs text-gray-400 italic">El alumno todavía no completó su autorreflexión.</p>}
                 {feedback?.discomfort_moment && (
                   <div className="bg-gray-50 rounded-lg p-3">
@@ -771,19 +770,17 @@ export default function TeacherReviewClient({
 
           {/* ═══ Columna: Retroalimentación ═══ */}
           {activeModules.feedback && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5 lg:sticky lg:top-6 lg:max-h-[72vh] flex flex-col min-h-0">
-              <div className="flex items-center justify-between gap-3 mb-4 flex-shrink-0 flex-wrap">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Retroalimentación</h3>
-                  <p className="text-[10px] text-gray-400">Abre o cierra cada sección, o usa Vista completa.</p>
-                </div>
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden lg:sticky lg:top-6 lg:max-h-[72vh] flex flex-col min-h-0">
+              <div className="bg-sidebar px-4 py-3 flex items-center justify-between gap-2 flex-shrink-0">
+                <p className="text-sm font-semibold text-white">Retroalimentación</p>
                 <button onClick={() => setFocusOpen(true)}
-                  className="flex items-center gap-1.5 text-[11px] font-semibold text-white bg-sidebar hover:bg-[#3D4890] px-3 py-1.5 rounded-lg cursor-pointer flex-shrink-0">
-                  <Maximize2 size={12} /> Vista completa
+                  className="text-xs font-semibold text-sidebar bg-white hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex-shrink-0">
+                  Vista completa
                 </button>
               </div>
 
-              <div className="flex-1 min-h-0 overflow-y-auto space-y-1">
+              <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-1">
+                <p className="text-[11px] text-gray-400 mb-3">Abre o cierra cada sección, o usa Vista completa.</p>
                 {competencies ? (
                   <>
                     {/* Sección: Competencias */}

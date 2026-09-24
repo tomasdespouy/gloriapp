@@ -19,7 +19,8 @@ export default function ConversationDocxButton({
   source = "docente",
 }: {
   conversationId: string;
-  variant?: "button" | "link";
+  /** "inverse": blanco sobre un fondo de color (la cabecera azul de la caja de Conversación). */
+  variant?: "button" | "link" | "inverse";
   label?: string;
   /**
    * Qué ruta usar. "docente" pasa por el alcance del monitor; "propia" solo
@@ -84,6 +85,19 @@ export default function ConversationDocxButton({
         className="text-[11px] text-gray-400 hover:text-gray-700 hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-wait"
       >
         {loading ? "Generando…" : "Descargar .docx ↓"}
+      </button>
+    );
+  }
+
+  if (variant === "inverse") {
+    return (
+      <button
+        onClick={download}
+        disabled={loading}
+        className="text-xs font-semibold text-sidebar bg-white hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait flex-shrink-0"
+        title="Descarga la transcripción completa de esta sesión en Word"
+      >
+        {loading ? "Generando…" : label}
       </button>
     );
   }
