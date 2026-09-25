@@ -33,6 +33,8 @@ interface Props {
   lockMap?: Record<string, PatientLockInfo>;
   minHoursBetweenSessions?: number;
   activeSessionMap: Record<string, string>;
+  /** Variantes voice_only autorizadas (piloto de voz) — sin pantalla propia todavía. */
+  voiceOnlyIds?: string[];
 }
 
 const difficultyOrder: Record<string, number> = {
@@ -58,8 +60,9 @@ const countryFlagSrc: Record<string, string> = {
   "Venezuela": "/flags/ve.png",
 };
 
-export default function PacientesClient({ patients, activeSessionMap, lockMap, minHoursBetweenSessions = 72 }: Props) {
+export default function PacientesClient({ patients, activeSessionMap, lockMap, minHoursBetweenSessions = 72, voiceOnlyIds }: Props) {
   const router = useRouter();
+  const voiceOnlySet = useMemo(() => new Set(voiceOnlyIds || []), [voiceOnlyIds]);
   const [selectedCountries, setSelectedCountries] = useState<Set<string>>(new Set());
   const [filterLevel, setFilterLevel] = useState("all");
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
@@ -230,6 +233,7 @@ export default function PacientesClient({ patients, activeSessionMap, lockMap, m
                 activeConversationId={activeSessionMap[patient.id]}
                 country={patient.country?.[0] || null}
                 hasVoice={!!patient.voice_id}
+                comingSoon={voiceOnlySet.has(patient.id)}
                 enabled={lock ? lock.enabled : true}
                 lockReason={lock?.reason ?? null}
                 unlocksAt={lock?.unlocksAt ?? null}

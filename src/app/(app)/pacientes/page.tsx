@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import PacientesClient, { type PatientLockInfo } from "./PacientesClient";
 import { getCertificationPolicy, getStudentLastSessionEnd, computeLockState } from "@/lib/certification";
+import { getAuthorizedVoicePilotPatientIds } from "@/lib/voice-pilot-auth";
 
 export default async function PacientesPage() {
   const supabase = await createClient();
@@ -46,6 +47,7 @@ export default async function PacientesPage() {
             .from("ai_patients")
             .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
             .eq("is_active", true)
+            .neq("interaction_mode", "voice_only")
             .contains("country", [studentCountry])
         : Promise.resolve({ data: [] as typeof patients }),
       admin
@@ -63,6 +65,7 @@ export default async function PacientesPage() {
         .from("ai_patients")
         .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
         .eq("is_active", true)
+        .neq("interaction_mode", "voice_only")
         .in("id", assignedIds);
 
       // Merge and deduplicate
@@ -80,7 +83,8 @@ export default async function PacientesPage() {
     const { data } = await admin
       .from("ai_patients")
       .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .neq("interaction_mode", "voice_only");
     patients = data || [];
   }
 
@@ -126,6 +130,7 @@ export default async function PacientesPage() {
         .from("ai_patients")
         .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
         .eq("is_active", true)
+        .neq("interaction_mode", "voice_only")
         .in("id", missingIds);
       patients = [...patients, ...(extra || [])];
     }
@@ -161,6 +166,28 @@ export default async function PacientesPage() {
     }
   }
 
+  // Piloto de voz (AU-05/AC-01/02/03): unión explícita, no un cambio al
+  // array de países — un paciente `visibility='private_pilot'` solo entra a
+  // la lista si voice_pilot_access autoriza al usuario actual, sin importar
+  // establecimiento/país/asignación (A-02/A-06). La tarjeta lo muestra pero
+  // sin acción (P-03: la pantalla de voz todavía no existe, Etapa 2/3).
+  const authorizedVoicePatientIds = await getAuthorizedVoicePilotPatientIds(user.id);
+  const voiceOnlyIds = new Set<string>();
+  if (authorizedVoicePatientIds.length > 0) {
+    const { data: voicePatients } = await admin
+      .from("ai_patients")
+      .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
+      .eq("is_active", true)
+      .eq("interaction_mode", "voice_only")
+      .in("id", authorizedVoicePatientIds);
+    for (const vp of voicePatients || []) {
+      if (!patients.some((p) => p.id === vp.id)) {
+        patients = [...patients, vp];
+        voiceOnlyIds.add(vp.id);
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <header className="px-4 sm:px-8 py-4 sm:py-5">
@@ -176,6 +203,7 @@ export default async function PacientesPage() {
           activeSessionMap={activeSessionMap}
           lockMap={lockMap}
           minHoursBetweenSessions={minHoursBetweenSessions}
+          voiceOnlyIds={Array.from(voiceOnlyIds)}
         />
       </div>
     </div>

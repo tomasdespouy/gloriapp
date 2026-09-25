@@ -418,6 +418,8 @@ export async function buildWeeklyReportData(
         .from("conversations")
         .select("id, student_id, status, created_at, active_seconds, started_at, ended_at, paste_count, unprofessional_count")
         .in("student_id", ids)
+        // Piloto de voz (A-05/AC-20): fuera de reportes institucionales.
+        .eq("modality", "text")
     : { data: [] };
   const convs = (convsRaw || []) as Conv[];
   const convIds = convs.map((c) => c.id);

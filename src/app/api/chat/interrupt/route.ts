@@ -28,11 +28,17 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   const { data: patient } = await admin
     .from("ai_patients")
-    .select(`name, ${PATIENT_PROMPT_COLUMNS}`)
+    .select(`name, interaction_mode, ${PATIENT_PROMPT_COLUMNS}`)
     .eq("id", patientId)
     .single();
 
   if (!patient) return NextResponse.json({ error: "Paciente no encontrado" }, { status: 404 });
+
+  // Piloto de voz (AU-03/AC-06): sin interrupciones de texto en la
+  // variante voice_only — las interrupciones ahí las maneja el relé de voz.
+  if (patient.interaction_mode === "voice_only") {
+    return NextResponse.json({ error: "Paciente no encontrado" }, { status: 404 });
+  }
 
   // Get last few messages for context
   const { data: recentMsgs } = await supabase

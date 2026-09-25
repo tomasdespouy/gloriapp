@@ -21,6 +21,7 @@ import { getPacingProfile, thinkingDelayFor, buildIntroductionRule, buildSelfInt
 import { getDifficultyBehavior, scaleSilenceThresholds } from "@/lib/difficulty-behavior";
 import { polishAndLog } from "@/lib/text-polish";
 import { getCertificationPolicy, getStudentLastSessionEnd, computeLockState } from "@/lib/certification";
+import { isVoiceOnlyPatient } from "@/lib/voice-pilot-auth";
 
 const chatRequestSchema = z.object({
   patientId: z.string().uuid(),
@@ -71,6 +72,14 @@ export async function POST(request: NextRequest) {
   // se apilen en los turnos con keyword).
   const turnStart = Date.now();
   let conversationId = body.conversationId;
+
+  // Piloto de voz (AU-03/AC-06): una variante voice_only nunca pasa por acá
+  // — el chequeo va ANTES de la caché del prompt (una caché por paciente no
+  // constituye autorización). Rechazo silencioso con 404, no 403: esta
+  // ruta no debe confirmar la existencia de una variante privada.
+  if (await isVoiceOnlyPatient(patientId)) {
+    return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+  }
 
   // 3. Fetch patient (cached 10 min — prompts rarely change)
   // Use admin client to bypass RLS (students can't read ai_patients directly)

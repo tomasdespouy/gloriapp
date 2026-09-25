@@ -33,6 +33,14 @@ interface PatientCardProps {
   /** Se muestra en vez del botón principal cuando el cupo YA llegó (para reprogramar). */
   canReschedule?: boolean;
   onScheduleClick?: () => void;
+  /**
+   * Piloto de voz (docs/specs/paciente-voz-latam): variante autorizada pero
+   * sin pantalla de conversación todavía (Etapa 2/3). Gris, sin acción,
+   * prioridad sobre cualquier otro estado (candado de certificación, sesión
+   * activa, etc.) — no confundir con `enabled=false`, que es "no te toca
+   * verlo"; acá SÍ le toca verlo, solo que aún no se puede usar.
+   */
+  comingSoon?: boolean;
 }
 
 const countryFlagSrc: Record<string, string> = {
@@ -74,8 +82,8 @@ const tagEmojis: Record<string, string> = {
   social: "👥",
 };
 
-export default function PatientCard({ id, name, age, occupation, quote, difficultyLevel, tags, activeConversationId, country, hasVoice, showDifficulty = false, enabled = true, lockReason = null, unlocksAt = null, canReschedule = false, onScheduleClick }: PatientCardProps) {
-  const grayed = !enabled;
+export default function PatientCard({ id, name, age, occupation, quote, difficultyLevel, tags, activeConversationId, country, hasVoice, showDifficulty = false, enabled = true, lockReason = null, unlocksAt = null, canReschedule = false, onScheduleClick, comingSoon = false }: PatientCardProps) {
+  const grayed = comingSoon || !enabled;
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -175,7 +183,11 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
         <p className="text-sm text-gray-500 mb-1">{age} años &middot; {occupation}</p>
 
         {/* Action */}
-        {!enabled ? (
+        {comingSoon ? (
+          <p className="text-xs text-gray-400 text-center leading-snug">
+            Conversación por voz — disponible próximamente.
+          </p>
+        ) : !enabled ? (
           <p className="text-xs text-gray-400 text-center leading-snug">
             No habilitado para este programa todavía.
           </p>
