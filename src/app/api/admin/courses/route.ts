@@ -27,7 +27,13 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  let query = admin.from("courses").select("id, name, code, establishment_id, is_active").order("name");
+  let query = admin.from("courses").select(`
+    id, name, code, establishment_id, is_active, min_session_minutes,
+    is_certification_program, certification_feedback_mode, certification_block_paste,
+    certification_watch_tab_switch, certification_email_notifications,
+    certification_min_hours_between_sessions, max_session_minutes, max_session_messages,
+    distraction_action, distraction_cut_threshold
+  `).order("name");
   if (establishmentId) query = query.eq("establishment_id", establishmentId);
 
   const { data } = await query;
@@ -89,7 +95,13 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  const { id, min_session_minutes, name } = await request.json();
+  const {
+    id, min_session_minutes, name,
+    is_certification_program, certification_feedback_mode,
+    certification_block_paste, certification_watch_tab_switch, certification_email_notifications,
+    certification_min_hours_between_sessions, max_session_minutes, max_session_messages,
+    distraction_action, distraction_cut_threshold,
+  } = await request.json();
   if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
 
   // Cada campo se actualiza solo si vino en el body — un PATCH que solo manda
@@ -113,7 +125,64 @@ export async function PATCH(request: Request) {
     if (!nombre) return NextResponse.json({ error: "El nombre no puede estar vacío" }, { status: 400 });
   }
 
-  if (minutos === undefined && nombre === undefined) {
+  // Programa de certificación: mismo patrón (null/"" apaga el campo cuando
+  // aplica, cualquier otra cosa se valida como entero sensato).
+  const certUpdates: Record<string, unknown> = {};
+  if (is_certification_program !== undefined) {
+    certUpdates.is_certification_program = !!is_certification_program;
+  }
+  if (certification_feedback_mode !== undefined) {
+    if (!["auto", "docente"].includes(certification_feedback_mode)) {
+      return NextResponse.json({ error: "certification_feedback_mode debe ser 'auto' o 'docente'" }, { status: 400 });
+    }
+    certUpdates.certification_feedback_mode = certification_feedback_mode;
+  }
+  if (certification_block_paste !== undefined) certUpdates.certification_block_paste = !!certification_block_paste;
+  if (certification_watch_tab_switch !== undefined) certUpdates.certification_watch_tab_switch = !!certification_watch_tab_switch;
+  if (certification_email_notifications !== undefined) certUpdates.certification_email_notifications = !!certification_email_notifications;
+
+  if (certification_min_hours_between_sessions !== undefined) {
+    const horas = Number(certification_min_hours_between_sessions);
+    if (!Number.isInteger(horas) || horas < 1) {
+      return NextResponse.json({ error: "Las horas mínimas entre sesiones deben ser un entero positivo" }, { status: 400 });
+    }
+    certUpdates.certification_min_hours_between_sessions = horas;
+  }
+  if (max_session_minutes !== undefined) {
+    let m: number | null = null;
+    if (max_session_minutes !== null && max_session_minutes !== "") {
+      m = Number(max_session_minutes);
+      if (!Number.isInteger(m) || m < 1 || m > 240) {
+        return NextResponse.json({ error: "El límite de minutos debe ser un entero entre 1 y 240" }, { status: 400 });
+      }
+    }
+    certUpdates.max_session_minutes = m;
+  }
+  if (max_session_messages !== undefined) {
+    let m: number | null = null;
+    if (max_session_messages !== null && max_session_messages !== "") {
+      m = Number(max_session_messages);
+      if (!Number.isInteger(m) || m < 1 || m > 200) {
+        return NextResponse.json({ error: "El límite de mensajes debe ser un entero entre 1 y 200" }, { status: 400 });
+      }
+    }
+    certUpdates.max_session_messages = m;
+  }
+  if (distraction_action !== undefined) {
+    if (!["cut", "alert_only"].includes(distraction_action)) {
+      return NextResponse.json({ error: "distraction_action debe ser 'cut' o 'alert_only'" }, { status: 400 });
+    }
+    certUpdates.distraction_action = distraction_action;
+  }
+  if (distraction_cut_threshold !== undefined) {
+    const umbral = Number(distraction_cut_threshold);
+    if (!Number.isInteger(umbral) || umbral < 1) {
+      return NextResponse.json({ error: "El umbral de distracción debe ser un entero positivo" }, { status: 400 });
+    }
+    certUpdates.distraction_cut_threshold = umbral;
+  }
+
+  if (minutos === undefined && nombre === undefined && Object.keys(certUpdates).length === 0) {
     return NextResponse.json({ error: "Nada para actualizar" }, { status: 400 });
   }
 
@@ -133,7 +202,7 @@ export async function PATCH(request: Request) {
     if (!alcanza) return NextResponse.json({ error: "Asignatura fuera de su alcance" }, { status: 403 });
   }
 
-  const updates: Record<string, unknown> = {};
+  const updates: Record<string, unknown> = { ...certUpdates };
   if (minutos !== undefined) updates.min_session_minutes = minutos;
   if (nombre !== undefined) updates.name = nombre;
 

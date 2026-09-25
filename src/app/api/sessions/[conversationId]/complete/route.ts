@@ -17,6 +17,7 @@ import {
 import { canViewStudent } from "@/lib/section-scope";
 import { logEmail } from "@/lib/email-log";
 import { generateSessionSummary } from "@/lib/session-evaluation";
+import { getCertificationPolicy, notifyAutoApprovedFeedback } from "@/lib/certification";
 
 export async function POST(
   request: NextRequest,
@@ -58,6 +59,16 @@ export async function POST(
     .update({ status: "completed", ended_at: new Date().toISOString() })
     .eq("id", conversationId)
     .eq("student_id", user.id);
+
+  // Programa de certificación: si este paciente tenía un cupo agendado, se
+  // marca cumplido. Best-effort — no existe en la mayoría de las cuentas.
+  await supabase
+    .from("patient_schedules")
+    .update({ status: "completada", conversation_id: conversationId })
+    .eq("student_id", user.id)
+    .eq("ai_patient_id", conversation.ai_patient_id)
+    .eq("status", "pendiente")
+    .then(undefined, () => {});
 
   // Save reflection (if provided — v2 fields or legacy)
   const hasReflection = alliance_framing || rupture_moment || nonverbal_cues ||
@@ -160,14 +171,24 @@ export async function POST(
 
   const overallV2 = evaluation.overall_score_v2;
 
+  // certification_feedback_mode = 'auto' libera el feedback directo al
+  // alumno, sin pasar por revisión docente (default 'docente' = igual que hoy).
+  const policy = await getCertificationPolicy(user.id);
+  const feedbackStatus = policy.feedbackMode === "auto" ? "approved" : "pending";
+
   await admin.from("session_competencies").upsert(
     buildCompetencyUpsert(evaluation, {
       conversationId,
       studentId: user.id,
       model: activeModelLabel(),
+      feedbackStatus,
     }),
     { onConflict: "conversation_id" },
   );
+
+  if (feedbackStatus === "approved") {
+    notifyAutoApprovedFeedback(user.id, conversation.ai_patient_id, conversationId).catch(() => {});
+  }
 
   // Calculate XP (V2 scale 0-4)
   const xpEarned = calculateSessionXp(overallV2);
@@ -412,14 +433,22 @@ async function evaluateAndPersist(ctx: {
 
   const overallV2 = evaluation.overall_score_v2;
 
+  const policy = await getCertificationPolicy(userId);
+  const feedbackStatus = policy.feedbackMode === "auto" ? "approved" : "pending";
+
   await admin.from("session_competencies").upsert(
     buildCompetencyUpsert(evaluation, {
       conversationId,
       studentId: userId,
       model: activeModelLabel(),
+      feedbackStatus,
     }),
     { onConflict: "conversation_id" },
   );
+
+  if (feedbackStatus === "approved") {
+    notifyAutoApprovedFeedback(userId, aiPatientId, conversationId).catch(() => {});
+  }
 
   const xpEarned = calculateSessionXp(overallV2);
 

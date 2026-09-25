@@ -7,13 +7,26 @@ import { toast } from "sonner";
 import {
   Settings, ShieldCheck, BookOpen, GraduationCap, Users,
   Plus, Trash2, ChevronDown, ChevronRight, UserPlus, X,
-  UserRound, Check, Globe, Star, Puzzle, Pencil,
+  UserRound, Check, Globe, Star, Puzzle, Pencil, CalendarClock,
 } from "lucide-react";
 import { MODULE_DEFINITIONS } from "@/lib/modules";
 import EstablishmentForm from "../EstablishmentForm";
 
 type Profile = { id: string; full_name: string | null; email: string; role?: string; course_id?: string | null; section_id?: string | null };
-type Course = { id: string; name: string; code: string | null; establishment_id: string; is_active: boolean; min_session_minutes?: number | null };
+type Course = {
+  id: string; name: string; code: string | null; establishment_id: string; is_active: boolean;
+  min_session_minutes?: number | null;
+  is_certification_program?: boolean;
+  certification_feedback_mode?: "auto" | "docente";
+  certification_block_paste?: boolean;
+  certification_watch_tab_switch?: boolean;
+  certification_email_notifications?: boolean;
+  certification_min_hours_between_sessions?: number;
+  max_session_minutes?: number | null;
+  max_session_messages?: number | null;
+  distraction_action?: "cut" | "alert_only";
+  distraction_cut_threshold?: number;
+};
 type Section = { id: string; name: string; course_id: string; is_active: boolean };
 type Patient = { id: string; name: string; age: number | null; occupation: string | null; difficulty_level: string | null; country: string[] | null; is_active: boolean; tags: string[] | null; country_origin: string | null; country_residence: string | null };
 
@@ -367,6 +380,34 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
   const valorMinutos = (c: Course) =>
     minutos[c.id] ?? (c.min_session_minutes != null ? String(c.min_session_minutes) : "");
 
+  // Programa de certificación — drafts locales para los campos numéricos
+  // (se guardan al salir del campo, igual que valorMinutos/guardarMinutos).
+  const [certHoras, setCertHoras] = useState<Record<string, string>>({});
+  const [certMaxMin, setCertMaxMin] = useState<Record<string, string>>({});
+  const [certMaxMsg, setCertMaxMsg] = useState<Record<string, string>>({});
+  const [certUmbral, setCertUmbral] = useState<Record<string, string>>({});
+  const [guardandoCert, setGuardandoCert] = useState<string | null>(null);
+
+  const guardarCert = async (courseId: string, patch: Record<string, unknown>) => {
+    setGuardandoCert(courseId);
+    try {
+      const res = await fetch("/api/admin/courses", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: courseId, ...patch }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        throw new Error(d?.error || "No se pudo guardar");
+      }
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo guardar");
+    } finally {
+      setGuardandoCert(null);
+    }
+  };
+
   const guardarMinutos = async (courseId: string, valor: string | null) => {
     setGuardando(courseId);
     setGuardado(null);
@@ -605,6 +646,179 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
                     El alumno ve un aviso al finalizar antes de ese tiempo y puede continuar o
                     finalizar igual. Nunca lo bloquea.
                   </p>
+                </div>
+
+                {/* Programa de certificación: agenda 1:1 con candado + toggles.
+                    Vive en la asignatura, igual que la expectativa de duración. */}
+                <div className="bg-white rounded-lg px-3 py-2.5 space-y-2.5">
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!course.is_certification_program}
+                      onChange={(e) => guardarCert(course.id, { is_certification_program: e.target.checked })}
+                      className="cursor-pointer"
+                    />
+                    <CalendarClock size={14} className="text-sidebar" />
+                    Programa de certificación (agenda 1:1, pacientes bloqueados hasta su cupo)
+                    {guardandoCert === course.id && <span className="text-[11px] text-gray-400">guardando&hellip;</span>}
+                  </label>
+
+                  {course.is_certification_program && (
+                    <div className="pl-6 space-y-2.5 border-l-2 border-sidebar/10">
+                      <label className="flex items-center gap-2 text-xs text-gray-600">
+                        Feedback:
+                        <select
+                          value={course.certification_feedback_mode || "docente"}
+                          onChange={(e) => guardarCert(course.id, { certification_feedback_mode: e.target.value })}
+                          className="border border-gray-200 rounded px-2 py-1 text-xs cursor-pointer"
+                        >
+                          <option value="docente">Revisado por docente (default)</option>
+                          <option value="auto">Automático, directo al alumno</option>
+                        </select>
+                      </label>
+
+                      <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!course.certification_block_paste}
+                          onChange={(e) => guardarCert(course.id, { certification_block_paste: e.target.checked })}
+                          className="cursor-pointer"
+                        />
+                        Bloquear pegar texto (además de registrarlo)
+                      </label>
+
+                      <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!course.certification_watch_tab_switch}
+                          onChange={(e) => guardarCert(course.id, { certification_watch_tab_switch: e.target.checked })}
+                          className="cursor-pointer"
+                        />
+                        Vigilar cambio de pestaña en todos los niveles (no solo avanzado)
+                      </label>
+
+                      <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!course.certification_email_notifications}
+                          onChange={(e) => guardarCert(course.id, { certification_email_notifications: e.target.checked })}
+                          className="cursor-pointer"
+                        />
+                        Avisar por correo (próxima sesión agendada, feedback disponible)
+                      </label>
+
+                      <label className="flex items-center gap-2 text-xs text-gray-600">
+                        Mínimo entre sesiones:
+                        <input
+                          type="number"
+                          min={1}
+                          value={certHoras[course.id] ?? String(course.certification_min_hours_between_sessions ?? 72)}
+                          onChange={(e) => setCertHoras((p) => ({ ...p, [course.id]: e.target.value }))}
+                          onBlur={(e) => {
+                            const v = e.target.value.trim();
+                            if (v && Number(v) !== (course.certification_min_hours_between_sessions ?? 72)) {
+                              guardarCert(course.id, { certification_min_hours_between_sessions: v });
+                            }
+                          }}
+                          className="w-16 border border-gray-200 rounded px-2 py-1 text-xs"
+                        />
+                        horas
+                      </label>
+
+                      <label className="flex items-center gap-2 text-xs text-gray-600">
+                        <input
+                          type="checkbox"
+                          checked={certMaxMin[course.id] !== undefined ? certMaxMin[course.id] !== "" : course.max_session_minutes != null}
+                          onChange={(e) => {
+                            const v = e.target.checked ? "30" : "";
+                            setCertMaxMin((p) => ({ ...p, [course.id]: v }));
+                            guardarCert(course.id, { max_session_minutes: e.target.checked ? v : null });
+                          }}
+                          className="cursor-pointer"
+                        />
+                        Avisar (recomendar cerrar) tras
+                        <input
+                          type="number"
+                          min={1}
+                          max={240}
+                          disabled={(certMaxMin[course.id] ?? (course.max_session_minutes != null ? String(course.max_session_minutes) : "")) === ""}
+                          value={certMaxMin[course.id] ?? (course.max_session_minutes != null ? String(course.max_session_minutes) : "")}
+                          onChange={(e) => setCertMaxMin((p) => ({ ...p, [course.id]: e.target.value }))}
+                          onBlur={(e) => {
+                            const v = e.target.value.trim();
+                            if (v && Number(v) !== course.max_session_minutes) guardarCert(course.id, { max_session_minutes: v });
+                          }}
+                          className="w-14 border border-gray-200 rounded px-2 py-1 text-xs disabled:bg-gray-50 disabled:text-gray-300"
+                        />
+                        minutos
+                      </label>
+
+                      <label className="flex items-center gap-2 text-xs text-gray-600">
+                        <input
+                          type="checkbox"
+                          checked={certMaxMsg[course.id] !== undefined ? certMaxMsg[course.id] !== "" : course.max_session_messages != null}
+                          onChange={(e) => {
+                            const v = e.target.checked ? "40" : "";
+                            setCertMaxMsg((p) => ({ ...p, [course.id]: v }));
+                            guardarCert(course.id, { max_session_messages: e.target.checked ? v : null });
+                          }}
+                          className="cursor-pointer"
+                        />
+                        Avisar tras
+                        <input
+                          type="number"
+                          min={1}
+                          max={200}
+                          disabled={(certMaxMsg[course.id] ?? (course.max_session_messages != null ? String(course.max_session_messages) : "")) === ""}
+                          value={certMaxMsg[course.id] ?? (course.max_session_messages != null ? String(course.max_session_messages) : "")}
+                          onChange={(e) => setCertMaxMsg((p) => ({ ...p, [course.id]: e.target.value }))}
+                          onBlur={(e) => {
+                            const v = e.target.value.trim();
+                            if (v && Number(v) !== course.max_session_messages) guardarCert(course.id, { max_session_messages: v });
+                          }}
+                          className="w-14 border border-gray-200 rounded px-2 py-1 text-xs disabled:bg-gray-50 disabled:text-gray-300"
+                        />
+                        mensajes
+                      </label>
+
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                        Pegar texto / cambiar de pestaña:
+                        <select
+                          value={course.distraction_action || "cut"}
+                          onChange={(e) => guardarCert(course.id, { distraction_action: e.target.value })}
+                          className="border border-gray-200 rounded px-2 py-1 text-xs cursor-pointer"
+                        >
+                          <option value="cut">Cerrar la sesión al llegar al umbral</option>
+                          <option value="alert_only">Solo avisar, nunca cerrar</option>
+                        </select>
+                        {course.distraction_action !== "alert_only" && (
+                          <label className="flex items-center gap-1.5">
+                            Umbral:
+                            <input
+                              type="number"
+                              min={1}
+                              value={certUmbral[course.id] ?? String(course.distraction_cut_threshold ?? 2)}
+                              onChange={(e) => setCertUmbral((p) => ({ ...p, [course.id]: e.target.value }))}
+                              onBlur={(e) => {
+                                const v = e.target.value.trim();
+                                if (v && Number(v) !== (course.distraction_cut_threshold ?? 2)) {
+                                  guardarCert(course.id, { distraction_cut_threshold: v });
+                                }
+                              }}
+                              className="w-12 border border-gray-200 rounded px-2 py-1 text-xs"
+                            />
+                            eventos
+                          </label>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-400 leading-relaxed">
+                        Con &quot;Cerrar la sesión&quot; se reproduce el comportamiento actual de toda la
+                        plataforma (umbral 2 = 1er evento avisa, 2do cierra). &quot;Solo avisar&quot; nunca
+                        cierra la sesión, y el docente ve una alerta al revisarla si el alumno pegó
+                        texto Y cambió de pestaña en la misma sesión.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {secs.map((s) => {

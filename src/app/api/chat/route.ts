@@ -20,6 +20,7 @@ import { buildEnrichedPrompt } from "@/lib/build-system-prompt";
 import { getPacingProfile, thinkingDelayFor, buildIntroductionRule, buildSelfIntroductionRule, buildNameEscalation, buildClosingAppointmentRule, extractStudentName, hasStudentIntroducedName } from "@/lib/conversation-pacing";
 import { getDifficultyBehavior, scaleSilenceThresholds } from "@/lib/difficulty-behavior";
 import { polishAndLog } from "@/lib/text-polish";
+import { getCertificationPolicy, getStudentLastSessionEnd, computeLockState } from "@/lib/certification";
 
 const chatRequestSchema = z.object({
   patientId: z.string().uuid(),
@@ -186,6 +187,35 @@ Reglas de oro:
       }
       await supabase.from("conversations").update(updates).eq("id", conversationId);
     } else {
+      // Gate real de programa de certificación: una conversación NUEVA (no una
+      // que ya existía y se retoma) solo puede crearse si el cupo agendado ya
+      // llegó y pasaron las horas mínimas desde el fin de la última sesión del
+      // alumno (cualquier paciente). El candado de /pacientes es solo visual;
+      // este es el que de verdad no se puede saltar pegando la URL.
+      const policy = await getCertificationPolicy(user.id);
+      if (policy.isCertificationProgram) {
+        const [{ data: schedule }, lastSessionEndedAt] = await Promise.all([
+          supabase
+            .from("patient_schedules")
+            .select("scheduled_at, status")
+            .eq("student_id", user.id)
+            .eq("ai_patient_id", patientId)
+            .maybeSingle(),
+          getStudentLastSessionEnd(user.id),
+        ]);
+        const lock = computeLockState({
+          schedule: schedule ?? null,
+          lastSessionEndedAt,
+          minHours: policy.minHoursBetweenSessions,
+        });
+        if (lock.locked) {
+          return NextResponse.json(
+            { error: "patient_locked", reason: lock.reason, unlocksAt: lock.unlocksAt },
+            { status: 403 },
+          );
+        }
+      }
+
       const { count } = await supabase
         .from("conversations")
         .select("id", { count: "exact", head: true })

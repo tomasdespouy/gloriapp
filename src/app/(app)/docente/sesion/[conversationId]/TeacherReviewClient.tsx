@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   ArrowLeft, Brain, GraduationCap, Send, CheckCircle, Save,
   MessageSquare, Clock, Sparkles, Loader2,
-  Search, ChevronUp, ChevronDown, ChevronRight, RefreshCw, X,
+  Search, ChevronUp, ChevronDown, ChevronRight, RefreshCw, X, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getPatientImageUrl } from "@/lib/patient-assets";
@@ -70,6 +70,8 @@ interface Props {
   feedbackStatus: "pending" | "approved" | "evaluated";
   summary?: string | null;
   messageCount?: number;
+  /** Pegó texto largo Y cambió de pestaña en la misma sesión (ver conversations.paste_count/tab_switch_count). */
+  mixedDistraction?: boolean;
 }
 
 const COMP_V2_LABELS: { key: string; label: string; domain: string }[] = [
@@ -130,6 +132,7 @@ export default function TeacherReviewClient({
   feedbackStatus,
   summary,
   messageCount,
+  mixedDistraction = false,
 }: Props) {
   const [comment, setComment] = useState(feedback?.teacher_comment || "");
   const isEvaluated = feedbackStatus === "evaluated";
@@ -632,6 +635,14 @@ export default function TeacherReviewClient({
               <span className="text-[11px] text-gray-400 flex items-center gap-1 flex-shrink-0">
                 <MessageSquare size={11} /> {messageCount || chatMessages.length} mensajes
               </span>
+              {mixedDistraction && (
+                <span
+                  className="text-[10px] font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0"
+                  title="El alumno pegó texto de otra parte y también cambió de pestaña durante esta sesión."
+                >
+                  <AlertTriangle size={10} /> Posible distracción mixta
+                </span>
+              )}
             </div>
           </div>
           {!isApproved && (

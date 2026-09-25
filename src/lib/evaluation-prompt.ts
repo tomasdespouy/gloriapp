@@ -356,6 +356,12 @@ export function buildCompetencyUpsert(
     conversationId: string;
     studentId: string;
     model: string;
+    /**
+     * 'pending' (default): pasa por revisión docente, como hoy. 'approved':
+     * se libera directo al alumno sin pasar por el docente — usado por
+     * certification_feedback_mode = 'auto' en programas de certificación.
+     */
+    feedbackStatus?: "pending" | "approved";
   },
 ) {
   const s = evaluation.scores;
@@ -367,7 +373,7 @@ export function buildCompetencyUpsert(
   return {
     conversation_id: ctx.conversationId,
     student_id: ctx.studentId,
-    feedback_status: "pending",
+    feedback_status: ctx.feedbackStatus ?? "pending",
     // V2 (NULL = NA, 0-4 = puntaje)
     setting_terapeutico: s.setting_terapeutico,
     motivo_consulta: s.motivo_consulta,

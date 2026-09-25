@@ -26,6 +26,7 @@ export default async function RevisionesPage() {
     .from("conversations")
     .select(`
       id, student_id, ai_patient_id, session_number, status, created_at,
+      paste_count, tab_switch_count,
       ai_patients(name, tags, difficulty_level),
       session_feedback(teacher_comment, teacher_score),
       session_competencies(overall_score, overall_score_v2, feedback_status, eval_version, approved_at, evaluated_at)

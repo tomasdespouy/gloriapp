@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ChatInterface } from "@/components/ChatInterface";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import { getMinSessionMinutes } from "@/lib/session-expectations";
+import { getCertificationPolicy } from "@/lib/certification";
 
 export default async function ChatPage({
   params,
@@ -32,6 +33,11 @@ export default async function ChatPage({
 
   // Expectativa de duración de la asignatura del alumno. null = sin aviso.
   const minSessionMinutes = userProfile?.id ? await getMinSessionMinutes(userProfile.id) : null;
+
+  // Política del programa de certificación (si la asignatura del alumno es
+  // una). Para el resto de las cuentas, getCertificationPolicy degrada a los
+  // defaults que reproducen el comportamiento actual (sin cambios).
+  const certPolicy = userProfile?.id ? await getCertificationPolicy(userProfile.id) : null;
 
   // Un paciente inactivo es un BORRADOR: está fuera del catálogo mientras se
   // revisa. Pero esta página usa el cliente admin (salta RLS) y sin esta
@@ -95,6 +101,12 @@ export default async function ChatPage({
         userName={userProfile?.fullName || ""}
         nextAppointment={nextAppointment}
         userRole={userProfile?.realRole || null}
+        blockPaste={certPolicy?.blockPaste ?? false}
+        forceWatchTabSwitch={certPolicy?.watchTabSwitch ?? false}
+        distractionAction={certPolicy?.distractionAction ?? "cut"}
+        distractionCutThreshold={certPolicy?.distractionCutThreshold ?? 2}
+        maxSessionMinutes={certPolicy?.maxSessionMinutes ?? null}
+        maxSessionMessages={certPolicy?.maxSessionMessages ?? null}
       />
     </div>
   );

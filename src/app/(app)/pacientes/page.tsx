@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
-import PacientesClient from "./PacientesClient";
+import PacientesClient, { type PatientLockInfo } from "./PacientesClient";
+import { getCertificationPolicy, getStudentLastSessionEnd, computeLockState } from "@/lib/certification";
 
 export default async function PacientesPage() {
   const supabase = await createClient();
@@ -98,6 +99,40 @@ export default async function PacientesPage() {
     }
   }
 
+  // Programa de certificación: candado por agenda. Para el resto de las
+  // cuentas (la inmensa mayoría), certPolicy.isCertificationProgram es false
+  // y lockMap queda undefined — PacientesClient se comporta exactamente igual
+  // que antes.
+  let lockMap: Record<string, PatientLockInfo> | undefined;
+  let minHoursBetweenSessions = 72;
+  const certPolicy = await getCertificationPolicy(user.id);
+  if (certPolicy.isCertificationProgram) {
+    minHoursBetweenSessions = certPolicy.minHoursBetweenSessions;
+    const [{ data: schedules }, lastSessionEndedAt] = await Promise.all([
+      admin
+        .from("patient_schedules")
+        .select("ai_patient_id, scheduled_at, status")
+        .eq("student_id", user.id),
+      getStudentLastSessionEnd(user.id),
+    ]);
+    const scheduleByPatient = new Map((schedules || []).map((s) => [s.ai_patient_id, s]));
+    lockMap = {};
+    for (const patient of patients) {
+      const schedule = scheduleByPatient.get(patient.id) ?? null;
+      const lock = computeLockState({
+        schedule: schedule ? { scheduled_at: schedule.scheduled_at, status: schedule.status } : null,
+        lastSessionEndedAt,
+        minHours: certPolicy.minHoursBetweenSessions,
+      });
+      lockMap[patient.id] = {
+        locked: lock.locked,
+        reason: lock.reason,
+        unlocksAt: lock.unlocksAt,
+        scheduledAt: schedule?.scheduled_at ?? null,
+      };
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <header className="px-4 sm:px-8 py-4 sm:py-5">
@@ -111,6 +146,8 @@ export default async function PacientesPage() {
         <PacientesClient
           patients={patients || []}
           activeSessionMap={activeSessionMap}
+          lockMap={lockMap}
+          minHoursBetweenSessions={minHoursBetweenSessions}
         />
       </div>
     </div>

@@ -33,6 +33,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/remind-scheduled-sessions",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/informe-semanal",
       "schedule": "0 10 * * 1"
     },

@@ -35,6 +35,7 @@ export default async function DocenteSesionPage({ params }: Props) {
     .from("conversations")
     .select(`
       id, student_id, ai_patient_id, session_number, status, created_at, ended_at,
+      paste_count, tab_switch_count,
       ai_patients(name, age, occupation, difficulty_level)
     `)
     .eq("id", conversationId)
@@ -124,6 +125,7 @@ export default async function DocenteSesionPage({ params }: Props) {
       feedbackStatus={(competencies?.feedback_status as "pending" | "approved" | "evaluated") || "pending"}
       summary={summaryRow?.summary || null}
       messageCount={messages?.length || 0}
+      mixedDistraction={(conversation.paste_count || 0) >= 1 && (conversation.tab_switch_count || 0) >= 1}
     />
   );
 }

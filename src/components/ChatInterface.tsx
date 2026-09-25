@@ -48,6 +48,13 @@ interface ChatInterfaceProps {
    * asignatura no configuró expectativa y no se avisa nada.
    */
   minSessionMinutes?: number | null;
+  /** Programa de certificación: política de la asignatura del alumno. */
+  blockPaste?: boolean;
+  forceWatchTabSwitch?: boolean;
+  distractionAction?: "cut" | "alert_only";
+  distractionCutThreshold?: number;
+  maxSessionMinutes?: number | null;
+  maxSessionMessages?: number | null;
 }
 
 type Phase = "idle" | "thinking" | "writing";
@@ -79,7 +86,7 @@ type RespectsTypingMode = "full" | "partial" | "from2";
 const SEND_DEBOUNCE_MS = 4000;
 const SEND_INDICATOR_DELAY_MS = 1500;
 
-export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "", nextAppointment = null, userRole = null, minSessionMinutes = null }: ChatInterfaceProps) {
+export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "", nextAppointment = null, userRole = null, minSessionMinutes = null, blockPaste = false, forceWatchTabSwitch = false, distractionAction = "cut", distractionCutThreshold = 2, maxSessionMinutes = null, maxSessionMessages = null }: ChatInterfaceProps) {
   console.log("[ChatInterface] Mount:", { patient: patient.name, patientId: patient.id, conversationId: initialConvId, initialMessagesCount: initialMessages.length, voiceId: patient.voice_id });
   const userInitials = userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -118,6 +125,10 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // leer. Un modal que enumera lo que falta se lee; dos seguidos se cierran.
   const [showAbruptWarning, setShowAbruptWarning] = useState(false);
   const [endWarnShort, setEndWarnShort] = useState(false);
+  // Límite de sesión por costo (programa de certificación): aviso único, no
+  // bloqueante, al cruzar minutos y/o mensajes configurados por la asignatura.
+  const [showSessionCapNotice, setShowSessionCapNotice] = useState(false);
+  const sessionCapShownRef = useRef(false);
   // Ruptura/quiebre: el paciente cerró la sesión (hostilidad o nombre evadido).
   // Guarda la razón para mostrar un aviso centrado, igual que la desconexión.
   const [sessionEndInfo, setSessionEndInfo] = useState<{ reason: string } | null>(null);
@@ -1436,7 +1447,17 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         keepalive: true,
       }).catch(() => {});
     }
-    if (distractionsRef.current === 1) {
+    // 'alert_only' (programa de certificación con distraction_action distinto
+    // al default): nunca cierra la sesión, solo avisa la primera vez y sigue
+    // contando en el servidor para que el docente vea la alerta al revisar.
+    if (distractionAction === "alert_only") {
+      if (distractionsRef.current === 1) setDistractionWarning(true);
+      return;
+    }
+    // 'cut' (default, comportamiento actual de toda la plataforma): al llegar
+    // al umbral configurado (default 2) la sesión se cierra. Con el default
+    // esto reproduce exactamente "1ra vez avisa, 2da vez cierra".
+    if (distractionsRef.current < distractionCutThreshold) {
       setDistractionWarning(true);
     } else {
       setDistractionWarning(false);
@@ -1448,9 +1469,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // El pegado de texto largo se vigila para TODOS los estudiantes reales, en
   // cualquier nivel. El cambio de pestaña, en cambio, solo con pacientes
   // "avanzado" (en principiante/intermedio el alumno puede consultar material
-  // sin que cuente como distracción). Docente/admin/superadmin quedan exentos.
+  // sin que cuente como distracción) — o si la asignatura lo activó a propósito
+  // (certification_watch_tab_switch, programa de certificación). Docente/admin/
+  // superadmin quedan exentos.
   const isStudent = userRole === "student";
-  const watchTabSwitch = isStudent && patient.difficulty_level === "advanced";
+  const watchTabSwitch = isStudent && (patient.difficulty_level === "advanced" || forceWatchTabSwitch);
   const antiDistractionEnabled = isStudent; // al menos el pegado de texto largo
 
   // Aviso de encuadre al comenzar la sesión (se autooculta). Solo cuando la
@@ -1469,7 +1492,12 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     const onVis = () => { if (document.visibilityState === "hidden") registerDistraction("tab_switch"); };
     const onPaste = (e: ClipboardEvent) => {
       const t = e.clipboardData?.getData("text") ?? "";
-      if (t.length > 220) registerDistraction("paste");
+      if (t.length > 220) {
+        registerDistraction("paste");
+        // certification_block_paste: además de contar, bloquea el pegado real
+        // (fricción de UX, no seguridad dura — el alumno igual podría escribirlo).
+        if (blockPaste) e.preventDefault();
+      }
     };
     if (watchTabSwitch) document.addEventListener("visibilitychange", onVis);
     document.addEventListener("paste", onPaste);
@@ -1478,7 +1506,21 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       document.removeEventListener("paste", onPaste);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionStarted, antiDistractionEnabled, watchTabSwitch]);
+  }, [sessionStarted, antiDistractionEnabled, watchTabSwitch, blockPaste]);
+
+  // Límite de sesión por costo (max_session_minutes/max_session_messages de
+  // la asignatura, típicamente un programa de certificación asincrónico).
+  // Nunca bloquea: solo recomienda cerrar, una vez por sesión.
+  useEffect(() => {
+    if (sessionCapShownRef.current) return;
+    if (!maxSessionMinutes && !maxSessionMessages) return;
+    const overMinutes = !!maxSessionMinutes && displaySeconds >= maxSessionMinutes * 60;
+    const overMessages = !!maxSessionMessages && messages.length >= maxSessionMessages;
+    if (overMinutes || overMessages) {
+      sessionCapShownRef.current = true;
+      setShowSessionCapNotice(true);
+    }
+  }, [displaySeconds, messages.length, maxSessionMinutes, maxSessionMessages]);
 
   // Bloqueo de navegación durante la sesión: intercepta clics en enlaces
   // internos (sidebar, etc.) y el botón "atrás", y abre un modal para cerrar
@@ -1563,6 +1605,20 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md bg-white border border-sidebar/30 shadow-lg rounded-lg px-4 py-3 text-sm text-gray-700 flex items-start gap-3">
           <span>En tu última sesión con {patient.name} quedaron en: <strong>{nextAppointment}</strong>. ¿Comenzar igual ahora?</span>
           <button onClick={() => setShowAppointmentNotice(false)} className="text-sidebar hover:underline cursor-pointer shrink-0 font-medium">Comenzar igual</button>
+        </div>
+      )}
+      {showSessionCapNotice && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md bg-white border border-amber-300 shadow-lg rounded-lg px-4 py-3 text-sm text-gray-700 flex items-start gap-3">
+          <span>Esta sesión está por concluir. Te recomendamos cerrarla pronto.</span>
+          <button
+            onClick={() => { setShowSessionCapNotice(false); setShowEndConfirm(true); }}
+            className="text-sidebar hover:underline cursor-pointer shrink-0 font-medium"
+          >
+            Finalizar
+          </button>
+          <button onClick={() => setShowSessionCapNotice(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer shrink-0" aria-label="Cerrar aviso">
+            <X size={14} />
+          </button>
         </div>
       )}
       {showAttentionNotice && (

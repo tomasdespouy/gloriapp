@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
-import PatientCard from "@/components/PatientCard";
+import PatientCard, { type PatientLockReason } from "@/components/PatientCard";
+import PatientScheduleModal from "@/components/PatientScheduleModal";
 
 interface Patient {
   id: string;
@@ -16,8 +18,18 @@ interface Patient {
   voice_id: string | null;
 }
 
+export interface PatientLockInfo {
+  locked: boolean;
+  reason: PatientLockReason | null;
+  unlocksAt: string | null;
+  scheduledAt: string | null;
+}
+
 interface Props {
   patients: Patient[];
+  /** Solo presente para alumnos de un programa de certificación. */
+  lockMap?: Record<string, PatientLockInfo>;
+  minHoursBetweenSessions?: number;
   activeSessionMap: Record<string, string>;
 }
 
@@ -44,11 +56,13 @@ const countryFlagSrc: Record<string, string> = {
   "Venezuela": "/flags/ve.png",
 };
 
-export default function PacientesClient({ patients, activeSessionMap }: Props) {
+export default function PacientesClient({ patients, activeSessionMap, lockMap, minHoursBetweenSessions = 72 }: Props) {
+  const router = useRouter();
   const [selectedCountries, setSelectedCountries] = useState<Set<string>>(new Set());
   const [filterLevel, setFilterLevel] = useState("all");
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [schedulingPatient, setSchedulingPatient] = useState<{ id: string; name: string; scheduledAt: string | null } | null>(null);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -87,12 +101,15 @@ export default function PacientesClient({ patients, activeSessionMap }: Props) {
     }
 
     return [...list].sort((a, b) => {
+      const aLocked = lockMap?.[a.id]?.locked ? 1 : 0;
+      const bLocked = lockMap?.[b.id]?.locked ? 1 : 0;
+      if (aLocked !== bLocked) return aLocked - bLocked;
       const aActive = activeSessionMap[a.id] ? 0 : 1;
       const bActive = activeSessionMap[b.id] ? 0 : 1;
       if (aActive !== bActive) return aActive - bActive;
       return (difficultyOrder[a.difficulty_level] ?? 9) - (difficultyOrder[b.difficulty_level] ?? 9);
     });
-  }, [patients, selectedCountries, filterLevel, activeSessionMap]);
+  }, [patients, selectedCountries, filterLevel, activeSessionMap, lockMap]);
 
   const countryLabel = selectedCountries.size === 0
     ? "Todos los países"
@@ -187,26 +204,49 @@ export default function PacientesClient({ patients, activeSessionMap }: Props) {
       {/* Grid */}
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filtered.map((patient) => (
-            <PatientCard
-              key={patient.id}
-              id={patient.id}
-              name={patient.name}
-              age={patient.age}
-              occupation={patient.occupation}
-              quote={patient.quote}
-              difficultyLevel={patient.difficulty_level}
-              tags={patient.tags || undefined}
-              activeConversationId={activeSessionMap[patient.id]}
-              country={patient.country?.[0] || null}
-              hasVoice={!!patient.voice_id}
-            />
-          ))}
+          {filtered.map((patient) => {
+            const lock = lockMap?.[patient.id];
+            return (
+              <PatientCard
+                key={patient.id}
+                id={patient.id}
+                name={patient.name}
+                age={patient.age}
+                occupation={patient.occupation}
+                quote={patient.quote}
+                difficultyLevel={patient.difficulty_level}
+                tags={patient.tags || undefined}
+                activeConversationId={activeSessionMap[patient.id]}
+                country={patient.country?.[0] || null}
+                hasVoice={!!patient.voice_id}
+                locked={!!lock?.locked}
+                lockReason={lock?.reason ?? null}
+                unlocksAt={lock?.unlocksAt ?? null}
+                canReschedule={!!lockMap && !lock?.locked && !activeSessionMap[patient.id]}
+                onScheduleClick={
+                  lockMap
+                    ? () => setSchedulingPatient({ id: patient.id, name: patient.name, scheduledAt: lock?.scheduledAt ?? null })
+                    : undefined
+                }
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
           <p className="text-sm text-gray-400">No hay pacientes que coincidan con los filtros.</p>
         </div>
+      )}
+
+      {schedulingPatient && (
+        <PatientScheduleModal
+          patientId={schedulingPatient.id}
+          patientName={schedulingPatient.name}
+          currentScheduledAt={schedulingPatient.scheduledAt}
+          minHoursBetweenSessions={minHoursBetweenSessions}
+          onClose={() => setSchedulingPatient(null)}
+          onScheduled={() => router.refresh()}
+        />
       )}
     </>
   );

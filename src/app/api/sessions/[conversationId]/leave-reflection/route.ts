@@ -34,13 +34,28 @@ export async function POST(
 
   // Solo transiciona active/abandoned → completed. Si ya está completed,
   // el filtro de status no matchea y el update es no-op (success vacío).
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("conversations")
     .update({ status: "completed", ended_at: new Date().toISOString() })
     .eq("id", conversationId)
     .eq("student_id", user.id)
-    .in("status", ["active", "abandoned"]);
+    .in("status", ["active", "abandoned"])
+    .select("ai_patient_id")
+    .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Programa de certificación: si este paciente tenía un cupo agendado, se
+  // marca cumplido. Best-effort — no existe en la mayoría de las cuentas.
+  if (updated?.ai_patient_id) {
+    await supabase
+      .from("patient_schedules")
+      .update({ status: "completada", conversation_id: conversationId })
+      .eq("student_id", user.id)
+      .eq("ai_patient_id", updated.ai_patient_id)
+      .eq("status", "pendiente")
+      .then(undefined, () => {});
+  }
+
   return NextResponse.json({ success: true });
 }

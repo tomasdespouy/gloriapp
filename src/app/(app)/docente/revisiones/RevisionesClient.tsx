@@ -19,6 +19,8 @@ interface Session {
   ai_patients: unknown;
   session_feedback: unknown;
   session_competencies: unknown;
+  paste_count?: number | null;
+  tab_switch_count?: number | null;
 }
 
 type FbRow = { teacher_comment: string | null; teacher_score: number | null };
@@ -130,7 +132,8 @@ export default function RevisionesClient({ sessions, studentMap }: Props) {
       const score = getScore(comp);
       const risk = hasRisk(patient);
       const studentName = studentMap[s.student_id] || "Alumno";
-      return { session: s, fb, comp, patient, status, score, risk, studentName };
+      const mixedDistraction = (s.paste_count || 0) >= 1 && (s.tab_switch_count || 0) >= 1;
+      return { session: s, fb, comp, patient, status, score, risk, studentName, mixedDistraction };
     });
   }, [sessions, studentMap]);
 
@@ -269,7 +272,7 @@ export default function RevisionesClient({ sessions, studentMap }: Props) {
       ) : (
         <div className="space-y-2">
           {filtered.map(
-            ({ session, comp, patient, status, score, risk, studentName }) => {
+            ({ session, comp, patient, status, score, risk, studentName, mixedDistraction }) => {
               const firstName = studentName.split(" ")[0];
               const date = formatDate(session.created_at);
               const scoreLabel =
@@ -328,6 +331,15 @@ export default function RevisionesClient({ sessions, studentMap }: Props) {
                         <span className="text-[10px] text-gray-400">
                           Sesión #{session.session_number}
                         </span>
+                        {mixedDistraction && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-medium text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full"
+                            title="El alumno pegó texto de otra parte y también cambió de pestaña durante esta sesión."
+                          >
+                            <AlertTriangle size={10} />
+                            Distracción mixta
+                          </span>
+                        )}
                       </div>
                     </div>
 

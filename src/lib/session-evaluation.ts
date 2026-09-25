@@ -9,6 +9,7 @@ import {
 } from "@/lib/evaluation-prompt";
 import { canViewStudent } from "@/lib/section-scope";
 import { logEmail } from "@/lib/email-log";
+import { getCertificationPolicy, notifyAutoApprovedFeedback } from "@/lib/certification";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -209,10 +210,19 @@ export async function evaluateConversation(
     return { status: "skipped", error: "already_approved" };
   }
 
+  // certification_feedback_mode = 'auto' libera el feedback directo al alumno,
+  // sin pasar por revisión docente (default 'docente' = comportamiento actual).
+  const policy = await getCertificationPolicy(conv.student_id);
+  const feedbackStatus = policy.feedbackMode === "auto" ? "approved" : "pending";
+
   await admin.from("session_competencies").upsert(
-    buildCompetencyUpsert(evaluation, { conversationId, studentId: conv.student_id, model: activeModelLabel() }),
+    buildCompetencyUpsert(evaluation, { conversationId, studentId: conv.student_id, model: activeModelLabel(), feedbackStatus }),
     { onConflict: "conversation_id" },
   );
+
+  if (feedbackStatus === "approved") {
+    await notifyAutoApprovedFeedback(conv.student_id, conv.ai_patient_id, conversationId).catch(() => {});
+  }
 
   // Resumen para memoria multi-sesión (no crítico si falla).
   await generateSessionSummary(admin, conversationId, conv.student_id, conv.ai_patient_id, transcript).catch(() => {});

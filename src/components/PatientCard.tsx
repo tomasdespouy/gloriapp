@@ -2,8 +2,11 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { MessageSquare, Play, X, Volume2 } from "lucide-react";
+import { MessageSquare, Play, X, Volume2, Lock, CalendarClock } from "lucide-react";
 import { getPatientImageUrl, getPatientVideoUrl } from "@/lib/patient-assets";
+import { formatChileDateTime } from "@/lib/datetime-cl";
+
+export type PatientLockReason = "not_scheduled" | "not_yet_time" | "cooldown";
 
 interface PatientCardProps {
   id: string;
@@ -17,6 +20,13 @@ interface PatientCardProps {
   country?: string | null;
   hasVoice?: boolean;
   showDifficulty?: boolean;
+  /** Programa de certificación: candado por agenda. */
+  locked?: boolean;
+  lockReason?: PatientLockReason | null;
+  unlocksAt?: string | null;
+  /** Se muestra en vez del candado cuando el cupo YA llegó (para reprogramar). */
+  canReschedule?: boolean;
+  onScheduleClick?: () => void;
 }
 
 const countryFlagSrc: Record<string, string> = {
@@ -58,7 +68,7 @@ const tagEmojis: Record<string, string> = {
   social: "👥",
 };
 
-export default function PatientCard({ id, name, age, occupation, quote, difficultyLevel, tags, activeConversationId, country, hasVoice, showDifficulty = false }: PatientCardProps) {
+export default function PatientCard({ id, name, age, occupation, quote, difficultyLevel, tags, activeConversationId, country, hasVoice, showDifficulty = false, locked = false, lockReason = null, unlocksAt = null, canReschedule = false, onScheduleClick }: PatientCardProps) {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -87,7 +97,12 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
 
   return (
     <>
-      <div ref={cardRef} className="bg-white rounded-xl shadow-sm p-4 sm:p-6 flex flex-col items-center relative">
+      <div ref={cardRef} className={`bg-white rounded-xl shadow-sm p-4 sm:p-6 flex flex-col items-center relative ${locked ? "opacity-60" : ""}`}>
+        {locked && (
+          <div className="absolute -top-2 -right-2 z-10 w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center shadow-sm" title="Bloqueado">
+            <Lock size={14} />
+          </div>
+        )}
         {/* Difficulty badge — top left (solo admin/superadmin) */}
         {showDifficulty && (
           <span className={`absolute top-3 left-3 text-[10px] px-2 py-0.5 rounded-full font-medium ${difficulty.color}`}>
@@ -116,7 +131,7 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
         {/* Avatar video — clickable to expand */}
         <button
           onClick={() => setShowVideoModal(true)}
-          className="w-24 h-24 rounded-full overflow-hidden bg-sidebar flex items-center justify-center mb-4 cursor-pointer hover:ring-2 hover:ring-sidebar/30 transition-all"
+          className={`w-24 h-24 rounded-full overflow-hidden bg-sidebar flex items-center justify-center mb-4 cursor-pointer hover:ring-2 hover:ring-sidebar/30 transition-all ${locked ? "grayscale" : ""}`}
         >
           {isVisible ? (
             <video
@@ -153,17 +168,46 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
         <p className="text-sm text-gray-500 mb-1">{age} años &middot; {occupation}</p>
 
         {/* Action */}
-        <Link
-          href={chatHref}
-          className={`flex items-center justify-center gap-2 text-white py-2.5 px-4 rounded-lg text-sm font-medium transition-colors w-full ${
-            hasActiveSession
-              ? "bg-amber-500 hover:bg-amber-600"
-              : "bg-btn-action hover:bg-btn-action-hover"
-          }`}
-        >
-          {hasActiveSession ? <Play size={16} /> : <MessageSquare size={16} />}
-          {hasActiveSession ? "Retomar conversación" : "Iniciar conversación"}
-        </Link>
+        {locked ? (
+          <div className="w-full space-y-1.5">
+            <p className="text-xs text-gray-500 text-center leading-snug">
+              {lockReason === "not_scheduled" && "Agenda esta sesión para desbloquearla."}
+              {lockReason === "not_yet_time" && unlocksAt && `Disponible el ${formatChileDateTime(unlocksAt)}.`}
+              {lockReason === "cooldown" && unlocksAt && `Disponible el ${formatChileDateTime(unlocksAt)} (mínimo entre sesiones).`}
+            </p>
+            {onScheduleClick && lockReason !== "cooldown" && (
+              <button
+                onClick={onScheduleClick}
+                className="flex items-center justify-center gap-2 text-white py-2.5 px-4 rounded-lg text-sm font-medium transition-colors w-full bg-gray-600 hover:bg-gray-700 cursor-pointer"
+              >
+                <CalendarClock size={16} />
+                {lockReason === "not_scheduled" ? "Agendar" : "Reprogramar"}
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="w-full space-y-1.5">
+            <Link
+              href={chatHref}
+              className={`flex items-center justify-center gap-2 text-white py-2.5 px-4 rounded-lg text-sm font-medium transition-colors w-full ${
+                hasActiveSession
+                  ? "bg-amber-500 hover:bg-amber-600"
+                  : "bg-btn-action hover:bg-btn-action-hover"
+              }`}
+            >
+              {hasActiveSession ? <Play size={16} /> : <MessageSquare size={16} />}
+              {hasActiveSession ? "Retomar conversación" : "Iniciar conversación"}
+            </Link>
+            {canReschedule && onScheduleClick && !hasActiveSession && (
+              <button
+                onClick={onScheduleClick}
+                className="w-full text-center text-xs text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                Reprogramar
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Video modal */}
