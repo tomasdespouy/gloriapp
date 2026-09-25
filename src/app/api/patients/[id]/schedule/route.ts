@@ -15,16 +15,20 @@ export const runtime = "nodejs";
  * al iniciar sesión se re-valida en /api/chat (route.ts), no acá — este
  * endpoint valida que la fecha no choque con otros cupos/sesiones al
  * agendar, pero el gate real de "¿puede entrar ahora?" vive en el chat.
+ *
+ * Param se llama `id` (no `patientId`) para no chocar con el hermano ya
+ * existente src/app/api/patients/[id]/ficha — Next.js exige el mismo nombre
+ * de slug dinámico entre rutas hermanas en el mismo nivel.
  */
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ patientId: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { patientId } = await params;
+  const { id: patientId } = await params;
   if (!uuidSchema.safeParse(patientId).success) {
     return NextResponse.json({ error: "ID inválido" }, { status: 400 });
   }
