@@ -107,6 +107,25 @@ export default async function PacientesPage() {
   let minHoursBetweenSessions = 72;
   const certPolicy = await getCertificationPolicy(user.id);
   if (certPolicy.isCertificationProgram) {
+    // Lista explícita por asignatura, no hereda la visibilidad por país del
+    // establecimiento: sin filas en course_patients, no hay pacientes (opt-in
+    // deliberado — ver migración course_patients).
+    const { data: rosterRows } = await admin
+      .from("course_patients")
+      .select("ai_patient_id")
+      .eq("course_id", certPolicy.courseId);
+    const rosterIds = (rosterRows || []).map((r) => r.ai_patient_id);
+    if (rosterIds.length > 0) {
+      const { data: rosterPatients } = await admin
+        .from("ai_patients")
+        .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
+        .eq("is_active", true)
+        .in("id", rosterIds);
+      patients = rosterPatients || [];
+    } else {
+      patients = [];
+    }
+
     minHoursBetweenSessions = certPolicy.minHoursBetweenSessions;
     const [{ data: schedules }, lastSessionEndedAt] = await Promise.all([
       admin

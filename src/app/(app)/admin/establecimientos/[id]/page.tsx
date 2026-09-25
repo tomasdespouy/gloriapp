@@ -51,6 +51,11 @@ export default async function EstablishmentDetailPage({
     admin.from("establishment_modules").select("module_key, is_active").eq("establishment_id", id),
   ]);
 
+  const courseIds = (courses || []).map((c) => c.id as string);
+  const { data: coursePatientRows } = courseIds.length
+    ? await admin.from("course_patients").select("course_id, ai_patient_id").in("course_id", courseIds)
+    : { data: [] as { course_id: string; ai_patient_id: string }[] };
+
   const assignedAdminIds = new Set(assignments?.map((a) => a.admin_id) || []);
   // Scope (asignatura/sección) de cada admin asignado, para mostrarlo/editarlo.
   const scopeByAdmin = new Map<string, { course_id: string | null; section_id: string | null }>();
@@ -91,6 +96,14 @@ export default async function EstablishmentDetailPage({
 
   const assignedPatientIds = new Set((assignedPatientRows || []).map((r) => r.ai_patient_id));
   const estCountry = establishment.country || null;
+
+  // Pacientes habilitados por asignatura (programa de certificación) — ver
+  // comentario de semántica en la migración course_patients.
+  const coursePatientIds: Record<string, string[]> = {};
+  (courses || []).forEach((c) => { coursePatientIds[c.id as string] = []; });
+  (coursePatientRows || []).forEach((r) => {
+    if (coursePatientIds[r.course_id]) coursePatientIds[r.course_id].push(r.ai_patient_id);
+  });
 
   return (
     <div className="min-h-screen">
@@ -133,6 +146,7 @@ export default async function EstablishmentDetailPage({
           isSuperadmin={ctx.isSuperadmin}
           allPatients={allPatients || []}
           assignedPatientIds={Array.from(assignedPatientIds)}
+          coursePatientIds={coursePatientIds}
           estCountry={estCountry}
           modules={(moduleRows || []) as { module_key: string; is_active: boolean }[]}
         />

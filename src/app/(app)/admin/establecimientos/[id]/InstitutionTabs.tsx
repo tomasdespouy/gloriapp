@@ -41,6 +41,8 @@ type Props = {
   isSuperadmin: boolean;
   allPatients: Patient[];
   assignedPatientIds: string[];
+  /** Pacientes habilitados por asignatura (programa de certificación). */
+  coursePatientIds: Record<string, string[]>;
   estCountry: string | null;
   modules: { module_key: string; is_active: boolean }[];
   /** Crear ASIGNATURAS requiere alcance sobre el establecimiento completo. */
@@ -91,7 +93,7 @@ export default function InstitutionTabs(props: Props) {
       {tab === "modules" && <TabModules estId={String(props.establishment.id)} modules={props.modules} isSuperadmin={props.isSuperadmin} />}
       {tab === "patients" && <TabPatients estId={String(props.establishment.id)} allPatients={props.allPatients} assignedPatientIds={props.assignedPatientIds} estCountry={props.estCountry} isSuperadmin={props.isSuperadmin} />}
       {tab === "admins" && <TabAdmins estId={String(props.establishment.id)} assigned={props.assignedAdmins} available={props.availableAdmins} courses={props.courses} courseSections={props.courseSections} />}
-      {tab === "courses" && <TabCourses estId={String(props.establishment.id)} courses={props.courses} courseSections={props.courseSections} isSuperadmin={props.isSuperadmin} canCreateCourse={props.canCreateCourse} sectionEditableCourseIds={props.sectionEditableCourseIds} sectionRenameableIds={props.sectionRenameableIds} />}
+      {tab === "courses" && <TabCourses estId={String(props.establishment.id)} courses={props.courses} courseSections={props.courseSections} isSuperadmin={props.isSuperadmin} canCreateCourse={props.canCreateCourse} sectionEditableCourseIds={props.sectionEditableCourseIds} sectionRenameableIds={props.sectionRenameableIds} allPatients={props.allPatients} coursePatientIds={props.coursePatientIds} />}
       {tab === "instructors" && <TabInstructors estId={String(props.establishment.id)} instructors={props.instructors} courses={props.courses} courseSections={props.courseSections} />}
       {tab === "students" && <TabStudents estId={String(props.establishment.id)} students={props.students} courses={props.courses} courseSections={props.courseSections} />}
     </div>
@@ -350,9 +352,10 @@ function TabAdmins({ estId, assigned, available, courses, courseSections }: { es
 // ════════════════════════════════════════════
 // TAB: Asignaturas + Secciones
 // ════════════════════════════════════════════
-function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCourse, sectionEditableCourseIds, sectionRenameableIds }: {
+function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCourse, sectionEditableCourseIds, sectionRenameableIds, allPatients, coursePatientIds }: {
   estId: string; courses: Course[]; courseSections: Record<string, Section[]>;
   isSuperadmin: boolean; canCreateCourse: boolean; sectionEditableCourseIds: string[]; sectionRenameableIds: string[];
+  allPatients: Patient[]; coursePatientIds: Record<string, string[]>;
 }) {
   const router = useRouter();
   // Todas las asignaturas nacen desplegadas: "Agregar sección" vivía escondido
@@ -405,6 +408,32 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
       toast.error(e instanceof Error ? e.message : "No se pudo guardar");
     } finally {
       setGuardandoCert(null);
+    }
+  };
+
+  // Pacientes habilitados por asignatura — checkbox individual, optimista
+  // (marca/desmarca al toque) con el mismo endpoint add/remove que ya usa
+  // establishment_patients.
+  const [togglingPatient, setTogglingPatient] = useState<string | null>(null);
+  const [patientSearch, setPatientSearch] = useState<Record<string, string>>({});
+
+  const toggleCoursePatient = async (courseId: string, patientId: string, enabled: boolean) => {
+    setTogglingPatient(patientId);
+    try {
+      const res = await fetch(`/api/admin/courses/${courseId}/patients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patient_id: patientId, _action: enabled ? "add" : "remove" }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        throw new Error(d?.error || "No se pudo guardar");
+      }
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo guardar");
+    } finally {
+      setTogglingPatient(null);
     }
   };
 
@@ -665,6 +694,57 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
 
                   {course.is_certification_program && (
                     <div className="pl-6 space-y-2.5 border-l-2 border-sidebar/10">
+                      {/* Pacientes habilitados: lista explícita, no hereda la
+                          visibilidad por país del establecimiento. Vacía =
+                          ningún paciente disponible para el alumno todavía. */}
+                      <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                          Pacientes habilitados ({(coursePatientIds[course.id] || []).length})
+                        </p>
+                        {(coursePatientIds[course.id] || []).length === 0 && (
+                          <p className="text-[11px] text-amber-600 leading-relaxed">
+                            Sin pacientes habilitados, el alumno no ve ninguno en /pacientes.
+                            Marca abajo los que quieras incluir en este programa.
+                          </p>
+                        )}
+                        <input
+                          type="text"
+                          placeholder="Buscar paciente..."
+                          value={patientSearch[course.id] || ""}
+                          onChange={(e) => setPatientSearch((p) => ({ ...p, [course.id]: e.target.value }))}
+                          className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs"
+                        />
+                        <div className="max-h-56 overflow-y-auto space-y-0.5 bg-white rounded border border-gray-100">
+                          {allPatients
+                            .filter((p) => p.is_active)
+                            .filter((p) => {
+                              const q = (patientSearch[course.id] || "").toLowerCase();
+                              return !q || p.name.toLowerCase().includes(q);
+                            })
+                            .map((p) => {
+                              const enabled = (coursePatientIds[course.id] || []).includes(p.id);
+                              return (
+                                <label
+                                  key={p.id}
+                                  className={`flex items-center gap-2 px-2 py-1.5 text-xs cursor-pointer hover:bg-gray-50 ${togglingPatient === p.id ? "opacity-50" : ""}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={enabled}
+                                    disabled={togglingPatient === p.id}
+                                    onChange={(e) => toggleCoursePatient(course.id, p.id, e.target.checked)}
+                                    className="cursor-pointer"
+                                  />
+                                  <span className="text-gray-700">{p.name}</span>
+                                  {p.difficulty_level && (
+                                    <span className="text-[9px] text-gray-400">({p.difficulty_level})</span>
+                                  )}
+                                </label>
+                              );
+                            })}
+                        </div>
+                      </div>
+
                       <label className="flex items-center gap-2 text-xs text-gray-600">
                         Feedback:
                         <select
@@ -675,26 +755,6 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
                           <option value="docente">Revisado por docente (default)</option>
                           <option value="auto">Automático, directo al alumno</option>
                         </select>
-                      </label>
-
-                      <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={!!course.certification_block_paste}
-                          onChange={(e) => guardarCert(course.id, { certification_block_paste: e.target.checked })}
-                          className="cursor-pointer"
-                        />
-                        Bloquear pegar texto (además de registrarlo)
-                      </label>
-
-                      <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={!!course.certification_watch_tab_switch}
-                          onChange={(e) => guardarCert(course.id, { certification_watch_tab_switch: e.target.checked })}
-                          className="cursor-pointer"
-                        />
-                        Vigilar cambio de pestaña en todos los niveles (no solo avanzado)
                       </label>
 
                       <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
@@ -781,42 +841,74 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
                         mensajes
                       </label>
 
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-                        Pegar texto / cambiar de pestaña:
-                        <select
-                          value={course.distraction_action || "cut"}
-                          onChange={(e) => guardarCert(course.id, { distraction_action: e.target.value })}
-                          className="border border-gray-200 rounded px-2 py-1 text-xs cursor-pointer"
-                        >
-                          <option value="cut">Cerrar la sesión al llegar al umbral</option>
-                          <option value="alert_only">Solo avisar, nunca cerrar</option>
-                        </select>
-                        {course.distraction_action !== "alert_only" && (
-                          <label className="flex items-center gap-1.5">
-                            Umbral:
-                            <input
-                              type="number"
-                              min={1}
-                              value={certUmbral[course.id] ?? String(course.distraction_cut_threshold ?? 2)}
-                              onChange={(e) => setCertUmbral((p) => ({ ...p, [course.id]: e.target.value }))}
-                              onBlur={(e) => {
-                                const v = e.target.value.trim();
-                                if (v && Number(v) !== (course.distraction_cut_threshold ?? 2)) {
-                                  guardarCert(course.id, { distraction_cut_threshold: v });
-                                }
-                              }}
-                              className="w-12 border border-gray-200 rounded px-2 py-1 text-xs"
-                            />
-                            eventos
-                          </label>
-                        )}
+                      {/* Un solo bloque: qué se vigila (detección/bloqueo) + qué pasa
+                          cuando se detecta (consecuencia). Antes estaban separados y
+                          parecía la misma opción repetida dos veces. */}
+                      <div className="bg-gray-50 rounded-lg p-3 space-y-2 mt-1">
+                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                          Pegado de texto y cambio de pestaña
+                        </p>
+
+                        <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!course.certification_block_paste}
+                            onChange={(e) => guardarCert(course.id, { certification_block_paste: e.target.checked })}
+                            className="cursor-pointer"
+                          />
+                          Bloquear el pegado de texto (además de contarlo)
+                        </label>
+
+                        <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!course.certification_watch_tab_switch}
+                            onChange={(e) => guardarCert(course.id, { certification_watch_tab_switch: e.target.checked })}
+                            className="cursor-pointer"
+                          />
+                          Vigilar cambio de pestaña en todos los niveles (no solo avanzado)
+                        </label>
+
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600 pt-1 border-t border-gray-200">
+                          Cuando se detecta uno de estos eventos:
+                          <select
+                            value={course.distraction_action || "cut"}
+                            onChange={(e) => guardarCert(course.id, { distraction_action: e.target.value })}
+                            className="border border-gray-200 rounded px-2 py-1 text-xs cursor-pointer"
+                          >
+                            <option value="cut">Cerrar la sesión al llegar al umbral</option>
+                            <option value="alert_only">Solo avisar, nunca cerrar</option>
+                          </select>
+                          {course.distraction_action !== "alert_only" && (
+                            <label className="flex items-center gap-1.5">
+                              Umbral:
+                              <input
+                                type="number"
+                                min={1}
+                                value={certUmbral[course.id] ?? String(course.distraction_cut_threshold ?? 2)}
+                                onChange={(e) => setCertUmbral((p) => ({ ...p, [course.id]: e.target.value }))}
+                                onBlur={(e) => {
+                                  const v = e.target.value.trim();
+                                  if (v && Number(v) !== (course.distraction_cut_threshold ?? 2)) {
+                                    guardarCert(course.id, { distraction_cut_threshold: v });
+                                  }
+                                }}
+                                className="w-12 border border-gray-200 rounded px-2 py-1 text-xs"
+                              />
+                              eventos
+                            </label>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">
+                          Los dos checkboxes definen QUÉ cuenta como evento (y si el pegado además
+                          se bloquea). El selector define QUÉ PASA cuando se acumulan — cuenta
+                          pegado + cambio de pestaña combinados. &quot;Cerrar la sesión&quot; reproduce
+                          el comportamiento actual de toda la plataforma (umbral 2 = 1er evento
+                          avisa, 2do cierra). &quot;Solo avisar&quot; nunca cierra, y el docente ve una
+                          alerta al revisar si el alumno pegó texto Y cambió de pestaña en la
+                          misma sesión.
+                        </p>
                       </div>
-                      <p className="text-[11px] text-gray-400 leading-relaxed">
-                        Con &quot;Cerrar la sesión&quot; se reproduce el comportamiento actual de toda la
-                        plataforma (umbral 2 = 1er evento avisa, 2do cierra). &quot;Solo avisar&quot; nunca
-                        cierra la sesión, y el docente ve una alerta al revisarla si el alumno pegó
-                        texto Y cambió de pestaña en la misma sesión.
-                      </p>
                     </div>
                   )}
                 </div>
