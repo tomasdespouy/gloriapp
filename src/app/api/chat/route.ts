@@ -194,7 +194,14 @@ Reglas de oro:
       // este es el que de verdad no se puede saltar pegando la URL.
       const policy = await getCertificationPolicy(user.id);
       if (policy.isCertificationProgram) {
-        const [{ data: schedule }, lastSessionEndedAt] = await Promise.all([
+        const adminForGate = createAdminClient();
+        const [{ data: rosterRow }, { data: schedule }, lastSessionEndedAt] = await Promise.all([
+          adminForGate
+            .from("course_patients")
+            .select("id")
+            .eq("course_id", policy.courseId)
+            .eq("ai_patient_id", patientId)
+            .maybeSingle(),
           supabase
             .from("patient_schedules")
             .select("scheduled_at, status")
@@ -203,6 +210,9 @@ Reglas de oro:
             .maybeSingle(),
           getStudentLastSessionEnd(user.id),
         ]);
+        if (!rosterRow) {
+          return NextResponse.json({ error: "patient_not_enabled" }, { status: 403 });
+        }
         const lock = computeLockState({
           schedule: schedule ?? null,
           lastSessionEndedAt,

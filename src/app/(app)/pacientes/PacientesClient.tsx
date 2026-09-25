@@ -19,7 +19,9 @@ interface Patient {
 }
 
 export interface PatientLockInfo {
-  locked: boolean;
+  /** ¿El admin habilitó este paciente para el programa (course_patients)? */
+  enabled: boolean;
+  /** Solo tiene sentido cuando enabled=true — null significa listo para usar. */
   reason: PatientLockReason | null;
   unlocksAt: string | null;
   scheduledAt: string | null;
@@ -100,10 +102,19 @@ export default function PacientesClient({ patients, activeSessionMap, lockMap, m
       list = list.filter(p => p.difficulty_level === filterLevel);
     }
 
+    // Prioridad: listos para usar (0) > habilitados pero esperando agenda (1)
+    // > no habilitados para el programa (2, al fondo).
+    const priority = (id: string) => {
+      const lock = lockMap?.[id];
+      if (!lock) return 0;
+      if (!lock.enabled) return 2;
+      return lock.reason ? 1 : 0;
+    };
+
     return [...list].sort((a, b) => {
-      const aLocked = lockMap?.[a.id]?.locked ? 1 : 0;
-      const bLocked = lockMap?.[b.id]?.locked ? 1 : 0;
-      if (aLocked !== bLocked) return aLocked - bLocked;
+      const aPriority = priority(a.id);
+      const bPriority = priority(b.id);
+      if (aPriority !== bPriority) return aPriority - bPriority;
       const aActive = activeSessionMap[a.id] ? 0 : 1;
       const bActive = activeSessionMap[b.id] ? 0 : 1;
       if (aActive !== bActive) return aActive - bActive;
@@ -219,12 +230,12 @@ export default function PacientesClient({ patients, activeSessionMap, lockMap, m
                 activeConversationId={activeSessionMap[patient.id]}
                 country={patient.country?.[0] || null}
                 hasVoice={!!patient.voice_id}
-                locked={!!lock?.locked}
+                enabled={lock ? lock.enabled : true}
                 lockReason={lock?.reason ?? null}
                 unlocksAt={lock?.unlocksAt ?? null}
-                canReschedule={!!lockMap && !lock?.locked && !activeSessionMap[patient.id]}
+                canReschedule={!!lockMap && !!lock?.enabled && !lock?.reason && !activeSessionMap[patient.id]}
                 onScheduleClick={
-                  lockMap
+                  lockMap && lock?.enabled
                     ? () => setSchedulingPatient({ id: patient.id, name: patient.name, scheduledAt: lock?.scheduledAt ?? null })
                     : undefined
                 }

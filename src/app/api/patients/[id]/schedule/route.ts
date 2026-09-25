@@ -43,13 +43,23 @@ export async function POST(
     return NextResponse.json({ error: "not_certification_program" }, { status: 403 });
   }
 
+  const admin = createAdminClient();
+  const { data: rosterRow } = await admin
+    .from("course_patients")
+    .select("id")
+    .eq("course_id", policy.courseId)
+    .eq("ai_patient_id", patientId)
+    .maybeSingle();
+  if (!rosterRow) {
+    return NextResponse.json({ error: "patient_not_enabled" }, { status: 403 });
+  }
+
   const target = new Date(scheduledAt);
   const now = new Date();
   if (target.getTime() <= now.getTime()) {
     return NextResponse.json({ error: "La fecha debe ser futura" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
   const minMs = policy.minHoursBetweenSessions * 60 * 60 * 1000;
 
   // Choques: la fecha elegida debe quedar a ≥ minHours de CUALQUIER otro

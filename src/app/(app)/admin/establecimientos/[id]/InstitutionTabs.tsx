@@ -703,8 +703,9 @@ function TabCourses({ estId, courses, courseSections, isSuperadmin, canCreateCou
                         </p>
                         {(coursePatientIds[course.id] || []).length === 0 && (
                           <p className="text-[11px] text-amber-600 leading-relaxed">
-                            Sin pacientes habilitados, el alumno no ve ninguno en /pacientes.
-                            Marca abajo los que quieras incluir en este programa.
+                            Sin pacientes habilitados: el alumno los ve TODOS en /pacientes, pero
+                            grises y con candado, sin poder hacer nada con ninguno. Marca abajo
+                            los que quieras habilitar para este programa.
                           </p>
                         )}
                         <input

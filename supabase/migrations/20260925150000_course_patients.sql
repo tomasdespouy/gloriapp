@@ -2,12 +2,14 @@
 --
 -- Mismo patrón que establishment_patients (20260320011829), pero a nivel de
 -- asignatura: el admin decide explícitamente qué pacientes forman parte del
--- programa, en vez de heredar la visibilidad amplia por país/establecimiento.
+-- programa.
 --
--- Semántica deliberada: si una asignatura de certificación NO tiene ninguna
--- fila acá, /pacientes no muestra nada para sus alumnos (lista vacía, no un
--- fallback silencioso al catálogo completo) — "habilitados" implica opt-in
--- explícito. Solo aplica cuando courses.is_certification_program = true; el
+-- Semántica: en /pacientes el alumno sigue viendo TODOS los pacientes
+-- visibles por su establecimiento (más los habilitados acá aunque no
+-- matcheen esa visibilidad) — los que NO están en esta tabla se muestran
+-- grises con candado, sin ninguna acción posible; los que SÍ están se ven a
+-- color con el flujo normal de agenda. Sin ninguna fila acá, todos quedan
+-- grises. Solo aplica cuando courses.is_certification_program = true; el
 -- resto de las asignaturas no se ve afectado (nunca consultan esta tabla).
 
 CREATE TABLE public.course_patients (

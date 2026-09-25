@@ -20,11 +20,17 @@ interface PatientCardProps {
   country?: string | null;
   hasVoice?: boolean;
   showDifficulty?: boolean;
-  /** Programa de certificación: candado por agenda. */
-  locked?: boolean;
+  /**
+   * Programa de certificación: ¿el admin habilitó este paciente para el
+   * programa? false = gris + candado, sin ninguna acción posible (no
+   * confundir con lockReason, que es sobre la AGENDA de un paciente ya
+   * habilitado). Default true: el resto de la plataforma no usa esto.
+   */
+  enabled?: boolean;
+  /** Solo aplica cuando enabled=true — nunca gris, cambia el CTA. */
   lockReason?: PatientLockReason | null;
   unlocksAt?: string | null;
-  /** Se muestra en vez del candado cuando el cupo YA llegó (para reprogramar). */
+  /** Se muestra en vez del botón principal cuando el cupo YA llegó (para reprogramar). */
   canReschedule?: boolean;
   onScheduleClick?: () => void;
 }
@@ -68,7 +74,8 @@ const tagEmojis: Record<string, string> = {
   social: "👥",
 };
 
-export default function PatientCard({ id, name, age, occupation, quote, difficultyLevel, tags, activeConversationId, country, hasVoice, showDifficulty = false, locked = false, lockReason = null, unlocksAt = null, canReschedule = false, onScheduleClick }: PatientCardProps) {
+export default function PatientCard({ id, name, age, occupation, quote, difficultyLevel, tags, activeConversationId, country, hasVoice, showDifficulty = false, enabled = true, lockReason = null, unlocksAt = null, canReschedule = false, onScheduleClick }: PatientCardProps) {
+  const grayed = !enabled;
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -97,9 +104,9 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
 
   return (
     <>
-      <div ref={cardRef} className={`bg-white rounded-xl shadow-sm p-4 sm:p-6 flex flex-col items-center relative ${locked ? "opacity-60" : ""}`}>
-        {locked && (
-          <div className="absolute -top-2 -right-2 z-10 w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center shadow-sm" title="Bloqueado">
+      <div ref={cardRef} className={`bg-white rounded-xl shadow-sm p-4 sm:p-6 flex flex-col items-center relative ${grayed ? "opacity-60" : ""}`}>
+        {grayed && (
+          <div className="absolute -top-2 -right-2 z-10 w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center shadow-sm" title="No habilitado">
             <Lock size={14} />
           </div>
         )}
@@ -131,7 +138,7 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
         {/* Avatar video — clickable to expand */}
         <button
           onClick={() => setShowVideoModal(true)}
-          className={`w-24 h-24 rounded-full overflow-hidden bg-sidebar flex items-center justify-center mb-4 cursor-pointer hover:ring-2 hover:ring-sidebar/30 transition-all ${locked ? "grayscale" : ""}`}
+          className={`w-24 h-24 rounded-full overflow-hidden bg-sidebar flex items-center justify-center mb-4 cursor-pointer hover:ring-2 hover:ring-sidebar/30 transition-all ${grayed ? "grayscale" : ""}`}
         >
           {isVisible ? (
             <video
@@ -168,17 +175,21 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
         <p className="text-sm text-gray-500 mb-1">{age} años &middot; {occupation}</p>
 
         {/* Action */}
-        {locked ? (
+        {!enabled ? (
+          <p className="text-xs text-gray-400 text-center leading-snug">
+            No habilitado para este programa todavía.
+          </p>
+        ) : lockReason ? (
           <div className="w-full space-y-1.5">
             <p className="text-xs text-gray-500 text-center leading-snug">
-              {lockReason === "not_scheduled" && "Agenda esta sesión para desbloquearla."}
+              {lockReason === "not_scheduled" && "Agenda esta sesión para empezar."}
               {lockReason === "not_yet_time" && unlocksAt && `Disponible el ${formatChileDateTime(unlocksAt)}.`}
               {lockReason === "cooldown" && unlocksAt && `Disponible el ${formatChileDateTime(unlocksAt)} (mínimo entre sesiones).`}
             </p>
-            {onScheduleClick && lockReason !== "cooldown" && (
+            {onScheduleClick && (
               <button
                 onClick={onScheduleClick}
-                className="flex items-center justify-center gap-2 text-white py-2.5 px-4 rounded-lg text-sm font-medium transition-colors w-full bg-gray-600 hover:bg-gray-700 cursor-pointer"
+                className="flex items-center justify-center gap-2 text-white py-2.5 px-4 rounded-lg text-sm font-medium transition-colors w-full bg-btn-action hover:bg-btn-action-hover cursor-pointer"
               >
                 <CalendarClock size={16} />
                 {lockReason === "not_scheduled" ? "Agendar" : "Reprogramar"}

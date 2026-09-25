@@ -99,31 +99,35 @@ export default async function PacientesPage() {
     }
   }
 
-  // Programa de certificación: candado por agenda. Para el resto de las
-  // cuentas (la inmensa mayoría), certPolicy.isCertificationProgram es false
-  // y lockMap queda undefined — PacientesClient se comporta exactamente igual
-  // que antes.
+  // Programa de certificación. Para el resto de las cuentas (la inmensa
+  // mayoría), certPolicy.isCertificationProgram es false y lockMap queda
+  // undefined — PacientesClient se comporta exactamente igual que antes.
+  //
+  // "Habilitado" (course_patients) y "agendado" (patient_schedules) son dos
+  // cosas distintas: TODOS los pacientes visibles se muestran siempre — los
+  // no habilitados quedan grises con candado, sin ninguna acción posible; los
+  // habilitados se ven a color, con el CTA variando según si ya se agendó,
+  // está esperando su horario, o ya se puede empezar.
   let lockMap: Record<string, PatientLockInfo> | undefined;
   let minHoursBetweenSessions = 72;
   const certPolicy = await getCertificationPolicy(user.id);
   if (certPolicy.isCertificationProgram) {
-    // Lista explícita por asignatura, no hereda la visibilidad por país del
-    // establecimiento: sin filas en course_patients, no hay pacientes (opt-in
-    // deliberado — ver migración course_patients).
     const { data: rosterRows } = await admin
       .from("course_patients")
       .select("ai_patient_id")
       .eq("course_id", certPolicy.courseId);
-    const rosterIds = (rosterRows || []).map((r) => r.ai_patient_id);
-    if (rosterIds.length > 0) {
-      const { data: rosterPatients } = await admin
+    const rosterIds = new Set((rosterRows || []).map((r) => r.ai_patient_id));
+
+    // Un paciente habilitado explícitamente por el admin se ve aunque no
+    // matchee la visibilidad por país del establecimiento (unión, no filtro).
+    const missingIds = Array.from(rosterIds).filter((rid) => !patients.some((p) => p.id === rid));
+    if (missingIds.length > 0) {
+      const { data: extra } = await admin
         .from("ai_patients")
         .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
         .eq("is_active", true)
-        .in("id", rosterIds);
-      patients = rosterPatients || [];
-    } else {
-      patients = [];
+        .in("id", missingIds);
+      patients = [...patients, ...(extra || [])];
     }
 
     minHoursBetweenSessions = certPolicy.minHoursBetweenSessions;
@@ -137,6 +141,11 @@ export default async function PacientesPage() {
     const scheduleByPatient = new Map((schedules || []).map((s) => [s.ai_patient_id, s]));
     lockMap = {};
     for (const patient of patients) {
+      const enabled = rosterIds.has(patient.id);
+      if (!enabled) {
+        lockMap[patient.id] = { enabled: false, reason: null, unlocksAt: null, scheduledAt: null };
+        continue;
+      }
       const schedule = scheduleByPatient.get(patient.id) ?? null;
       const lock = computeLockState({
         schedule: schedule ? { scheduled_at: schedule.scheduled_at, status: schedule.status } : null,
@@ -144,8 +153,8 @@ export default async function PacientesPage() {
         minHours: certPolicy.minHoursBetweenSessions,
       });
       lockMap[patient.id] = {
-        locked: lock.locked,
-        reason: lock.reason,
+        enabled: true,
+        reason: lock.locked ? lock.reason : null,
         unlocksAt: lock.unlocksAt,
         scheduledAt: schedule?.scheduled_at ?? null,
       };
