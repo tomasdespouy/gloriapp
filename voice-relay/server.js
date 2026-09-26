@@ -73,7 +73,20 @@ function createRealProvider({ model, voice, instructions, onAudio, onEvent, onCl
       session: {
         type: "realtime",
         instructions,
-        audio: { output: { voice } },
+        audio: {
+          // silence_duration_ms mas alto que el default: la primera prueba
+          // con un terapeuta real interrumpia antes de que terminara de
+          // hablar — VAD demasiado gatillante ante pausas cortas normales.
+          input: {
+            turn_detection: {
+              type: "server_vad",
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 800,
+            },
+          },
+          output: { voice },
+        },
       },
     }));
   });

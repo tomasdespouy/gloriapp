@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { canStartAttempt, logVoiceAudit } from "@/lib/voice-pilot-auth";
 import { uuidSchema } from "@/lib/validation/schemas";
 import { signVoiceRelayTicket } from "@/lib/voice-relay-ticket";
+import { buildVoiceInstructions } from "@/lib/voice-instructions";
 
 export const runtime = "nodejs";
 
@@ -78,10 +79,13 @@ export async function POST(request: Request) {
   // Ficha mínima para la instrucción del relé (Etapa 2, tubería — la
   // composición completa del prompt de voz, con bloques de enriquecimiento
   // y memoria de intento, es de una etapa posterior enfocada en la
-  // experiencia real de conversación).
+  // experiencia real de conversación). Sí se aplica buildVoiceInstructions:
+  // sin la regla de roles y el reemplazo del canal de texto por uno de voz,
+  // el modelo termina actuando de terapeuta y leyendo en voz alta los
+  // gestos entre corchetes que el prompt de texto usa a propósito.
   const { data: patientRow } = await admin
     .from("ai_patients")
-    .select("system_prompt, voice_id")
+    .select("name, system_prompt, voice_id")
     .eq("id", patientId)
     .maybeSingle();
 
@@ -95,7 +99,9 @@ export async function POST(request: Request) {
         deadlineAt,
         model: pilot.modelSnapshot || pilot.model,
         voice: pilot.voiceId || patientRow?.voice_id || undefined,
-        instructions: patientRow?.system_prompt || undefined,
+        instructions: patientRow?.system_prompt
+          ? buildVoiceInstructions(patientRow.name, patientRow.system_prompt)
+          : undefined,
         // El ticket en sí vence pronto — no autoriza reconexiones tardías,
         // solo el enganche inicial. deadlineAt (arriba) es lo que limita la
         // sesión de voz en sí, ya validado dentro del payload.
