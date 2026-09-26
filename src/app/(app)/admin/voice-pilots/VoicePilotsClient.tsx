@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Mic, UserPlus, Trash2, Loader2 } from "lucide-react";
@@ -155,17 +156,27 @@ export default function VoicePilotsClient({ pilots, accessRows, grantRows, users
                   </p>
                   <p className="text-[11px] text-gray-400">{pilot.model} &middot; máx {Math.round(pilot.max_duration_seconds / 60)} min &middot; US${pilot.budget_usd.toFixed(2)}/intento &middot; retención {pilot.retention_days}d</p>
                 </div>
-                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={pilot.enabled}
-                    disabled={isSaving}
-                    onChange={(e) => patchPilot(pilot.id, { enabled: e.target.checked })}
-                    className="cursor-pointer"
-                  />
-                  Habilitado
-                  {isSaving && <Loader2 size={12} className="animate-spin text-gray-400" />}
-                </label>
+                <div className="flex items-center gap-4">
+                  {pilot.ai_patients && (
+                    <Link
+                      href={`/piloto-voz/${pilot.ai_patients.id}`}
+                      className="text-xs font-medium text-[#4A55A2] underline"
+                    >
+                      Probar voz →
+                    </Link>
+                  )}
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={pilot.enabled}
+                      disabled={isSaving}
+                      onChange={(e) => patchPilot(pilot.id, { enabled: e.target.checked })}
+                      className="cursor-pointer"
+                    />
+                    Habilitado
+                    {isSaving && <Loader2 size={12} className="animate-spin text-gray-400" />}
+                  </label>
+                </div>
               </div>
 
               <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center gap-4 text-xs text-gray-600 bg-gray-50">
