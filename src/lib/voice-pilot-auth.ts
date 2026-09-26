@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { DEFAULT_SPEECH_STYLE, isSpeechStyle, type SpeechStyle } from "@/lib/voice-options";
 
 /**
  * Autorización central del piloto de voz (docs/specs/paciente-voz-latam/
@@ -21,6 +22,7 @@ export type VoicePilot = {
   model: string;
   modelSnapshot: string | null;
   voiceId: string | null;
+  speechStyle: SpeechStyle;
   maxDurationSeconds: number;
   budgetUsd: number;
   retentionDays: number;
@@ -36,6 +38,7 @@ function mapPilot(row: Record<string, unknown>): VoicePilot {
     model: row.model as string,
     modelSnapshot: (row.model_snapshot as string) ?? null,
     voiceId: (row.voice_id as string) ?? null,
+    speechStyle: isSpeechStyle(row.speech_style) ? row.speech_style : DEFAULT_SPEECH_STYLE,
     maxDurationSeconds: row.max_duration_seconds as number,
     budgetUsd: Number(row.budget_usd),
     retentionDays: row.retention_days as number,

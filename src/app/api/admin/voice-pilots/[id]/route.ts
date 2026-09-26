@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { logVoiceAudit } from "@/lib/voice-pilot-auth";
+import { isRealtimeModel, isRealtimeVoice, isSpeechStyle } from "@/lib/voice-options";
 
 async function requireSuperadmin() {
   const supabase = await createClient();
@@ -23,19 +24,28 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const { enabled, starts_at, ends_at, budget_usd, retention_days, max_duration_seconds, model, voice_id } = body;
+  const { enabled, starts_at, ends_at, budget_usd, retention_days, max_duration_seconds, model, voice_id, speech_style } = body;
 
   const updates: Record<string, unknown> = {};
   if (enabled !== undefined) updates.enabled = !!enabled;
   if (starts_at !== undefined) updates.starts_at = starts_at || null;
   if (ends_at !== undefined) updates.ends_at = ends_at || null;
-  // model/voice_id: para el spike de voz (Etapa 3, comparar gpt-realtime vs
-  // -mini y voces candidatas) sin tener que tocar la base a mano cada vez.
+  // model/voice_id/speech_style: para el spike de voz (Etapa 3, comparar
+  // modelos, voces y estilos) sin tocar la base a mano. Solo valores de las
+  // listas de voice-options.ts: un nombre de modelo o voz inexistente
+  // rompería la sesión recién al conectar, en plena prueba.
   if (model !== undefined) {
-    if (typeof model !== "string" || !model.trim()) return NextResponse.json({ error: "model inválido" }, { status: 400 });
-    updates.model = model.trim();
+    if (!isRealtimeModel(model)) return NextResponse.json({ error: "model inválido" }, { status: 400 });
+    updates.model = model;
   }
-  if (voice_id !== undefined) updates.voice_id = voice_id?.trim() || null;
+  if (voice_id !== undefined) {
+    if (voice_id && !isRealtimeVoice(voice_id)) return NextResponse.json({ error: "voice_id inválido" }, { status: 400 });
+    updates.voice_id = voice_id || null;
+  }
+  if (speech_style !== undefined) {
+    if (!isSpeechStyle(speech_style)) return NextResponse.json({ error: "speech_style inválido" }, { status: 400 });
+    updates.speech_style = speech_style;
+  }
   if (budget_usd !== undefined) {
     const n = Number(budget_usd);
     if (!Number.isFinite(n) || n <= 0) return NextResponse.json({ error: "budget_usd inválido" }, { status: 400 });

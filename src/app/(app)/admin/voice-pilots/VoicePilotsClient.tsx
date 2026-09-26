@@ -6,6 +6,13 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Mic, UserPlus, Trash2, Loader2 } from "lucide-react";
 import { chileLocalToUtcIso, utcIsoToChileLocal } from "@/lib/datetime-cl";
+import {
+  VOICE_MODEL_OPTIONS,
+  REALTIME_VOICES,
+  DEFAULT_REALTIME_VOICE,
+  SPEECH_STYLE_OPTIONS,
+  DEFAULT_SPEECH_STYLE,
+} from "@/lib/voice-options";
 
 type Pilot = {
   id: string;
@@ -14,6 +21,7 @@ type Pilot = {
   ends_at: string | null;
   model: string;
   voice_id: string | null;
+  speech_style?: string | null;
   budget_usd: number;
   retention_days: number;
   max_duration_seconds: number;
@@ -129,7 +137,7 @@ export default function VoicePilotsClient({ pilots, accessRows, grantRows, users
           <Mic size={22} className="text-sidebar" /> Piloto de voz
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Etapa 1 — aislamiento y permisos. Sin conexión de voz real todavía: apagado por default.
+          Piloto privado de voz con relé propio. Apagado por defecto: nadie puede llamar hasta que se habilite, se fijen fechas y se otorguen cupos.
         </p>
       </header>
 
@@ -213,31 +221,53 @@ export default function VoicePilotsClient({ pilots, accessRows, grantRows, users
               <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center gap-4 text-xs text-gray-600 bg-gray-50">
                 <label className="flex items-center gap-2">
                   Modelo:
-                  <input
-                    type="text"
+                  <select
+                    key={pilot.model}
                     defaultValue={pilot.model}
-                    onBlur={(e) => {
-                      if (!e.target.value.trim() || e.target.value === pilot.model) return;
-                      patchPilot(pilot.id, { model: e.target.value.trim() });
-                    }}
-                    placeholder="gpt-realtime-mini"
-                    className="border border-gray-200 rounded px-2 py-1 w-44"
-                  />
+                    disabled={isSaving}
+                    onChange={(e) => patchPilot(pilot.id, { model: e.target.value })}
+                    className="border border-gray-200 rounded px-2 py-1 bg-white cursor-pointer"
+                  >
+                    {!VOICE_MODEL_OPTIONS.some((o) => o.value === pilot.model) && (
+                      <option value={pilot.model}>{pilot.model}</option>
+                    )}
+                    {VOICE_MODEL_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
                 </label>
                 <label className="flex items-center gap-2">
                   Voz:
-                  <input
-                    type="text"
+                  <select
+                    key={pilot.voice_id || ""}
                     defaultValue={pilot.voice_id || ""}
-                    onBlur={(e) => {
-                      if (e.target.value.trim() === (pilot.voice_id || "")) return;
-                      patchPilot(pilot.id, { voice_id: e.target.value.trim() || null });
-                    }}
-                    placeholder="marin (default)"
-                    className="border border-gray-200 rounded px-2 py-1 w-32"
-                  />
+                    disabled={isSaving}
+                    onChange={(e) => patchPilot(pilot.id, { voice_id: e.target.value || null })}
+                    className="border border-gray-200 rounded px-2 py-1 bg-white cursor-pointer"
+                  >
+                    <option value="">Predeterminada ({DEFAULT_REALTIME_VOICE})</option>
+                    {REALTIME_VOICES.map((v) => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
                 </label>
-                <span className="text-gray-400">Para comparar modelo/voz del spike de voz (Etapa 3) sin tocar la base a mano.</span>
+                <label className="flex items-center gap-2">
+                  Estilo de habla:
+                  <select
+                    key={pilot.speech_style || DEFAULT_SPEECH_STYLE}
+                    defaultValue={pilot.speech_style || DEFAULT_SPEECH_STYLE}
+                    disabled={isSaving}
+                    onChange={(e) => patchPilot(pilot.id, { speech_style: e.target.value })}
+                    className="border border-gray-200 rounded px-2 py-1 bg-white cursor-pointer"
+                  >
+                    {SPEECH_STYLE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <span className="w-full text-gray-400">
+                  Precios: US$ por millón de tokens de audio (entrada / salida). Los cambios aplican desde la próxima llamada.
+                </span>
               </div>
 
               <div className="px-5 py-4">

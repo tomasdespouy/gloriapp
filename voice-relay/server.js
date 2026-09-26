@@ -181,7 +181,10 @@ server.on("upgrade", (req, socket, head) => {
 
 function startSession(browserWs, payload) {
   const { attemptId, aiPatientId, deadlineAt, model, voice, instructions } = payload;
-  log(attemptId, `sesion iniciada, paciente=${aiPatientId}, deadline=${deadlineAt}`);
+  log(
+    attemptId,
+    `sesion iniciada, paciente=${aiPatientId}, modelo=${model || "gpt-realtime-mini"}, voz=${voice || "marin"}, instrucciones=${(instructions || "").length} caracteres, deadline=${deadlineAt}`,
+  );
 
   const provider = createProvider({
     model: model || "gpt-realtime-mini",

@@ -5,6 +5,7 @@ import { canStartAttempt, logVoiceAudit } from "@/lib/voice-pilot-auth";
 import { uuidSchema } from "@/lib/validation/schemas";
 import { signVoiceRelayTicket } from "@/lib/voice-relay-ticket";
 import { buildVoiceInstructions } from "@/lib/voice-instructions";
+import { isRealtimeVoice } from "@/lib/voice-options";
 
 export const runtime = "nodejs";
 
@@ -89,6 +90,12 @@ export async function POST(request: Request) {
     .eq("id", patientId)
     .maybeSingle();
 
+  // Una voz que no sea de OpenAI Realtime (p. ej. un voice_id heredado de
+  // otro proveedor en ai_patients) rompería la sesión: se ignora y el relé
+  // usa su voz por defecto.
+  const requestedVoice = pilot.voiceId || patientRow?.voice_id || undefined;
+  const voice = requestedVoice && isRealtimeVoice(requestedVoice) ? requestedVoice : undefined;
+
   const relayUrl = process.env.VOICE_RELAY_URL || null;
   let ticket: string | null = null;
   if (relayUrl) {
@@ -98,9 +105,9 @@ export async function POST(request: Request) {
         aiPatientId: patientId,
         deadlineAt,
         model: pilot.modelSnapshot || pilot.model,
-        voice: pilot.voiceId || patientRow?.voice_id || undefined,
+        voice,
         instructions: patientRow?.system_prompt
-          ? buildVoiceInstructions(patientRow.name, patientRow.system_prompt)
+          ? buildVoiceInstructions(patientRow.name, patientRow.system_prompt, pilot.speechStyle)
           : undefined,
         // El ticket en sí vence pronto — no autoriza reconexiones tardías,
         // solo el enganche inicial. deadlineAt (arriba) es lo que limita la
