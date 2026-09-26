@@ -68,6 +68,7 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const deadlineTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const endedRef = useRef(false);
+  const openedRef = useRef(false);
 
   const notifyAttemptEnded = (reason: string) => {
     const attemptId = attemptIdRef.current;
@@ -152,6 +153,7 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
     setErrorMsg(null);
     setStatus("solicitando");
     endedRef.current = false;
+    openedRef.current = false;
     setTranscript([]);
 
     // Pedir el microfono ANTES de reclamar el ticket: el ticket vence a
@@ -225,6 +227,7 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
       wsRef.current = ws;
 
       ws.onopen = () => {
+        openedRef.current = true;
         // Recien acá arranca la captura real: antes de este punto el audio
         // del microfono no se conecta a nada, para no acumular una rafaga
         // vieja mientras el WS todavia estaba conectando (Render puede
@@ -270,7 +273,13 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
         } catch { /* no era JSON, ignorar */ }
       };
       ws.onerror = () => {
-        setErrorMsg("Error de conexión con el relé de voz.");
+        // El navegador no expone el motivo del fallo del WebSocket, pero sí
+        // se sabe si la conexión llegó a abrirse alguna vez.
+        setErrorMsg(
+          openedRef.current
+            ? "Se cortó la conexión con el relé a mitad de la llamada."
+            : "No se pudo abrir la conexión con el relé (puede estar reiniciándose tras un despliegue, o el ticket venció). Espera un minuto y reintenta; el intento fallido gastó un cupo.",
+        );
         setStatus("error");
         if (!endedRef.current) { endedRef.current = true; notifyAttemptEnded("relay_error"); }
         cleanup();

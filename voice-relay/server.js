@@ -162,13 +162,17 @@ const wss = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  // Antes las conexiones rechazadas no dejaban ningun rastro en el log, y un
+  // "error de conexion" en el navegador era imposible de diagnosticar.
   if (url.pathname !== "/session") {
+    console.log(`[relay ${new Date().toISOString()}] upgrade rechazado: ruta ${url.pathname}`);
     socket.destroy();
     return;
   }
   const ticket = url.searchParams.get("ticket");
   const verification = verifyTicket(ticket, SHARED_SECRET);
   if (!verification.ok) {
+    console.log(`[relay ${new Date().toISOString()}] upgrade rechazado: ticket ${verification.reason}`);
     socket.write(`HTTP/1.1 401 Unauthorized\r\n\r\n${verification.reason}`);
     socket.destroy();
     return;
@@ -176,6 +180,7 @@ server.on("upgrade", (req, socket, head) => {
 
   const { attemptId } = verification.payload;
   if (sessions.has(attemptId)) {
+    log(attemptId, "upgrade rechazado: sesion ya activa");
     socket.write("HTTP/1.1 409 Conflict\r\n\r\nsession_already_active");
     socket.destroy();
     return;
