@@ -23,12 +23,19 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const { enabled, starts_at, ends_at, budget_usd, retention_days, max_duration_seconds } = body;
+  const { enabled, starts_at, ends_at, budget_usd, retention_days, max_duration_seconds, model, voice_id } = body;
 
   const updates: Record<string, unknown> = {};
   if (enabled !== undefined) updates.enabled = !!enabled;
   if (starts_at !== undefined) updates.starts_at = starts_at || null;
   if (ends_at !== undefined) updates.ends_at = ends_at || null;
+  // model/voice_id: para el spike de voz (Etapa 3, comparar gpt-realtime vs
+  // -mini y voces candidatas) sin tener que tocar la base a mano cada vez.
+  if (model !== undefined) {
+    if (typeof model !== "string" || !model.trim()) return NextResponse.json({ error: "model inválido" }, { status: 400 });
+    updates.model = model.trim();
+  }
+  if (voice_id !== undefined) updates.voice_id = voice_id?.trim() || null;
   if (budget_usd !== undefined) {
     const n = Number(budget_usd);
     if (!Number.isFinite(n) || n <= 0) return NextResponse.json({ error: "budget_usd inválido" }, { status: 400 });

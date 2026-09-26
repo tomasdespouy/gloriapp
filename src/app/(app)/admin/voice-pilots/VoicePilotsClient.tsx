@@ -13,6 +13,7 @@ type Pilot = {
   starts_at: string | null;
   ends_at: string | null;
   model: string;
+  voice_id: string | null;
   budget_usd: number;
   retention_days: number;
   max_duration_seconds: number;
@@ -207,6 +208,36 @@ export default function VoicePilotsClient({ pilots, accessRows, grantRows, users
                 {(!pilot.starts_at || !pilot.ends_at) && (
                   <span className="text-amber-600">Sin ambas fechas, nadie puede iniciar un intento (fail-closed).</span>
                 )}
+              </div>
+
+              <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center gap-4 text-xs text-gray-600 bg-gray-50">
+                <label className="flex items-center gap-2">
+                  Modelo:
+                  <input
+                    type="text"
+                    defaultValue={pilot.model}
+                    onBlur={(e) => {
+                      if (!e.target.value.trim() || e.target.value === pilot.model) return;
+                      patchPilot(pilot.id, { model: e.target.value.trim() });
+                    }}
+                    placeholder="gpt-realtime-mini"
+                    className="border border-gray-200 rounded px-2 py-1 w-44"
+                  />
+                </label>
+                <label className="flex items-center gap-2">
+                  Voz:
+                  <input
+                    type="text"
+                    defaultValue={pilot.voice_id || ""}
+                    onBlur={(e) => {
+                      if (e.target.value.trim() === (pilot.voice_id || "")) return;
+                      patchPilot(pilot.id, { voice_id: e.target.value.trim() || null });
+                    }}
+                    placeholder="marin (default)"
+                    className="border border-gray-200 rounded px-2 py-1 w-32"
+                  />
+                </label>
+                <span className="text-gray-400">Para comparar modelo/voz del spike de voz (Etapa 3) sin tocar la base a mano.</span>
               </div>
 
               <div className="px-5 py-4">
