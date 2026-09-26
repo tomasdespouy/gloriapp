@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canStartAttempt, logVoiceAudit } from "@/lib/voice-pilot-auth";
 import { uuidSchema } from "@/lib/validation/schemas";
+import { signVoiceRelayTicket } from "@/lib/voice-relay-ticket";
 
 export const runtime = "nodejs";
 
@@ -74,11 +75,45 @@ export async function POST(request: Request) {
     metadata: { patientId, pilotId: pilot.id },
   });
 
+  // Ficha mínima para la instrucción del relé (Etapa 2, tubería — la
+  // composición completa del prompt de voz, con bloques de enriquecimiento
+  // y memoria de intento, es de una etapa posterior enfocada en la
+  // experiencia real de conversación).
+  const { data: patientRow } = await admin
+    .from("ai_patients")
+    .select("system_prompt, voice_id")
+    .eq("id", patientId)
+    .maybeSingle();
+
+  const relayUrl = process.env.VOICE_RELAY_URL || null;
+  let ticket: string | null = null;
+  if (relayUrl) {
+    try {
+      ticket = signVoiceRelayTicket({
+        attemptId: attempt.id,
+        aiPatientId: patientId,
+        deadlineAt,
+        model: pilot.modelSnapshot || pilot.model,
+        voice: pilot.voiceId || patientRow?.voice_id || undefined,
+        instructions: patientRow?.system_prompt || undefined,
+        // El ticket en sí vence pronto — no autoriza reconexiones tardías,
+        // solo el enganche inicial. deadlineAt (arriba) es lo que limita la
+        // sesión de voz en sí, ya validado dentro del payload.
+        exp: Date.now() + 60_000,
+      });
+    } catch (err) {
+      console.error("[voice-pilot/attempts] no se pudo firmar el ticket del relé:", err);
+    }
+  }
+
   return NextResponse.json({
     attemptId: attempt.id,
     deadlineAt,
     maxDurationSeconds: pilot.maxDurationSeconds,
-    // Sin ticket de relé todavía — Etapa 2. El front no puede conectar
-    // nada real con esta respuesta hoy, solo confirmar autorización.
+    // relayUrl/ticket quedan null si VOICE_RELAY_URL no está configurada
+    // (ej. mientras el relé todavía no se despliega) — el resto del flujo
+    // de autorización ya es válido y probable sin ellos.
+    relayUrl,
+    ticket,
   }, { status: 201 });
 }
