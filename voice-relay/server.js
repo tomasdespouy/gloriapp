@@ -188,7 +188,15 @@ function startSession(browserWs, payload) {
     voice: voice || "marin",
     instructions: instructions || "",
     onAudio: (buf) => { if (browserWs.readyState === WebSocket.OPEN) browserWs.send(buf); },
-    onEvent: (evt) => { if (browserWs.readyState === WebSocket.OPEN) browserWs.send(JSON.stringify(evt)); },
+    onEvent: (evt) => {
+      // Log server-side de cada evento no-audio: sin esto, diagnosticar una
+      // prueba real en vivo es puro reporte auditivo del usuario. Se loguea
+      // el tipo siempre, y el texto/transcript cuando el evento lo trae, sin
+      // volcar objetos gigantes (algunos eventos incluyen audio en base64).
+      const preview = evt.transcript || evt.text || evt.delta?.slice?.(0, 120) || "";
+      log(attemptId, `evento OpenAI: ${evt.type}${preview ? ` — "${preview}"` : ""}`);
+      if (browserWs.readyState === WebSocket.OPEN) browserWs.send(JSON.stringify(evt));
+    },
     onClose: () => { endSession(attemptId, "provider_closed"); },
   });
 

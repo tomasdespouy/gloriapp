@@ -48,6 +48,7 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
   const streamRef = useRef<MediaStream | null>(null);
   const attemptIdRef = useRef<string | null>(null);
   const nextPlayTimeRef = useRef(0);
+  const scheduledSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const pendingChunksRef = useRef<Int16Array[]>([]);
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const deadlineTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -79,9 +80,23 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
       audioCtxRef.current = null;
     }
     pendingChunksRef.current = [];
+    scheduledSourcesRef.current = [];
   };
 
   useEffect(() => cleanup, []);
+
+  // Interrupcion (barge-in): al detectar que el terapeuta empezo a hablar
+  // de nuevo, cortar YA el audio de Fernanda que ya estaba en cola local —
+  // sin esto, aunque el modelo deje de generar, lo que ya se habia recibido
+  // y programado sigue sonando igual hasta el final (bug real visto en la
+  // segunda prueba real: "la interrumpi... pero seguia leyendo").
+  const stopPlayback = () => {
+    for (const source of scheduledSourcesRef.current) {
+      try { source.stop(); } catch { /* ya terminado */ }
+    }
+    scheduledSourcesRef.current = [];
+    if (audioCtxRef.current) nextPlayTimeRef.current = audioCtxRef.current.currentTime;
+  };
 
   const flushPendingAudio = () => {
     const chunks = pendingChunksRef.current;
@@ -109,6 +124,10 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
     const source = ctx.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(ctx.destination);
+    source.onended = () => {
+      scheduledSourcesRef.current = scheduledSourcesRef.current.filter((s) => s !== source);
+    };
+    scheduledSourcesRef.current.push(source);
     const startAt = Math.max(nextPlayTimeRef.current, ctx.currentTime);
     source.start(startAt);
     nextPlayTimeRef.current = startAt + audioBuffer.duration;
@@ -201,9 +220,20 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
       ws.onmessage = (evt) => {
         if (evt.data instanceof ArrayBuffer) {
           playIncomingAudio(evt.data);
+          return;
         }
-        // Mensajes de texto (session.created, heartbeats, etc.) se ignoran
-        // en esta sala minima — no hay panel de eventos todavia.
+        // Resto de mensajes de texto (session.created, heartbeats, etc.) se
+        // ignoran en esta sala minima — no hay panel de eventos todavia.
+        // La unica excepcion es la deteccion de que el terapeuta empezo a
+        // hablar de nuevo: ahi hay que cortar YA el audio de Fernanda ya
+        // programado localmente (barge-in), aunque el modelo deje de
+        // generar del lado de OpenAI.
+        try {
+          const evtData = JSON.parse(evt.data);
+          if (evtData.type === "input_audio_buffer.speech_started") {
+            stopPlayback();
+          }
+        } catch { /* no era JSON, ignorar */ }
       };
       ws.onerror = () => {
         setErrorMsg("Error de conexión con el relé de voz.");
