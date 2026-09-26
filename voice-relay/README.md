@@ -27,14 +27,20 @@ vigente de OpenAI (ver el comentario en `server.js` sobre `createRealProvider`
 — no se re-verificaron en vivo para este incremento, solo el proveedor
 simulado se probó de punta a punta).
 
-## Deploy (Railway)
+## Deploy (Render)
 
-Conectar este directorio como "root directory" del servicio en Railway
-(monorepo — el resto de `gloriapp` no es parte de este deploy). Variables
-de entorno se configuran en el dashboard de Railway, nunca en el repo:
-`OPENAI_API_KEY`, `VOICE_RELAY_SHARED_SECRET` (el mismo valor que
-`gloriapp` tiene en su propio `.env.local`/Vercel), `VOICE_PROVIDER`.
+Blueprint declarativo en `render.yaml` (raíz del repo, no acá — Render lo
+busca ahí), con `rootDir: voice-relay` para que el build/start corran solo
+sobre este subdirectorio del monorepo (el resto de `gloriapp` sigue en
+Vercel, sin tocar). Mismo patrón que ya usa `gather` (Mundo UGM) del
+usuario, otro servicio Node persistente en Render.
 
-Sin Dockerfile: Railway detecta Node vía Nixpacks a partir de
-`package.json` (`npm install` + `npm start`), igual que el resto de los
-servicios Node del usuario.
+En Render: **New +** → **Blueprint** → conectar el repo `gloriapp` → Render
+detecta `render.yaml` solo. Los secretos (`sync: false` en el blueprint) se
+completan a mano en el dashboard, nunca en el repo: `OPENAI_API_KEY` (la
+misma que usa `gloriapp`) y `VOICE_RELAY_SHARED_SECRET` (generar uno nuevo,
+ej. `openssl rand -hex 32` — el MISMO valor va después en Vercel).
+
+(Railway quedó descartado para este piloto: el trial de la cuenta del
+usuario venció y requería elegir un plan pago antes de poder crear un
+proyecto — se optó por Render, cuenta ya activa.)

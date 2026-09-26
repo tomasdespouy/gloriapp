@@ -1,0 +1,25 @@
+# Render Blueprint — despliegue de voice-relay/ (piloto de voz, Etapa 2).
+# El resto de gloriapp vive en Vercel; este blueprint es SOLO para el relé.
+# En Render: New + -> Blueprint -> conectar este repo -> completar secretos.
+# Mismo patrón que ya usa el proyecto "gather" del usuario (Mundo UGM).
+services:
+  - type: web
+    name: gloria-voice-relay
+    runtime: node
+    rootDir: voice-relay
+    plan: free
+    region: virginia          # US-East, latencia razonable desde Sudamérica y Chile
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true          # redeploy automático en cada push a master
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false           # copiar el valor real de gloriapp/.env.local
+      - key: VOICE_RELAY_SHARED_SECRET
+        sync: false           # generar uno nuevo (ej. openssl rand -hex 32);
+                               # el MISMO valor va también en Vercel como
+                               # VOICE_RELAY_SHARED_SECRET
+      - key: VOICE_PROVIDER
+        value: simulated       # cambiar a "real" recién cuando se confirme
+                               # el cierre forzoso con una prueba paga acotada
