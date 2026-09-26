@@ -17,6 +17,12 @@ const PORT = process.env.PORT || 8788;
 const SHARED_SECRET = process.env.VOICE_RELAY_SHARED_SECRET;
 const PROVIDER_MODE = process.env.VOICE_PROVIDER || "simulated";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+// Transcripcion del audio del terapeuta dentro de la sesion. gpt-4o-transcribe:
+// ~0,5 s tras el fin del habla y US$0,006/min (medido 2026-09-26). gpt-live-transcribe
+// midio ~0,35 s pero cuesta ~3x y su pagina lo documenta para el endpoint de
+// transcripcion, no para sesiones de conversacion — cambiar por esta variable
+// solo si el motor por turno necesita ganar esos ~150 ms.
+const TRANSCRIPTION_MODEL = process.env.VOICE_TRANSCRIPTION_MODEL || "gpt-4o-transcribe";
 
 if (!SHARED_SECRET) {
   console.error("Falta VOICE_RELAY_SHARED_SECRET");
@@ -78,6 +84,7 @@ function createRealProvider({ model, voice, instructions, onAudio, onEvent, onCl
           // con un terapeuta real interrumpia antes de que terminara de
           // hablar — VAD demasiado gatillante ante pausas cortas normales.
           input: {
+            transcription: { model: TRANSCRIPTION_MODEL, language: "es" },
             turn_detection: {
               type: "server_vad",
               threshold: 0.5,
@@ -183,21 +190,64 @@ function startSession(browserWs, payload) {
   const { attemptId, aiPatientId, deadlineAt, model, voice, instructions } = payload;
   log(
     attemptId,
-    `sesion iniciada, paciente=${aiPatientId}, modelo=${model || "gpt-realtime-mini"}, voz=${voice || "marin"}, instrucciones=${(instructions || "").length} caracteres, deadline=${deadlineAt}`,
+    `sesion iniciada, paciente=${aiPatientId}, modelo=${model || "gpt-realtime-mini"}, voz=${voice || "marin"}, transcripcion=${PROVIDER_MODE === "real" ? TRANSCRIPTION_MODEL : "n/a"}, instrucciones=${(instructions || "").length} caracteres, deadline=${deadlineAt}`,
   );
+
+  // Tiempos por turno: desde que el VAD detecta que el terapeuta dejo de
+  // hablar. Es el dato que decide como armar el motor por turno (cuanto
+  // tarda la transcripcion vs. cuanto tarda la paciente en empezar a hablar).
+  const turn = { stoppedAt: 0, firstAudioLogged: false };
+  const sinceStop = () => (turn.stoppedAt ? ` (+${Date.now() - turn.stoppedAt} ms tras el fin del habla)` : "");
+
+  // Solo hitos, no cada delta: el log de la prueba anterior tenia decenas de
+  // lineas por respuesta y no dejaba ver los tiempos ni el orden real.
+  function describeEvent(evt) {
+    switch (evt.type) {
+      case "input_audio_buffer.speech_started":
+        return "el terapeuta empezo a hablar";
+      case "input_audio_buffer.speech_stopped":
+        turn.stoppedAt = Date.now();
+        turn.firstAudioLogged = false;
+        return "el terapeuta termino de hablar";
+      case "conversation.item.input_audio_transcription.completed":
+        return `transcripcion del terapeuta${sinceStop()}: "${evt.transcript}"`;
+      case "conversation.item.input_audio_transcription.failed":
+        return `ERROR transcribiendo al terapeuta: ${JSON.stringify(evt.error)}`;
+      case "response.created":
+        return `respuesta de la paciente creada${sinceStop()}`;
+      case "response.output_audio_transcript.done":
+        return `la paciente dijo: "${evt.transcript}"`;
+      case "response.done": {
+        const u = evt.response?.usage;
+        const tokens = u
+          ? `, tokens entrada=${u.input_tokens} salida=${u.output_tokens} (razonamiento=${u.output_token_details?.reasoning_tokens ?? 0}, cacheados=${u.input_token_details?.cached_tokens ?? 0})`
+          : "";
+        return `respuesta terminada (estado=${evt.response?.status}${tokens})`;
+      }
+      case "error":
+        return `ERROR de OpenAI: ${JSON.stringify(evt.error)}`;
+      case "session.created":
+      case "session.updated":
+        return evt.type;
+      default:
+        return null;
+    }
+  }
 
   const provider = createProvider({
     model: model || "gpt-realtime-mini",
     voice: voice || "marin",
     instructions: instructions || "",
-    onAudio: (buf) => { if (browserWs.readyState === WebSocket.OPEN) browserWs.send(buf); },
+    onAudio: (buf) => {
+      if (!turn.firstAudioLogged && turn.stoppedAt) {
+        turn.firstAudioLogged = true;
+        log(attemptId, `primer audio de la paciente${sinceStop()}`);
+      }
+      if (browserWs.readyState === WebSocket.OPEN) browserWs.send(buf);
+    },
     onEvent: (evt) => {
-      // Log server-side de cada evento no-audio: sin esto, diagnosticar una
-      // prueba real en vivo es puro reporte auditivo del usuario. Se loguea
-      // el tipo siempre, y el texto/transcript cuando el evento lo trae, sin
-      // volcar objetos gigantes (algunos eventos incluyen audio en base64).
-      const preview = evt.transcript || evt.text || evt.delta?.slice?.(0, 120) || "";
-      log(attemptId, `evento OpenAI: ${evt.type}${preview ? ` — "${preview}"` : ""}`);
+      const line = describeEvent(evt);
+      if (line) log(attemptId, line);
       if (browserWs.readyState === WebSocket.OPEN) browserWs.send(JSON.stringify(evt));
     },
     onClose: () => { endSession(attemptId, "provider_closed"); },

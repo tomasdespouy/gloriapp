@@ -38,10 +38,25 @@ registerProcessor("pcm16-capture", PCM16Capture);
 
 const SAMPLE_RATE = 24000;
 
+type TranscriptEntry = { id: string; role: "user" | "assistant"; text: string };
+
+// Crea la entrada cuando OpenAI agrega el turno (así queda en orden
+// cronológico aunque la transcripción del terapeuta llegue después de que la
+// paciente ya empezó a responder) y le completa el texto cuando llega.
+function upsertTranscript(prev: TranscriptEntry[], id: string, role: "user" | "assistant", text?: string): TranscriptEntry[] {
+  const i = prev.findIndex((e) => e.id === id);
+  if (i === -1) return [...prev, { id, role, text: text ?? "" }];
+  if (text === undefined) return prev;
+  const next = prev.slice();
+  next[i] = { ...prev[i], text };
+  return next;
+}
+
 export default function VoiceRoomClient({ patientId, patientName }: { patientId: string; patientName: string }) {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [remainingSec, setRemainingSec] = useState<number | null>(null);
+  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -137,6 +152,7 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
     setErrorMsg(null);
     setStatus("solicitando");
     endedRef.current = false;
+    setTranscript([]);
 
     // Pedir el microfono ANTES de reclamar el ticket: el ticket vence a
     // los 60s de emitido, y el dialogo de permiso del navegador puede
@@ -222,16 +238,34 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
           playIncomingAudio(evt.data);
           return;
         }
-        // Resto de mensajes de texto (session.created, heartbeats, etc.) se
-        // ignoran en esta sala minima — no hay panel de eventos todavia.
-        // La unica excepcion es la deteccion de que el terapeuta empezo a
-        // hablar de nuevo: ahi hay que cortar YA el audio de Fernanda ya
-        // programado localmente (barge-in), aunque el modelo deje de
-        // generar del lado de OpenAI.
+        // Mensajes de texto: se usan solo dos cosas. (1) Que el terapeuta
+        // empezo a hablar de nuevo: cortar YA el audio de Fernanda ya
+        // programado localmente (barge-in), aunque el modelo deje de generar
+        // del lado de OpenAI. (2) La transcripcion de ambos lados, para el
+        // panel de abajo. Nada de esto se guarda todavia.
         try {
           const evtData = JSON.parse(evt.data);
-          if (evtData.type === "input_audio_buffer.speech_started") {
-            stopPlayback();
+          switch (evtData.type) {
+            case "input_audio_buffer.speech_started":
+              stopPlayback();
+              break;
+            case "conversation.item.added": {
+              const item = evtData.item;
+              if (item?.id && (item.role === "user" || item.role === "assistant")) {
+                setTranscript((prev) => upsertTranscript(prev, item.id, item.role));
+              }
+              break;
+            }
+            case "conversation.item.input_audio_transcription.completed":
+              if (evtData.item_id) {
+                setTranscript((prev) => upsertTranscript(prev, evtData.item_id, "user", String(evtData.transcript ?? "").trim()));
+              }
+              break;
+            case "response.output_audio_transcript.done":
+              if (evtData.item_id) {
+                setTranscript((prev) => upsertTranscript(prev, evtData.item_id, "assistant", String(evtData.transcript ?? "").trim()));
+              }
+              break;
           }
         } catch { /* no era JSON, ignorar */ }
       };
@@ -270,11 +304,11 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
   const ss = remainingSec !== null ? remainingSec % 60 : null;
 
   return (
-    <div className="max-w-lg mx-auto py-16 px-6 text-center">
+    <div className="max-w-2xl mx-auto py-16 px-6 text-center">
       <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Prueba técnica · piloto de voz</p>
       <h1 className="text-2xl font-semibold text-gray-900 mb-1">{patientName}</h1>
       <p className="text-sm text-gray-500 mb-10">
-        Sala mínima de escucha — sin transcripción ni feedback todavía. Solo audio en vivo contra el relé.
+        Sala mínima de prueba — la transcripción se muestra abajo pero todavía no se guarda ni se evalúa.
       </p>
 
       {status === "idle" && (
@@ -328,6 +362,22 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
           >
             Reintentar
           </button>
+        </div>
+      )}
+
+      {transcript.length > 0 && (
+        <div className="mt-10 text-left">
+          <p className="text-xs uppercase tracking-wide text-gray-400 mb-3">Transcripción</p>
+          <div className="space-y-3 max-h-[28rem] overflow-y-auto rounded-xl border border-[#E5E5E5] bg-white p-4">
+            {transcript.map((e) => (
+              <div key={e.id}>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  {e.role === "user" ? "Terapeuta (tú)" : patientName}
+                </p>
+                <p className="text-sm text-gray-800">{e.text || "…"}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
