@@ -37,6 +37,12 @@ registerProcessor("pcm16-capture", PCM16Capture);
 `;
 
 const SAMPLE_RATE = 24000;
+// El ticket vence a los 60s de emitido (voice-relay-ticket.ts). Render free
+// apaga el relé tras inactividad y tarda hasta ~1 min en despertar (visto en
+// logs reales) — reintentar la conexión cada 5s mientras el ticket siga
+// vigente cubre ese arranque sin gastar un cupo nuevo por cada intento.
+const RELAY_RETRY_INTERVAL_MS = 5000;
+const RELAY_RETRY_DEADLINE_MS = 50_000;
 
 type TranscriptEntry = { id: string; role: "user" | "assistant"; text: string };
 
@@ -69,6 +75,10 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
   const deadlineTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const endedRef = useRef(false);
   const openedRef = useRef(false);
+  const retryingRef = useRef(false);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ticketIssuedAtRef = useRef(0);
+  const [waking, setWaking] = useState(false);
 
   const notifyAttemptEnded = (reason: string) => {
     const attemptId = attemptIdRef.current;
@@ -83,8 +93,11 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
   const cleanup = () => {
     if (flushTimerRef.current) clearInterval(flushTimerRef.current);
     if (deadlineTimerRef.current) clearInterval(deadlineTimerRef.current);
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     flushTimerRef.current = null;
     deadlineTimerRef.current = null;
+    retryTimerRef.current = null;
+    retryingRef.current = false;
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) wsRef.current.close(1000, "client_end");
     wsRef.current = null;
     if (streamRef.current) {
@@ -154,6 +167,8 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
     setStatus("solicitando");
     endedRef.current = false;
     openedRef.current = false;
+    retryingRef.current = false;
+    setWaking(false);
     setTranscript([]);
 
     // Pedir el microfono ANTES de reclamar el ticket: el ticket vence a
@@ -222,21 +237,34 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
       silentSink.connect(audioCtx.destination);
 
       const wsUrl = data.relayUrl.replace(/^http/, "ws") + `/session?ticket=${encodeURIComponent(data.ticket)}`;
-      const ws = new WebSocket(wsUrl);
-      ws.binaryType = "arraybuffer";
-      wsRef.current = ws;
+      ticketIssuedAtRef.current = Date.now();
+      connectRelay(wsUrl, source, capture);
+    } catch (err) {
+      console.error("[piloto-voz] error al iniciar:", err);
+      setErrorMsg(err instanceof Error ? err.message : "No se pudo iniciar la sesión de voz.");
+      setStatus("error");
+      cleanup();
+    }
+  };
 
-      ws.onopen = () => {
-        openedRef.current = true;
-        // Recien acá arranca la captura real: antes de este punto el audio
-        // del microfono no se conecta a nada, para no acumular una rafaga
-        // vieja mientras el WS todavia estaba conectando (Render puede
-        // tardar en despertar el servicio).
-        source.connect(capture);
-        flushTimerRef.current = setInterval(flushPendingAudio, 100);
-        setStatus("en_llamada");
-      };
-      ws.onmessage = (evt) => {
+  const connectRelay = (wsUrl: string, source: MediaStreamAudioSourceNode, capture: AudioWorkletNode) => {
+    const ws = new WebSocket(wsUrl);
+    ws.binaryType = "arraybuffer";
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      openedRef.current = true;
+      retryingRef.current = false;
+      setWaking(false);
+      // Recien acá arranca la captura real: antes de este punto el audio
+      // del microfono no se conecta a nada, para no acumular una rafaga
+      // vieja mientras el WS todavia estaba conectando (Render puede
+      // tardar en despertar el servicio).
+      source.connect(capture);
+      flushTimerRef.current = setInterval(flushPendingAudio, 100);
+      setStatus("en_llamada");
+    };
+    ws.onmessage = (evt) => {
         if (evt.data instanceof ArrayBuffer) {
           playIncomingAudio(evt.data);
           return;
@@ -272,29 +300,39 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
           }
         } catch { /* no era JSON, ignorar */ }
       };
-      ws.onerror = () => {
-        // El navegador no expone el motivo del fallo del WebSocket, pero sí
-        // se sabe si la conexión llegó a abrirse alguna vez.
-        setErrorMsg(
-          openedRef.current
-            ? "Se cortó la conexión con el relé a mitad de la llamada."
-            : "No se pudo abrir la conexión con el relé (puede estar reiniciándose tras un despliegue, o el ticket venció). Espera un minuto y reintenta; el intento fallido gastó un cupo.",
-        );
-        setStatus("error");
-        if (!endedRef.current) { endedRef.current = true; notifyAttemptEnded("relay_error"); }
-        cleanup();
-      };
-      ws.onclose = () => {
-        setStatus((prev) => (prev === "error" ? prev : "terminada"));
-        if (!endedRef.current) { endedRef.current = true; notifyAttemptEnded("client_closed"); }
-        cleanup();
-      };
-    } catch (err) {
-      console.error("[piloto-voz] error al iniciar:", err);
-      setErrorMsg(err instanceof Error ? err.message : "No se pudo iniciar la sesión de voz.");
+    ws.onerror = () => {
+      // El navegador no expone el motivo del fallo del WebSocket. Si nunca
+      // llegó a abrirse Y el ticket sigue vigente, es probablemente el relé
+      // despertando (Render free lo apaga tras inactividad, tarda hasta ~1
+      // min) — reintentar solo, sin gastar un cupo nuevo (el ticket ya
+      // emitido sigue sirviendo). Si ya se había abierto, es un corte real
+      // a mitad de la llamada: ahí no hay nada que reintentar.
+      if (!openedRef.current) {
+        const elapsed = Date.now() - ticketIssuedAtRef.current;
+        if (elapsed < RELAY_RETRY_DEADLINE_MS) {
+          retryingRef.current = true;
+          setWaking(true);
+          retryTimerRef.current = setTimeout(() => connectRelay(wsUrl, source, capture), RELAY_RETRY_INTERVAL_MS);
+          return;
+        }
+        setErrorMsg("El relé de voz no respondió a tiempo (probablemente estaba apagado por inactividad y no despertó dentro del minuto del ticket). El intento gastó un cupo — reintentá, ahora debería estar despierto.");
+      } else {
+        setErrorMsg("Se cortó la conexión con el relé a mitad de la llamada.");
+      }
+      setWaking(false);
       setStatus("error");
+      if (!endedRef.current) { endedRef.current = true; notifyAttemptEnded("relay_error"); }
       cleanup();
-    }
+    };
+    ws.onclose = () => {
+      // Un intento de conexion fallido dispara error Y close casi junto;
+      // si ya se programo un reintento, este close es de la conexion vieja,
+      // no del final real de la llamada.
+      if (retryingRef.current) return;
+      setStatus((prev) => (prev === "error" ? prev : "terminada"));
+      if (!endedRef.current) { endedRef.current = true; notifyAttemptEnded("client_closed"); }
+      cleanup();
+    };
   };
 
   const endCall = () => {
@@ -332,7 +370,11 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
       {(status === "solicitando" || status === "conectando") && (
         <div className="flex items-center justify-center gap-2 text-gray-500">
           <Loader2 size={18} className="animate-spin" />
-          {status === "solicitando" ? "Pidiendo micrófono y cupo..." : "Conectando con el relé..."}
+          {status === "solicitando"
+            ? "Pidiendo micrófono y cupo..."
+            : waking
+              ? "El relé estaba apagado por inactividad — despertándolo, puede tardar hasta un minuto..."
+              : "Conectando con el relé..."}
         </div>
       )}
 
