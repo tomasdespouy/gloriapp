@@ -37,12 +37,15 @@ registerProcessor("pcm16-capture", PCM16Capture);
 `;
 
 const SAMPLE_RATE = 24000;
-// El ticket vence a los 60s de emitido (voice-relay-ticket.ts). Render free
-// apaga el relé tras inactividad y tarda hasta ~1 min en despertar (visto en
-// logs reales) — reintentar la conexión cada 5s mientras el ticket siga
-// vigente cubre ese arranque sin gastar un cupo nuevo por cada intento.
+// El ticket vence a los 3 min de emitido (voice-pilot/attempts/route.ts).
+// Render free apaga el relé tras inactividad; dos intentos reales tardaron
+// más de 50s en levantar el servicio, así que un primer intento con 60s de
+// ticket + 50s de reintento no alcanzaba — el cliente se rendía antes de que
+// el contenedor llegara a escuchar. Reintentar cada 5s mientras el ticket
+// siga vigente cubre el arranque en frío sin gastar un cupo nuevo por cada
+// intento.
 const RELAY_RETRY_INTERVAL_MS = 5000;
-const RELAY_RETRY_DEADLINE_MS = 50_000;
+const RELAY_RETRY_DEADLINE_MS = 165_000;
 
 type TranscriptEntry = { id: string; role: "user" | "assistant"; text: string };
 
@@ -315,7 +318,7 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
           retryTimerRef.current = setTimeout(() => connectRelay(wsUrl, source, capture), RELAY_RETRY_INTERVAL_MS);
           return;
         }
-        setErrorMsg("El relé de voz no respondió a tiempo (probablemente estaba apagado por inactividad y no despertó dentro del minuto del ticket). El intento gastó un cupo — reintentá, ahora debería estar despierto.");
+        setErrorMsg("El relé de voz no respondió en casi 3 minutos — algo más que un arranque en frío normal. El intento gastó un cupo; revisá los logs de Render antes de reintentar.");
       } else {
         setErrorMsg("Se cortó la conexión con el relé a mitad de la llamada.");
       }
@@ -373,7 +376,7 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
           {status === "solicitando"
             ? "Pidiendo micrófono y cupo..."
             : waking
-              ? "El relé estaba apagado por inactividad — despertándolo, puede tardar hasta un minuto..."
+              ? "El relé estaba apagado por inactividad — despertándolo, puede tardar hasta un par de minutos..."
               : "Conectando con el relé..."}
         </div>
       )}

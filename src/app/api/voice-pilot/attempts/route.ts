@@ -109,10 +109,14 @@ export async function POST(request: Request) {
         instructions: patientRow?.system_prompt
           ? buildVoiceInstructions(patientRow.name, patientRow.system_prompt, pilot.speechStyle)
           : undefined,
-        // El ticket en sí vence pronto — no autoriza reconexiones tardías,
+        // El ticket vence a los 3 min — no autoriza reconexiones tardías,
         // solo el enganche inicial. deadlineAt (arriba) es lo que limita la
-        // sesión de voz en sí, ya validado dentro del payload.
-        exp: Date.now() + 60_000,
+        // sesión de voz en sí, ya validado dentro del payload. Antes eran
+        // 60s: con el relé en Render (plan free, se apaga por inactividad),
+        // dos intentos reales tardaron mas de 50s en levantar el servicio y
+        // el reintento del cliente (VoiceRoomClient) se quedaba sin margen
+        // antes de que el contenedor llegara a escuchar.
+        exp: Date.now() + 180_000,
       });
     } catch (err) {
       console.error("[voice-pilot/attempts] no se pudo firmar el ticket del relé:", err);
