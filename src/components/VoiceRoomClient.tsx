@@ -38,14 +38,40 @@ registerProcessor("pcm16-capture", PCM16Capture);
 
 const SAMPLE_RATE = 24000;
 // El ticket vence a los 3 min de emitido (voice-pilot/attempts/route.ts).
-// Render free apaga el relé tras inactividad; dos intentos reales tardaron
-// más de 50s en levantar el servicio, así que un primer intento con 60s de
-// ticket + 50s de reintento no alcanzaba — el cliente se rendía antes de que
-// el contenedor llegara a escuchar. Reintentar cada 5s mientras el ticket
-// siga vigente cubre el arranque en frío sin gastar un cupo nuevo por cada
-// intento.
-const RELAY_RETRY_INTERVAL_MS = 5000;
-const RELAY_RETRY_DEADLINE_MS = 165_000;
+// Render free apaga el relé tras inactividad. Primero se probó reintentar el
+// WebSocket mismo cada 5s, pero eso demostró ser fragil: un intento de conexion
+// fallido puede llegar a registrarse igual del lado del servidor (o el
+// navegador puede frenar solo reconexiones repetidas al mismo host tras varios
+// intentos fallidos), y ninguno de los dos deja rastro claro. Un caso real
+// probado a mano contra el rele ya despierto mostro exactamente eso: el
+// segundo intento choco con "sesion ya activa" (409) del intento anterior que
+// el servidor todavia no habia liberado.
+//
+// Por eso ahora se "despierta" el rele con pedidos HTTP simples (sin el
+// problema de reconexion del WebSocket) ANTES de intentar el WebSocket, que
+// recien se abre una vez, cuando el rele ya esta confirmado despierto.
+const RELAY_WAKE_POLL_INTERVAL_MS = 3000;
+const RELAY_WAKE_POLL_DEADLINE_MS = 165_000;
+
+async function waitForRelayAwake(baseUrl: string, cancelledRef: { current: boolean }): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < RELAY_WAKE_POLL_DEADLINE_MS) {
+    if (cancelledRef.current) return false;
+    try {
+      // mode:no-cors: no hace falta leer la respuesta (el rele no manda
+      // cabeceras CORS para /healthz) — que el fetch resuelva sin lanzar ya
+      // confirma que algo respondio del otro lado.
+      await fetch(`${baseUrl}/healthz`, { mode: "no-cors", cache: "no-store" });
+      return true;
+    } catch {
+      // Error real de red (DNS, conexion rechazada, timeout del navegador):
+      // el rele todavia esta despertando. Reintentar.
+    }
+    if (cancelledRef.current) return false;
+    await new Promise((r) => setTimeout(r, RELAY_WAKE_POLL_INTERVAL_MS));
+  }
+  return false;
+}
 
 type TranscriptEntry = { id: string; role: "user" | "assistant"; text: string };
 
@@ -78,9 +104,7 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
   const deadlineTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const endedRef = useRef(false);
   const openedRef = useRef(false);
-  const retryingRef = useRef(false);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const ticketIssuedAtRef = useRef(0);
+  const wakePollCancelledRef = useRef(false);
   const [waking, setWaking] = useState(false);
 
   const notifyAttemptEnded = (reason: string) => {
@@ -94,13 +118,11 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
   };
 
   const cleanup = () => {
+    wakePollCancelledRef.current = true;
     if (flushTimerRef.current) clearInterval(flushTimerRef.current);
     if (deadlineTimerRef.current) clearInterval(deadlineTimerRef.current);
-    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     flushTimerRef.current = null;
     deadlineTimerRef.current = null;
-    retryTimerRef.current = null;
-    retryingRef.current = false;
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) wsRef.current.close(1000, "client_end");
     wsRef.current = null;
     if (streamRef.current) {
@@ -170,7 +192,7 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
     setStatus("solicitando");
     endedRef.current = false;
     openedRef.current = false;
-    retryingRef.current = false;
+    wakePollCancelledRef.current = false;
     setWaking(false);
     setTranscript([]);
 
@@ -212,6 +234,24 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
       attemptIdRef.current = data.attemptId;
       setStatus("conectando");
 
+      // Despertar el rele con HTTP antes de intentar el WebSocket — ver el
+      // comentario largo junto a RELAY_WAKE_POLL_INTERVAL_MS. Si esto tarda
+      // mas de un intento, recien ahi se muestra el mensaje de "despertando".
+      const quickCheck = await fetch(`${data.relayUrl}/healthz`, { mode: "no-cors", cache: "no-store" }).then(() => true, () => false);
+      if (!quickCheck) {
+        setWaking(true);
+        const awake = await waitForRelayAwake(data.relayUrl, wakePollCancelledRef);
+        setWaking(false);
+        if (wakePollCancelledRef.current) return; // se colgo/desmonto mientras esperaba
+        if (!awake) {
+          setErrorMsg("El relé de voz no respondió en casi 3 minutos — algo más que un arranque en frío normal. El intento gastó un cupo; revisá los logs de Render antes de reintentar.");
+          setStatus("error");
+          if (!endedRef.current) { endedRef.current = true; notifyAttemptEnded("relay_wake_timeout"); }
+          cleanup();
+          return;
+        }
+      }
+
       const deadline = new Date(data.deadlineAt).getTime();
       setRemainingSec(Math.max(0, Math.round((deadline - Date.now()) / 1000)));
       deadlineTimerRef.current = setInterval(() => {
@@ -240,7 +280,6 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
       silentSink.connect(audioCtx.destination);
 
       const wsUrl = data.relayUrl.replace(/^http/, "ws") + `/session?ticket=${encodeURIComponent(data.ticket)}`;
-      ticketIssuedAtRef.current = Date.now();
       connectRelay(wsUrl, source, capture);
     } catch (err) {
       console.error("[piloto-voz] error al iniciar:", err);
@@ -257,8 +296,6 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
 
     ws.onopen = () => {
       openedRef.current = true;
-      retryingRef.current = false;
-      setWaking(false);
       // Recien acá arranca la captura real: antes de este punto el audio
       // del microfono no se conecta a nada, para no acumular una rafaga
       // vieja mientras el WS todavia estaba conectando (Render puede
@@ -304,34 +341,20 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
         } catch { /* no era JSON, ignorar */ }
       };
     ws.onerror = () => {
-      // El navegador no expone el motivo del fallo del WebSocket. Si nunca
-      // llegó a abrirse Y el ticket sigue vigente, es probablemente el relé
-      // despertando (Render free lo apaga tras inactividad, tarda hasta ~1
-      // min) — reintentar solo, sin gastar un cupo nuevo (el ticket ya
-      // emitido sigue sirviendo). Si ya se había abierto, es un corte real
-      // a mitad de la llamada: ahí no hay nada que reintentar.
-      if (!openedRef.current) {
-        const elapsed = Date.now() - ticketIssuedAtRef.current;
-        if (elapsed < RELAY_RETRY_DEADLINE_MS) {
-          retryingRef.current = true;
-          setWaking(true);
-          retryTimerRef.current = setTimeout(() => connectRelay(wsUrl, source, capture), RELAY_RETRY_INTERVAL_MS);
-          return;
-        }
-        setErrorMsg("El relé de voz no respondió en casi 3 minutos — algo más que un arranque en frío normal. El intento gastó un cupo; revisá los logs de Render antes de reintentar.");
-      } else {
-        setErrorMsg("Se cortó la conexión con el relé a mitad de la llamada.");
-      }
-      setWaking(false);
+      // El navegador no expone el motivo del fallo del WebSocket, pero sí
+      // se sabe si la conexión llegó a abrirse alguna vez. Para acá ya se
+      // confirmó el rele despierto por HTTP, así que un fallo del WS mismo
+      // es un problema real (no un arranque en frío) — no se reintenta solo.
+      setErrorMsg(
+        openedRef.current
+          ? "Se cortó la conexión con el relé a mitad de la llamada."
+          : "El rele respondió al ping HTTP pero rechazó la conexión de voz (revisá los logs de Render — puede ser un ticket vencido si tardaste en aceptar el micrófono).",
+      );
       setStatus("error");
       if (!endedRef.current) { endedRef.current = true; notifyAttemptEnded("relay_error"); }
       cleanup();
     };
     ws.onclose = () => {
-      // Un intento de conexion fallido dispara error Y close casi junto;
-      // si ya se programo un reintento, este close es de la conexion vieja,
-      // no del final real de la llamada.
-      if (retryingRef.current) return;
       setStatus((prev) => (prev === "error" ? prev : "terminada"));
       if (!endedRef.current) { endedRef.current = true; notifyAttemptEnded("client_closed"); }
       cleanup();
