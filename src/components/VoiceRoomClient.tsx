@@ -53,20 +53,32 @@ const SAMPLE_RATE = 24000;
 const RELAY_WAKE_POLL_INTERVAL_MS = 3000;
 const RELAY_WAKE_POLL_DEADLINE_MS = 165_000;
 
+// mode:no-cors parecia mas simple (el rele no mandaba cabeceras CORS), pero
+// resulto ser el bug real: con no-cors la respuesta es opaca, así que
+// CUALQUIER respuesta —incluida una pagina de aviso de Render mientras el
+// contenedor todavia esta arrancando ("puede demorar 50s o mas")— se leia
+// igual que un 200 real. El cliente creia que ya estaba despierto y
+// intentaba el WebSocket de voz demasiado pronto, contra un servidor que
+// todavia no estaba escuchando — confirmado viendo el log EN VIVO de Render:
+// ningun intento real llegaba a loguearse, ni siquiera como rechazado.
+// server.js ahora manda Access-Control-Allow-Origin en /healthz para poder
+// leer el status real acá.
+async function isRelayAwake(baseUrl: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${baseUrl}/healthz`, { cache: "no-store" });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data?.ok === true;
+  } catch {
+    return false;
+  }
+}
+
 async function waitForRelayAwake(baseUrl: string, cancelledRef: { current: boolean }): Promise<boolean> {
   const start = Date.now();
   while (Date.now() - start < RELAY_WAKE_POLL_DEADLINE_MS) {
     if (cancelledRef.current) return false;
-    try {
-      // mode:no-cors: no hace falta leer la respuesta (el rele no manda
-      // cabeceras CORS para /healthz) — que el fetch resuelva sin lanzar ya
-      // confirma que algo respondio del otro lado.
-      await fetch(`${baseUrl}/healthz`, { mode: "no-cors", cache: "no-store" });
-      return true;
-    } catch {
-      // Error real de red (DNS, conexion rechazada, timeout del navegador):
-      // el rele todavia esta despertando. Reintentar.
-    }
+    if (await isRelayAwake(baseUrl)) return true;
     if (cancelledRef.current) return false;
     await new Promise((r) => setTimeout(r, RELAY_WAKE_POLL_INTERVAL_MS));
   }
@@ -237,8 +249,7 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
       // Despertar el rele con HTTP antes de intentar el WebSocket — ver el
       // comentario largo junto a RELAY_WAKE_POLL_INTERVAL_MS. Si esto tarda
       // mas de un intento, recien ahi se muestra el mensaje de "despertando".
-      const quickCheck = await fetch(`${data.relayUrl}/healthz`, { mode: "no-cors", cache: "no-store" }).then(() => true, () => false);
-      if (!quickCheck) {
+      if (!(await isRelayAwake(data.relayUrl))) {
         setWaking(true);
         const awake = await waitForRelayAwake(data.relayUrl, wakePollCancelledRef);
         setWaking(false);

@@ -130,7 +130,17 @@ function createProvider(opts) {
 const app = express();
 app.use(express.json());
 
-app.get("/healthz", (_req, res) => res.json({ ok: true, provider: PROVIDER_MODE, activeSessions: sessions.size }));
+// CORS abierto SOLO acá: /healthz no expone nada sensible (solo un booleano,
+// el modo del proveedor y un conteo), y el navegador necesita leer el status
+// real de la respuesta para distinguir un 200 genuino de una pagina de aviso
+// de Render mientras el contenedor todavia esta despertando (con
+// mode:no-cors, cualquier respuesta —incluida esa pagina de aviso— se leia
+// igual que un 200, asi que el cliente creia que ya estaba despierto cuando
+// en realidad seguia arrancando).
+app.get("/healthz", (_req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.json({ ok: true, provider: PROVIDER_MODE, activeSessions: sessions.size });
+});
 
 function safeEqual(a, b) {
   const aBuf = Buffer.from(a);
