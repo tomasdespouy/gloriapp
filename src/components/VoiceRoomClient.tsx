@@ -250,6 +250,15 @@ export default function VoiceRoomClient({ patientId, patientName }: { patientId:
           cleanup();
           return;
         }
+        // El contenedor recien arranco: el /healthz puede responder una
+        // fraccion de segundo antes de que este listo para aceptar
+        // conexiones WebSocket nuevas (visto como un fallo de la conexion
+        // de voz justo despues de un /healthz exitoso). Un respiro corto
+        // antes de abrir el WebSocket de verdad reduce esa carrera. No hace
+        // falta si el primer healthz ya respondio a la primera (ahi el
+        // rele ya estaba tibio hace rato).
+        await new Promise((r) => setTimeout(r, 1500));
+        if (wakePollCancelledRef.current) return;
       }
 
       const deadline = new Date(data.deadlineAt).getTime();
