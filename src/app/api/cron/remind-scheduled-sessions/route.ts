@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { logEmail } from "@/lib/email-log";
 import { requireCron } from "@/lib/cron-auth";
+import { isBusinessHours } from "@/lib/business-hours";
 import { getAppUrl } from "@/lib/app-url";
 import { getGloriaLogoUrl } from "@/lib/email-assets";
 import { getCertificationPolicy } from "@/lib/certification";
@@ -40,6 +41,15 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!candidatas?.length) {
     return NextResponse.json({ avisados: 0, message: "Sin sesiones agendadas próximas" });
+  }
+
+  // No se marca reminder_sent_at acá: la corrida siguiente (15 min despues)
+  // vuelve a encontrar las mismas candidatas hasta que caiga en horario
+  // habil. Como la ventana es "proximas 24h desde ahora", nunca se pierden
+  // por vencimiento — en el peor caso llegan con menos aviso que las 24h
+  // habituales si el agendamiento cae justo despues de un fin de semana.
+  if (!isBusinessHours()) {
+    return NextResponse.json({ avisados: 0, diferidos: candidatas.length, message: "Fuera de horario hábil" });
   }
 
   const resendKey = process.env.RESEND_API_KEY;
@@ -86,7 +96,7 @@ export async function GET(request: Request) {
         <h2 style="color: #4A55A2;">Tu próxima sesión se acerca</h2>
         <p>Hola ${a.full_name || ""}, tu sesión con <strong>${nombrePaciente}</strong> está agendada para el <strong>${fecha}</strong>.</p>
         <p>Ingresa a GlorIA para comenzarla en el horario acordado.</p>
-        <p><a href="${appUrl}/pacientes" style="color: #4A55A2;">Ir a mis pacientes</a></p>
+        <p><a href="${appUrl}/chat/${c.ai_patient_id}" style="color: #4A55A2;">Ir directo a mi sesión con ${nombrePaciente}</a></p>
         <p style="color: #999; font-size: 12px; margin-top: 24px;">GlorIA — Plataforma de entrenamiento clínico</p>
       </div>
     `;

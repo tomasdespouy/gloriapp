@@ -17,6 +17,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireCron, requireCronOrSuperadmin } from "@/lib/cron-auth";
+import { isBusinessHours } from "@/lib/business-hours";
 import { issueCredentials } from "@/lib/credentials/issue";
 import { generateTempPassword } from "@/lib/credentials/temp-password";
 import {
@@ -42,6 +43,12 @@ const LEASE_MIN = 15;
 export async function GET(request: Request) {
   const rejected = requireCron(request);
   if (rejected) return rejected;
+  // Solo la corrida automática respeta horario hábil. El "Ejecutar ahora"
+  // manual (POST, abajo) es una decisión explícita del admin en el momento
+  // — no hay motivo para frenarla.
+  if (!isBusinessHours()) {
+    return NextResponse.json({ enviados: 0, diferido: true, message: "Fuera de horario hábil" });
+  }
   return ejecutarCorrida({ dryRun: false });
 }
 

@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { logEmail } from "@/lib/email-log";
 import { requireCron } from "@/lib/cron-auth";
+import { isBusinessHours } from "@/lib/business-hours";
 import {
   unclosedSessionHtml,
   unclosedSessionSubject,
@@ -48,7 +49,11 @@ import { countMessagesByConversation } from "@/lib/message-counts";
  */
 
 const MIN_AGE_MS = 60 * 60 * 1000;
-const MAX_AGE_MS = 48 * 60 * 60 * 1000;
+// 4 días, no 2: el correo solo sale en horario hábil (Lun-Vie 8-20 Chile,
+// business-hours.ts). Con 48h, una sesión del viernes a la noche quedaba
+// fuera de ventana antes de que volviera a haber horario hábil el lunes, y
+// el recordatorio se perdía sin avisar a nadie.
+const MAX_AGE_MS = 4 * 24 * 60 * 60 * 1000;
 const MIN_MSGS = 6;
 const MAX_PER_RUN = 100;
 
@@ -128,6 +133,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ avisados: 0, descartadas: descartadas.length });
   }
 
+  // Freno de horario: NO se marca student_reminder_sent_at para "reales" acá
+  // — quedan candidatas tal cual y la corrida siguiente (15 min después) las
+  // vuelve a encontrar, hasta que caiga en horario hábil o venzan sus 4 días.
+  if (!isBusinessHours()) {
+    return NextResponse.json({ avisados: 0, descartadas: descartadas.length, diferidos: reales.length, message: "Fuera de horario hábil" });
+  }
+
   const studentIds = [...new Set(reales.map((c) => c.student_id))];
   const patientIds = [...new Set(reales.map((c) => c.ai_patient_id).filter((x): x is string => !!x))];
   const [{ data: students }, { data: patients }] = await Promise.all([
@@ -174,6 +186,8 @@ export async function GET(request: Request) {
       messageCount: cuenta.get(c.id) || 0,
       appUrl,
       logoUrl,
+      patientId: c.ai_patient_id || undefined,
+      conversationId: c.id,
     });
 
     try {

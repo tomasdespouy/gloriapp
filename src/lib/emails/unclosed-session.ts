@@ -44,6 +44,10 @@ export type UnclosedSessionEmail = {
   appUrl: string;
   /** URL absoluta del logo para el encabezado del correo. */
   logoUrl: string;
+  /** ai_patients.id — solo hace falta para "sin_cerrar" (retomar el chat exacto). */
+  patientId?: string;
+  /** conversations.id — idem. */
+  conversationId?: string;
 };
 
 const TZ = "America/Santiago";
@@ -56,6 +60,15 @@ export function unclosedSessionSubject(kind: ReminderKind, patientName: string):
 
 export function unclosedSessionHtml(o: UnclosedSessionEmail): string {
   const { appUrl, logoUrl } = o;
+  // "sin_cerrar" retoma exactamente esa conversación (misma URL que usa el
+  // botón "Retomar" del historial); "sin_reflexion" no tiene un deep-link
+  // hoy (el historial no soporta abrir una fila específica por URL todavía),
+  // así que cae al listado.
+  const ctaUrl =
+    o.kind === "sin_cerrar" && o.patientId && o.conversationId
+      ? `${appUrl}/chat/${o.patientId}?conversationId=${o.conversationId}`
+      : `${appUrl}/historial`;
+  const ctaLabel = o.kind === "sin_cerrar" && o.patientId && o.conversationId ? "Retomar mi sesión" : "Ir a mi historial";
   const fecha = new Date(o.sessionDate).toLocaleDateString("es-CL", {
     timeZone: TZ,
     weekday: "long",
@@ -144,9 +157,9 @@ export function unclosedSessionHtml(o: UnclosedSessionEmail): string {
         ${avisoBoton}
 
         <div style="text-align: center; margin: 0 0 8px;">
-          <a href="${appUrl}/historial"
+          <a href="${ctaUrl}"
              style="display: inline-block; background: #4A55A2; color: white; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 28px; border-radius: 8px;">
-            Ir a mi historial
+            ${ctaLabel}
           </a>
         </div>
 
