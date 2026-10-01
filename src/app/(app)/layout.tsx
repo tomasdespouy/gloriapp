@@ -6,12 +6,15 @@ import ContentWrapper from "@/components/ContentWrapper";
 import TopHeader from "@/components/TopHeader";
 import NavigationProgress from "@/components/NavigationProgress";
 import WelcomeVideoModal from "@/components/WelcomeVideoModal";
+import GuidedTour, { type GuidedTourConfig } from "@/components/GuidedTour";
 import SurveyModal from "@/components/SurveyModal";
 import PlatformActivityTracker from "@/components/PlatformActivityTracker";
 import { Toaster } from "sonner";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ALL_MODULE_KEYS } from "@/lib/modules";
+import { getCertificationPolicy } from "@/lib/certification";
+import { getMinSessionMinutes } from "@/lib/session-expectations";
 
 export default async function AppLayout({
   children,
@@ -58,6 +61,25 @@ export default async function AppLayout({
     welcomeVideoSeen = !!prof?.welcome_video_seen_at;
     a11yPrefs = (prof?.a11y_prefs as { fontSize?: string; contrast?: string }) || {};
     mustChangePassword = !!prof?.must_change_password;
+  }
+
+  // Programa de certificación: solo sus alumnos ven el botón de ayuda y el
+  // recorrido guiado. Para el resto de las cuentas esto queda en null y la
+  // experiencia es exactamente la de siempre.
+  let certTour: GuidedTourConfig | null = null;
+  if (profile?.id && role === "student") {
+    const cert = await getCertificationPolicy(profile.id);
+    if (cert.isCertificationProgram) {
+      certTour = {
+        minHoursBetweenSessions: cert.minHoursBetweenSessions,
+        feedbackMode: cert.feedbackMode,
+        emailNotifications: cert.emailNotifications,
+        minSessionMinutes: await getMinSessionMinutes(profile.id),
+        maxSessionMinutes: cert.maxSessionMinutes,
+        blockPaste: cert.blockPaste,
+        watchTabSwitch: cert.watchTabSwitch,
+      };
+    }
   }
 
   // ─── Pilot access window enforcement + logo capture ───────────────────
@@ -171,12 +193,14 @@ export default async function AppLayout({
             impersonationLabel={profile?.impersonationLabel}
             establishments={isTrulySuperadmin ? allEstablishments : undefined}
             a11yPrefs={a11yPrefs as { fontSize?: "m" | "l" | "xl"; contrast?: "default" | "high" | "sepia" }}
+            showHelp={!!certTour}
           />
           <main id="main-content" className="flex-1 bg-bg-main min-h-0 overflow-auto dashboard-pattern">
             {children}
           </main>
         </ContentWrapper>
         <WelcomeVideoModal userId={profile?.id} userRole={role} alreadySeen={welcomeVideoSeen} />
+        {certTour && profile?.id && <GuidedTour userId={profile.id} welcomeVideoSeen={welcomeVideoSeen} config={certTour} />}
         <SurveyModal welcomeVideoSeen={welcomeVideoSeen} />
         <PlatformActivityTracker />
         <Toaster position="top-right" richColors closeButton />

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { setImpersonation, clearImpersonation } from "@/lib/actions/impersonate";
 import AccessibilityButton, { type A11yPrefs } from "@/components/AccessibilityButton";
+import HelpMenuButton from "@/components/HelpMenuButton";
 
 type Notification = {
   id: string;
@@ -27,9 +28,11 @@ interface Props {
   impersonationLabel?: string;
   establishments?: { id: string; name: string }[];
   a11yPrefs?: A11yPrefs | null;
+  /** Programa de certificación: muestra el botón de ayuda (video + recorridos). */
+  showHelp?: boolean;
 }
 
-export default function TopHeader({ userName, userEmail, userRole, realRole, avatarUrl, isImpersonating, impersonationLabel, establishments, a11yPrefs }: Props) {
+export default function TopHeader({ userName, userEmail, userRole, realRole, avatarUrl, isImpersonating, impersonationLabel, establishments, a11yPrefs, showHelp = false }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
@@ -186,8 +189,13 @@ export default function TopHeader({ userName, userEmail, userRole, realRole, ava
       {/* Accessibility */}
       <AccessibilityButton initialPrefs={a11yPrefs || {}} />
 
+      {/* Ayuda (programa de certificación) */}
+
+      {showHelp && <HelpMenuButton />}
+
+
       {/* Notifications */}
-      <div ref={notifRef} className="relative">
+      <div ref={notifRef} className="relative" data-tour="notifications">
         <button
           onClick={() => { setNotifOpen(!notifOpen); setProfileOpen(false); if (!notifLoaded) loadNotifications(); }}
           className="w-8 h-8 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/15 transition-all cursor-pointer hover:scale-105 relative"

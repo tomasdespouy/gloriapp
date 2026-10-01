@@ -20,6 +20,16 @@ export default function WelcomeVideoModal({
   alreadySeen?: boolean;
 }) {
   const [show, setShow] = useState(false);
+  // Repetición pedida desde el botón de ayuda del header: se ve el video sin
+  // tocar el registro de "ya lo vio" ni disparar el recorrido de bienvenida.
+  const [replay, setReplay] = useState(false);
+
+  useEffect(() => {
+    if (userRole !== "student" && userRole !== "instructor") return;
+    const onReplay = () => { setReplay(true); setShow(true); };
+    window.addEventListener("gloria:replay-welcome-video", onReplay);
+    return () => window.removeEventListener("gloria:replay-welcome-video", onReplay);
+  }, [userRole]);
 
   useEffect(() => {
     // Onboarding video is for students and instructors (both see the
@@ -47,6 +57,11 @@ export default function WelcomeVideoModal({
   }, [userId, userRole, alreadySeen]);
 
   const handleClose = () => {
+    if (replay) {
+      setReplay(false);
+      setShow(false);
+      return;
+    }
     // Persist in both layers. Server first (source of truth); then
     // localStorage so subsequent page renders in the same session
     // don't flash the modal before the server prop updates on
@@ -117,7 +132,7 @@ export default function WelcomeVideoModal({
               onClick={handleClose}
               className="bg-sidebar hover:bg-[#354080] text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors"
             >
-              Comenzar
+              {replay ? "Cerrar" : "Comenzar"}
             </button>
           </div>
         </div>

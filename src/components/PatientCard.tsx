@@ -30,6 +30,8 @@ interface PatientCardProps {
   /** Solo aplica cuando enabled=true — nunca gris, cambia el CTA. */
   lockReason?: PatientLockReason | null;
   unlocksAt?: string | null;
+  /** Horario agendado (ISO UTC), si el alumno ya agendó este paciente. */
+  scheduledAt?: string | null;
   /** Se muestra en vez del botón principal cuando el cupo YA llegó (para reprogramar). */
   canReschedule?: boolean;
   onScheduleClick?: () => void;
@@ -82,7 +84,7 @@ const tagEmojis: Record<string, string> = {
   social: "👥",
 };
 
-export default function PatientCard({ id, name, age, occupation, quote, difficultyLevel, tags, activeConversationId, country, hasVoice, showDifficulty = false, enabled = true, lockReason = null, unlocksAt = null, canReschedule = false, onScheduleClick, comingSoon = false }: PatientCardProps) {
+export default function PatientCard({ id, name, age, occupation, quote, difficultyLevel, tags, activeConversationId, country, hasVoice, showDifficulty = false, enabled = true, lockReason = null, unlocksAt = null, scheduledAt = null, canReschedule = false, onScheduleClick, comingSoon = false }: PatientCardProps) {
   const grayed = comingSoon || !enabled;
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -112,10 +114,18 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
 
   return (
     <>
-      <div ref={cardRef} className={`bg-white rounded-xl shadow-sm p-4 sm:p-6 flex flex-col items-center relative ${grayed ? "opacity-60" : ""}`}>
+      <div ref={cardRef} className={`bg-white rounded-xl shadow-sm p-4 sm:p-6 flex flex-col items-center relative ${grayed ? "opacity-60" : ""} ${enabled && !comingSoon && lockReason ? (lockReason === "not_scheduled" ? "ring-1 ring-amber-300" : "ring-1 ring-sidebar/40") : ""}`}>
         {grayed && (
           <div className="absolute -top-2 -right-2 z-10 w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center shadow-sm" title="No habilitado">
             <Lock size={14} />
+          </div>
+        )}
+        {enabled && !comingSoon && lockReason && (
+          <div
+            className={`absolute -top-2 -right-2 z-10 w-8 h-8 rounded-full text-white flex items-center justify-center shadow-sm ${lockReason === "not_scheduled" ? "bg-amber-500" : "bg-sidebar"}`}
+            title={lockReason === "not_scheduled" ? "Por agendar" : "Agendada"}
+          >
+            <CalendarClock size={14} />
           </div>
         )}
         {/* Difficulty badge — top left (solo admin/superadmin) */}
@@ -194,17 +204,26 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
         ) : lockReason ? (
           <div className="w-full space-y-1.5">
             <p className="text-xs text-gray-500 text-center leading-snug">
-              {lockReason === "not_scheduled" && "Agenda esta sesión para empezar."}
-              {lockReason === "not_yet_time" && unlocksAt && `Disponible el ${formatChileDateTime(unlocksAt)}.`}
-              {lockReason === "cooldown" && unlocksAt && `Disponible el ${formatChileDateTime(unlocksAt)} (mínimo entre sesiones).`}
+              {lockReason === "not_scheduled" && "Agenda tu próxima sesión: elige el día y la hora."}
+              {lockReason === "not_yet_time" && (scheduledAt || unlocksAt) && `Agendada para el ${formatChileDateTime(scheduledAt || unlocksAt)} (hora de Chile).`}
+              {lockReason === "cooldown" && unlocksAt && `Podrás empezar desde el ${formatChileDateTime(unlocksAt)} (hora de Chile), por el mínimo entre sesiones.`}
             </p>
+            {lockReason !== "not_scheduled" && (
+              <p className="text-[11px] text-gray-400 text-center leading-snug">
+                Puedes adelantarla o posponerla.
+              </p>
+            )}
             {onScheduleClick && (
               <button
                 onClick={onScheduleClick}
-                className="flex items-center justify-center gap-2 text-white py-2.5 px-4 rounded-lg text-sm font-medium transition-colors w-full bg-btn-action hover:bg-btn-action-hover cursor-pointer"
+                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors w-full cursor-pointer ${
+                  lockReason === "not_scheduled"
+                    ? "text-white bg-btn-action hover:bg-btn-action-hover"
+                    : "text-sidebar bg-white border border-sidebar/40 hover:bg-sidebar/5"
+                }`}
               >
                 <CalendarClock size={16} />
-                {lockReason === "not_scheduled" ? "Agendar" : "Reprogramar"}
+                {lockReason === "not_scheduled" ? "Agendar" : "Reagendar"}
               </button>
             )}
           </div>
@@ -226,7 +245,7 @@ export default function PatientCard({ id, name, age, occupation, quote, difficul
                 onClick={onScheduleClick}
                 className="w-full text-center text-xs text-gray-400 hover:text-gray-600 cursor-pointer"
               >
-                Reprogramar
+                {scheduledAt ? "Reagendar" : "Agendar para otro momento"}
               </button>
             )}
           </div>

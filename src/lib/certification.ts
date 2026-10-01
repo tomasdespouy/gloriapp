@@ -129,6 +129,7 @@ export type LockState = {
 
 /**
  * Estado de candado de UN paciente para un alumno de programa de certificación.
+ * La primera sesión del alumno (lastSessionEndedAt === null) no requiere agenda.
  * Función pura — se puede llamar tanto en la grilla (solo lectura, define la UI)
  * como en el gate real al crear la conversación (server-side, no bypasseable).
  */
@@ -140,6 +141,15 @@ export function computeLockState(params: {
 }): LockState {
   const { schedule, lastSessionEndedAt, minHours } = params;
   const now = params.now ?? new Date();
+
+  // Primera sesión del programa: se toma de inmediato, sin agendar. El
+  // candado por agenda solo rige desde la segunda sesión en adelante (cuando
+  // ya hay un fin de sesión previo). Si el alumno SÍ agendó expresamente la
+  // primera para más tarde, ese horario se respeta (cae a la lógica de abajo).
+  const hasActiveSchedule = !!schedule && schedule.status !== "cancelada";
+  if (!hasActiveSchedule && lastSessionEndedAt === null) {
+    return { locked: false, reason: null, unlocksAt: null };
+  }
 
   if (!schedule || schedule.status === "cancelada") {
     return { locked: true, reason: "not_scheduled", unlocksAt: null };

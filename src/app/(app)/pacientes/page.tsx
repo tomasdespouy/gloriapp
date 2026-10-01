@@ -122,18 +122,16 @@ export default async function PacientesPage() {
       .eq("course_id", certPolicy.courseId);
     const rosterIds = new Set((rosterRows || []).map((r) => r.ai_patient_id));
 
-    // Un paciente habilitado explícitamente por el admin se ve aunque no
-    // matchee la visibilidad por país del establecimiento (unión, no filtro).
-    const missingIds = Array.from(rosterIds).filter((rid) => !patients.some((p) => p.id === rid));
-    if (missingIds.length > 0) {
-      const { data: extra } = await admin
-        .from("ai_patients")
-        .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
-        .eq("is_active", true)
-        .neq("interaction_mode", "voice_only")
-        .in("id", missingIds);
-      patients = [...patients, ...(extra || [])];
-    }
+    // En un programa de certificación se muestra el catálogo completo de
+    // GlorIA (todos los países), no solo el del país del establecimiento: lo
+    // que el alumno puede usar lo define course_patients, no la visibilidad
+    // por país. Los no habilitados quedan grises con candado.
+    const { data: allPatients } = await admin
+      .from("ai_patients")
+      .select("id, name, age, occupation, quote, difficulty_level, tags, country, voice_id")
+      .eq("is_active", true)
+      .neq("interaction_mode", "voice_only");
+    patients = allPatients || [];
 
     minHoursBetweenSessions = certPolicy.minHoursBetweenSessions;
     const [{ data: schedules }, lastSessionEndedAt] = await Promise.all([

@@ -107,6 +107,10 @@ export default async function ChatPage({
         distractionCutThreshold={certPolicy?.distractionCutThreshold ?? 2}
         maxSessionMinutes={certPolicy?.maxSessionMinutes ?? null}
         maxSessionMessages={certPolicy?.maxSessionMessages ?? null}
+        isCertificationProgram={certPolicy?.isCertificationProgram ?? false}
+        certFeedbackMode={certPolicy?.feedbackMode ?? "docente"}
+        certMinHoursBetweenSessions={certPolicy?.minHoursBetweenSessions ?? 72}
+        certEmailNotifications={certPolicy?.emailNotifications ?? false}
       />
     </div>
   );

@@ -55,6 +55,63 @@ interface ChatInterfaceProps {
   distractionCutThreshold?: number;
   maxSessionMinutes?: number | null;
   maxSessionMessages?: number | null;
+  /** Programa de certificación: activa las instrucciones y la guía específicas. */
+  isCertificationProgram?: boolean;
+  certFeedbackMode?: "auto" | "docente";
+  certMinHoursBetweenSessions?: number;
+  certEmailNotifications?: boolean;
+}
+
+/**
+ * Reglas que ve el alumno de un programa de certificación antes de iniciar la
+ * sesión. Se arman con la política REAL de la asignatura (minutos, límites,
+ * guardia anti-distracción, modo de retroalimentación) para que el texto nunca
+ * contradiga lo que la plataforma hace de verdad.
+ */
+function buildCertificationRules(o: {
+  minSessionMinutes: number | null;
+  maxSessionMinutes: number | null;
+  blockPaste: boolean;
+  watchTabSwitch: boolean;
+  distractionAction: "cut" | "alert_only";
+  distractionCutThreshold: number;
+  feedbackMode: "auto" | "docente";
+  emailNotifications: boolean;
+  minHours: number;
+}): string[] {
+  const rules: string[] = [
+    "Es una simulación con fines formativos y la conversación es por texto. Trata al paciente como a una persona real: salúdalo, presenta el encuadre y escucha con atención.",
+  ];
+
+  if (o.minSessionMinutes && o.maxSessionMinutes) {
+    rules.push(`Se espera una sesión de entre ${o.minSessionMinutes} y ${o.maxSessionMinutes} minutos. Puedes finalizar antes, pero se te avisará; al pasar los ${o.maxSessionMinutes} minutos se te recomendará cerrar.`);
+  } else if (o.minSessionMinutes) {
+    rules.push(`Se espera una sesión de al menos ${o.minSessionMinutes} minutos. Puedes finalizar antes, pero se te avisará.`);
+  } else if (o.maxSessionMinutes) {
+    rules.push(`Al pasar los ${o.maxSessionMinutes} minutos se te recomendará cerrar la sesión.`);
+  }
+
+  const guardia: string[] = [];
+  if (o.blockPaste) guardia.push("no se puede pegar texto largo de otra parte");
+  if (o.watchTabSwitch) guardia.push("cambiar de pestaña queda registrado");
+  if (guardia.length > 0) {
+    const consecuencia = o.distractionAction === "alert_only"
+      ? "El paciente lo nota, recibes un aviso la primera vez y tu docente verá el registro al revisar tu sesión."
+      : `El paciente lo nota, recibes un aviso y, si se repite (${o.distractionCutThreshold} veces), la sesión se cierra.`;
+    rules.push(`Mantén tu atención en la conversación: ${guardia.join(" y ")}. ${consecuencia}`);
+  }
+
+  rules.push("Puedes pausar y retomar la sesión. Cuando termines, cierra con una despedida o acordando una próxima sesión: salir de golpe puede afectar tu vínculo con el paciente.");
+
+  rules.push(
+    o.feedbackMode === "docente"
+      ? `Tu docente revisará tu sesión antes de entregarte la retroalimentación. Te avisaremos en la campana${o.emailNotifications ? " y por correo" : ""} cuando esté lista.`
+      : "Al terminar recibirás retroalimentación automática de tu sesión.",
+  );
+
+  rules.push(`Tu siguiente sesión se agenda desde Pacientes, en hora de Chile, con al menos ${o.minHours} horas desde que termine esta. Podrás reagendarla para adelantarla o posponerla.`);
+
+  return rules;
 }
 
 type Phase = "idle" | "thinking" | "writing";
@@ -86,7 +143,7 @@ type RespectsTypingMode = "full" | "partial" | "from2";
 const SEND_DEBOUNCE_MS = 4000;
 const SEND_INDICATOR_DELAY_MS = 1500;
 
-export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "", nextAppointment = null, userRole = null, minSessionMinutes = null, blockPaste = false, forceWatchTabSwitch = false, distractionAction = "cut", distractionCutThreshold = 2, maxSessionMinutes = null, maxSessionMessages = null }: ChatInterfaceProps) {
+export function ChatInterface({ patient, conversationId: initialConvId, initialMessages, initialActiveSeconds = 0, userAvatarUrl, userName = "", nextAppointment = null, userRole = null, minSessionMinutes = null, blockPaste = false, forceWatchTabSwitch = false, distractionAction = "cut", distractionCutThreshold = 2, maxSessionMinutes = null, maxSessionMessages = null, isCertificationProgram = false, certFeedbackMode = "docente", certMinHoursBetweenSessions = 72, certEmailNotifications = false }: ChatInterfaceProps) {
   console.log("[ChatInterface] Mount:", { patient: patient.name, patientId: patient.id, conversationId: initialConvId, initialMessagesCount: initialMessages.length, voiceId: patient.voice_id });
   const userInitials = userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -112,6 +169,12 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const [navGuardOpen, setNavGuardOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [tourStep, setTourStep] = useState(0);
+  // Botón de ayuda del header: reabre la guía del chat cuando el alumno quiera.
+  useEffect(() => {
+    const open = () => { setTourStep(0); setShowTour(true); };
+    window.addEventListener("gloria:open-chat-tour", open);
+    return () => window.removeEventListener("gloria:open-chat-tour", open);
+  }, []);
   const [voiceMode, setVoiceMode] = useState(false);
   const [voiceSpeaking, setVoiceSpeaking] = useState(false); // true = audio playing, hide text
   const [showDisconnect, setShowDisconnect] = useState(false);
@@ -1632,7 +1695,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               {watchTabSwitch
                 ? "Si cambias de pestaña o pegas texto de otra parte, el paciente lo notará. "
                 : "Si pegas un texto largo de otra parte, el paciente lo notará. "}
-              A la segunda vez, la sesión <strong>se cierra</strong>.
+              {distractionAction === "alert_only"
+                ? <>Quedará <strong>registrado</strong> para tu docente.</>
+                : <>A la segunda vez, la sesión <strong>se cierra</strong>.</>}
             </p>
             <button
               onClick={() => setShowAttentionNotice(false)}
@@ -1656,7 +1721,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               {watchTabSwitch
                 ? "Cambiaste de pestaña o pegaste texto de otra parte, y el paciente lo nota. "
                 : "Pegaste un texto largo de otra parte, y el paciente lo nota. "}
-              Si vuelve a ocurrir, la sesión <strong>se cerrará</strong>.
+              {distractionAction === "alert_only"
+                ? <>Esto <strong>queda registrado</strong> y tu docente lo verá al revisar tu sesión.</>
+                : <>Si vuelve a ocurrir, la sesión <strong>se cerrará</strong>.</>}
             </p>
             <button
               onClick={() => setDistractionWarning(false)}
@@ -1997,7 +2064,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">Temporizador</p>
-                    <p className="text-xs text-gray-500">Cuenta el tiempo de la sesi&oacute;n. Necesitas al menos 5 minutos para recibir evaluaci&oacute;n.</p>
+                    <p className="text-xs text-gray-500">
+                      {isCertificationProgram && minSessionMinutes
+                        ? <>Cuenta el tiempo de la sesi&oacute;n. En tu programa se espera que dure al menos {minSessionMinutes} minutos{maxSessionMinutes ? <> y como m&aacute;ximo {maxSessionMinutes}</> : null}.</>
+                        : <>Cuenta el tiempo de la sesi&oacute;n. Necesitas al menos 5 minutos para recibir evaluaci&oacute;n.</>}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -2015,7 +2086,11 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">Finalizar sesi&oacute;n</p>
-                    <p className="text-xs text-gray-500">Cierra formalmente la sesi&oacute;n. Recibes retroalimentaci&oacute;n por IA al terminar.</p>
+                    <p className="text-xs text-gray-500">
+                      {isCertificationProgram && certFeedbackMode === "docente"
+                        ? <>Cierra formalmente la sesi&oacute;n. Tu docente la revisa antes de entregarte la retroalimentaci&oacute;n; te avisamos cuando est&eacute; lista.</>
+                        : <>Cierra formalmente la sesi&oacute;n. Recibes retroalimentaci&oacute;n por IA al terminar.</>}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -2174,13 +2249,31 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               {/* Rules reminder */}
               <div className="bg-gray-50 rounded-xl p-4 mb-5 space-y-2">
                 <p className="text-xs font-semibold text-gray-700">Antes de comenzar, recuerda:</p>
-                <ul className="text-[11px] text-gray-500 space-y-1.5">
+                {isCertificationProgram ? (
+                  <ul className="text-[11px] text-gray-500 space-y-1.5">
+                    {buildCertificationRules({
+                      minSessionMinutes,
+                      maxSessionMinutes,
+                      blockPaste,
+                      watchTabSwitch,
+                      distractionAction,
+                      distractionCutThreshold,
+                      feedbackMode: certFeedbackMode,
+                      emailNotifications: certEmailNotifications,
+                      minHours: certMinHoursBetweenSessions,
+                    }).map((rule, idx) => (
+                      <li key={idx} className="flex gap-2"><span className="text-sidebar font-bold">{idx + 1}.</span> {rule}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <ul className="text-[11px] text-gray-500 space-y-1.5">
                   <li className="flex gap-2"><span className="text-sidebar font-bold">1.</span> {"Esta es una simulación con fines formativos, no una sesión real."}</li>
                   <li className="flex gap-2"><span className="text-sidebar font-bold">2.</span> {"El paciente reacciona a tus intervenciones como lo haría en la vida real."}</li>
                   <li className="flex gap-2"><span className="text-sidebar font-bold">3.</span> {"Intenta mantener al menos 5 minutos para recibir evaluación."}</li>
                   <li className="flex gap-2"><span className="text-sidebar font-bold">4.</span> {"Puedes pausar y retomar la sesión en cualquier momento."}</li>
                   <li className="flex gap-2"><span className="text-sidebar font-bold">5.</span> {"Cada paciente tiene su propio ritmo: unos responden más rápido, otros más pausados."}</li>
                 </ul>
+                )}
               </div>
 
               <button

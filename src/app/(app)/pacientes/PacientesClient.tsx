@@ -105,13 +105,13 @@ export default function PacientesClient({ patients, activeSessionMap, lockMap, m
       list = list.filter(p => p.difficulty_level === filterLevel);
     }
 
-    // Prioridad: listos para usar (0) > habilitados pero esperando agenda (1)
-    // > no habilitados para el programa (2, al fondo).
+    // Programa de certificación: los pacientes habilitados van SIEMPRE al
+    // comienzo (sin importar si están listos, agendados o esperando), y los no
+    // habilitados (grises) al final.
     const priority = (id: string) => {
       const lock = lockMap?.[id];
       if (!lock) return 0;
-      if (!lock.enabled) return 2;
-      return lock.reason ? 1 : 0;
+      return lock.enabled ? 0 : 1;
     };
 
     return [...list].sort((a, b) => {
@@ -237,6 +237,7 @@ export default function PacientesClient({ patients, activeSessionMap, lockMap, m
                 enabled={lock ? lock.enabled : true}
                 lockReason={lock?.reason ?? null}
                 unlocksAt={lock?.unlocksAt ?? null}
+                scheduledAt={lock?.scheduledAt ?? null}
                 canReschedule={!!lockMap && !!lock?.enabled && !lock?.reason && !activeSessionMap[patient.id]}
                 onScheduleClick={
                   lockMap && lock?.enabled
