@@ -1,10 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ChatInterface } from "@/components/ChatInterface";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import { getMinSessionMinutes } from "@/lib/session-expectations";
-import { getCertificationPolicy } from "@/lib/certification";
+import { getCertificationPolicy, getStudentLastSessionEnd, computeLockState } from "@/lib/certification";
 
 export default async function ChatPage({
   params,
@@ -38,6 +38,26 @@ export default async function ChatPage({
   // una). Para el resto de las cuentas, getCertificationPolicy degrada a los
   // defaults que reproducen el comportamiento actual (sin cambios).
   const certPolicy = userProfile?.id ? await getCertificationPolicy(userProfile.id) : null;
+
+  // Programa de certificación: no se entra a la sala de un paciente no
+  // habilitado o que todavía no está disponible (agenda / mínimo entre
+  // sesiones). Antes el bloqueo real estaba solo en /api/chat al enviar el
+  // primer mensaje, y cualquier enlace (panel de inicio, URL pegada) abría la
+  // sala igual. Retomar una conversación ya existente sigue permitido.
+  if (certPolicy?.isCertificationProgram && userProfile?.id && !conversationId) {
+    const adminGate = createAdminClient();
+    const [{ data: rosterRow }, { data: schedule }, lastSessionEndedAt, { data: openConv }] = await Promise.all([
+      adminGate.from("course_patients").select("id").eq("course_id", certPolicy.courseId).eq("ai_patient_id", patientId).maybeSingle(),
+      adminGate.from("patient_schedules").select("scheduled_at, status").eq("student_id", userProfile.id).eq("ai_patient_id", patientId).maybeSingle(),
+      getStudentLastSessionEnd(userProfile.id),
+      // Una conversación abierta con este paciente se puede retomar siempre
+      // (el panel de inicio enlaza "Continuar práctica" sin conversationId).
+      adminGate.from("conversations").select("id").eq("student_id", userProfile.id).eq("ai_patient_id", patientId).in("status", ["active", "abandoned"]).limit(1).maybeSingle(),
+    ]);
+    if (!rosterRow) redirect("/pacientes");
+    const lock = computeLockState({ schedule: schedule ?? null, lastSessionEndedAt, minHours: certPolicy.minHoursBetweenSessions });
+    if (lock.locked && !openConv) redirect("/pacientes");
+  }
 
   // Un paciente inactivo es un BORRADOR: está fuera del catálogo mientras se
   // revisa. Pero esta página usa el cliente admin (salta RLS) y sin esta

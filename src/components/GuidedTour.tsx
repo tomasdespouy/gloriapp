@@ -146,13 +146,22 @@ export default function GuidedTour({
 
   // Ubica el elemento destacado. Si no existe o no se ve (p. ej. sidebar oculto
   // en móvil), el paso se muestra centrado.
+  //
+  // Depende del selector (string), NO del objeto del paso: buildSteps crea
+  // objetos nuevos en cada render, y depender de ellos recreaba `measure` en
+  // cada render → setRect → render → bucle infinito (React error #185). Por
+  // la misma razón solo se actualiza el estado si la posición cambió.
+  const target = open ? current?.target ?? null : null;
   const measure = useCallback(() => {
-    if (!open || !current?.target) { setRect(null); return; }
-    const el = document.querySelector(current.target) as HTMLElement | null;
-    if (!el) { setRect(null); return; }
-    const r = el.getBoundingClientRect();
-    setRect(r.width > 0 && r.height > 0 ? r : null);
-  }, [open, current]);
+    const el = target ? (document.querySelector(target) as HTMLElement | null) : null;
+    const r = el?.getBoundingClientRect();
+    const next = r && r.width > 0 && r.height > 0 ? r : null;
+    setRect((prev) => {
+      if (!prev && !next) return prev;
+      if (prev && next && prev.left === next.left && prev.top === next.top && prev.width === next.width && prev.height === next.height) return prev;
+      return next;
+    });
+  }, [target]);
 
   useLayoutEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

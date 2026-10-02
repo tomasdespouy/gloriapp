@@ -9,6 +9,8 @@ import { getPatientImageUrl } from "@/lib/patient-assets";
 import HomeHero from "@/components/HomeHero";
 import HomeNextSteps, { type NextStep } from "@/components/HomeNextSteps";
 import HomeRecentActivity, { type ActivityItem } from "@/components/HomeRecentActivity";
+import { Lock } from "lucide-react";
+import { getCertificationPolicy, getStudentLastSessionEnd, computeLockState } from "@/lib/certification";
 
 // Cap por sesión para no inflar el total con sesiones que dejaron el
 // timer corriendo sin visibility (bug conocido: SessionTimer no respeta
@@ -73,6 +75,10 @@ export default async function Dashboard() {
     ]);
     visiblePatientIds = Array.from(ids);
   }
+
+  // Programa de certificación: define qué pacientes se pueden usar (ver
+  // course_patients) y cambia las sugerencias del panel más abajo.
+  const certPolicy = await getCertificationPolicy(userProfile.id);
 
   // Today + week boundaries for metric calculations
   const startOfToday = new Date();
@@ -207,7 +213,9 @@ export default async function Dashboard() {
   const thisWeekDone = (allConversations || []).filter(
     (c) => c.status === "completed" && new Date(c.created_at) >= startOfWeek,
   ).length;
-  if (thisWeekDone < WEEKLY_GOAL) {
+  // En un programa de certificación (mínimo de horas entre sesiones) una meta
+  // de 3 entrevistas por semana no aplica.
+  if (!certPolicy.isCertificationProgram && thisWeekDone < WEEKLY_GOAL) {
     nextSteps.push({
       kind: "weekly_goal",
       subtitle: `Objetivo semanal · ${thisWeekDone}/${WEEKLY_GOAL} completadas`,
@@ -256,6 +264,41 @@ export default async function Dashboard() {
   const patientSuggestions = picked.map((p) => ({
     id: p.id, name: p.name, age: p.age, occupation: p.occupation, difficulty: p.difficulty_level,
   }));
+
+  // Tarjetas de "¿Con quién quieres practicar?". Fuera de un programa de
+  // certificación: las sugerencias de siempre, todas clicables. Dentro: los
+  // habilitados primero (al chat si ya está disponible, si no a /pacientes
+  // para agendar) y se completa con no habilitados, grises y sin enlace.
+  type SuggestionCard = (typeof patientSuggestions)[number] & { href: string | null };
+  let suggestionCards: SuggestionCard[] = patientSuggestions.map((p) => ({ ...p, href: `/chat/${p.id}` }));
+  if (certPolicy.isCertificationProgram) {
+    const [{ data: rosterRows }, { data: schedules }, lastSessionEndedAt] = await Promise.all([
+      admin.from("course_patients").select("ai_patient_id").eq("course_id", certPolicy.courseId),
+      admin.from("patient_schedules").select("ai_patient_id, scheduled_at, status").eq("student_id", userProfile.id),
+      getStudentLastSessionEnd(userProfile.id),
+    ]);
+    const rosterIds = new Set((rosterRows || []).map((r) => r.ai_patient_id));
+    const scheduleByPatient = new Map((schedules || []).map((s) => [s.ai_patient_id, s]));
+    const all = (suggestedPatients || []).map((p) => ({
+      id: p.id, name: p.name, age: p.age, occupation: p.occupation, difficulty: p.difficulty_level,
+    }));
+    const enabled = all.filter((p) => rosterIds.has(p.id)).map((p) => {
+      const lock = computeLockState({
+        schedule: scheduleByPatient.get(p.id) ?? null,
+        lastSessionEndedAt,
+        minHours: certPolicy.minHoursBetweenSessions,
+      });
+      const hasOpen = activeSession?.ai_patient_id === p.id;
+      return { ...p, href: lock.locked && !hasOpen ? "/pacientes" : `/chat/${p.id}` };
+    });
+    const others = all
+      .filter((p) => !rosterIds.has(p.id))
+      // eslint-disable-next-line react-hooks/purity
+      .sort(() => Math.random() - 0.5)
+      .slice(0, Math.max(0, 4 - enabled.length))
+      .map((p) => ({ ...p, href: null }));
+    suggestionCards = [...enabled, ...others];
+  }
 
   const slug = (name: string) =>
     name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-");
@@ -307,7 +350,7 @@ export default async function Dashboard() {
                 <Link href="/pacientes" className="text-xs text-sidebar hover:underline">Ver todos</Link>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {patientSuggestions.map((p) => {
+                {suggestionCards.map((p) => {
                   const pSlug = slug(p.name);
                   const diffColor =
                     p.difficulty === "beginner" ? "text-emerald-600 bg-emerald-50"
@@ -316,12 +359,7 @@ export default async function Dashboard() {
                   const diffLabel =
                     p.difficulty === "beginner" ? "Principiante"
                     : p.difficulty === "intermediate" ? "Intermedio" : "Avanzado";
-                  return (
-                    <Link
-                      key={p.id}
-                      href={`/chat/${p.id}`}
-                      className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all group"
-                    >
+                  const cardInner = (<>
                       <div className="aspect-square overflow-hidden bg-gray-100 relative">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -331,7 +369,7 @@ export default async function Dashboard() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                         <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 bg-sidebar text-white font-semibold text-[10px] px-2.5 py-1 rounded-lg opacity-90 group-hover:opacity-100 transition-opacity">
-                          Practicar →
+                          {p.href ? "Practicar →" : "No habilitado"}
                         </span>
                       </div>
                       <div className="p-2.5">
@@ -343,6 +381,28 @@ export default async function Dashboard() {
                           </span>
                         )}
                       </div>
+                    </>);
+                  if (!p.href) {
+                    return (
+                      <div
+                        key={p.id}
+                        className="bg-white rounded-xl border border-gray-200 overflow-hidden opacity-60 grayscale relative cursor-default"
+                        title="No habilitado para tu programa"
+                      >
+                        <div className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-gray-700 text-white flex items-center justify-center shadow-sm">
+                          <Lock size={12} />
+                        </div>
+                        {cardInner}
+                      </div>
+                    );
+                  }
+                  return (
+                    <Link
+                      key={p.id}
+                      href={p.href}
+                      className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all group"
+                    >
+                      {cardInner}
                     </Link>
                   );
                 })}
