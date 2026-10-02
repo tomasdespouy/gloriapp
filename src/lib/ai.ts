@@ -61,6 +61,32 @@ export async function chat(
   systemPrompt?: string,
   options?: { lite?: boolean; jsonMode?: boolean; forceProvider?: "openai" | "gemini" }
 ): Promise<string> {
+  return (await chatDetailed(messages, systemPrompt, options)).text;
+}
+
+/**
+ * Proveedor que de verdad va primero, con la MISMA comparación exacta que usa
+ * el ruteo (`=== "openai"`). OJO: en PROD LLM_PROVIDER vale "openai\n" (con
+ * salto de línea), así que el principal efectivo es Gemini. No se normaliza
+ * acá a propósito: hacerlo cambiaría el proveedor real de producción, y eso es
+ * una decisión de producto, no un arreglo.
+ */
+export const effectivePrimaryProvider: "openai" | "gemini" = primaryProvider === "openai" ? "openai" : "gemini";
+
+/** Etiqueta del modelo concreto que atendió una llamada no-streaming. */
+export function modelLabelFor(provider: "openai" | "gemini", lite = false): string {
+  return provider === "openai" ? (lite ? chatModel : evalModel) : geminiModel;
+}
+
+/**
+ * Igual que chat(), pero informa QUÉ proveedor respondió de verdad (incluido el
+ * failover). Se usa donde importa registrar el modelo real, p. ej. evaluaciones.
+ */
+export async function chatDetailed(
+  messages: ChatMessage[],
+  systemPrompt?: string,
+  options?: { lite?: boolean; jsonMode?: boolean; forceProvider?: "openai" | "gemini" }
+): Promise<{ text: string; provider: "openai" | "gemini"; model: string }> {
   const model = options?.lite ? chatModel : evalModel;
   // jsonMode fuerza al API a devolver JSON válido (response_format). Elimina la
   // clase de fallo "el modelo devolvió prosa/markdown y JSON.parse revienta",
@@ -81,9 +107,10 @@ export async function chat(
 
   let lastErr: unknown;
   for (let i = 0; i < order.length; i++) {
-    const prov = order[i];
+    const prov = order[i] as "openai" | "gemini";
     try {
-      return await withRetry(call(prov));
+      const text = await withRetry(call(prov));
+      return { text, provider: prov, model: modelLabelFor(prov, options?.lite) };
     } catch (err) {
       lastErr = err;
       const msg = err instanceof Error ? err.message : String(err);

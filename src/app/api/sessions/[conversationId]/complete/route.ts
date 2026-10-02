@@ -2,21 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { chat } from "@/lib/ai";
 import { calculateSessionXp, getLevelInfo } from "@/lib/gamification";
 import { evalLimiter, checkRateLimit } from "@/lib/rate-limit";
 import {
-  EVALUATION_PROMPT,
-  activeModelLabel,
   buildCompetencyUpsert,
-  buildUserMessage,
   evaluationToFlat,
-  normalizeEvaluation,
   type NormalizedEvaluation,
 } from "@/lib/evaluation-prompt";
 import { canViewStudent } from "@/lib/section-scope";
 import { logEmail } from "@/lib/email-log";
-import { generateSessionSummary } from "@/lib/session-evaluation";
+import { generateSessionSummary, runEvaluator } from "@/lib/session-evaluation";
 import { getCertificationPolicy, notifyAutoApprovedFeedback } from "@/lib/certification";
 
 export async function POST(
@@ -145,14 +140,9 @@ export async function POST(
   // results in the response. Still used by non-pilot users who want
   // to see their scores right away.
   let evaluation: NormalizedEvaluation;
+  let evalModelLabel: string;
   try {
-    const response = await chat(
-      [{ role: "user", content: buildUserMessage(transcript, { sessionNumber: conversation.session_number }) }],
-      EVALUATION_PROMPT,
-      { jsonMode: true }
-    );
-    const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    evaluation = normalizeEvaluation(JSON.parse(jsonStr));
+    ({ evaluation, model: evalModelLabel } = await runEvaluator(transcript, conversation.session_number));
   } catch (err) {
     // Loguea el error REAL en el server (antes se tragaba en silencio): así
     // diagnosticamos POR QUÉ falla (JSON malformado / timeout / API). Esto NO lo
@@ -180,7 +170,7 @@ export async function POST(
     buildCompetencyUpsert(evaluation, {
       conversationId,
       studentId: user.id,
-      model: activeModelLabel(),
+      model: evalModelLabel,
       feedbackStatus,
     }),
     { onConflict: "conversation_id" },
@@ -422,14 +412,8 @@ async function evaluateAndPersist(ctx: {
 }) {
   const { admin, userId, conversationId, aiPatientId, studentId, sessionNumber, transcript, reflection } = ctx;
 
-  // LLM evaluation
-  const response = await chat(
-    [{ role: "user", content: buildUserMessage(transcript, { sessionNumber }) }],
-    EVALUATION_PROMPT,
-    { jsonMode: true },
-  );
-  const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-  const evaluation = normalizeEvaluation(JSON.parse(jsonStr));
+  // LLM evaluation (con reintento en el otro proveedor si el JSON llega roto)
+  const { evaluation, model: evalModelLabel } = await runEvaluator(transcript, sessionNumber);
 
   const overallV2 = evaluation.overall_score_v2;
 
@@ -440,7 +424,7 @@ async function evaluateAndPersist(ctx: {
     buildCompetencyUpsert(evaluation, {
       conversationId,
       studentId: userId,
-      model: activeModelLabel(),
+      model: evalModelLabel,
       feedbackStatus,
     }),
     { onConflict: "conversation_id" },

@@ -73,9 +73,19 @@ export async function GET(request: Request) {
     if ((count || 0) >= 6) eligible.push(c.id);
   }
 
+  // Presupuesto de tiempo: una sesión larga puede tardar >60 s en evaluarse
+  // (más si el reintento por JSON roto entra en juego). Sin este corte el
+  // barrido llegaba a los 300 s y Vercel lo mataba a mitad de una evaluación,
+  // repitiendo el gasto en la corrida siguiente sin terminar nunca. Solo se
+  // EMPIEZA una evaluación si quedan >= 120 s; lo que no alcance queda para la
+  // próxima corrida (remaining lo informa).
+  const startedAt = Date.now();
+  const BUDGET_MS = (maxDuration - 120) * 1000;
   const batch = eligible.slice(0, MAX_PER_RUN);
-  let ok = 0, errors = 0, skipped = 0;
+  let ok = 0, errors = 0, skipped = 0, processed = 0;
   for (const id of batch) {
+    if (Date.now() - startedAt > BUDGET_MS) break;
+    processed++;
     const r = await evaluateConversation(admin, id, { notify: true });
     if (r.status === "ok") ok++;
     else if (r.status === "error") errors++;
@@ -84,10 +94,10 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     found_missing: eligible.length,
-    processed: batch.length,
+    processed,
     ok,
     errors,
     skipped,
-    remaining: Math.max(0, eligible.length - batch.length),
+    remaining: Math.max(0, eligible.length - processed),
   });
 }

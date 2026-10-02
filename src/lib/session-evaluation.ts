@@ -1,17 +1,48 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { chat } from "@/lib/ai";
+import { chat, chatDetailed } from "@/lib/ai";
 import {
   EVALUATION_PROMPT,
-  activeModelLabel,
   buildCompetencyUpsert,
   buildUserMessage,
   normalizeEvaluation,
+  type NormalizedEvaluation,
 } from "@/lib/evaluation-prompt";
 import { canViewStudent } from "@/lib/section-scope";
 import { logEmail } from "@/lib/email-log";
 import { getCertificationPolicy, notifyAutoApprovedFeedback } from "@/lib/certification";
 
 type Admin = ReturnType<typeof createAdminClient>;
+
+/**
+ * Corre el evaluador y devuelve la evaluación normalizada + el modelo que de
+ * verdad la produjo. Si la respuesta llega con JSON roto (p. ej. cortada a la
+ * mitad — pasó con varias sesiones largas el 1-oct-2026), reintenta UNA vez en
+ * el OTRO proveedor en vez de descartar la evaluación: repetir el mismo modelo
+ * suele repetir el corte. Único punto de entrada al evaluador (complete,
+ * evaluate, reeval y el barrido lo usan), para no duplicar esta lógica.
+ */
+export async function runEvaluator(
+  transcript: string,
+  sessionNumber: number | null | undefined,
+): Promise<{ evaluation: NormalizedEvaluation; model: string }> {
+  const userMsg = buildUserMessage(transcript, { sessionNumber });
+  const parse = (text: string) =>
+    normalizeEvaluation(JSON.parse(text.replace(/```json?\n?/g, "").replace(/```/g, "").trim()));
+
+  const first = await chatDetailed([{ role: "user", content: userMsg }], EVALUATION_PROMPT, { jsonMode: true });
+  try {
+    return { evaluation: parse(first.text), model: first.model };
+  } catch (err) {
+    const other = first.provider === "openai" ? "gemini" : "openai";
+    console.warn("[eval] JSON inválido del evaluador; reintento con el otro proveedor:", {
+      provider: first.provider,
+      retryWith: other,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    const second = await chatDetailed([{ role: "user", content: userMsg }], EVALUATION_PROMPT, { jsonMode: true, forceProvider: other });
+    return { evaluation: parse(second.text), model: second.model };
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Motor de evaluación de sesión, CENTRALIZADO.
@@ -181,15 +212,10 @@ export async function evaluateConversation(
     .map((m) => `${m.role === "user" ? "TERAPEUTA" : "PACIENTE"}: ${m.content}`)
     .join("\n\n");
 
-  let evaluation;
+  let evaluation: NormalizedEvaluation;
+  let evalModelLabel: string;
   try {
-    const response = await chat(
-      [{ role: "user", content: buildUserMessage(transcript, { sessionNumber: conv.session_number }) }],
-      EVALUATION_PROMPT,
-      { jsonMode: true },
-    );
-    const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    evaluation = normalizeEvaluation(JSON.parse(jsonStr));
+    ({ evaluation, model: evalModelLabel } = await runEvaluator(transcript, conv.session_number));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[eval] fallo del evaluador LLM:", { conversationId, error: msg });
@@ -216,7 +242,7 @@ export async function evaluateConversation(
   const feedbackStatus = policy.feedbackMode === "auto" ? "approved" : "pending";
 
   await admin.from("session_competencies").upsert(
-    buildCompetencyUpsert(evaluation, { conversationId, studentId: conv.student_id, model: activeModelLabel(), feedbackStatus }),
+    buildCompetencyUpsert(evaluation, { conversationId, studentId: conv.student_id, model: evalModelLabel, feedbackStatus }),
     { onConflict: "conversation_id" },
   );
 

@@ -441,9 +441,14 @@ export function buildUserMessage(
  * Determina el identificador del modelo LLM activo a partir de env vars.
  */
 export function activeModelLabel(): string {
-  const provider = (process.env.LLM_PROVIDER || "openai").toLowerCase();
-  if (provider === "gemini") return process.env.GEMINI_MODEL || "gemini-2.5-flash";
-  return process.env.OPENAI_MODEL || "gpt-4o";
+  // Misma comparación EXACTA que el ruteo de src/lib/ai.ts: cualquier valor que
+  // no sea literalmente "openai" (p. ej. "openai\n", como está en PROD) deja a
+  // Gemini como principal. Antes esto devolvía "gpt-4o" en ese caso y las
+  // evaluaciones quedaban rotuladas con un modelo que no las había hecho.
+  // Preferir el modelo real que devuelve runEvaluator() (session-evaluation.ts).
+  const provider = process.env.LLM_PROVIDER || "openai";
+  if (provider !== "openai") return process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  return process.env.OPENAI_EVAL_MODEL || process.env.OPENAI_MODEL || "gpt-4o";
 }
 
 /**

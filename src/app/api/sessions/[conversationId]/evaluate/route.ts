@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { chat } from "@/lib/ai";
-import {
-  EVALUATION_PROMPT,
-  activeModelLabel,
-  buildCompetencyUpsert,
-  buildUserMessage,
-  normalizeEvaluation,
-} from "@/lib/evaluation-prompt";
+import { buildCompetencyUpsert } from "@/lib/evaluation-prompt";
+import { runEvaluator } from "@/lib/session-evaluation";
 
 export async function POST(
   _request: NextRequest,
@@ -56,19 +50,13 @@ export async function POST(
     .join("\n\n");
 
   try {
-    const response = await chat(
-      [{ role: "user", content: buildUserMessage(transcript, { sessionNumber: conversation.session_number }) }],
-      EVALUATION_PROMPT
-    );
-
-    const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    const evaluation = normalizeEvaluation(JSON.parse(jsonStr));
+    const { evaluation, model: evalModelLabel } = await runEvaluator(transcript, conversation.session_number);
 
     await admin.from("session_competencies").upsert(
       buildCompetencyUpsert(evaluation, {
         conversationId,
         studentId: conversation.student_id,
-        model: activeModelLabel(),
+        model: evalModelLabel,
       }),
       { onConflict: "conversation_id" },
     );
