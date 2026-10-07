@@ -71,6 +71,9 @@ export async function updateSession(request: NextRequest) {
     !pathname.startsWith("/api/cron/") &&
     // Se auto-autoriza con Bearer CRON_SECRET o sesión superadmin (para lotes).
     !pathname.startsWith("/api/admin/reeval-session") &&
+    // Lo llama el servidor de Mundo UGM (paciente en el mapa), nunca un
+    // navegador: verifica Bearer MUNDO_UGM_CHAT_SECRET por su cuenta.
+    pathname !== "/api/external/patient-chat" &&
     !pathname.startsWith("/piloto/") &&
     !pathname.startsWith("/paulina")
   ) {

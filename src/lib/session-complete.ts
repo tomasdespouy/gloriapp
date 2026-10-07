@@ -1,0 +1,588 @@
+import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { calculateSessionXp, getLevelInfo } from "@/lib/gamification";
+import { evalLimiter, checkRateLimit } from "@/lib/rate-limit";
+import {
+  buildCompetencyUpsert,
+  evaluationToFlat,
+  type NormalizedEvaluation,
+} from "@/lib/evaluation-prompt";
+import { canViewStudent } from "@/lib/section-scope";
+import { logEmail } from "@/lib/email-log";
+import { generateSessionSummary, runEvaluator } from "@/lib/session-evaluation";
+import { getCertificationPolicy, notifyAutoApprovedFeedback } from "@/lib/certification";
+
+// Cierre de sesión + evaluación para un alumno ya identificado. La ruta normal
+// llega con la sesión del alumno; /api/external/patient-chat (Mundo UGM) llega con
+// el cliente admin y la cuenta espejo. Todo va filtrado por user.id.
+export async function runSessionComplete(
+  request: NextRequest,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  user: { id: string },
+  conversationId: string,
+) {
+  const admin = createAdminClient();
+
+  // Rate limit: 5 evaluations/hour per user
+  const rateLimited = await checkRateLimit(evalLimiter, user.id);
+  if (rateLimited) return rateLimited;
+
+  // Get reflection data from body
+  const body = await request.json().catch(() => ({}));
+  const {
+    discomfort_moment, would_redo, clinical_note,
+    alliance_framing, rupture_moment, nonverbal_cues,
+    intervention_types, clinical_hypothesis,
+  } = body;
+
+  // Verify conversation ownership and get details (defense-in-depth on RLS).
+  const { data: conversation } = await supabase
+    .from("conversations")
+    .select("id, student_id, ai_patient_id, status, session_number")
+    .eq("id", conversationId)
+    .eq("student_id", user.id)
+    .single();
+
+  if (!conversation) return NextResponse.json({ error: "Conversación no encontrada" }, { status: 404 });
+
+  // Mark conversation as completed (student_id filter mirrors the SELECT above).
+  await supabase
+    .from("conversations")
+    .update({ status: "completed", ended_at: new Date().toISOString() })
+    .eq("id", conversationId)
+    .eq("student_id", user.id);
+
+  // Programa de certificación: si este paciente tenía un cupo agendado, se
+  // marca cumplido. Best-effort — no existe en la mayoría de las cuentas.
+  await supabase
+    .from("patient_schedules")
+    .update({ status: "completada", conversation_id: conversationId })
+    .eq("student_id", user.id)
+    .eq("ai_patient_id", conversation.ai_patient_id)
+    .eq("status", "pendiente")
+    .then(undefined, () => {});
+
+  // Save reflection (if provided — v2 fields or legacy)
+  const hasReflection = alliance_framing || rupture_moment || nonverbal_cues ||
+    intervention_types || clinical_hypothesis || discomfort_moment || would_redo || clinical_note;
+
+  if (hasReflection) {
+    await admin.from("session_feedback").upsert({
+      conversation_id: conversationId,
+      student_id: user.id,
+      discomfort_moment,
+      would_redo,
+      clinical_note,
+      alliance_framing,
+      rupture_moment,
+      nonverbal_cues,
+      intervention_types,
+      clinical_hypothesis,
+    }, { onConflict: "conversation_id" });
+  }
+
+  // Fetch messages for evaluation
+  const { data: messages } = await admin
+    .from("messages")
+    .select("role, content")
+    .eq("conversation_id", conversationId)
+    .order("created_at");
+
+  if (!messages || messages.length < 2) {
+    return NextResponse.json({ error: "Sesión muy corta para evaluar" }, { status: 400 });
+  }
+
+  // Build transcript for evaluation
+  const transcript = messages
+    .map((m) => `${m.role === "user" ? "TERAPEUTA" : "PACIENTE"}: ${m.content}`)
+    .join("\n\n");
+
+  // Fast mode: respond immediately and push the LLM evaluation +
+  // downstream work (XP, achievements, notifications, summary) to
+  // `after()` so they run in background without blocking the UX.
+  // Used by the pilot flow where the student goes straight to the
+  // survey — waiting 20-30s for the evaluator would delay the
+  // survey trigger.
+  const fast = request.nextUrl.searchParams.get("fast") === "true";
+  if (fast) {
+    after(async () => {
+      try {
+        await evaluateAndPersist({
+          admin,
+          userId: user.id,
+          conversationId,
+          aiPatientId: conversation.ai_patient_id,
+          studentId: conversation.student_id,
+          sessionNumber: conversation.session_number,
+          transcript,
+          reflection: {
+            discomfort_moment,
+            would_redo,
+            clinical_note,
+            alliance_framing,
+            rupture_moment,
+            nonverbal_cues,
+            intervention_types,
+            clinical_hypothesis,
+          },
+        });
+      } catch (err) {
+        console.error("[complete fast] background eval failed:", err);
+      }
+    });
+    return NextResponse.json({ pending_eval: true });
+  }
+
+  // Synchronous (legacy) flow: wait for the LLM and return the full
+  // results in the response. Still used by non-pilot users who want
+  // to see their scores right away.
+  let evaluation: NormalizedEvaluation;
+  let evalModelLabel: string;
+  try {
+    ({ evaluation, model: evalModelLabel } = await runEvaluator(transcript, conversation.session_number));
+  } catch (err) {
+    // Loguea el error REAL en el server (antes se tragaba en silencio): así
+    // diagnosticamos POR QUÉ falla (JSON malformado / timeout / API). Esto NO lo
+    // ve el alumno — va a los logs de Vercel, es un tema nuestro.
+    console.error("[complete] fallo del evaluador LLM:", {
+      conversationId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    // NO frustramos al alumno con un error en pantalla: la sesión ya quedó
+    // `completed` con su autorreflexión guardada. Respondemos "pending" (mismo
+    // estado que ve un piloto) — el cron de barrido generará la evaluación +
+    // resumen + aviso al docente en la próxima corrida. El alumno ve su cierre
+    // normal; la falla es nuestra y se recupera sola.
+    return NextResponse.json({ pending_eval: true });
+  }
+
+  const overallV2 = evaluation.overall_score_v2;
+
+  // certification_feedback_mode = 'auto' libera el feedback directo al
+  // alumno, sin pasar por revisión docente (default 'docente' = igual que hoy).
+  const policy = await getCertificationPolicy(user.id);
+  const feedbackStatus = policy.feedbackMode === "auto" ? "approved" : "pending";
+
+  await admin.from("session_competencies").upsert(
+    buildCompetencyUpsert(evaluation, {
+      conversationId,
+      studentId: user.id,
+      model: evalModelLabel,
+      feedbackStatus,
+    }),
+    { onConflict: "conversation_id" },
+  );
+
+  if (feedbackStatus === "approved") {
+    notifyAutoApprovedFeedback(user.id, conversation.ai_patient_id, conversationId).catch(() => {});
+  }
+
+  // Calculate XP (V2 scale 0-4)
+  const xpEarned = calculateSessionXp(overallV2);
+
+  // Update student progress
+  const { data: progress } = await admin
+    .from("student_progress")
+    .select("*")
+    .eq("student_id", user.id)
+    .single();
+
+  const today = new Date().toISOString().split("T")[0];
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+
+  let currentStreak = progress?.current_streak || 0;
+  let longestStreak = progress?.longest_streak || 0;
+
+  if (progress?.last_session_date === today) {
+    // Already practiced today, no streak change
+  } else if (progress?.last_session_date === yesterday) {
+    currentStreak += 1;
+  } else {
+    currentStreak = 1;
+  }
+  if (currentStreak > longestStreak) longestStreak = currentStreak;
+
+  const newTotalXp = (progress?.total_xp || 0) + xpEarned;
+  const newSessionsCompleted = (progress?.sessions_completed || 0) + 1;
+  const levelInfo = getLevelInfo(newTotalXp);
+
+  await admin.from("student_progress").upsert({
+    student_id: user.id,
+    level: levelInfo.current.level,
+    level_name: levelInfo.current.name,
+    total_xp: newTotalXp,
+    sessions_completed: newSessionsCompleted,
+    current_streak: currentStreak,
+    longest_streak: longestStreak,
+    last_session_date: today,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "student_id" });
+
+  // Check achievements
+  const newAchievements: string[] = [];
+
+  const { data: existingAchievements } = await admin
+    .from("student_achievements")
+    .select("achievement_id, achievements(key)")
+    .eq("student_id", user.id);
+
+  const earnedKeys = new Set(
+    existingAchievements?.map((a) => {
+      const ach = a.achievements as unknown as { key: string };
+      return ach?.key;
+    }) || []
+  );
+
+  const { data: allAchievements } = await admin.from("achievements").select("*");
+
+  // V2 (escala 0-4) — umbrales adaptados desde el sistema V1 (0-10)
+  const s = evaluation.scores;
+  const achievementChecks: Record<string, () => boolean> = {
+    first_session: () => newSessionsCompleted >= 1,
+    five_sessions: () => newSessionsCompleted >= 5,
+    ten_sessions: () => newSessionsCompleted >= 10,
+    empathy_master: () => (s.escucha_activa ?? 0) >= 4,
+    listening_master: () => (s.escucha_activa ?? 0) >= 4,
+    rapport_master: () => (s.contencion_afectos ?? 0) >= 4,
+    streak_3: () => currentStreak >= 3,
+    streak_7: () => currentStreak >= 7,
+    first_reflection: () => !!(discomfort_moment || would_redo || clinical_note || alliance_framing || rupture_moment || nonverbal_cues || intervention_types || clinical_hypothesis),
+    high_performer: () => evaluation.overall_score_v2 >= 3.5,
+    perfect_session: () =>
+      Object.values(s).some((v) => v === 4),
+  };
+
+  let bonusXp = 0;
+
+  for (const achievement of allAchievements || []) {
+    if (earnedKeys.has(achievement.key)) continue;
+    const check = achievementChecks[achievement.key];
+    if (check && check()) {
+      await admin.from("student_achievements").insert({
+        student_id: user.id,
+        achievement_id: achievement.id,
+      });
+      newAchievements.push(achievement.key);
+      bonusXp += achievement.xp_reward;
+    }
+  }
+
+  // Apply bonus XP from achievements
+  if (bonusXp > 0) {
+    const finalXp = newTotalXp + bonusXp;
+    const finalLevel = getLevelInfo(finalXp);
+    await admin.from("student_progress").update({
+      total_xp: finalXp,
+      level: finalLevel.current.level,
+      level_name: finalLevel.current.name,
+    }).eq("student_id", user.id);
+  }
+
+  // Notify instructors that a session is pending review
+  const { data: student } = await admin
+    .from("profiles")
+    .select("full_name, establishment_id, section_id, course_id")
+    .eq("id", user.id)
+    .single();
+
+  if (student?.establishment_id) {
+    const { data: instructors } = await admin
+      .from("profiles")
+      .select("id, role, section_id, course_id")
+      .eq("establishment_id", student.establishment_id)
+      .in("role", ["instructor", "admin", "superadmin"]);
+
+    // Only notify instructors who can see this student (their section/course).
+    // Admin/superadmin and unscoped instructors keep establishment-wide reach.
+    const recipients = (instructors || [])
+      .filter((inst) => inst.id !== user.id)
+      .filter((inst) => canViewStudent(
+        { role: inst.role, sectionId: inst.section_id, courseId: inst.course_id },
+        { section_id: student.section_id, course_id: student.course_id },
+      ));
+
+    const patientRow = await admin.from("ai_patients").select("name").eq("id", conversation.ai_patient_id).single();
+    const patientName = patientRow.data?.name || "paciente";
+
+    const notifications = recipients.map((inst) => ({
+      user_id: inst.id,
+      type: "pending_review",
+      title: "Sesión pendiente de revisión",
+      body: `${student.full_name || "Estudiante"} completó una sesión con ${patientName}`,
+      href: `/docente/sesion/${conversationId}`,
+      is_read: false,
+    }));
+    if (notifications.length > 0) {
+      await admin.from("notifications").insert(notifications);
+    }
+
+    // Email SOLO a los docentes de la sección (no admin/coordinador/superadmin):
+    // ahorra cuota de Resend (~100/día) y es lo pedido. Las notificaciones
+    // in-app de arriba sí van a todos los recipients (gratis).
+    const recipientIds = recipients.filter((i) => i.role === "instructor").map((i) => i.id);
+
+    if (process.env.RESEND_API_KEY && recipientIds.length > 0) {
+      try {
+        const { Resend } = await import("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+
+        const { data: instructorProfiles } = await admin
+          .from("profiles")
+          .select("email, full_name")
+          .in("id", recipientIds);
+
+        const emails = (instructorProfiles || [])
+          .filter((p) => p.email)
+          .map((p) => p.email as string);
+
+        // Un correo individual por destinatario (su dirección en `to`). Antes
+        // se usaba to:emails[0] + bcc, pero algunos servidores institucionales
+        // (p. ej. @academico.ugm.cl) filtran el BCC y el docente de la sección
+        // no recibía, mientras la coordinadora (en `to`) sí.
+        const subject = `Sesión pendiente de revisión — ${student.full_name || "Estudiante"}`;
+        const html = `
+              <div style="font-family: sans-serif; max-width: 500px;">
+                <h2 style="color: #4A55A2;">Nueva sesión por revisar</h2>
+                <p><strong>${student.full_name || "Un estudiante"}</strong> completó una sesión con <strong>${patientName}</strong> y está pendiente de tu revisión.</p>
+                <p>Ingresa a GlorIA para revisar la evaluación de la IA, la autorreflexión del estudiante, y enviar tu retroalimentación.</p>
+                <p style="color: #999; font-size: 12px; margin-top: 24px;">GlorIA — Plataforma de entrenamiento clínico</p>
+              </div>
+            `;
+        for (const email of emails) {
+          try {
+            await resend.emails.send({ from: "GlorIA <noreply@glor-ia.com>", to: email, subject, html });
+            await logEmail("pending_review", email, true);
+          } catch {
+            await logEmail("pending_review", email, false);
+          }
+        }
+      } catch {
+        // Email is optional — don't fail the request
+      }
+    }
+  }
+
+  // Generate session summary for multi-session memory (non-blocking)
+  generateSessionSummary(admin, conversationId, conversation.student_id, conversation.ai_patient_id, transcript).catch(() => {});
+
+  const levelUp = levelInfo.current.level > (progress?.level || 1);
+
+  return NextResponse.json({
+    evaluation: evaluationToFlat(evaluation),
+    xp_earned: xpEarned + bonusXp,
+    level_up: levelUp,
+    new_level: levelInfo.current,
+    new_achievements: newAchievements,
+    total_xp: newTotalXp + bonusXp,
+    sessions_completed: newSessionsCompleted,
+    streak: currentStreak,
+  });
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+// Mirror of the synchronous evaluation flow, used by the fast-mode
+// branch via `after()`. Kept deliberately self-contained so the
+// background task can run without depending on the live request.
+// Errors are swallowed and logged; the session still counts as
+// completed even if the eval fails, because status=completed was
+// set earlier in the request.
+// ─────────────────────────────────────────────────────────────────
+async function evaluateAndPersist(ctx: {
+  admin: ReturnType<typeof createAdminClient>;
+  userId: string;
+  conversationId: string;
+  aiPatientId: string;
+  studentId: string;
+  sessionNumber: number | null;
+  transcript: string;
+  reflection: {
+    discomfort_moment?: string;
+    would_redo?: string;
+    clinical_note?: string;
+    alliance_framing?: string;
+    rupture_moment?: string;
+    nonverbal_cues?: string;
+    intervention_types?: string;
+    clinical_hypothesis?: string;
+  };
+}) {
+  const { admin, userId, conversationId, aiPatientId, studentId, sessionNumber, transcript, reflection } = ctx;
+
+  // LLM evaluation (con reintento en el otro proveedor si el JSON llega roto)
+  const { evaluation, model: evalModelLabel } = await runEvaluator(transcript, sessionNumber);
+
+  const overallV2 = evaluation.overall_score_v2;
+
+  const policy = await getCertificationPolicy(userId);
+  const feedbackStatus = policy.feedbackMode === "auto" ? "approved" : "pending";
+
+  await admin.from("session_competencies").upsert(
+    buildCompetencyUpsert(evaluation, {
+      conversationId,
+      studentId: userId,
+      model: evalModelLabel,
+      feedbackStatus,
+    }),
+    { onConflict: "conversation_id" },
+  );
+
+  if (feedbackStatus === "approved") {
+    notifyAutoApprovedFeedback(userId, aiPatientId, conversationId).catch(() => {});
+  }
+
+  const xpEarned = calculateSessionXp(overallV2);
+
+  const { data: progress } = await admin
+    .from("student_progress").select("*").eq("student_id", userId).single();
+
+  const today = new Date().toISOString().split("T")[0];
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+
+  let currentStreak = progress?.current_streak || 0;
+  let longestStreak = progress?.longest_streak || 0;
+
+  if (progress?.last_session_date === today) {
+    // no streak change
+  } else if (progress?.last_session_date === yesterday) {
+    currentStreak += 1;
+  } else {
+    currentStreak = 1;
+  }
+  if (currentStreak > longestStreak) longestStreak = currentStreak;
+
+  const newTotalXp = (progress?.total_xp || 0) + xpEarned;
+  const newSessionsCompleted = (progress?.sessions_completed || 0) + 1;
+  const levelInfo = getLevelInfo(newTotalXp);
+
+  await admin.from("student_progress").upsert({
+    student_id: userId,
+    level: levelInfo.current.level,
+    level_name: levelInfo.current.name,
+    total_xp: newTotalXp,
+    sessions_completed: newSessionsCompleted,
+    current_streak: currentStreak,
+    longest_streak: longestStreak,
+    last_session_date: today,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "student_id" });
+
+  // Achievements
+  const { data: existingAchievements } = await admin
+    .from("student_achievements")
+    .select("achievement_id, achievements(key)")
+    .eq("student_id", userId);
+  const earnedKeys = new Set(
+    existingAchievements?.map((a) => {
+      const ach = a.achievements as unknown as { key: string };
+      return ach?.key;
+    }) || [],
+  );
+  const { data: allAchievements } = await admin.from("achievements").select("*");
+  const hasReflection = !!(
+    reflection.discomfort_moment || reflection.would_redo || reflection.clinical_note ||
+    reflection.alliance_framing || reflection.rupture_moment || reflection.nonverbal_cues ||
+    reflection.intervention_types || reflection.clinical_hypothesis
+  );
+  // V2 (escala 0-4) — mismos umbrales que en el flujo sync
+  const s = evaluation.scores;
+  const checks: Record<string, () => boolean> = {
+    first_session: () => newSessionsCompleted >= 1,
+    five_sessions: () => newSessionsCompleted >= 5,
+    ten_sessions: () => newSessionsCompleted >= 10,
+    empathy_master: () => (s.escucha_activa ?? 0) >= 4,
+    listening_master: () => (s.escucha_activa ?? 0) >= 4,
+    rapport_master: () => (s.contencion_afectos ?? 0) >= 4,
+    streak_3: () => currentStreak >= 3,
+    streak_7: () => currentStreak >= 7,
+    first_reflection: () => hasReflection,
+    high_performer: () => evaluation.overall_score_v2 >= 3.5,
+    perfect_session: () =>
+      Object.values(s).some((v) => v === 4),
+  };
+  let bonusXp = 0;
+  for (const achievement of allAchievements || []) {
+    if (earnedKeys.has(achievement.key)) continue;
+    const check = checks[achievement.key];
+    if (check && check()) {
+      await admin.from("student_achievements").insert({
+        student_id: userId, achievement_id: achievement.id,
+      });
+      bonusXp += achievement.xp_reward;
+    }
+  }
+  if (bonusXp > 0) {
+    const finalXp = newTotalXp + bonusXp;
+    const finalLevel = getLevelInfo(finalXp);
+    await admin.from("student_progress").update({
+      total_xp: finalXp,
+      level: finalLevel.current.level,
+      level_name: finalLevel.current.name,
+    }).eq("student_id", userId);
+  }
+
+  // Instructor notifications + email
+  const { data: student } = await admin
+    .from("profiles").select("full_name, establishment_id, section_id, course_id").eq("id", userId).single();
+  if (student?.establishment_id) {
+    const { data: instructors } = await admin
+      .from("profiles").select("id, role, section_id, course_id")
+      .eq("establishment_id", student.establishment_id)
+      .in("role", ["instructor", "admin", "superadmin"]);
+    // Only notify instructors who can see this student (their section/course).
+    const recipients = (instructors || [])
+      .filter((inst) => inst.id !== userId)
+      .filter((inst) => canViewStudent(
+        { role: inst.role, sectionId: inst.section_id, courseId: inst.course_id },
+        { section_id: student.section_id, course_id: student.course_id },
+      ));
+    const patientRow = await admin.from("ai_patients").select("name").eq("id", aiPatientId).single();
+    const patientName = patientRow.data?.name || "paciente";
+    const notifications = recipients.map((inst) => ({
+      user_id: inst.id,
+      type: "pending_review",
+      title: "Sesión pendiente de revisión",
+      body: `${student.full_name || "Estudiante"} completó una sesión con ${patientName}`,
+      href: `/docente/sesion/${conversationId}`,
+      is_read: false,
+    }));
+    if (notifications.length > 0) {
+      await admin.from("notifications").insert(notifications);
+    }
+    // Email solo a docentes de la sección (no admin/superadmin) — ver nota en sync.
+    const recipientIds = recipients.filter((i) => i.role === "instructor").map((i) => i.id);
+    if (process.env.RESEND_API_KEY && recipientIds.length > 0) {
+      try {
+        const { Resend } = await import("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const { data: instructorProfiles } = await admin
+          .from("profiles").select("email, full_name").in("id", recipientIds);
+        const emails = (instructorProfiles || [])
+          .filter((p) => p.email).map((p) => p.email as string);
+        // Individual por destinatario (ver nota en el flujo síncrono): evita
+        // que el BCC se pierda en servidores institucionales.
+        const subject = `Sesión pendiente de revisión — ${student.full_name || "Estudiante"}`;
+        const html = `
+              <div style="font-family: sans-serif; max-width: 500px;">
+                <h2 style="color: #4A55A2;">Nueva sesión por revisar</h2>
+                <p><strong>${student.full_name || "Un estudiante"}</strong> completó una sesión con <strong>${patientName}</strong> y está pendiente de tu revisión.</p>
+                <p>Ingresa a GlorIA para revisar la evaluación de la IA, la autorreflexión del estudiante, y enviar tu retroalimentación.</p>
+              </div>
+            `;
+        for (const email of emails) {
+          try {
+            await resend.emails.send({ from: "GlorIA <noreply@glor-ia.com>", to: email, subject, html });
+            await logEmail("pending_review", email, true);
+          } catch {
+            await logEmail("pending_review", email, false);
+          }
+        }
+      } catch { /* email best-effort */ }
+    }
+  }
+
+  // Session summary for multi-session memory (same fn as sync flow)
+  await generateSessionSummary(admin, conversationId, studentId, aiPatientId, transcript);
+}

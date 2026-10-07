@@ -3,6 +3,9 @@
     "src/app/api/chat/route.ts": {
       "maxDuration": 120
     },
+    "src/app/api/external/patient-chat/route.ts": {
+      "maxDuration": 120
+    },
     "src/app/api/sessions/*/evaluate/route.ts": {
       "maxDuration": 120
     },
