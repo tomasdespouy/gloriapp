@@ -23,6 +23,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { createClient } from "@/lib/supabase/server";
 import { runChatTurn } from "@/lib/chat-turn";
 import { runSessionComplete } from "@/lib/session-complete";
+import { getPatientImageUrl, getPatientVideoUrl } from "@/lib/patient-assets";
+
+// Mismo slug que usa la app para los retratos y videos (PatientShowcase).
+const slugify = (name: string) =>
+  name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-");
 
 const userSchema = z.object({
   id: z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/),
@@ -111,7 +116,9 @@ export async function POST(request: NextRequest) {
       .eq("id", body.patientId)
       .single();
     if (!data) return NextResponse.json({ error: "Paciente no encontrado" }, { status: 404 });
-    return NextResponse.json(data);
+    // Retrato y video (la "cámara" del paciente en la app).
+    const slug = slugify(data.name);
+    return NextResponse.json({ ...data, media: { image: getPatientImageUrl(slug), video: getPatientVideoUrl(slug) } });
   }
 
   const userId = await mirrorUser(admin, body.user);
@@ -131,7 +138,7 @@ export async function POST(request: NextRequest) {
 
   const { data: conv } = await admin
     .from("conversations")
-    .select("id")
+    .select("id, created_at, session_number")
     .eq("student_id", userId)
     .eq("ai_patient_id", body.patientId)
     .in("status", ["active", "abandoned"])
@@ -146,7 +153,7 @@ export async function POST(request: NextRequest) {
       .eq("conversation_id", conv.id)
       .order("created_at", { ascending: true })
       .limit(200);
-    return NextResponse.json({ messages: msgs || [] });
+    return NextResponse.json({ messages: msgs || [], startedAt: conv.created_at, sessionNumber: conv.session_number });
   }
   // end
   if (!conv) return NextResponse.json({ error: "No hay una sesión abierta" }, { status: 404 });
