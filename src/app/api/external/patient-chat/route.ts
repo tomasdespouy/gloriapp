@@ -11,6 +11,7 @@
  * Acciones (POST JSON):
  *   { action: "patient", patientId }                         → ficha pública (nombre, edad, apariencia)
  *   { action: "message", patientId, user: {id,name}, message | messages }  → SSE de /api/chat
+ *   { action: "history", patientId, user: {id,name} }        → mensajes de la sesión abierta (si hay)
  *   { action: "end", patientId, user: {id,name} }            → cierra la sesión activa y la evalúa
  *
  * Solo los pacientes de MUNDO_UGM_PATIENT_IDS (lista separada por comas).
@@ -36,6 +37,7 @@ const bodySchema = z.discriminatedUnion("action", [
     message: z.string().min(1).max(5000).optional(),
     messages: z.array(z.string().min(1).max(5000)).min(1).max(8).optional(),
   }),
+  z.object({ action: z.literal("history"), patientId: z.string().uuid(), user: userSchema }),
   z.object({ action: z.literal("end"), patientId: z.string().uuid(), user: userSchema }),
 ]);
 
@@ -127,7 +129,6 @@ export async function POST(request: NextRequest) {
     return runChatTurn(inner, client, { id: userId });
   }
 
-  // end
   const { data: conv } = await admin
     .from("conversations")
     .select("id")
@@ -137,6 +138,17 @@ export async function POST(request: NextRequest) {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (body.action === "history") {
+    if (!conv) return NextResponse.json({ messages: [] });
+    const { data: msgs } = await admin
+      .from("messages")
+      .select("role, content")
+      .eq("conversation_id", conv.id)
+      .order("created_at", { ascending: true })
+      .limit(200);
+    return NextResponse.json({ messages: msgs || [] });
+  }
+  // end
   if (!conv) return NextResponse.json({ error: "No hay una sesión abierta" }, { status: 404 });
   // fast=true: responde al tiro y evalúa en segundo plano (como el piloto).
   return runSessionComplete(innerRequest(request, `/api/sessions/${conv.id}/complete?fast=true`, {}), client, { id: userId }, conv.id);
