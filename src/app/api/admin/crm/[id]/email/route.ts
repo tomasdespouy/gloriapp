@@ -55,7 +55,7 @@ export async function POST(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: body.from || "GlorIA <info@gloria-app.cl>",
+      from: body.from || "GlorIA <info@glor-ia.com>",
       to: recipientEmail,
       subject,
       html: htmlBody,
@@ -135,7 +135,7 @@ function generateDefaultEmail(university: {
         <p>Cordialmente,<br/>
         <strong>Equipo GlorIA</strong><br/>
         Universidad Gabriela Mistral<br/>
-        gloria-app.cl</p>
+        glor-ia.com</p>
       </div>
 
       <div style="border-top: 1px solid #E5E5E5; padding: 16px 0; font-size: 12px; color: #9CA3AF;">

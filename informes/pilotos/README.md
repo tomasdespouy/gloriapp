@@ -148,7 +148,7 @@ altura target. **Nunca hardcodear width×height** — estira el logo.
 
 3. **Distribución**: el `.docx` también está en `.gitignore`. Se sube
    manualmente a Drive/supradmin según el protocolo de informes del
-   proyecto (local + supradmin + reportes@glor-ia.com).
+   proyecto (local + supradmin).
 
 ---
 
