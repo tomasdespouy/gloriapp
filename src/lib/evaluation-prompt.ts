@@ -23,7 +23,11 @@ import { COMPETENCY_KEYS_V2 } from "./gamification";
 // la misma conducta. Las evaluaciones anteriores llevan "v3.0" en
 // ai_original.rubric_version, así que un informe puede distinguirlas y no
 // comparar puntajes de esa competencia a través del corte.
-export const RUBRIC_VERSION = "v3.1";
+// v3.2 (26-oct-2026): calibración contra las supervisoras del CAP UGM — 3 y 4
+// exigen patrón sostenido, lo no verbal deja de ser el área por defecto, y se
+// suman los aspectos transversales (intervención prematura, riesgo, anamnesis,
+// forma de escribir). Además se descartan las citas que no son del estudiante.
+export const RUBRIC_VERSION = "v3.2";
 
 /**
  * Shape de la salida esperada del LLM.
@@ -120,6 +124,79 @@ indicar si ilustra una fortaleza o una oportunidad de mejora. Las citas
 deben ser literales (copia exacta del mensaje del terapeuta).
 
 Para competencias con score "NA", evidence[competency] puede ser array vacío [].
+
+═══════════════════════════════════════════════════
+CALIBRACIÓN DE PUNTAJES ALTOS (obligatorio)
+═══════════════════════════════════════════════════
+
+Las supervisoras clínicas que revisan estas evaluaciones bajan con
+frecuencia los 3 y 4 que se asignan por un solo buen momento. Para evitarlo:
+
+- escucha_activa y contencion_afectos: un 3 o un 4 exige un PATRÓN
+  SOSTENIDO a lo largo de la sesión (varios momentos clave bien
+  atendidos), no un reflejo o una validación aislada. Si en otros momentos
+  clave el estudiante pasó por alto contenido relevante, cambió de tema o
+  respondió con consejos o tranquilización, el puntaje máximo es 2.
+- Tranquilizar o dar certezas sin antecedentes ("estoy segura de que...",
+  "vas a lograrlo", "no te preocupes", "a ella no le gustaría verte así")
+  NO es contención ni optimismo terapéutico: corta la emoción y la
+  minimiza. Cuenta como nivel 1-2 en contencion_afectos y optimismo.
+- conducta_no_verbal: evalúala con su rúbrica, pero NO la conviertas en el
+  área de mejora por defecto. Inclúyela en areas_to_improve solo si el
+  paciente describió señales relevantes y omitirlas fue clínicamente
+  importante en ESTA sesión. Si alguno de los aspectos transversales de
+  abajo ocurrió, priorízalo por sobre lo no verbal.
+
+═══════════════════════════════════════════════════
+ASPECTOS TRANSVERSALES QUE LAS SUPERVISORAS PRIORIZAN
+═══════════════════════════════════════════════════
+
+No son competencias con puntaje propio, pero cuando ocurren DEBEN aparecer
+en commentary o areas_to_improve, con cita textual, y afectan los puntajes
+indicados:
+
+1. Intervención prematura: interpretar o explicar el funcionamiento del
+   paciente, aconsejar, asignar tareas, proponer objetivos, hacer role play
+   o prometer resultados antes de haber explorado lo suficiente. También
+   instalar conceptos o metáforas que el paciente no dijo ("traición",
+   "máquina", "software"). Baja motivo_consulta y actitud_no_valorativa
+   (el estudiante impone su propio marco); nunca sube objetivos ni
+   optimismo.
+2. Riesgo: si el paciente muestra indicadores (desesperanza, ideas de
+   muerte, autolesión, violencia), explorar el riesgo es necesario y
+   omitirlo es un área de mejora prioritaria. Preguntar por riesgo sin
+   ningún indicador en el relato, o insistir después de una respuesta
+   clara, también se señala: es una pregunta descontextualizada.
+3. Anamnesis e hipótesis: en primera sesión se esperan datos básicos (edad,
+   con quién vive, familia, inicio y curso de los síntomas). Recolectar
+   datos como lista de chequeo, sin profundizar en lo que el paciente
+   trae, no supera el nivel 2 en datos_contextuales.
+4. Forma de escribir: una pregunta por turno, mensajes claros y breves, sin
+   frases truncas; preferir preguntas abiertas a afirmaciones cerradas.
+
+═══════════════════════════════════════════════════
+ESTILO DE LAS ÁREAS DE MEJORA (obligatorio)
+═══════════════════════════════════════════════════
+
+Escribe como las supervisoras: cada área de mejora cita lo que el
+estudiante dijo, explica en una frase el efecto clínico y propone una
+alternativa concreta. Ejemplos (anonimizados, de supervisoras reales):
+
+  "El alivio quedó atrás: 'Siento culpa porque a veces sentí alivio' →
+   pasaste a hablar de su pareja → '¿alivio de qué?' tendría que haber
+   sido la pregunta. Esa ambivalencia es central en su duelo."
+
+  "Cuando el paciente dijo que dejar de sufrir sería olvidarla,
+   respondiste 'a ella no le gustaría verte así'. Eso corta el clima
+   emocional y puede generar culpa. Alternativa: quedarte en la emoción y
+   explorar '¿qué significaría para ti dejar de sentir este dolor?'."
+
+  "Riesgo, prioritario: 'me estoy perdiendo a mí misma', aislamiento e
+   insomnio tras una pérdida reciente → en la próxima sesión pregunta por
+   desesperanza."
+
+  "Turnos largos con varias preguntas a la vez y frases truncas → procura
+   una pregunta por turno y revísala antes de enviar."
 
 ═══════════════════════════════════════════════════
 CALIBRACIÓN DEL LENGUAJE (obligatorio)
