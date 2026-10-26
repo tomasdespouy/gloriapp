@@ -13,6 +13,7 @@ import CompetencyTooltip from "@/components/CompetencyTooltip";
 import ConversationDocxButton from "@/components/ConversationDocxButton";
 import { getEvidenceList } from "@/lib/evaluation-prompt";
 import { COMPETENCY_INFO } from "@/lib/competency-definitions";
+import type { TeacherScoreScale } from "@/lib/teacher-score";
 
 interface Message {
   id: string;
@@ -72,6 +73,8 @@ interface Props {
   messageCount?: number;
   /** Pegó texto largo Y cambió de pestaña en la misma sesión (ver conversations.paste_count/tab_switch_count). */
   mixedDistraction?: boolean;
+  /** Escala de la nota del docente según el país (1-7 en Chile). */
+  scoreScale: TeacherScoreScale;
 }
 
 const COMP_V2_LABELS: { key: string; label: string; domain: string }[] = [
@@ -133,10 +136,14 @@ export default function TeacherReviewClient({
   summary,
   messageCount,
   mixedDistraction = false,
+  scoreScale,
 }: Props) {
   const [comment, setComment] = useState(feedback?.teacher_comment || "");
   const isEvaluated = feedbackStatus === "evaluated";
   const wasAlreadyApproved = feedbackStatus === "approved" || feedbackStatus === "evaluated";
+  // Una retroalimentación ya enviada se puede corregir: "Editar" la desbloquea.
+  const [editing, setEditing] = useState(false);
+  const locked = wasAlreadyApproved && !editing;
   const [isApproved, setIsApproved] = useState(wasAlreadyApproved);
   const [score, setScore] = useState<string>(
     feedback?.teacher_score != null ? String(feedback.teacher_score) : ""
@@ -157,7 +164,6 @@ export default function TeacherReviewClient({
   const [editedAreas, setEditedAreas] = useState<string[]>(competencies?.areas_to_improve || []);
   const [generatingComment, setGeneratingComment] = useState(false);
   const [selectedEvidence, setSelectedEvidence] = useState<string | null>(null);
-  const [actionItemsSent, setActionItemsSent] = useState(false);
 
   // Módulos visibles (Conversación / Reflexión / Retroalimentación). Al menos
   // uno queda siempre visible.
@@ -189,20 +195,24 @@ export default function TeacherReviewClient({
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasMounted = useRef(false);
 
-  const liveOverall = competencies
-    ? COMP_V2_LABELS.reduce((sum, { key }) => {
-        const orig = Number(competencies[key as keyof Competencies]) || 0;
-        return sum + (editedScores[key] !== undefined ? editedScores[key] : orig);
-      }, 0) / COMP_V2_LABELS.length
-    : 0;
+  // NULL en la BD = "no aplica": no es un 0 y queda fuera del promedio, igual
+  // que en computeOverallV2. Antes se leía como 0 y hundía la nota global.
+  const origScore = (key: string): number | null => {
+    const v = competencies?.[key as keyof Competencies];
+    return typeof v === "number" ? v : null;
+  };
+  const currentScore = (key: string): number | null =>
+    editedScores[key] !== undefined ? editedScores[key] : origScore(key);
+  const scoredKeys = COMP_V2_LABELS.map(({ key }) => currentScore(key)).filter((v): v is number => v !== null);
+  const liveOverall = scoredKeys.length ? scoredKeys.reduce((a, b) => a + b, 0) / scoredKeys.length : 0;
 
+  // La nota global la recalcula el servidor (update-competencies) desde lo guardado.
   const persistCompetencyEdits = useCallback(async () => {
     if (!competencies) return;
     const updates: Record<string, unknown> = {
       ai_commentary: aiCommentary,
       strengths: editedStrengths,
       areas_to_improve: editedAreas,
-      overall_score_v2: Math.round(liveOverall * 100) / 100,
     };
     Object.entries(editedScores).forEach(([k, v]) => { updates[k] = v; });
     try {
@@ -214,11 +224,11 @@ export default function TeacherReviewClient({
     } catch {
       // Silencioso: el próximo cambio vuelve a intentar guardar.
     }
-  }, [conversationId, competencies, aiCommentary, editedStrengths, editedAreas, editedScores, liveOverall]);
+  }, [conversationId, competencies, aiCommentary, editedStrengths, editedAreas, editedScores]);
 
   useEffect(() => {
     if (!hasMounted.current) { hasMounted.current = true; return; }
-    if (wasAlreadyApproved) return; // no se autoguarda sobre una evaluación ya cerrada
+    if (locked) return; // no se autoguarda sobre una evaluación cerrada, salvo en modo edición
     setAutosaveStatus("saving");
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     autosaveTimer.current = setTimeout(() => {
@@ -236,11 +246,10 @@ export default function TeacherReviewClient({
   const buildCalibrationSummary = () => {
     if (!competencies) return "";
     return COMP_V2_LABELS.map(({ key, label }) => {
-      const orig = Number(competencies[key as keyof Competencies]) || 0;
-      const val = editedScores[key] !== undefined ? editedScores[key] : orig;
+      const val = currentScore(key);
       const evList = getEvidenceList((competencies.evidence as Record<string, unknown> | undefined)?.[key]);
       const evText = evList.slice(0, 2).map((e) => `"${e.quote}"`).join(" / ");
-      return `${label}: ${val.toFixed(1)}/4${evText ? " — evidencia: " + evText : ""}`;
+      return `${label}: ${val === null ? "no aplica" : `${val.toFixed(1)}/4`}${evText ? " — evidencia: " + evText : ""}`;
     }).join("\n");
   };
 
@@ -297,10 +306,13 @@ export default function TeacherReviewClient({
     setGeneratingComment(false);
   };
 
+  const scoreOutOfRange = (n: number | null) => n != null && (n < scoreScale.min || n > scoreScale.max);
+  const scoreRangeLabel = `${scoreScale.min} - ${scoreScale.max}`;
+
   const handleSubmit = async () => {
-    const numScore = score ? parseFloat(score) : null;
-    if (numScore != null && (numScore < 0 || numScore > 10)) {
-      toast.error("La nota debe estar entre 0 y 10");
+    const numScore = score ? parseFloat(score.replace(",", ".")) : null;
+    if (scoreOutOfRange(numScore)) {
+      toast.error(`La nota debe estar entre ${scoreScale.min} y ${scoreScale.max}`);
       return;
     }
     if (!comment.trim() && numScore == null) {
@@ -318,13 +330,19 @@ export default function TeacherReviewClient({
           conversation_id: conversationId,
           teacher_comment: comment.trim() || null,
           teacher_score: numScore,
+          edit: wasAlreadyApproved,
         }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Error al enviar");
       setSaved(true);
       setIsApproved(true);
-      toast.success("Retroalimentación enviada al estudiante");
       setFocusOpen(false);
+      if (wasAlreadyApproved) {
+        setEditing(false);
+        toast.success("Cambios guardados. El estudiante ya ve la versión corregida.");
+        return;
+      }
+      toast.success("Retroalimentación enviada al estudiante");
       setTimeout(() => {
         window.location.href = "/docente/revisiones";
       }, 1500);
@@ -337,9 +355,9 @@ export default function TeacherReviewClient({
 
   // Save a draft (comment + score) without approving or notifying the student.
   const handleSaveDraft = async () => {
-    const numScore = score ? parseFloat(score) : null;
-    if (numScore != null && (numScore < 0 || numScore > 10)) {
-      toast.error("La nota debe estar entre 0 y 10");
+    const numScore = score ? parseFloat(score.replace(",", ".")) : null;
+    if (scoreOutOfRange(numScore)) {
+      toast.error(`La nota debe estar entre ${scoreScale.min} y ${scoreScale.max}`);
       return;
     }
     setSavingDraft(true);
@@ -392,7 +410,9 @@ export default function TeacherReviewClient({
   // ── Accionables: estado vivido en el padre (no en el hijo) para que la
   // misma sección se muestre tanto en la columna Retroalimentación como en
   // Vista completa sin duplicar el fetch ni perder lo ya cargado. ──
-  const actionItems = useActionItems({ conversationId, studentId: student.id, studentName: student.full_name, competencies, wasAlreadyApproved, onItemsChange: (count) => setActionItemsSent(count > 0) });
+  // Accionables, fortalezas y áreas son opcionales: el docente puede enviar
+  // solo el comentario y/o la nota, sin pasar por ellos.
+  const actionItems = useActionItems({ conversationId, studentId: student.id, studentName: student.full_name, competencies, locked });
 
   // ── Bloques de contenido reutilizados en la vista dividida y en Vista completa ──
 
@@ -403,8 +423,10 @@ export default function TeacherReviewClient({
           <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">{domain}</p>
           <div className="space-y-1.5">
             {COMP_V2_LABELS.filter((c) => c.domain === domain).map(({ key, label }) => {
-              const origVal = Number(competencies?.[key as keyof Competencies]) || 0;
-              const val = editedScores[key] !== undefined ? editedScores[key] : origVal;
+              const origVal = origScore(key);
+              const current = currentScore(key);
+              const val = current ?? 0;
+              const isNA = current === null;
               const isEdited = editedScores[key] !== undefined && editedScores[key] !== origVal;
               const row = (
                 <div key={key} className="flex items-center gap-2">
@@ -417,11 +439,12 @@ export default function TeacherReviewClient({
                     {label}
                     <CompetencyTooltip compKey={key} />
                   </button>
-                  {!wasAlreadyApproved ? (
+                  {!locked ? (
                     <input
                       type="range" min="0" max="4" step="0.5" value={val}
                       onChange={(e) => handleScoreChange(key, parseFloat(e.target.value))}
-                      className="flex-1 h-1.5 accent-sidebar cursor-pointer"
+                      className={`flex-1 h-1.5 accent-sidebar cursor-pointer ${isNA ? "opacity-40" : ""}`}
+                      title={isNA ? "No aplica: mueve el control para asignarle nota" : undefined}
                     />
                   ) : (
                     <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -434,8 +457,8 @@ export default function TeacherReviewClient({
                       />
                     </div>
                   )}
-                  <span className={`text-[10px] font-medium w-5 text-right ${isEdited ? "text-sidebar" : "text-gray-700"}`}>
-                    {val.toFixed(1)}
+                  <span className={`text-[10px] font-medium w-5 text-right ${isEdited ? "text-sidebar" : isNA ? "text-gray-400" : "text-gray-700"}`}>
+                    {isNA ? "NA" : val.toFixed(1)}
                   </span>
                 </div>
               );
@@ -469,27 +492,48 @@ export default function TeacherReviewClient({
     </>
   );
 
+  // Omitir = el estudiante no ve fortalezas ni áreas en esta sesión; el
+  // comentario del docente basta.
+  const omitStrengthsAreas = () => {
+    setEditedStrengths([]);
+    setEditedAreas([]);
+    setCalibrationConfirmed(true);
+    setScoresChangedSinceCalibration(false);
+  };
+
   const renderStrengthsAreas = () => {
     if (!calibrationConfirmed) {
       return (
         <div className="bg-sidebar/5 border border-sidebar/15 rounded-lg p-3">
           <p className="text-[11px] text-gray-600 mb-2">
-            Las fortalezas y áreas de mejora aparecen cuando confirmas la calibración de las notas de arriba.
+            Fortalezas y áreas de mejora (opcional). Aparecen cuando confirmas la calibración de las notas de arriba, o puedes omitirlas.
           </p>
-          <button
-            onClick={confirmCalibration}
-            disabled={confirmingCalibration || !competencies}
-            className="flex items-center gap-1.5 text-[11px] font-semibold text-white bg-sidebar hover:bg-[#3D4890] px-3 py-1.5 rounded-lg disabled:opacity-50 cursor-pointer"
-          >
-            {confirmingCalibration ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
-            {confirmingCalibration ? "Generando..." : "Confirmar calibración"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={confirmCalibration}
+              disabled={confirmingCalibration || !competencies}
+              className="flex items-center gap-1.5 text-[11px] font-semibold text-white bg-sidebar hover:bg-[#3D4890] px-3 py-1.5 rounded-lg disabled:opacity-50 cursor-pointer"
+            >
+              {confirmingCalibration ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+              {confirmingCalibration ? "Generando..." : "Confirmar calibración"}
+            </button>
+            {!locked && (
+              <button onClick={omitStrengthsAreas} className="text-[11px] text-gray-500 hover:text-gray-700 hover:underline cursor-pointer">
+                Omitir
+              </button>
+            )}
+          </div>
         </div>
       );
     }
     return (
       <div className="space-y-2">
-        {scoresChangedSinceCalibration && !wasAlreadyApproved && (
+        {!locked && (editedStrengths.length > 0 || editedAreas.length > 0) && (
+          <button onClick={omitStrengthsAreas} className="text-[10px] text-gray-500 hover:text-gray-700 hover:underline cursor-pointer">
+            Omitir fortalezas y áreas
+          </button>
+        )}
+        {scoresChangedSinceCalibration && !locked && (
           <button onClick={confirmCalibration} disabled={confirmingCalibration}
             className="flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 hover:bg-amber-100 cursor-pointer disabled:opacity-50">
             {confirmingCalibration ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
@@ -498,7 +542,7 @@ export default function TeacherReviewClient({
         )}
         <div>
           <p className="text-[10px] font-medium text-green-700 mb-1">Fortalezas</p>
-          {!wasAlreadyApproved ? (
+          {!locked ? (
             <div className="space-y-1">
               {editedStrengths.map((s, i) => (
                 <div key={i} className="flex items-center gap-1">
@@ -515,7 +559,7 @@ export default function TeacherReviewClient({
         </div>
         <div>
           <p className="text-[10px] font-medium text-amber-700 mb-1">Áreas de mejora</p>
-          {!wasAlreadyApproved ? (
+          {!locked ? (
             <div className="space-y-1">
               {editedAreas.map((s, i) => (
                 <div key={i} className="flex items-center gap-1">
@@ -537,19 +581,19 @@ export default function TeacherReviewClient({
   const renderComposeForm = (compact: boolean) => (
     <div>
       <div className="mb-4">
-        <label className="block text-xs font-medium text-gray-700 mb-1.5">Nota (0 - 10)</label>
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">Nota ({scoreRangeLabel}, opcional)</label>
         <input
-          type="number" min="0" max="10" step="0.5" value={score}
+          type="number" min={scoreScale.min} max={scoreScale.max} step={scoreScale.step} value={score}
           onChange={(e) => { setScore(e.target.value); setSaved(false); }}
-          disabled={wasAlreadyApproved || (!actionItemsSent && !wasAlreadyApproved)}
-          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 ${wasAlreadyApproved || !actionItemsSent ? "bg-gray-50 text-gray-500" : ""}`}
+          disabled={locked}
+          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 ${locked ? "bg-gray-50 text-gray-500" : ""}`}
         />
       </div>
 
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1.5">
           <label className="block text-xs font-medium text-gray-700">Comentario de supervisión</label>
-          {!wasAlreadyApproved && (
+          {!locked && (
             <div className="flex items-center gap-2">
               <div className="flex border border-gray-200 rounded-lg overflow-hidden">
                 <button onClick={() => setFeedbackStyle("executive")}
@@ -571,38 +615,55 @@ export default function TeacherReviewClient({
         </div>
         <textarea value={comment}
           onChange={(e) => { setComment(e.target.value); setSaved(false); }}
-          disabled={wasAlreadyApproved || (!actionItemsSent && !wasAlreadyApproved)}
+          disabled={locked}
           rows={compact ? 8 : 16}
-          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-purple-400 ${wasAlreadyApproved || !actionItemsSent ? "bg-gray-50 text-gray-500" : ""}`}
+          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-purple-400 ${locked ? "bg-gray-50 text-gray-500" : ""}`}
           placeholder={"Puntos fuertes:\n1. \n2. \n\nOportunidades de mejora:\n1. \n2. \n\nCitas textuales relevantes:\n- \n\nAccionables para la próxima sesión:\n- "}
         />
       </div>
 
-      {isApproved ? (
-        <div className="p-4 rounded-xl border-2 bg-green-50 border-green-200">
+      {isApproved && !editing ? (
+        <div className="p-4 rounded-xl border-2 bg-green-50 border-green-200 flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-green-700 animate-fade-in">
             <CheckCircle size={18} />
             <span className="text-sm font-medium">Retroalimentación enviada y visible para el estudiante</span>
           </div>
+          {wasAlreadyApproved && (
+            <button onClick={() => setEditing(true)}
+              className="ml-auto text-xs font-medium text-green-800 border border-green-300 bg-white hover:bg-green-100 px-3 py-1.5 rounded-lg cursor-pointer">
+              Editar retroalimentación
+            </button>
+          )}
+        </div>
+      ) : editing ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={handleSubmit} disabled={saving || (!comment.trim() && !score)}
+              className="py-2 px-4 rounded-lg text-sm font-semibold bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+              {saving ? "Guardando..." : (<><Save size={15} /> Guardar cambios</>)}
+            </button>
+            <button onClick={() => window.location.reload()} disabled={saving}
+              className="py-2 px-4 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 hover:bg-gray-50 cursor-pointer">
+              Descartar
+            </button>
+          </div>
+          <p className="text-[10px] text-gray-400">Las notas por competencia se guardan solas y el estudiante las ve de inmediato. El comentario y la nota se actualizan al guardar; el estudiante recibe un aviso en la plataforma, sin correo.</p>
         </div>
       ) : (
         <div className="space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={handleSubmit} disabled={saving || savingDraft || (!comment.trim() && !score) || !actionItemsSent}
+            <button onClick={handleSubmit} disabled={saving || savingDraft || (!comment.trim() && !score)}
               className={`py-2 px-4 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 hover:shadow-md ${
                 saving ? "bg-green-400 text-white cursor-wait"
                   : "bg-green-600 hover:bg-green-700 text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               }`}>
               {saving ? "Enviando..." : (<><Send size={15} /> Enviar retroalimentación</>)}
             </button>
-            <button onClick={handleSaveDraft} disabled={savingDraft || saving || (!comment.trim() && !score) || !actionItemsSent}
+            <button onClick={handleSaveDraft} disabled={savingDraft || saving || (!comment.trim() && !score)}
               className="py-2 px-4 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 transition-colors flex items-center justify-center gap-2 hover:bg-gray-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
               {savingDraft ? (<><Loader2 size={14} className="animate-spin" /> Guardando...</>) : (<><Save size={14} /> Guardar borrador</>)}
             </button>
           </div>
-          {!actionItemsSent && (
-            <p className="text-[10px] text-amber-600 flex items-center gap-1"><Clock size={11} /> Primero completa los accionables para avanzar con el mensaje.</p>
-          )}
           <p className="text-[10px] text-gray-400">El borrador queda guardado solo para ti. El estudiante no lo ve hasta que envíes la retroalimentación.</p>
         </div>
       )}
@@ -835,7 +896,7 @@ export default function TeacherReviewClient({
 
                         <div className="mb-3">
                           <p className="text-[10px] font-medium text-gray-500 mb-1">Comentario IA</p>
-                          {!wasAlreadyApproved ? (
+                          {!locked ? (
                             <textarea value={aiCommentary} onChange={(e) => setAiCommentary(e.target.value)}
                               rows={4} className="w-full border border-sidebar/30 rounded-lg px-3 py-2 text-xs resize-y focus:outline-none focus:ring-2 focus:ring-sidebar/20" />
                           ) : (
@@ -852,7 +913,7 @@ export default function TeacherReviewClient({
                     {/* Sección: Accionables */}
                     <button onClick={() => setActionablesOpen((v) => !v)} className="w-full flex items-center gap-2 py-1.5 cursor-pointer">
                       <CheckCircle size={15} className="text-emerald-500 flex-shrink-0" />
-                      <h4 className="text-[13px] font-semibold text-gray-900">Accionables</h4>
+                      <h4 className="text-[13px] font-semibold text-gray-900">Accionables <span className="text-[11px] font-normal text-gray-400">(opcional)</span></h4>
                       <ChevronRight size={15} className={`text-gray-400 transition-transform ml-auto flex-shrink-0 ${actionablesOpen ? "rotate-90" : ""}`} />
                     </button>
                     {actionablesOpen && <div className="pb-2 pt-1"><ActionItemsBody state={actionItems} /></div>}
@@ -886,9 +947,9 @@ export default function TeacherReviewClient({
         </div>
 
         {/* ═══ Mensaje al estudiante: fuera de las columnas fijas, en el scroll de la página ═══ */}
-        <div className={`mt-4 bg-white rounded-xl border p-5 ${!actionItemsSent && !wasAlreadyApproved ? "border-gray-200 opacity-60" : "border-purple-200"}`}>
+        <div className={`mt-4 bg-white rounded-xl border p-5 border-purple-200`}>
           <div className="flex items-center gap-2 mb-4">
-            <GraduationCap size={16} className={actionItemsSent || wasAlreadyApproved ? "text-purple-600" : "text-gray-400"} />
+            <GraduationCap size={16} className="text-purple-600" />
             <h3 className="text-sm font-semibold text-gray-900">Mensaje al estudiante</h3>
             {saved && <CheckCircle size={14} className="text-green-500" />}
           </div>
@@ -907,8 +968,8 @@ export default function TeacherReviewClient({
               <span className={`w-1.5 h-1.5 rounded-full ${autosaveStatus === "saving" ? "bg-amber-400" : "bg-green-400"}`} />
               {autosaveStatus === "saving" ? "Guardando…" : "Guardado"}
             </span>
-            {!wasAlreadyApproved && (
-              <button onClick={handleSubmit} disabled={saving || !comment.trim() && !score || !actionItemsSent}
+            {!locked && (
+              <button onClick={handleSubmit} disabled={saving || !comment.trim() && !score}
                 className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer">
                 <Send size={13} /> Enviar retroalimentación
               </button>
@@ -926,7 +987,7 @@ export default function TeacherReviewClient({
                 {competencies && renderCompetencyRows(true)}
                 <div className="mt-3 mb-3">
                   <p className="text-[10px] font-medium text-gray-500 mb-1">Comentario IA</p>
-                  {!wasAlreadyApproved ? (
+                  {!locked ? (
                     <textarea value={aiCommentary} onChange={(e) => setAiCommentary(e.target.value)}
                       rows={4} className="w-full border border-sidebar/30 rounded-lg px-3 py-2 text-xs resize-y focus:outline-none focus:ring-2 focus:ring-sidebar/20" />
                   ) : (
@@ -937,7 +998,7 @@ export default function TeacherReviewClient({
               </div>
               <div className="space-y-4">
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Accionables</h3>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Accionables <span className="text-[11px] font-normal text-gray-400">(opcional)</span></h3>
                   <ActionItemsBody state={actionItems} />
                 </div>
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -958,8 +1019,8 @@ export default function TeacherReviewClient({
 // misma sección se pueda pintar en la columna Retroalimentación Y en Vista
 // completa sin duplicar el fetch ni perder lo cargado al cambiar de vista.
 // ═══════════════════════════════════════════════════════════
-function useActionItems({ conversationId, studentId, studentName, competencies, wasAlreadyApproved, onItemsChange }: {
-  conversationId: string; studentId: string; studentName: string; competencies: Competencies | null; wasAlreadyApproved: boolean; onItemsChange?: (count: number) => void;
+function useActionItems({ conversationId, studentId, studentName, competencies, locked }: {
+  conversationId: string; studentId: string; studentName: string; competencies: Competencies | null; locked: boolean;
 }) {
   const [items, setItems] = useState<{ id: string; content: string; status: string; resource_link: string | null; student_comment: string | null }[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -984,11 +1045,10 @@ function useActionItems({ conversationId, studentId, studentName, competencies, 
   useEffect(() => {
     fetch("/api/docente/action-items?conversation_id=" + conversationId)
       .then((r) => r.json())
-      .then((data) => { setItems(data); setLoaded(true); onItemsChange?.(data.length); });
+      .then((data) => { setItems(data); setLoaded(true); });
     fetch("/api/docente/action-items?student_id=" + studentId)
       .then((r) => r.json())
       .then((data) => { setPrevItems(data.filter((d: { conversation_id: string }) => d.conversation_id !== conversationId)); });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, studentId]);
 
   const generateSuggestions = async () => {
@@ -1035,7 +1095,6 @@ function useActionItems({ conversationId, studentId, studentName, competencies, 
       if (r.ok) {
         const updated = await r.json();
         setItems(updated);
-        onItemsChange?.(updated.length);
       }
     } catch {
       toast.error("Error al enviar los accionables. Intenta de nuevo.");
@@ -1047,7 +1106,7 @@ function useActionItems({ conversationId, studentId, studentName, competencies, 
 
   return {
     items, suggestions, generating, saving, loaded, prevItems, manualItems, setManualItems, showPrev, setShowPrev,
-    selectedDims, toggleDim, generateSuggestions, saveItems, removeSuggestion, locked: wasAlreadyApproved,
+    selectedDims, toggleDim, generateSuggestions, saveItems, removeSuggestion, locked,
   };
 }
 type ActionItemsState = ReturnType<typeof useActionItems>;

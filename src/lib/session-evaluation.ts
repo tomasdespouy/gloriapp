@@ -4,6 +4,7 @@ import {
   EVALUATION_PROMPT,
   buildCompetencyUpsert,
   buildUserMessage,
+  dropNonStudentEvidence,
   normalizeEvaluation,
   type NormalizedEvaluation,
 } from "@/lib/evaluation-prompt";
@@ -27,7 +28,10 @@ export async function runEvaluator(
 ): Promise<{ evaluation: NormalizedEvaluation; model: string }> {
   const userMsg = buildUserMessage(transcript, { sessionNumber });
   const parse = (text: string) =>
-    normalizeEvaluation(JSON.parse(text.replace(/```json?\n?/g, "").replace(/```/g, "").trim()));
+    dropNonStudentEvidence(
+      normalizeEvaluation(JSON.parse(text.replace(/```json?\n?/g, "").replace(/```/g, "").trim())),
+      transcript,
+    );
 
   const first = await chatDetailed([{ role: "user", content: userMsg }], EVALUATION_PROMPT, { jsonMode: true });
   try {
