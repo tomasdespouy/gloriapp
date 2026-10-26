@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { authorizeFeedbackAccess } from "@/lib/feedback-auth";
+import { teacherScoreScaleForStudent } from "@/lib/teacher-score";
 import { NextResponse } from "next/server";
 
 // Save a DRAFT of the teacher's comment + score without approving or notifying.
@@ -24,13 +25,6 @@ export async function POST(request: Request) {
   }
   const user = { id: auth.userId };
 
-  if (teacher_score != null && (teacher_score < 0 || teacher_score > 10)) {
-    return NextResponse.json(
-      { error: "teacher_score debe estar entre 0 y 10" },
-      { status: 400 }
-    );
-  }
-
   const admin = createAdminClient();
 
   const { data: conversation } = await admin
@@ -43,6 +37,14 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Conversación no encontrada" },
       { status: 404 }
+    );
+  }
+
+  const scale = await teacherScoreScaleForStudent(admin, conversation.student_id);
+  if (teacher_score != null && (teacher_score < scale.min || teacher_score > scale.max)) {
+    return NextResponse.json(
+      { error: `La nota debe estar entre ${scale.min} y ${scale.max}` },
+      { status: 400 }
     );
   }
 

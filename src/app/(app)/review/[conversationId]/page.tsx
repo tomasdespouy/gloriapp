@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import ReviewClient from "./ReviewClient";
 import { isPilotActive } from "@/lib/pilot-helpers";
 import { extraerGestos } from "@/lib/nonverbal-cues";
+import { teacherScoreScaleForStudent } from "@/lib/teacher-score";
 
 export default async function ReviewPage({
   params,
@@ -155,6 +156,7 @@ export default async function ReviewPage({
       activeSeconds={activeSeconds}
       teacherComment={canSeeResults ? teacherFeedback?.teacher_comment || null : null}
       teacherScore={canSeeResults ? teacherFeedback?.teacher_score || null : null}
+      teacherScoreMax={(await teacherScoreScaleForStudent(admin, user.id)).max}
       startedAt={conversation.started_at || null}
       endedAt={conversation.ended_at || null}
       actionItems={actionItems || []}

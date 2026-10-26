@@ -1,11 +1,15 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { authorizeFeedbackAccess } from "@/lib/feedback-auth";
 import { logEmail } from "@/lib/email-log";
+import { teacherScoreScaleForStudent } from "@/lib/teacher-score";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { conversation_id, teacher_comment, teacher_score } = body;
+  // edit = corregir una retroalimentación ya enviada (p. ej. la supervisora que
+  // intercambió por error el feedback de dos sesiones): actualiza comentario y
+  // nota, conserva la aprobación original y avisa al estudiante sin correo.
+  const { conversation_id, teacher_comment, teacher_score, edit } = body;
 
   if (!conversation_id) {
     return NextResponse.json(
@@ -22,13 +26,6 @@ export async function POST(request: Request) {
   }
   const user = { id: auth.userId };
 
-  if (teacher_score != null && (teacher_score < 0 || teacher_score > 10)) {
-    return NextResponse.json(
-      { error: "teacher_score debe estar entre 0 y 10" },
-      { status: 400 }
-    );
-  }
-
   const admin = createAdminClient();
 
   // ── 1. Get conversation info ──
@@ -42,6 +39,14 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Conversación no encontrada" },
       { status: 404 }
+    );
+  }
+
+  const scale = await teacherScoreScaleForStudent(admin, conversation.student_id);
+  if (teacher_score != null && (teacher_score < scale.min || teacher_score > scale.max)) {
+    return NextResponse.json(
+      { error: `La nota debe estar entre ${scale.min} y ${scale.max}` },
+      { status: 400 }
     );
   }
 
@@ -78,9 +83,24 @@ export async function POST(request: Request) {
 
   const { data: existingComp } = await admin
     .from("session_competencies")
-    .select("id")
+    .select("id, feedback_status")
     .eq("conversation_id", conversation_id)
     .maybeSingle();
+
+  const patientName =
+    (conversation.ai_patients as unknown as { name: string })?.name ||
+    "paciente";
+
+  if (edit && existingComp && existingComp.feedback_status !== "pending") {
+    await admin.from("notifications").insert({
+      user_id: conversation.student_id,
+      type: "feedback_approved",
+      title: "Retroalimentación actualizada",
+      body: `Tu docente actualizó la retroalimentación de tu sesión con ${patientName}.`,
+      href: `/review/${conversation_id}`,
+    });
+    return NextResponse.json({ success: true });
+  }
 
   if (existingComp) {
     const { error: updateErr } = await admin
@@ -133,10 +153,6 @@ export async function POST(request: Request) {
   }
 
   // ── 4. Notify student ──
-  const patientName =
-    (conversation.ai_patients as unknown as { name: string })?.name ||
-    "paciente";
-
   await admin.from("notifications").insert({
     user_id: conversation.student_id,
     type: "feedback_approved",

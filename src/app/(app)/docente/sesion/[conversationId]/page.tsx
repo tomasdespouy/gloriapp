@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { canViewStudent } from "@/lib/section-scope";
 import { matchesScope, resolveAdminScopeRules } from "@/lib/admin-scope";
+import { teacherScoreScaleForStudent } from "@/lib/teacher-score";
 import TeacherReviewClient from "./TeacherReviewClient";
 
 interface Props {
@@ -95,7 +96,7 @@ export default async function DocenteSesionPage({ params }: Props) {
 
   // Get feedback + summary in parallel
   const admin = createAdminClient();
-  const [{ data: feedback }, { data: summaryRow }] = await Promise.all([
+  const [{ data: feedback }, { data: summaryRow }, scoreScale] = await Promise.all([
     supabase
       .from("session_feedback")
       .select("*")
@@ -106,6 +107,7 @@ export default async function DocenteSesionPage({ params }: Props) {
       .select("summary")
       .eq("conversation_id", conversationId)
       .maybeSingle(),
+    teacherScoreScaleForStudent(admin, conversation.student_id),
   ]);
 
   const patient = conversation.ai_patients as unknown as {
@@ -126,6 +128,7 @@ export default async function DocenteSesionPage({ params }: Props) {
       summary={summaryRow?.summary || null}
       messageCount={messages?.length || 0}
       mixedDistraction={(conversation.paste_count || 0) >= 1 && (conversation.tab_switch_count || 0) >= 1}
+      scoreScale={scoreScale}
     />
   );
 }

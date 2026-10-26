@@ -38,6 +38,8 @@ interface Props {
   activeSeconds: number;
   teacherComment: string | null;
   teacherScore: number | null;
+  /** 7 en Chile (notas 1-7), 10 en el resto. */
+  teacherScoreMax?: number;
   startedAt: string | null;
   endedAt: string | null;
   actionItems: ActionItem[];
@@ -189,6 +191,7 @@ export default function ReviewClient({
   activeSeconds,
   teacherComment,
   teacherScore,
+  teacherScoreMax = 10,
   startedAt,
   endedAt,
   actionItems: initialActionItems,
@@ -1028,6 +1031,8 @@ export default function ReviewClient({
                     {String(evaluation.ai_commentary || evaluation.commentary || "")}
                   </p>
 
+                  {/* Fortalezas y áreas son opcionales para el docente: si las omitió, no se muestran. */}
+                  {((evaluation.strengths as string[] || []).length > 0 || (evaluation.areas_to_improve as string[] || []).length > 0) && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Strengths */}
                     <div className="bg-green-50 rounded-lg p-4">
@@ -1055,6 +1060,7 @@ export default function ReviewClient({
                       </ul>
                     </div>
                   </div>
+                  )}
                 </div>
 
                 {/* Teacher feedback */}
@@ -1067,7 +1073,7 @@ export default function ReviewClient({
                       </h3>
                       {teacherScore !== null && (
                         <span className="ml-auto text-sm font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
-                          {teacherScore}/10
+                          {teacherScore}/{teacherScoreMax}
                         </span>
                       )}
                     </div>

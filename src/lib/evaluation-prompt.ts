@@ -65,6 +65,8 @@ export type NormalizedEvaluation = {
   strengths: string[];
   areas_to_improve: string[];
   evidence: Partial<Record<CompetencyKey, EvaluationEvidence[]>>;
+  /** Citas descartadas por no estar en un turno del estudiante (ver dropNonStudentEvidence). */
+  evidence_dropped?: number;
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -322,6 +324,61 @@ export function normalizeEvaluation(raw: unknown): NormalizedEvaluation {
   };
 }
 
+// Normaliza para comparar citas con la transcripción: sin tildes, mayúsculas,
+// acotaciones entre corchetes ni puntuación.
+function foldForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD").replace(/\p{M}/gu, "")
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/[^a-z0-9ñ ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Descarta las citas de evidencia que no están en un turno del TERAPEUTA.
+ *
+ * En el CAP UGM (oct-2026) el 6,4 % de las citas eran frases del PACIENTE
+ * atribuidas al estudiante — 26 de ellas como "fortaleza", en 18 de 64
+ * sesiones — y otro 6,5 % no aparecía en la transcripción.
+ *
+ * No se exige coincidencia literal: al citar, el evaluador corrige las faltas
+ * de tipeo del estudiante ("acreques" → "acerques"), y una regla literal
+ * descartaba esas citas legítimas. Se compara por palabras: la cita se conserva
+ * si al menos el 70 % de sus palabras está en un mismo turno del estudiante y
+ * ese turno la explica mejor que cualquier turno del paciente.
+ * `transcript` es el formato "TERAPEUTA: / PACIENTE:" de session-evaluation.ts.
+ */
+export function dropNonStudentEvidence(
+  evaluation: NormalizedEvaluation,
+  transcript: string,
+): NormalizedEvaluation {
+  const turns = transcript.split(/\n(?=(?:TERAPEUTA|PACIENTE): )/);
+  const wordsOf = (s: string) => new Set(foldForMatch(s).split(" ").filter((w) => w.length > 0));
+  const studentTurns = turns.filter((t) => t.startsWith("TERAPEUTA: ")).map((t) => wordsOf(t.slice("TERAPEUTA: ".length)));
+  const patientTurns = turns.filter((t) => t.startsWith("PACIENTE: ")).map((t) => wordsOf(t.slice("PACIENTE: ".length)));
+
+  const bestCoverage = (quoteWords: string[], pool: Set<string>[]) =>
+    pool.reduce((best, turn) => Math.max(best, quoteWords.filter((w) => turn.has(w)).length / quoteWords.length), 0);
+
+  const isStudentQuote = (quote: string) => {
+    const quoteWords = [...wordsOf(quote.replace(/^\s*(?:terapeuta|estudiante)\s*:\s*/i, ""))];
+    if (quoteWords.length === 0) return false;
+    const student = bestCoverage(quoteWords, studentTurns);
+    return student >= 0.7 && student >= bestCoverage(quoteWords, patientTurns);
+  };
+
+  let dropped = 0;
+  const evidence: Partial<Record<CompetencyKey, EvaluationEvidence[]>> = {};
+  for (const [key, list] of Object.entries(evaluation.evidence) as [CompetencyKey, EvaluationEvidence[]][]) {
+    const kept = list.filter((e) => isStudentQuote(e.quote));
+    dropped += list.length - kept.length;
+    evidence[key] = kept;
+  }
+  return { ...evaluation, evidence, evidence_dropped: dropped };
+}
+
 /**
  * Construye el snapshot ai_original para persistencia.
  */
@@ -337,6 +394,7 @@ export function buildAiOriginal(
     strengths: evaluation.strengths,
     areas_to_improve: evaluation.areas_to_improve,
     evidence: evaluation.evidence,
+    evidence_dropped: evaluation.evidence_dropped ?? 0,
     model: modelInfo.model,
     rubric_version: RUBRIC_VERSION,
     generated_at: new Date().toISOString(),
