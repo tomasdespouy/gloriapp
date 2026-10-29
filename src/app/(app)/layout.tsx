@@ -9,6 +9,7 @@ import WelcomeVideoModal from "@/components/WelcomeVideoModal";
 import GuidedTour, { type GuidedTourConfig } from "@/components/GuidedTour";
 import SurveyModal from "@/components/SurveyModal";
 import PlatformActivityTracker from "@/components/PlatformActivityTracker";
+import OnlinePresenceIndicator from "@/components/OnlinePresenceIndicator";
 import { Toaster } from "sonner";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -203,6 +204,7 @@ export default async function AppLayout({
         {certTour && profile?.id && <GuidedTour userId={profile.id} welcomeVideoSeen={welcomeVideoSeen} config={certTour} />}
         <SurveyModal welcomeVideoSeen={welcomeVideoSeen} />
         <PlatformActivityTracker />
+        {(isTrulySuperadmin || realRole === "admin") && <OnlinePresenceIndicator />}
         <Toaster position="top-right" richColors closeButton />
       </div>
     </SidebarProvider>
