@@ -14,6 +14,11 @@ import { getCertificationPolicy, notifyAutoApprovedFeedback } from "@/lib/certif
 
 type Admin = ReturnType<typeof createAdminClient>;
 
+// Sin temperatura explícita el evaluador corría al valor por defecto (1,0): en
+// el CAP UGM (oct-2026) reevaluar la misma sesión con el mismo modelo y prompt
+// cambiaba la nota global 0,32 puntos en promedio. Calificar pide repetibilidad.
+export const EVALUATOR_TEMPERATURE = 0;
+
 /**
  * Corre el evaluador y devuelve la evaluación normalizada + el modelo que de
  * verdad la produjo. Si la respuesta llega con JSON roto (p. ej. cortada a la
@@ -33,7 +38,7 @@ export async function runEvaluator(
       transcript,
     );
 
-  const first = await chatDetailed([{ role: "user", content: userMsg }], EVALUATION_PROMPT, { jsonMode: true });
+  const first = await chatDetailed([{ role: "user", content: userMsg }], EVALUATION_PROMPT, { jsonMode: true, temperature: EVALUATOR_TEMPERATURE });
   try {
     return { evaluation: parse(first.text), model: first.model };
   } catch (err) {
@@ -43,7 +48,7 @@ export async function runEvaluator(
       retryWith: other,
       error: err instanceof Error ? err.message : String(err),
     });
-    const second = await chatDetailed([{ role: "user", content: userMsg }], EVALUATION_PROMPT, { jsonMode: true, forceProvider: other });
+    const second = await chatDetailed([{ role: "user", content: userMsg }], EVALUATION_PROMPT, { jsonMode: true, forceProvider: other, temperature: EVALUATOR_TEMPERATURE });
     return { evaluation: parse(second.text), model: second.model };
   }
 }

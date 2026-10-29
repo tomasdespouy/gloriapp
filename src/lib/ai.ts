@@ -85,7 +85,7 @@ export function modelLabelFor(provider: "openai" | "gemini", lite = false): stri
 export async function chatDetailed(
   messages: ChatMessage[],
   systemPrompt?: string,
-  options?: { lite?: boolean; jsonMode?: boolean; forceProvider?: "openai" | "gemini" }
+  options?: { lite?: boolean; jsonMode?: boolean; forceProvider?: "openai" | "gemini"; temperature?: number }
 ): Promise<{ text: string; provider: "openai" | "gemini"; model: string }> {
   const model = options?.lite ? chatModel : evalModel;
   // jsonMode fuerza al API a devolver JSON válido (response_format). Elimina la
@@ -102,8 +102,8 @@ export async function chatDetailed(
   const order = firstProvider === "openai" ? ["openai", "gemini"] : ["gemini", "openai"];
   const call = (prov: string) =>
     prov === "openai"
-      ? () => chatOpenAI(messages, systemPrompt, model, jsonMode)
-      : () => chatGemini(messages, systemPrompt, jsonMode);
+      ? () => chatOpenAI(messages, systemPrompt, model, jsonMode, options?.temperature)
+      : () => chatGemini(messages, systemPrompt, jsonMode, options?.temperature);
 
   let lastErr: unknown;
   for (let i = 0; i < order.length; i++) {
@@ -203,7 +203,8 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 async function chatGemini(
   messages: ChatMessage[],
   systemPrompt?: string,
-  jsonMode?: boolean
+  jsonMode?: boolean,
+  temperature?: number
 ): Promise<string> {
   const contents = messages
     .filter((m) => m.role !== "system")
@@ -222,6 +223,7 @@ async function chatGemini(
     config: {
       systemInstruction: systemPrompt,
       ...(jsonMode ? { responseMimeType: "application/json" } : {}),
+      ...(temperature !== undefined ? { temperature } : {}),
     },
   });
 
@@ -236,7 +238,8 @@ async function chatOpenAI(
   messages: ChatMessage[],
   systemPrompt?: string,
   model?: string,
-  jsonMode?: boolean
+  jsonMode?: boolean,
+  temperature?: number
 ): Promise<string> {
   const allMessages: OpenAI.ChatCompletionMessageParam[] = [];
   if (systemPrompt) allMessages.push({ role: "system", content: systemPrompt });
@@ -246,6 +249,7 @@ async function chatOpenAI(
     model: model || evalModel,
     messages: allMessages,
     ...(jsonMode ? { response_format: { type: "json_object" as const } } : {}),
+    ...(temperature !== undefined ? { temperature } : {}),
   });
 
   const text = response.choices[0]?.message?.content || "";
