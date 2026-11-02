@@ -1028,6 +1028,8 @@ async function loadMemory(
     .eq("student_id", userId)
     .eq("ai_patient_id", patientId)
     .eq("status", "completed")
+    // Una sesión cortada por falta de saldo no ocurrió para el paciente: no la recuerda.
+    .or("end_reason.is.null,end_reason.neq.llm_outage")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
