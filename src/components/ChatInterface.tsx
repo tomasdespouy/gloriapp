@@ -195,6 +195,7 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   // Ruptura/quiebre: el paciente cerró la sesión (hostilidad o nombre evadido).
   // Guarda la razón para mostrar un aviso centrado, igual que la desconexión.
   const [sessionEndInfo, setSessionEndInfo] = useState<{ reason: string } | null>(null);
+  const [llmOutage, setLlmOutage] = useState(false);
   const [showVoiceConsent, setShowVoiceConsent] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesText, setNotesText] = useState("");
@@ -651,6 +652,16 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     silencePausedAtRef.current = null;
   };
 
+  // Corte de LLM por falta de saldo: se pausa todo (envío y avisos de silencio) y
+  // se le dice la verdad al estudiante, fuera de la voz del paciente.
+  const enterLlmOutage = () => {
+    if (voiceModeRef.current) stopVoiceMode();
+    clearSilenceTimers();
+    sessionEndedRef.current = true;
+    setSessionEnded(true);
+    setLlmOutage(true);
+  };
+
   const fireSilenceStage = async (stage: number) => {
     console.log(`[silence] fire stage ${stage}, isStreaming=${isStreamingRef.current}, voiceMode=${voiceModeRef.current}, ttsPlaying=${ttsPlayingRef.current}`);
     if (!conversationId || isStreamingRef.current || sessionEndedRef.current) {
@@ -678,7 +689,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       if (res.ok) {
         const data = await res.json();
         console.log(`[silence] received message="${data.message?.slice(0, 60)}...", sessionClosed=${data.sessionClosed}`);
-        if (data.message) {
+        if (data.llm_outage) {
+          enterLlmOutage();
+        } else if (data.message) {
           setMessages((prev) => [...prev, {
             role: "assistant",
             content: data.message,
@@ -1372,6 +1385,14 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               };
               return updated;
             });
+          } else if (data.type === "llm_outage") {
+            tokenBufferRef.current = "";
+            // Quita la burbuja vacía del paciente que estaba esperando respuesta.
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              return last?.role === "assistant" && !last.content ? prev.slice(0, -1) : prev;
+            });
+            enterLlmOutage();
           } else if (data.type === "session_ended") {
             // Ruptura/quiebre: la paciente cerró la sesión. Bloqueamos el input
             // y mostramos un aviso centrado (igual que la desconexión por silencio).
@@ -1971,6 +1992,26 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               className="w-full bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-sidebar-hover transition-colors cursor-pointer"
             >
               Ver resumen de sesión
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Corte de LLM: aviso del sistema, sin foto ni voz del paciente */}
+      {llmOutage && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3 sm:p-4">
+          <div role="alertdialog" aria-labelledby="llm-outage-title" className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 space-y-5 animate-pop text-center max-h-[calc(100dvh-1.5rem)] overflow-y-auto">
+            <h3 id="llm-outage-title" className="text-lg font-bold text-gray-900">
+              La sesión está en pausa por un problema técnico de GlorIA.
+            </h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              No es un problema de su conexión ni de lo que escribió. Sus mensajes quedaron guardados y esta interrupción no afectará su evaluación. Puede cerrar esta ventana e intentarlo más tarde.
+            </p>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="w-full bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-sidebar-hover transition-colors cursor-pointer"
+            >
+              Salir de la sesión
             </button>
           </div>
         </div>

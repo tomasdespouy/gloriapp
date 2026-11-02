@@ -11,6 +11,7 @@ import {
 } from "@/lib/evaluation-prompt";
 import { canViewStudent } from "@/lib/section-scope";
 import { logEmail } from "@/lib/email-log";
+import { LLM_OUTAGE_END_REASON } from "@/lib/llm-outage";
 import { generateSessionSummary, runEvaluator } from "@/lib/session-evaluation";
 import { getCertificationPolicy, notifyAutoApprovedFeedback } from "@/lib/certification";
 
@@ -40,7 +41,7 @@ export async function runSessionComplete(
   // Verify conversation ownership and get details (defense-in-depth on RLS).
   const { data: conversation } = await supabase
     .from("conversations")
-    .select("id, student_id, ai_patient_id, status, session_number")
+    .select("id, student_id, ai_patient_id, status, session_number, end_reason")
     .eq("id", conversationId)
     .eq("student_id", user.id)
     .single();
@@ -81,6 +82,11 @@ export async function runSessionComplete(
       intervention_types,
       clinical_hypothesis,
     }, { onConflict: "conversation_id" });
+  }
+
+  // Sesión cortada por falta de saldo: se cierra, pero sin nota ni resumen.
+  if (conversation.end_reason === LLM_OUTAGE_END_REASON) {
+    return NextResponse.json({ pending_eval: true, llm_outage: true });
   }
 
   // Fetch messages for evaluation

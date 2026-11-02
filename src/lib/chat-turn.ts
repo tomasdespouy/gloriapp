@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat, chatStream, secondaryProvider, type ChatMessage } from "@/lib/ai";
+import { classifyBillingError, LLM_OUTAGE_END_REASON } from "@/lib/llm-outage";
+import { markConversationOutage } from "@/lib/session-evaluation";
 import { detectAlerts, isLikelyTruncated, stripPromptLeaks, detectSessionRupture, unprofessionalActionFor, detectUnprofessional, type AlertSpec, type UnprofessionalCategory } from "@/lib/chat-alerts";
 import { judgeHostility } from "@/lib/hostility-judge";
 import { judgeUnprofessional } from "@/lib/unprofessional-judge";
@@ -273,7 +275,7 @@ Reglas de oro:
     // red de seguridad del detector de presentacion — si el alumno escribio su
     // propio nombre de pila de una forma que los patrones no anticipan, cuenta
     // igual como presentado y el paciente no le exige el nombre.
-    supabase.from("conversations").select("prompt_snapshot, session_number, unprofessional_count, student:profiles(full_name)").eq("id", conversationId).single(),
+    supabase.from("conversations").select("prompt_snapshot, session_number, unprofessional_count, end_reason, student:profiles(full_name)").eq("id", conversationId).single(),
     // Los primeros mensajes de la conversación, aparte de la ventana de los
     // últimos MAX_HISTORY: en una entrevista larga (50+ mensajes) la
     // presentación del terapeuta en el turno 1 se sale de esa ventana y el
@@ -750,12 +752,15 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
         // "Ah, los ch"…) while letting legitimate short replies
         // ("Sí, doctorita.", "[asiente]") pass through. After the
         // intentional short-reply window (turns 1-2) only.
-        const firstCheck = turnNumber > 2
+        // Una respuesta VACÍA nunca es legítima, tampoco en los primeros turnos: sin
+        // esto se guardaba como mensaje y el estudiante veía una burbuja en blanco.
+        const firstCheck = turnNumber > 2 || !patientResponse.trim()
           ? isLikelyTruncated(patientResponse)
           : { truncated: false };
 
         let retryAttempted = false;
         let retryFailed = false;
+        let llmOutage = false;
         let retryReason: string | undefined = firstCheck.reason;
 
         if (firstCheck.truncated) {
@@ -782,6 +787,8 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
           } catch (retryErr) {
             retryFailed = true;
             retryReason = `first=${firstCheck.reason}; retry_error`;
+            // Falta de saldo: reintentar no sirve. Se sale de la voz del paciente.
+            llmOutage = classifyBillingError(retryErr) !== null;
             logger.warn("chat_short_retry_failed", {
               conversationId,
               turnNumber,
@@ -828,13 +835,18 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
           // connection with the patient was unstable and they should
           // resend. The student's own user message stays in the
           // transcript, ready for a retry without re-typing.
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({
-              type: "error",
-              value: "Disculpe, no me llegó su último mensaje. ¿Me lo puede repetir, por favor?",
-              recoverable: true,
-            })}\n\n`)
-          );
+          if (llmOutage) {
+            await markConversationOutage(admin, conversationId!);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "llm_outage" })}\n\n`));
+          } else {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({
+                type: "error",
+                value: "Disculpe, no me llegó su último mensaje. ¿Me lo puede repetir, por favor?",
+                recoverable: true,
+              })}\n\n`)
+            );
+          }
           logger.warn("chat_response_unusable", {
             conversationId,
             turnNumber,
@@ -860,6 +872,12 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
             .single();
 
           savedMessageId = savedMessage?.id ?? null;
+
+          // El estudiante retomó la sesión y el paciente volvió a responder: ya
+          // no es una sesión cortada y se evalúa con normalidad.
+          if (convRow?.end_reason === LLM_OUTAGE_END_REASON) {
+            await supabase.from("conversations").update({ end_reason: null }).eq("id", conversationId);
+          }
         }
 
         const allAlertRows: Array<Record<string, unknown>> = [];

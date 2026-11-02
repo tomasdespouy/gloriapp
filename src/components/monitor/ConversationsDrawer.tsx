@@ -35,6 +35,7 @@ const dayLabel = (iso: string) =>
 // docente entienda sin leer la transcripción completa.
 const endReasonLabel = (reason: string | null | undefined): string | null => {
   if (!reason) return null;
+  if (reason === "llm_outage") return "Sesión interrumpida por un problema técnico de GlorIA";
   if (reason.startsWith("directed_threat")) return "El paciente se retiró: amenaza dirigida";
   if (reason.startsWith("disrespect")) return "El paciente se retiró: trato irrespetuoso";
   if (reason.startsWith("name_evasion")) return "El paciente se retiró: el terapeuta nunca se presentó";

@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
+import { classifyBillingError, type LlmProvider } from "@/lib/llm-outage";
 
 // --- Provider config ---
 const primaryProvider = process.env.LLM_PROVIDER || "openai";
@@ -43,6 +44,41 @@ function isRetryable(err: unknown): boolean {
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Si el error es por saldo, dispara la alarma. El import es dinámico para no
+ * cargar la base de datos en quien usa este módulo sin necesitarla (scripts).
+ */
+async function noteBillingFailure(provider: LlmProvider, err: unknown): Promise<void> {
+  const kind = classifyBillingError(err);
+  if (!kind) return;
+  try {
+    const { reportBillingFailure } = await import("@/lib/llm-health");
+    await reportBillingFailure(provider, kind);
+  } catch (alarmErr) {
+    console.error("[ai] no se pudo avisar del fallo de saldo:", alarmErr instanceof Error ? alarmErr.message : alarmErr);
+  }
+}
+
+/**
+ * Llamada mínima para la sonda de /api/cron/llm-health. Sin reintentos ni
+ * failover a propósito: lo que importa es saber si ESTE proveedor responde.
+ */
+export async function pingProvider(provider: LlmProvider): Promise<void> {
+  const prompt = "Responde solo: ok";
+  if (provider === "openai") {
+    await getOpenAI().chat.completions.create(
+      { model: chatModel, messages: [{ role: "user", content: prompt }], max_completion_tokens: 5 },
+      { maxRetries: 0, timeout: 20_000 },
+    );
+    return;
+  }
+  await getGemini().models.generateContent({
+    model: geminiModel,
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    config: { maxOutputTokens: 5, thinkingConfig: { thinkingBudget: 0 } },
+  });
 }
 
 // --- Unified chat interface ---
@@ -113,6 +149,7 @@ export async function chatDetailed(
       return { text, provider: prov, model: modelLabelFor(prov, options?.lite) };
     } catch (err) {
       lastErr = err;
+      await noteBillingFailure(prov, err);
       const msg = err instanceof Error ? err.message : String(err);
       if (i < order.length - 1) {
         console.warn(`[ai] Provider "${prov}" failed (${msg}); failing over to "${order[i + 1]}".`);
@@ -147,10 +184,13 @@ export function chatStream(
         await pipeStream(primary(), controller);
       } catch (err) {
         console.warn(`[ai] Streaming primary (${primaryProvider}) failed, attempting failover:`, err instanceof Error ? err.message : err);
+        const primaryName: LlmProvider = primaryProvider === "openai" ? "openai" : "gemini";
+        await noteBillingFailure(primaryName, err);
         try {
           await pipeStream(secondary(), controller);
         } catch (fallbackErr) {
           console.error(`[ai] Streaming failover also failed:`, fallbackErr instanceof Error ? fallbackErr.message : fallbackErr);
+          await noteBillingFailure(primaryName === "openai" ? "gemini" : "openai", fallbackErr);
           controller.error(err);
         }
       }
@@ -186,7 +226,8 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
       return await fn();
     } catch (err) {
       lastErr = err;
-      if (attempt < MAX_RETRIES && isRetryable(err)) {
+      // Sin saldo no hay nada que reintentar: esperar solo demora al estudiante.
+      if (attempt < MAX_RETRIES && isRetryable(err) && !classifyBillingError(err)) {
         const delay = RETRY_BASE_MS * Math.pow(2, attempt);
         console.warn(`[ai] Retryable error (attempt ${attempt + 1}/${MAX_RETRIES}), waiting ${delay}ms:`, err instanceof Error ? err.message : err);
         await sleep(delay);

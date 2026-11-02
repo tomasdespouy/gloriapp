@@ -106,6 +106,7 @@ const statusLabel = (status: string | null | undefined) => {
 // mismo en pantalla y en el documento descargado.
 const endReasonLabel = (reason: string | null | undefined): string | null => {
   if (!reason) return null;
+  if (reason === "llm_outage") return "Sesión interrumpida por un problema técnico de GlorIA.";
   if (reason.startsWith("directed_threat")) return "El paciente se retiró de la sesión: amenaza dirigida.";
   if (reason.startsWith("disrespect")) return "El paciente se retiró de la sesión: trato irrespetuoso.";
   if (reason.startsWith("name_evasion")) return "El paciente se retiró de la sesión: el terapeuta nunca se presentó.";

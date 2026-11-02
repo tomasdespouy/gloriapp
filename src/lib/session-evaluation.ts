@@ -10,6 +10,7 @@ import {
 } from "@/lib/evaluation-prompt";
 import { canViewStudent } from "@/lib/section-scope";
 import { logEmail } from "@/lib/email-log";
+import { LLM_OUTAGE_END_REASON } from "@/lib/llm-outage";
 import { getCertificationPolicy, notifyAutoApprovedFeedback } from "@/lib/certification";
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -178,7 +179,57 @@ export async function notifyInstructors(
 }
 
 /**
- * Evalúa una conversación de punta a punta: evaluación IA + resumen + (opcional)
+ * Marca la sesión como interrumpida por el corte de LLM y avisa a los docentes.
+ * Solo dentro de la plataforma, sin correo: en un corte serían decenas de correos
+ * por el mismo problema. La condición sobre end_reason hace que cada sesión avise
+ * una sola vez aunque el estudiante reintente muchas veces.
+ */
+export async function markConversationOutage(admin: Admin, conversationId: string): Promise<void> {
+  try {
+    const { data: marked } = await admin
+      .from("conversations")
+      .update({ end_reason: LLM_OUTAGE_END_REASON })
+      .eq("id", conversationId)
+      .is("end_reason", null)
+      .select("student_id, ai_patient_id")
+      .maybeSingle();
+    if (!marked) return;
+
+    const { data: student } = await admin
+      .from("profiles")
+      .select("full_name, establishment_id, section_id, course_id")
+      .eq("id", marked.student_id)
+      .single();
+    if (!student?.establishment_id) return;
+
+    const { data: insts } = await admin
+      .from("profiles")
+      .select("id, role, section_id, course_id")
+      .eq("establishment_id", student.establishment_id)
+      .in("role", ["instructor", "admin", "superadmin"]);
+    const recipients = (insts || []).filter(
+      (i) => i.id !== marked.student_id && canViewStudent(
+        { role: i.role, sectionId: i.section_id, courseId: i.course_id },
+        { section_id: student.section_id, course_id: student.course_id },
+      ),
+    );
+    if (recipients.length === 0) return;
+
+    await admin.from("notifications").insert(recipients.map((r) => ({
+      user_id: r.id,
+      type: "session_interrupted",
+      title: "Sesión interrumpida por un problema técnico",
+      body: `La sesión de ${student.full_name || "un estudiante"} se interrumpió por un problema técnico de GlorIA. No se generará nota automática de esta sesión.`,
+      href: `/docente/sesion/${conversationId}`,
+      is_read: false,
+    })));
+  } catch (err) {
+    console.error("[outage] no se pudo marcar la sesión:", err instanceof Error ? err.message : err);
+  }
+}
+
+/**
+ *Evalúa una conversación de punta a punta: evaluación IA + resumen + (opcional)
  * aviso al docente. Reusado por el cron de barrido y por reeval-session.
  *  - Si ya hay una eval APROBADA/publicada por el docente, NO la pisa (skip).
  *  - NO retrotrae la gamificación (XP/racha): es estado "vivo" ligado a la fecha
@@ -194,10 +245,13 @@ export async function evaluateConversation(
 ): Promise<{ status: "ok" | "skipped" | "error"; overall?: number; error?: string }> {
   const { data: conv } = await admin
     .from("conversations")
-    .select("id, student_id, ai_patient_id, session_number")
+    .select("id, student_id, ai_patient_id, session_number, end_reason")
     .eq("id", conversationId)
     .maybeSingle();
   if (!conv) return { status: "skipped", error: "not_found" };
+  // Sesión cortada por falta de saldo: el paciente no respondió, así que no hay
+  // conversación que evaluar ni que recordar en la próxima sesión.
+  if (conv.end_reason === LLM_OUTAGE_END_REASON) return { status: "skipped", error: LLM_OUTAGE_END_REASON };
 
   // No pisar una evaluación que el docente ya aprobó/publicó (revocaría el
   // acceso del alumno a sus resultados y dejaría approved_by/at inconsistentes).
