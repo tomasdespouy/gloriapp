@@ -81,10 +81,12 @@ jobs:
       - name: Setup Python (for Semgrep)
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          # Versiones fijas: con Python 3.15 y Semgrep 1.183 el motor se cae al
+          # arrancar (exit -11) y el análisis no llega a revisar nada.
+          python-version: '3.14'
 
       - name: Install Semgrep
-        run: pip install semgrep
+        run: pip install semgrep==1.182.1
 
       - name: Run Semgrep static analysis
         run: semgrep --config .semgrep.yml --error
