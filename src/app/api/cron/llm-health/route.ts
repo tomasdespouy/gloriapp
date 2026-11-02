@@ -34,5 +34,7 @@ export async function GET(request: Request) {
 
   const results = await Promise.all((["gemini", "openai"] as const).map(probe));
   const actions = await processProbeResults(results);
+  // Deja rastro de cada corrida: sin esto, "todo sano" se ve igual que "no corrió".
+  console.log(`[llm-health] corrida: ${results.map((r) => `${r.provider}=${r.status}`).join(" ")}`);
   return NextResponse.json({ results, actions });
 }
