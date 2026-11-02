@@ -18,6 +18,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { evaluateConversation } from "@/lib/session-evaluation";
 import { requireCron } from "@/lib/cron-auth";
+import { LLM_OUTAGE_END_REASON } from "@/lib/llm-outage";
 
 export const maxDuration = 300;
 
@@ -35,6 +36,9 @@ export async function GET(request: Request) {
     .from("conversations")
     .select("id, active_seconds, created_at, ended_at")
     .eq("status", "completed")
+    // Las sesiones cortadas por falta de saldo no se evalúan: sin este filtro
+    // ocuparían cupos de cada corrida durante los 7 días de la ventana.
+    .or(`end_reason.is.null,end_reason.neq.${LLM_OUTAGE_END_REASON}`)
     .gte("created_at", since)
     .order("created_at", { ascending: false });
   if (!convs || convs.length === 0) {

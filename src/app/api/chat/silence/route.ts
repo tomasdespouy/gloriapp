@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { chat } from "@/lib/ai";
 import { NextResponse } from "next/server";
 import { getPacingProfile } from "@/lib/conversation-pacing";
+import { classifyBillingError } from "@/lib/llm-outage";
+import { markConversationOutage } from "@/lib/session-evaluation";
 
 // Allow up to 25 seconds for the silence-prompt LLM call. The default
 // Vercel function timeout would otherwise kill the request before the
@@ -165,6 +167,12 @@ ${stagePrompt}${antiRepeat}`;
     );
   } catch (err) {
     console.error(`[silence] LLM call failed for stage ${stage}:`, err);
+    // Sin saldo, el silencio es nuestro y no del estudiante: el paciente no le
+    // reclama que no responde ni cierra la sesión.
+    if (classifyBillingError(err)) {
+      await markConversationOutage(admin, conversationId);
+      return NextResponse.json({ message: null, stage, sessionClosed: false, llm_outage: true });
+    }
   }
 
   if (!response || !response.trim()) {
