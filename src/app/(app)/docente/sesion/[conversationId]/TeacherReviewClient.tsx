@@ -75,6 +75,8 @@ interface Props {
   mixedDistraction?: boolean;
   /** Escala de la nota del docente según el país (1-7 en Chile). */
   scoreScale: TeacherScoreScale;
+  /** Sesión cortada por falta de saldo: no se ofrece generar la evaluación IA. */
+  cutByOutage?: boolean;
 }
 
 const COMP_V2_LABELS: { key: string; label: string; domain: string }[] = [
@@ -137,6 +139,7 @@ export default function TeacherReviewClient({
   messageCount,
   mixedDistraction = false,
   scoreScale,
+  cutByOutage = false,
 }: Props) {
   const [comment, setComment] = useState(feedback?.teacher_comment || "");
   const isEvaluated = feedbackStatus === "evaluated";
@@ -922,23 +925,29 @@ export default function TeacherReviewClient({
                   <div className="text-center py-4">
                     <Brain size={24} className="mx-auto text-amber-400 mb-2" />
                     <p className="text-sm font-medium text-gray-700 mb-1">Evaluación de competencias no disponible</p>
-                    <p className="text-xs text-gray-400 mb-3">La evaluación IA no se generó al completar la sesión.</p>
-                    <button
-                      onClick={async () => {
-                        setRegeneratingEval(true);
-                        try {
-                          const res = await fetch(`/api/sessions/${conversationId}/evaluate`, { method: "POST" });
-                          if (res.ok) { toast.success("Evaluación generada. Recargando..."); setTimeout(() => window.location.reload(), 1000); }
-                          else toast.error("Error al generar la evaluación.");
-                        } catch { toast.error("Error de conexión."); }
-                        setRegeneratingEval(false);
-                      }}
-                      disabled={regeneratingEval}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-sidebar text-white text-sm font-medium rounded-lg hover:bg-[#354080] disabled:opacity-50 cursor-pointer"
-                    >
-                      {regeneratingEval ? <Loader2 size={14} className="animate-spin" /> : <Brain size={14} />}
-                      {regeneratingEval ? "Generando..." : "Generar análisis de competencias"}
-                    </button>
+                    {cutByOutage ? (
+                      <p className="text-xs text-gray-400">Esta sesión se cortó por una falla técnica y el paciente no pudo responder, por lo que no se evalúa con IA.</p>
+                    ) : (
+                      <>
+                        <p className="text-xs text-gray-400 mb-3">La evaluación IA no se generó al completar la sesión.</p>
+                        <button
+                          onClick={async () => {
+                            setRegeneratingEval(true);
+                            try {
+                              const res = await fetch(`/api/sessions/${conversationId}/evaluate`, { method: "POST" });
+                              if (res.ok) { toast.success("Evaluación generada. Recargando..."); setTimeout(() => window.location.reload(), 1000); }
+                              else toast.error("Error al generar la evaluación.");
+                            } catch { toast.error("Error de conexión."); }
+                            setRegeneratingEval(false);
+                          }}
+                          disabled={regeneratingEval}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-sidebar text-white text-sm font-medium rounded-lg hover:bg-[#354080] disabled:opacity-50 cursor-pointer"
+                        >
+                          {regeneratingEval ? <Loader2 size={14} className="animate-spin" /> : <Brain size={14} />}
+                          {regeneratingEval ? "Generando..." : "Generar análisis de competencias"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
