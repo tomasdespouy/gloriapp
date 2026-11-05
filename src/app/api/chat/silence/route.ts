@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveConversationPrompt, PATIENT_PROMPT_COLUMNS } from "@/lib/patient-prompt";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat } from "@/lib/ai";
+import { stripLeaksFromHistory, stripPromptLeaks } from "@/lib/patient-leak";
 import { NextResponse } from "next/server";
 import { getPacingProfile } from "@/lib/conversation-pacing";
 import { classifyBillingError } from "@/lib/llm-outage";
@@ -158,13 +159,15 @@ ${stagePrompt}${antiRepeat}`;
   // times out, or returns an empty string.
   let response: string | null = null;
   try {
-    response = await chat(
+    const raw = await chat(
       [
-        ...history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+        ...stripLeaksFromHistory(history).map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
         { role: "user" as const, content: direccion },
       ],
       silencePrompt
     );
+    // Si era pura fuga queda vacío y se usa el mensaje de respaldo de abajo.
+    response = stripPromptLeaks(raw).cleaned;
   } catch (err) {
     console.error(`[silence] LLM call failed for stage ${stage}:`, err);
     // Sin saldo, el silencio es nuestro y no del estudiante: el paciente no le

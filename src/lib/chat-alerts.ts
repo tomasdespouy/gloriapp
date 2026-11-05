@@ -594,37 +594,7 @@ export function isLikelyTruncated(text: string): TruncationCheck {
   return { truncated: false };
 }
 
-/**
- * Strip prompt-leak scaffolding from an assistant message so the
- * cleaned version is what ends up persisted in `messages` and seen by
- * the student in future reviews. The raw text is still recoverable
- * from the alert record (via sample + matched_terms).
- *
- * Conservative: only removes obvious scaffolding headers and the
- * block that follows them up to the next blank line or bracketed
- * section. If unsure, leaves the text alone.
- */
-export function stripPromptLeaks(text: string): { cleaned: string; changed: boolean } {
-  if (!text) return { cleaned: text, changed: false };
-  let cleaned = text;
-
-  // 1. Remove "SILENCIO INTERNO: ... \n\n" blocks (possibly multiline
-  //    until the next blank line).
-  cleaned = cleaned.replace(/SILENCIO\s+INTERNO\s*:[^\n]*(?:\n(?!\s*\n)[^\n]*)*(?:\n\s*\n)?/gi, "");
-
-  // 2. Remove standalone lines that start with a bracketed scaffolding
-  //    tag we know about.
-  const SCAFFOLD_LINE = /^[ \t]*\[(?:CONTEXTO\s+TEMPORAL|REGLA\s+CR[IÍ]TICA|MEMORIA\s+A\s+LARGO\s+PLAZO|FIN\s+MEMORIA|INSTRUCCI[OÓ]N(?:ES)?|SYSTEM\s*PROMPT|PROMPT\s*[:\]]|INICIO\s+DE\s+SESI[OÓ]N\s*—|REGLA\s+ANTI-REPETICI[OÓ]N|REGLA\s+DE\s+CONFIDENCIALIDAD)[^\]\n]*\][^\n]*$/gim;
-  cleaned = cleaned.replace(SCAFFOLD_LINE, "");
-
-  // 3. Remove leading "SYSTEM:" lines.
-  cleaned = cleaned.replace(/^[ \t]*SYSTEM\s*:[^\n]*$/gim, "");
-
-  // 4. Collapse multiple consecutive blank lines left by removals.
-  cleaned = cleaned.replace(/\n{3,}/g, "\n\n").trim();
-
-  return { cleaned, changed: cleaned !== text };
-}
+export { stripPromptLeaks } from "@/lib/patient-leak";
 
 // Public constant, also imported by the dashboard UI for filter pills.
 export const ALERT_KIND_LABELS: Record<AlertKind, string> = {

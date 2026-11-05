@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { chat, chatStream, secondaryProvider, type ChatMessage } from "@/lib/ai";
+import { chatDetailed, chatStream, secondaryProvider, type ChatMessage } from "@/lib/ai";
+import { stripLeaksFromHistory } from "@/lib/patient-leak";
 import { classifyBillingError, LLM_OUTAGE_END_REASON } from "@/lib/llm-outage";
 import { markConversationOutage } from "@/lib/session-evaluation";
 import { detectAlerts, isLikelyTruncated, stripPromptLeaks, detectSessionRupture, unprofessionalActionFor, detectUnprofessional, type AlertSpec, type UnprofessionalCategory } from "@/lib/chat-alerts";
@@ -645,7 +646,8 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
 
   // Sanitize historical messages: convert first-person brackets to third person
   // so the LLM doesn't copy old patterns like [me siento incómoda]
-  const sanitizedHistory = (chronological as ChatMessage[]).map((m) => {
+  // Las fugas se quitan primero: si vuelven como contexto, el modelo las imita.
+  const sanitizedHistory = stripLeaksFromHistory(chronological as ChatMessage[]).map((m) => {
     if (m.role !== "assistant") return m;
     return {
       ...m,
@@ -705,19 +707,17 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
         // (e.g. cold cache, slow memory load) so waits don't stack.
         const elapsedSoFar = Date.now() - turnStart;
         const wait = thinkingDelayFor(pacingProfile, elapsedSoFar);
-        if (wait > 0) {
-          await new Promise((r) => setTimeout(r, wait));
-        }
+        const generationStart = Date.now();
 
-        const reader = chatStream(sanitizedHistory, systemPrompt).getReader();
+        // La respuesta se retiene completa y se envía recién después de limpiarla:
+        // una fuga puede venir a mitad de texto y traer secretos clínicos del caso.
+        let respondingProvider: string = "desconocido";
+        const reader = chatStream(sanitizedHistory, systemPrompt, (p) => { respondingProvider = p; }).getReader();
         try {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             chunks.push(value);
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: "token", value })}\n\n`)
-            );
           }
         } catch (streamErr) {
           // Ambos proveedores fallaron o devolvieron vacío en streaming. NO lo
@@ -762,6 +762,7 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
         let retryFailed = false;
         let llmOutage = false;
         let retryReason: string | undefined = firstCheck.reason;
+        let finalProvider = respondingProvider;
 
         if (firstCheck.truncated) {
           retryAttempted = true;
@@ -770,8 +771,8 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
             // (glitch), reintentar el mismo modelo suele repetir el vacío.
             // Forzamos el secundario para de verdad usar el fallback que ya
             // teníamos pero que no se disparaba (vacío no lanzaba excepción).
-            const retry = await chat(sanitizedHistory, systemPrompt, { lite: true, forceProvider: secondaryProvider });
-            const retryStripped = stripPromptLeaks(retry).cleaned;
+            const retry = await chatDetailed(sanitizedHistory, systemPrompt, { lite: true, forceProvider: secondaryProvider });
+            const retryStripped = stripPromptLeaks(retry.text).cleaned;
             const retryPolished = polishAndLog(retryStripped, {
               conversationId,
               patientId,
@@ -780,6 +781,7 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
             const retryCheck = isLikelyTruncated(retryPolished);
             if (!retryCheck.truncated) {
               patientResponse = retryPolished;
+              finalProvider = retry.provider;
             } else {
               retryFailed = true;
               retryReason = `first=${firstCheck.reason}; retry=${retryCheck.reason}`;
@@ -802,9 +804,17 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
         const assistantAlertSpecs: AlertSpec[] = [];
 
         if (leakStrip.changed) {
-          const leakOnly = detectAlerts(rawResponse, "assistant", turnNumber)
-            .filter((a) => a.kind === "prompt_leak");
-          assistantAlertSpecs.push(...leakOnly);
+          // Siempre deja alerta: el filtro reconoce más formas que los patrones de
+          // detectAlerts, y sin alerta las fugas anteriores pasaron inadvertidas.
+          const known = detectAlerts(rawResponse, "assistant", turnNumber)
+            .find((a) => a.kind === "prompt_leak");
+          assistantAlertSpecs.push({
+            kind: "prompt_leak",
+            severity: "high",
+            matchedTerms: `${known?.matchedTerms ?? "razonamiento"} | proveedor=${respondingProvider}`,
+            sample: rawResponse.slice(0, 120),
+          });
+          logger.warn("chat_prompt_leak", { conversationId, turnNumber, provider: respondingProvider, discarded: !leakStrip.cleaned });
         }
 
         if (retryFailed) {
@@ -830,6 +840,12 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
         // the retry-failed path because no message row is inserted.
         let savedMessageId: string | null = null;
 
+        // Lo que tardó la generación ya cuenta como tiempo de "pensar".
+        const remainingWait = wait - (Date.now() - generationStart);
+        if (remainingWait > 0) {
+          await new Promise((r) => setTimeout(r, remainingWait));
+        }
+
         if (retryFailed) {
           // No assistant message stored. Tell the client that the
           // connection with the patient was unstable and they should
@@ -854,12 +870,10 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
             rawSample: rawResponse.slice(0, 80),
           });
         } else {
-          // Normal path: emit correction if needed, save the message.
-          if (patientResponse !== rawResponse) {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: "correction", value: patientResponse })}\n\n`)
-            );
-          }
+          // Normal path: send the cleaned reply, save the message.
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: "token", value: patientResponse })}\n\n`)
+          );
 
           const { data: savedMessage } = await supabase
             .from("messages")
@@ -963,6 +977,7 @@ Lo que dijo el terapeuta rompe el encuadre profesional (te pide ayuda a ti, se d
           conversationId,
           turnNumber,
           duration_ms: Date.now() - streamStart,
+          provider: finalProvider,
           responseLength: patientResponse.length,
           responseWords: patientResponse.split(/\s+/).length,
           interventionType,
