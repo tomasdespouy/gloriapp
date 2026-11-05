@@ -168,7 +168,9 @@ export async function chatDetailed(
  */
 export function chatStream(
   messages: ChatMessage[],
-  systemPrompt?: string
+  systemPrompt?: string,
+  // Avisa qué proveedor está atendiendo; si hay failover, se llama de nuevo.
+  onProvider?: (provider: LlmProvider) => void
 ): ReadableStream<string> {
   const primary = primaryProvider === "openai"
     ? () => chatStreamOpenAI(messages, systemPrompt, chatModel)
@@ -180,13 +182,15 @@ export function chatStream(
 
   return new ReadableStream({
     async start(controller) {
+      const primaryName: LlmProvider = primaryProvider === "openai" ? "openai" : "gemini";
       try {
+        onProvider?.(primaryName);
         await pipeStream(primary(), controller);
       } catch (err) {
         console.warn(`[ai] Streaming primary (${primaryProvider}) failed, attempting failover:`, err instanceof Error ? err.message : err);
-        const primaryName: LlmProvider = primaryProvider === "openai" ? "openai" : "gemini";
         await noteBillingFailure(primaryName, err);
         try {
+          onProvider?.(primaryName === "openai" ? "gemini" : "openai");
           await pipeStream(secondary(), controller);
         } catch (fallbackErr) {
           console.error(`[ai] Streaming failover also failed:`, fallbackErr instanceof Error ? fallbackErr.message : fallbackErr);

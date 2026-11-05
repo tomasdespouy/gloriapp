@@ -7,6 +7,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { stripLeaksFromHistory, stripPromptLeaks } from "@/lib/patient-leak";
 import { resolveConversationPrompt, PATIENT_PROMPT_COLUMNS } from "@/lib/patient-prompt";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chat } from "@/lib/ai";
@@ -104,10 +105,11 @@ Si no tienes nada nuevo que decir, responde SOLO con lenguaje no verbal entre co
 ${triggerPrompts[trigger] || triggerPrompts.idle_short}`;
 
   try {
-    const response = await chat(
-      history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+    const raw = await chat(
+      stripLeaksFromHistory(history).map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
       reactionPrompt
     );
+    const response = stripPromptLeaks(raw).cleaned;
 
     if (!response) {
       return NextResponse.json({ message: null });
