@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { canViewStudent } from "@/lib/section-scope";
 import { matchesScope, resolveAdminScopeRules } from "@/lib/admin-scope";
 import { teacherScoreScaleForStudent } from "@/lib/teacher-score";
+import { LLM_OUTAGE_END_REASON } from "@/lib/llm-outage";
 import TeacherReviewClient from "./TeacherReviewClient";
 
 interface Props {
@@ -35,7 +36,7 @@ export default async function DocenteSesionPage({ params }: Props) {
   const { data: conversation } = await supabase
     .from("conversations")
     .select(`
-      id, student_id, ai_patient_id, session_number, status, created_at, ended_at,
+      id, student_id, ai_patient_id, session_number, status, created_at, ended_at, end_reason,
       paste_count, tab_switch_count,
       ai_patients(name, age, occupation, difficulty_level)
     `)
@@ -129,6 +130,7 @@ export default async function DocenteSesionPage({ params }: Props) {
       messageCount={messages?.length || 0}
       mixedDistraction={(conversation.paste_count || 0) >= 1 && (conversation.tab_switch_count || 0) >= 1}
       scoreScale={scoreScale}
+      cutByOutage={conversation.end_reason === LLM_OUTAGE_END_REASON}
     />
   );
 }

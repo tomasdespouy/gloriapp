@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { authorizeFeedbackAccess } from "@/lib/feedback-auth";
 import { buildCompetencyUpsert } from "@/lib/evaluation-prompt";
+import { LLM_OUTAGE_END_REASON } from "@/lib/llm-outage";
 import { runEvaluator } from "@/lib/session-evaluation";
 
 export async function POST(
@@ -9,20 +10,30 @@ export async function POST(
   { params }: { params: Promise<{ conversationId: string }> }
 ) {
   const { conversationId } = await params;
-  const supabase = await createClient();
-  const admin = createAdminClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  // Mismo alcance que el resto del flujo docente: esta ruta escribe con el
+  // cliente admin, así que RLS no protege a la sesión de otro estudiante.
+  const auth = await authorizeFeedbackAccess({ conversationId });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  const admin = createAdminClient();
 
   const { data: conversation } = await admin
     .from("conversations")
-    .select("id, student_id, status, session_number")
+    .select("id, student_id, status, session_number, end_reason")
     .eq("id", conversationId)
     .single();
 
   if (!conversation || conversation.status !== "completed") {
     return NextResponse.json({ error: "Sesión no completada" }, { status: 400 });
+  }
+
+  // Sesión cortada por falta de saldo: el paciente no respondió, así que no hay
+  // conversación que evaluar. Sin esto, una nota ya retirada volvía a generarse.
+  if (conversation.end_reason === LLM_OUTAGE_END_REASON) {
+    return NextResponse.json({ error: "Sesión cortada por una falla técnica: no se evalúa" }, { status: 409 });
   }
 
   const { data: existing } = await admin
