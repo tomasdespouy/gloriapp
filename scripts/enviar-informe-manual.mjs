@@ -10,9 +10,18 @@
  * que el panel de superadmin muestre el envío junto a los demás y no queden
  * dos historias separadas de "qué se le mandó a quién".
  *
+ * El subtítulo y la descripción del contenido van por flag y no en el HTML:
+ * estaban escritos a mano con el curso de UPC, y el primer envío a otra
+ * institución habría salido con la asignatura equivocada en la cabecera.
+ *
  * Uso:
  *   node scripts/enviar-informe-manual.mjs --est <uuid> --archivo <ruta>
  *   node scripts/enviar-informe-manual.mjs --est <uuid> --archivo <ruta> --enviar
+ *
+ * Flags de contenido:
+ *   --titular "..."     frase destacada en el recuadro índigo
+ *   --subtitulo "..."   línea bajo el título (asignatura y período); si falta, se omite
+ *   --contenido "..."   qué trae el documento; si falta, va una frase neutra
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -25,6 +34,8 @@ const EST = flag("--est");
 const ARCHIVO = flag("--archivo");
 const ENVIAR = args.includes("--enviar");
 const TITULAR = flag("--titular");
+const SUBTITULO = flag("--subtitulo");
+const CONTENIDO = flag("--contenido");
 // Reenvío deliberado de la misma semana: agrega un sufijo a la clave de período
 // para no chocar con el índice único, y queda registrado como corrida aparte.
 // Sin esto habría que borrar la corrida anterior, y se perdería el rastro de
@@ -83,14 +94,18 @@ if (!subs?.length) { console.log("\nSin suscriptores activos: no hay a quién en
 if (!ENVIAR) { console.log("\nModo lista. Para enviar de verdad: agrega --enviar"); process.exit(0); }
 
 const titular = TITULAR || "Informe de uso de la semana.";
+const contenido = CONTENIDO
+  || "El documento trae el detalle del uso de la plataforma, la evaluación de las sesiones "
+   + "realizadas y un anexo con las diez competencias y la rúbrica completa con la que se evalúa.";
+const subtitulo = SUBTITULO
+  ? `<p style="color: rgba(255,255,255,0.82); margin: 6px 0 0; font-size: 13px;">${SUBTITULO}</p>`
+  : "";
 
 const html = `
   <div style="font-family: Calibri, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1A1A1A;">
     <div style="background: #4A55A2; padding: 22px 30px; border-radius: 12px 12px 0 0;">
       <h1 style="color: white; margin: 0; font-size: 20px;">Informe de uso · ${est.name}</h1>
-      <p style="color: rgba(255,255,255,0.82); margin: 6px 0 0; font-size: 13px;">
-        Psicopatología del Adulto · 2026-20
-      </p>
+      ${subtitulo}
     </div>
     <div style="background: #FAFAFA; padding: 28px 30px; border: 1px solid #E5E5E5; border-top: none; border-radius: 0 0 12px 12px;">
       <p style="font-size: 14px; color: #555; line-height: 1.6; margin: 0 0 18px;">
@@ -99,11 +114,7 @@ const html = `
       <div style="background: #F0F2FA; border-left: 4px solid #4A55A2; border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 0 0 20px;">
         <p style="font-size: 14px; color: #1A1A1A; margin: 0; font-weight: 600; line-height: 1.5;">${titular}</p>
       </div>
-      <p style="font-size: 13px; color: #777; line-height: 1.6; margin: 0;">
-        El documento trae la participación por sección, el ritmo por número de sesión, el perfil de
-        competencias de la cohorte, la comparación entre la primera y la segunda entrevista con casos
-        comentados, y un anexo con las diez competencias y la rúbrica completa con la que se evalúa.
-      </p>
+      <p style="font-size: 13px; color: #777; line-height: 1.6; margin: 0;">${contenido}</p>
       <div style="margin-top: 24px; border-top: 1px solid #eee; padding-top: 16px;">
         <p style="font-size: 13px; color: #333; margin: 0; font-weight: 700;">Equipo GlorIA</p>
         <p style="font-size: 12px; color: #999; margin: 4px 0 0;">
