@@ -52,7 +52,7 @@ export const COMPETENCY_RUBRIC: Record<CompetencyKey, CompetencyRubric> = {
   },
   motivo_consulta: {
     na_criteria:
-      "Sesión de seguimiento con motivo de consulta ya consensuado y trabajado, sin que emerjan nuevos motivos en esta sesión.",
+      "Sesión de seguimiento en la que el motivo ya quedó claro y la sesión se dedicó a otros aspectos, sin que emergieran motivos nuevos. La justificación dice qué se trabajó en su lugar.",
     omitido_criteria:
       "Era primera sesión o emergieron nuevos motivos manifiestos y el estudiante no los exploró.",
     levels: {
@@ -76,9 +76,9 @@ export const COMPETENCY_RUBRIC: Record<CompetencyKey, CompetencyRubric> = {
   },
   objetivos: {
     na_criteria:
-      "Fase temprana de la sesión centrada en exploración inicial; aún no procede formular objetivos terapéuticos.",
+      "Sesión de evaluación (antes de la devolución) en la que el estudiante no planteó objetivos: aún no corresponde plantearlos.",
     omitido_criteria:
-      "La fase clínica permitía y requería plantear objetivos, y el estudiante no los abrió a diálogo.",
+      "Sesión de devolución en la que el estudiante no propuso ni acordó objetivos con el paciente.",
     levels: {
       1: "Impone objetivos unilateralmente sin verificar con el paciente, o los enuncia en términos vagos no verificables.",
       2: "Propone uno o dos objetivos y obtiene aceptación general, sin desglosar metas verificables ni alineación explícita con el motivo.",

@@ -71,7 +71,26 @@ export type NormalizedEvaluation = {
   evidence: Partial<Record<CompetencyKey, EvaluationEvidence[]>>;
   /** Citas descartadas por no estar en un turno del estudiante (ver dropNonStudentEvidence). */
   evidence_dropped?: number;
+  /** Chequeo explícito de riesgo: el texto libre no bastaba para que lo señalara. */
+  riesgo?: RiskCheck | null;
 };
+
+export type RiskCheck = {
+  indicadores: string;
+  explorado: "si" | "no" | "no_corresponde";
+  pregunta_sin_indicadores: boolean;
+};
+
+function normalizeRisk(raw: unknown): RiskCheck | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const explorado = r.explorado === "si" || r.explorado === "no" ? r.explorado : "no_corresponde";
+  return {
+    indicadores: typeof r.indicadores === "string" ? r.indicadores : "ninguno",
+    explorado,
+    pregunta_sin_indicadores: r.pregunta_sin_indicadores === true,
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Prompt
@@ -101,12 +120,50 @@ REGLAS CRÍTICAS:
   (ej. setting ya consensuado en sesión previa de continuidad).
 - 0 NO es lo mismo que "NA". 0 significa que la competencia debió
   aplicarse y no se vio en la conversación.
-- "objetivos": si la sesión avanzó más allá de la apertura (varios intercambios
-  de contenido clínico), evalúa objetivos terapéuticos con 0-4. NO lo marques
-  "NA" por defecto en una sesión que transcurrió con normalidad.
+- "objetivos" y "setting_terapeutico" dependen de la ETAPA del proceso: sigue
+  las reglas de "QUÉ SE ESPERA EN CADA ETAPA" más abajo.
 - "optimismo": en una sesión que transcurre con normalidad NO es "NA". Transmitir
   que el cambio es posible casi siempre aplica; reserva "NA" solo para casos
   excepcionales y documentados en na_justifications.
+- Las justificaciones de "NA" deben describir ESTA sesión, no frases genéricas.
+
+═══════════════════════════════════════════════════
+QUÉ SE ESPERA EN CADA ETAPA DEL PROCESO
+═══════════════════════════════════════════════════
+
+El proceso tiene sesiones de EVALUACIÓN (desde la primera hasta la
+penúltima) y una sesión final de DEVOLUCIÓN (por lo general la cuarta). El
+bloque "CONTEXTO DE LA SESIÓN" indica en qué etapa estás. En las sesiones
+de evaluación el objetivo es explorar y comprender, NO intervenir.
+
+Sesiones de evaluación:
+- setting_terapeutico: en la primera sesión, encuadre completo (duración,
+  confidencialidad y sus límites, rol de estudiante en práctica,
+  institución). Desde la segunda, NO se espera repetir el encuadre: si no
+  hubo quiebre que lo requiera, márcalo "NA" (nunca 0 por no repetirlo).
+  Repetir el encuadre completo sin necesidad no es una fortaleza.
+- motivo_consulta: en la primera sesión, indagar el motivo manifiesto y el
+  de derivación. Desde la segunda puede marcarse "NA" si el motivo ya
+  quedó claro y la sesión se dedicó a otros aspectos sin que emergieran
+  motivos nuevos; la justificación debe decir qué se trabajó en su lugar.
+  Si el estudiante sí lo retomó o profundizó, puntúalo.
+- datos_contextuales: central en todas las sesiones de evaluación
+  (anamnesis, historia, vínculos, síntomas).
+- objetivos: NO corresponde plantearlos todavía. Si el estudiante no los
+  planteó, márcalo "NA" ("sesión de evaluación: aún no corresponde
+  plantear objetivos"). Si los propuso, es intervención prematura:
+  puntaje máximo 1 y señálalo en areas_to_improve.
+- optimismo: sin promesas ni certezas sobre el resultado.
+
+Sesión de devolución:
+- setting_terapeutico: se espera que explique qué es una devolución y el
+  objetivo de la sesión, y que acuerde día y hora de la siguiente.
+- motivo_consulta: se espera que integre lo manifiesto y lo latente en una
+  hipótesis comprensiva que devuelve al paciente, en lenguaje accesible.
+  Un resumen descriptivo de lo conversado no supera el nivel 2.
+- objetivos: central. Se espera que proponga 1 o 2 objetivos y los acuerde
+  con el paciente; no se marca "NA".
+- optimismo: esperanza anclada en recursos concretos del paciente.
 
 ═══════════════════════════════════════════════════
 RÚBRICA CONDUCTUAL POR COMPETENCIA
@@ -129,18 +186,29 @@ Para competencias con score "NA", evidence[competency] puede ser array vacío []
 CALIBRACIÓN DE PUNTAJES ALTOS (obligatorio)
 ═══════════════════════════════════════════════════
 
-Las supervisoras clínicas que revisan estas evaluaciones bajan con
-frecuencia los 3 y 4 que se asignan por un solo buen momento. Para evitarlo:
+Estas reglas afinan criterios PUNTUALES; no son una instrucción de bajar
+todos los puntajes. Una sesión buena debe seguir recibiendo 3 en la mayoría
+de las competencias, y una sesión excelente, 4. Cada competencia se
+puntúa por lo que se observó en ella, no por los problemas de otra.
 
-- escucha_activa y contencion_afectos: un 3 o un 4 exige un PATRÓN
-  SOSTENIDO a lo largo de la sesión (varios momentos clave bien
-  atendidos), no un reflejo o una validación aislada. Si en otros momentos
-  clave el estudiante pasó por alto contenido relevante, cambió de tema o
-  respondió con consejos o tranquilización, el puntaje máximo es 2.
+- escucha_activa: identifica los momentos clave de la sesión (cuando el
+  paciente trae contenido emocional o información nueva relevante) y
+  revisa qué hizo el estudiante en cada uno:
+    · sigue el relato: pregunta a partir de las palabras del paciente;
+    · refleja o valida lo que el paciente expresó;
+    · NO cambia de tema ni pasa a la siguiente pregunta de su lista sin
+      recoger lo dicho.
+  4 = lo hace en prácticamente todos los momentos clave y además sintetiza
+  o chequea comprensión. 3 = lo hace en la mayoría. 2 = en algunos, pero
+  en otros momentos clave pasó por alto lo dicho. 1 = casi nunca. Un solo
+  buen reflejo no alcanza para 3.
+- contencion_afectos: puntúa cómo respondió a los momentos de intensidad
+  emocional que aparecieron, con su rúbrica. Tranquilizar, aconsejar o
+  cambiar de tema en uno de esos momentos baja UN nivel respecto de lo que
+  habría correspondido; no es un tope fijo.
 - Tranquilizar o dar certezas sin antecedentes ("estoy segura de que...",
-  "vas a lograrlo", "no te preocupes", "a ella no le gustaría verte así")
-  NO es contención ni optimismo terapéutico: corta la emoción y la
-  minimiza. Cuenta como nivel 1-2 en contencion_afectos y optimismo.
+  "vas a lograrlo", "no te preocupes") no cuenta como optimismo
+  terapéutico.
 - conducta_no_verbal: evalúala con su rúbrica, pero NO la conviertas en el
   área de mejora por defecto. Inclúyela en areas_to_improve solo si el
   paciente describió señales relevantes y omitirlas fue clínicamente
@@ -158,15 +226,16 @@ indicados:
 1. Intervención prematura: interpretar o explicar el funcionamiento del
    paciente, aconsejar, asignar tareas, proponer objetivos, hacer role play
    o prometer resultados antes de haber explorado lo suficiente. También
-   instalar conceptos o metáforas que el paciente no dijo ("traición",
-   "máquina", "software"). Baja motivo_consulta y actitud_no_valorativa
-   (el estudiante impone su propio marco); nunca sube objetivos ni
-   optimismo.
-2. Riesgo: si el paciente muestra indicadores (desesperanza, ideas de
-   muerte, autolesión, violencia), explorar el riesgo es necesario y
-   omitirlo es un área de mejora prioritaria. Preguntar por riesgo sin
-   ningún indicador en el relato, o insistir después de una respuesta
-   clara, también se señala: es una pregunta descontextualizada.
+   instalar conceptos o etiquetas que el paciente no dijo ("trauma",
+   "codependencia", "autoboicot"). Si ocurre de forma reiterada, baja UN
+   nivel en motivo_consulta; nunca sube objetivos ni optimismo.
+2. Riesgo: completa SIEMPRE el campo "riesgo" del JSON (ver formato).
+   Indicadores: desesperanza, ideas de muerte, autolesión, violencia,
+   consumo grave, aislamiento marcado con deterioro. Si hubo indicadores y
+   el estudiante no exploró el riesgo, la PRIMERA área de mejora debe
+   decirlo, citando el indicador. Si preguntó por riesgo sin ningún
+   indicador en el relato, o insistió después de una respuesta clara,
+   también va en areas_to_improve (pregunta descontextualizada).
 3. Anamnesis e hipótesis: en primera sesión se esperan datos básicos (edad,
    con quién vive, familia, inicio y curso de los síntomas). Recolectar
    datos como lista de chequeo, sin profundizar en lo que el paciente
@@ -180,23 +249,29 @@ ESTILO DE LAS ÁREAS DE MEJORA (obligatorio)
 
 Escribe como las supervisoras: cada área de mejora cita lo que el
 estudiante dijo, explica en una frase el efecto clínico y propone una
-alternativa concreta. Ejemplos (anonimizados, de supervisoras reales):
+alternativa concreta. Ejemplos ilustrativos (casos ficticios):
 
-  "El alivio quedó atrás: 'Siento culpa porque a veces sentí alivio' →
-   pasaste a hablar de su pareja → '¿alivio de qué?' tendría que haber
-   sido la pregunta. Esa ambivalencia es central en su duelo."
+  "La rabia quedó sin explorar: cuando dijo 'a veces me dan ganas de
+   mandar todo a la cresta', pasaste a preguntar por su horario de
+   trabajo. '¿Qué es lo que te dan ganas de mandar lejos?' habría abierto
+   lo que está debajo de esa rabia."
 
-  "Cuando el paciente dijo que dejar de sufrir sería olvidarla,
-   respondiste 'a ella no le gustaría verte así'. Eso corta el clima
-   emocional y puede generar culpa. Alternativa: quedarte en la emoción y
-   explorar '¿qué significaría para ti dejar de sentir este dolor?'."
+  "Respondiste 'tranquila, vas a ver que todo se va a solucionar' cuando
+   contó que llora todas las noches. Eso minimiza lo que siente y cierra
+   la conversación. Alternativa: 'Cuéntame cómo son esas noches'."
 
-  "Riesgo, prioritario: 'me estoy perdiendo a mí misma', aislamiento e
-   insomnio tras una pérdida reciente → en la próxima sesión pregunta por
-   desesperanza."
+  "Riesgo, prioritario: 'ya no le veo sentido a levantarme', sumado a que
+   dejó de ver a sus amigos → había indicadores para preguntar por
+   desesperanza e ideas de muerte, y no se exploraron."
 
-  "Turnos largos con varias preguntas a la vez y frases truncas → procura
-   una pregunta por turno y revísala antes de enviar."
+  "En la segunda sesión le dijiste 'lo que te pasa es que repites el
+   patrón de tu papá'. Todavía no hay antecedentes para sostener esa
+   interpretación; en esta etapa conviene preguntar '¿cómo entiendes tú lo
+   que te pasa?'."
+
+  "Varios turnos traen tres preguntas juntas ('¿cómo duermes?, ¿comes
+   bien?, ¿con quién vives?') → una pregunta por turno permite que el
+   paciente desarrolle cada respuesta."
 
 ═══════════════════════════════════════════════════
 CALIBRACIÓN DEL LENGUAJE (obligatorio)
@@ -239,26 +314,30 @@ FORMATO DE RESPUESTA (JSON estricto, sin markdown)
 
 {
   "scores": {
-    "setting_terapeutico": 0,
-    "motivo_consulta": "NA",
+    "setting_terapeutico": "NA",
+    "motivo_consulta": 2,
     "datos_contextuales": 2,
     "objetivos": "NA",
     "escucha_activa": 3,
     "actitud_no_valorativa": 3,
-    "optimismo": "NA",
+    "optimismo": 2,
     "presencia": 2,
     "conducta_no_verbal": 1,
     "contencion_afectos": 2
   },
-  "overall_score_v2": 1.9,
+  "overall_score_v2": 2.1,
   "na_justifications": {
-    "motivo_consulta": "Sesión de seguimiento donde el motivo ya estaba consensuado",
-    "objetivos": "Fase temprana de exploración inicial",
-    "optimismo": "Momento de duelo agudo donde el optimismo sería invalidante"
+    "setting_terapeutico": "Sesión 2 de evaluación sin quiebres del encuadre acordado en la primera",
+    "objetivos": "Sesión de evaluación: el estudiante no planteó objetivos, lo que corresponde a esta etapa"
   },
   "commentary": "Retroalimentación constructiva, 3-5 oraciones que identifiquen el patrón general (no eventos sueltos). Para cada área de mejora, incluir un contrafactual: qué pudo decir/hacer en su lugar y por qué.",
   "strengths": ["fortaleza específica con anclaje en la conversación", "otra fortaleza"],
   "areas_to_improve": ["área concreta y accionable", "otra área"],
+  "riesgo": {
+    "indicadores": "cita literal del paciente que muestra el indicador, o \\"ninguno\\"",
+    "explorado": "si | no | no_corresponde",
+    "pregunta_sin_indicadores": false
+  },
   "evidence": {
     "setting_terapeutico": [
       {"quote": "cita literal del terapeuta", "turn": 1, "observation": "por qué ilustra el nivel asignado", "polarity": "oportunidad"}
@@ -398,6 +477,7 @@ export function normalizeEvaluation(raw: unknown): NormalizedEvaluation {
       ? (r.areas_to_improve as string[])
       : [],
     evidence: normalizeEvidence(r.evidence),
+    riesgo: normalizeRisk(r.riesgo),
   };
 }
 
@@ -472,6 +552,7 @@ export function buildAiOriginal(
     areas_to_improve: evaluation.areas_to_improve,
     evidence: evaluation.evidence,
     evidence_dropped: evaluation.evidence_dropped ?? 0,
+    riesgo: evaluation.riesgo ?? null,
     model: modelInfo.model,
     rubric_version: RUBRIC_VERSION,
     generated_at: new Date().toISOString(),
@@ -559,14 +640,18 @@ export function buildUserMessage(
   if (typeof n === "number") {
     if (n === 1) {
       header =
-        "CONTEXTO DE LA SESIÓN: esta es la PRIMERA sesión entre el estudiante y el paciente. No existen sesiones previas. " +
-        "Por lo tanto, las competencias de Estructura (setting_terapeutico, motivo_consulta, datos_contextuales) NO PUEDEN marcarse como 'NA' por motivo de 'seguimiento' o 'ya consensuado'. " +
-        "En primera sesión esas tres competencias siempre aplican y deben recibir un score 0-4.\n\n";
+        "CONTEXTO DE LA SESIÓN: esta es la PRIMERA sesión entre el estudiante y el paciente (etapa de EVALUACIÓN). No existen sesiones previas. " +
+        "Por lo tanto, setting_terapeutico, motivo_consulta y datos_contextuales NO PUEDEN marcarse como 'NA' y deben recibir un score 0-4.\n\n";
     } else {
+      // La devolución va en la última sesión del proceso, por lo general la
+      // cuarta (CAP UGM). El evaluador no sabe si es la última, así que desde
+      // la cuarta se le pide reconocerla por el contenido.
+      const etapa = n >= 4
+        ? "Desde la cuarta sesión puede ser la sesión de DEVOLUCIÓN: trátala como tal si el estudiante la presenta como devolución o entrega al paciente una comprensión de lo evaluado; si no, sigue siendo de EVALUACIÓN."
+        : "Etapa de EVALUACIÓN.";
       header =
         `CONTEXTO DE LA SESIÓN: esta es la sesión número ${n} entre el estudiante y el paciente. ` +
-        `Hay ${n - 1} sesion${n - 1 === 1 ? "" : "es"} previa${n - 1 === 1 ? "" : "s"}. ` +
-        "Si una competencia de Estructura quedó consensuada en sesiones anteriores y no aplica re-trabajar en esta, puede marcarse 'NA' con justificación clínica.\n\n";
+        `Hay ${n - 1} sesion${n - 1 === 1 ? "" : "es"} previa${n - 1 === 1 ? "" : "s"}. ${etapa}\n\n`;
     }
   }
   return `${header}Conversación a evaluar:\n\n${transcript}`;
