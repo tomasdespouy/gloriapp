@@ -52,12 +52,31 @@ interface Competencies {
 }
 
 interface Feedback {
+  // Formulario actual de autorreflexión (V2)
+  alliance_framing?: string;
+  rupture_moment?: string;
+  nonverbal_cues?: string;
+  intervention_types?: string;
+  clinical_hypothesis?: string;
+  // Formulario antiguo: se conserva para sesiones previas al cambio
   discomfort_moment?: string;
   would_redo?: string;
   clinical_note?: string;
   teacher_comment?: string;
   teacher_score?: number;
 }
+
+// Mismos títulos que ve el alumno en /review (ReviewClient.tsx).
+const REFLECTION_FIELDS: { key: keyof Feedback; label: string }[] = [
+  { key: "alliance_framing", label: "Alianza y encuadre" },
+  { key: "rupture_moment", label: "Momento de ruptura" },
+  { key: "nonverbal_cues", label: "Conducta no verbal" },
+  { key: "intervention_types", label: "Tipo de intervenciones" },
+  { key: "clinical_hypothesis", label: "Hipótesis clínica" },
+  { key: "discomfort_moment", label: "Momento incómodo" },
+  { key: "would_redo", label: "Qué haría distinto" },
+  { key: "clinical_note", label: "Nota clínica" },
+];
 
 interface Props {
   conversationId: string;
@@ -408,7 +427,10 @@ export default function TeacherReviewClient({
   const patientSlug = patient.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
   const patientImgUrl = getPatientImageUrl(patientSlug);
 
-  const hasReflection = !!feedback && (feedback.discomfort_moment || feedback.would_redo || feedback.clinical_note);
+  const reflectionEntries = REFLECTION_FIELDS
+    .map(({ key, label }) => ({ key, label, text: String(feedback?.[key] ?? "").trim() }))
+    .filter((e) => e.text !== "");
+  const hasReflection = reflectionEntries.length > 0;
 
   // ── Accionables: estado vivido en el padre (no en el hijo) para que la
   // misma sección se muestre tanto en la columna Retroalimentación como en
@@ -821,24 +843,12 @@ export default function TeacherReviewClient({
               <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-3">
                 <p className="text-[11px] text-gray-400">Se completa cuando el alumno cierra la sesión.</p>
                 {!hasReflection && <p className="text-xs text-gray-400 italic">El alumno todavía no completó su autorreflexión.</p>}
-                {feedback?.discomfort_moment && (
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-[10px] text-gray-400 font-medium mb-1">Momento incómodo</p>
-                    <p className="text-xs text-gray-700 leading-relaxed">{feedback.discomfort_moment}</p>
+                {reflectionEntries.map((e) => (
+                  <div key={e.key} className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-[10px] text-gray-400 font-medium mb-1">{e.label}</p>
+                    <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{e.text}</p>
                   </div>
-                )}
-                {feedback?.would_redo && (
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-[10px] text-gray-400 font-medium mb-1">Qué haría distinto</p>
-                    <p className="text-xs text-gray-700 leading-relaxed">{feedback.would_redo}</p>
-                  </div>
-                )}
-                {feedback?.clinical_note && (
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-[10px] text-gray-400 font-medium mb-1">Nota clínica</p>
-                    <p className="text-xs text-gray-700 leading-relaxed">{feedback.clinical_note}</p>
-                  </div>
-                )}
+                ))}
               </div>
             </div>
           )}
