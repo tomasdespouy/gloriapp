@@ -47,8 +47,14 @@ export function getAppUrl(): string {
     loggedMissingInProd = true;
   }
 
-  if (process.env.NODE_ENV === "production") {
-    return HARDCODED_PROD_FALLBACK;
+  // localhost SOLO con `next dev` (NODE_ENV=development). Antes el fallback
+  // era localhost para todo lo que no fuera production, y los scripts que
+  // envían correos desde esta máquina (tsx → NODE_ENV sin definir) mandaron
+  // credenciales reales con http://localhost:3000 (USS 2S 2026-II, 9-nov-2026).
+  // Un link a producción en desarrollo es una molestia; un link a localhost en
+  // un correo real deja a la persona sin poder entrar.
+  if (process.env.NODE_ENV === "development") {
+    return "http://localhost:3000";
   }
-  return "http://localhost:3000";
+  return HARDCODED_PROD_FALLBACK;
 }
