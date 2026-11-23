@@ -1519,6 +1519,8 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
   const registerDistraction = (kind: "paste" | "tab_switch") => {
     if (sessionEndedRef.current) return;
     distractionsRef.current += 1;
+    // ¿Esta distracción cierra la sesión? ('alert_only' nunca cierra.)
+    const cierra = distractionAction !== "alert_only" && distractionsRef.current >= distractionCutThreshold;
     // Se deja registro en el servidor: hasta ahora el conteo vivía solo acá
     // y se perdía al cerrar la pestaña, que es justo cuando más interesa
     // saberlo. Best-effort a propósito: nadie debería quedarse sin conversar
@@ -1527,7 +1529,9 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
       fetch(`/api/sessions/${conversationId}/distraccion`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind }),
+        // cut: el servidor cierra la conversación y guarda el motivo, para
+        // que el docente lo vea y la sesión no quede "activa" sin explicación.
+        body: JSON.stringify({ kind, cut: cierra }),
         keepalive: true,
       }).catch(() => {});
     }
@@ -1541,12 +1545,15 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
     // 'cut' (default, comportamiento actual de toda la plataforma): al llegar
     // al umbral configurado (default 2) la sesión se cierra. Con el default
     // esto reproduce exactamente "1ra vez avisa, 2da vez cierra".
-    if (distractionsRef.current < distractionCutThreshold) {
+    if (!cierra) {
       setDistractionWarning(true);
     } else {
       setDistractionWarning(false);
       sessionEndedRef.current = true;
       setSessionEnded(true);
+      // Sin esta ventana el alumno solo veía la caja de texto apagada y lo
+      // leía como una falla ("está pegado").
+      setSessionEndInfo({ reason: "distraction" });
     }
   };
 
@@ -2025,19 +2032,27 @@ export function ChatInterface({ patient, conversationId: initialConvId, initialM
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={imageSrc} alt={patient.name} className="w-full h-full object-cover" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900">{patient.name} terminó la sesión</h3>
+            <h3 className="text-lg font-bold text-gray-900">
+              {sessionEndInfo.reason === "distraction" ? "La sesión se cerró" : `${patient.name} terminó la sesión`}
+            </h3>
             <p className="text-sm text-gray-600 leading-relaxed">
-              {sessionEndInfo.reason === "name_evasion"
-                ? "El paciente no se sintió en confianza al no saber tu nombre y prefirió terminar la sesión."
-                : sessionEndInfo.reason === "unprofessional"
-                  ? "El paciente sintió que la conducta no fue profesional y, por pérdida de confianza, prefirió terminar la sesión."
-                  : "El paciente se sintió incómodo o inseguro con la conversación y decidió retirarse."}
+              {sessionEndInfo.reason === "distraction"
+                ? (watchTabSwitch
+                    ? "Se repitió un cambio de pestaña o el pegado de un texto largo, y en esta sesión eso la cierra. No es una falla de la plataforma."
+                    : "Se repitió el pegado de un texto largo, y en esta sesión eso la cierra. No es una falla de la plataforma.")
+                : sessionEndInfo.reason === "name_evasion"
+                  ? "El paciente no se sintió en confianza al no saber tu nombre y prefirió terminar la sesión."
+                  : sessionEndInfo.reason === "unprofessional"
+                    ? "El paciente sintió que la conducta no fue profesional y, por pérdida de confianza, prefirió terminar la sesión."
+                    : "El paciente se sintió incómodo o inseguro con la conversación y decidió retirarse."}
             </p>
             <p className="text-xs text-gray-400">
-              Esto puede afectar el vínculo terapéutico en futuras sesiones.
+              {sessionEndInfo.reason === "distraction"
+                ? "Tus mensajes quedaron guardados y tu docente verá el motivo del cierre. La próxima vez, escribe directamente en el chat y permanece en esta pestaña."
+                : "Esto puede afectar el vínculo terapéutico en futuras sesiones."}
             </p>
             <button
-              onClick={() => router.push(`/review/${conversationId}`)}
+              onClick={() => (sessionEndInfo.reason === "distraction" ? handleEndSession() : router.push(`/review/${conversationId}`))}
               className="w-full bg-sidebar text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-sidebar-hover transition-colors cursor-pointer"
             >
               Ver resumen de sesión

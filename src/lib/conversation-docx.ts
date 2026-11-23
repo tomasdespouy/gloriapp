@@ -111,6 +111,7 @@ const endReasonLabel = (reason: string | null | undefined): string | null => {
   if (reason.startsWith("disrespect")) return "El paciente se retiró de la sesión: trato irrespetuoso.";
   if (reason.startsWith("name_evasion")) return "El paciente se retiró de la sesión: el terapeuta nunca se presentó.";
   if (reason.startsWith("unprofessional")) return "El paciente se retiró de la sesión: conducta poco profesional.";
+  if (reason.startsWith("distraction")) return "Sesión cerrada por distracción: pegado de texto largo o cambio de pestaña.";
   return "El paciente cerró la sesión.";
 };
 

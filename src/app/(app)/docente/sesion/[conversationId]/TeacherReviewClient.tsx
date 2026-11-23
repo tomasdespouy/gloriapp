@@ -96,6 +96,8 @@ interface Props {
   scoreScale: TeacherScoreScale;
   /** Sesión cortada por falta de saldo: no se ofrece generar la evaluación IA. */
   cutByOutage?: boolean;
+  /** La guardia anti-distracción cerró la sesión (conversations.end_reason = "distraction:…"). */
+  cutByDistraction?: boolean;
 }
 
 const COMP_V2_LABELS: { key: string; label: string; domain: string }[] = [
@@ -159,6 +161,7 @@ export default function TeacherReviewClient({
   mixedDistraction = false,
   scoreScale,
   cutByOutage = false,
+  cutByDistraction = false,
 }: Props) {
   const [comment, setComment] = useState(feedback?.teacher_comment || "");
   const isEvaluated = feedbackStatus === "evaluated";
@@ -727,6 +730,14 @@ export default function TeacherReviewClient({
                   title="El alumno pegó texto de otra parte y también cambió de pestaña durante esta sesión."
                 >
                   <AlertTriangle size={10} /> Posible distracción mixta
+                </span>
+              )}
+              {cutByDistraction && (
+                <span
+                  className="text-[10px] font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0"
+                  title="La plataforma cerró la sesión porque se repitió un pegado de texto largo o un cambio de pestaña. El alumno no la terminó por decisión propia."
+                >
+                  <AlertTriangle size={10} /> Cerrada por distracción
                 </span>
               )}
             </div>
