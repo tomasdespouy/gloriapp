@@ -131,6 +131,7 @@ export default async function DocenteSesionPage({ params }: Props) {
       mixedDistraction={(conversation.paste_count || 0) >= 1 && (conversation.tab_switch_count || 0) >= 1}
       scoreScale={scoreScale}
       cutByOutage={conversation.end_reason === LLM_OUTAGE_END_REASON}
+      cutByDistraction={(conversation.end_reason || "").startsWith("distraction")}
     />
   );
 }

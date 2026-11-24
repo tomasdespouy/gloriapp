@@ -13,6 +13,12 @@ import { uuidSchema } from "@/lib/validation/schemas";
  * pestañas abiertas o un reintento no pisan el conteo con un número viejo.
  * Es best-effort: si falla, el chat sigue. Nadie debería quedarse sin poder
  * conversar porque no se pudo anotar que cambió de pestaña.
+ *
+ * Con `cut: true` el chat avisa que esta distracción alcanzó el umbral de la
+ * asignatura y bloqueó la sesión. Antes ese cierre vivía solo en el navegador:
+ * la conversación seguía "activa", sin motivo, y el docente no podía saber por
+ * qué el alumno dejó de escribir. Acá queda cerrada y con su motivo
+ * (end_reason = "distraction:<kind>").
  */
 
 export const runtime = "nodejs";
@@ -30,7 +36,7 @@ export async function POST(
     return NextResponse.json({ error: "ID inválido" }, { status: 400 });
   }
 
-  const { kind } = await request.json().catch(() => ({ kind: null }));
+  const { kind, cut } = await request.json().catch(() => ({ kind: null, cut: false }));
   if (kind !== "paste" && kind !== "tab_switch") {
     return NextResponse.json({ error: "kind debe ser 'paste' o 'tab_switch'" }, { status: 400 });
   }
@@ -61,6 +67,30 @@ export async function POST(
   // Si la columna todavía no existe (código desplegado antes que su migración),
   // se responde ok igual: el chat no debe romperse por un contador.
   if (error) return NextResponse.json({ ok: false, motivo: error.message });
+
+  if (cut === true) {
+    // Solo cierra una sesión viva; si ya estaba cerrada, no pisa su motivo.
+    const { data: cerrada, error: errorCierre } = await admin
+      .from("conversations")
+      .update({ status: "completed", ended_at: new Date().toISOString(), end_reason: `distraction:${kind}` })
+      .eq("id", conversationId)
+      .in("status", ["active", "abandoned"])
+      .select("ai_patient_id")
+      .maybeSingle();
+    if (errorCierre) console.error("[distraccion] no se pudo registrar el cierre", conversationId, errorCierre.message);
+
+    // Programa de certificación: el cupo agendado se marca cumplido, igual que
+    // en leave-reflection (que ya no lo hará porque la sesión llega cerrada).
+    if (cerrada?.ai_patient_id) {
+      await admin
+        .from("patient_schedules")
+        .update({ status: "completada", conversation_id: conversationId })
+        .eq("student_id", user.id)
+        .eq("ai_patient_id", cerrada.ai_patient_id)
+        .eq("status", "pendiente")
+        .then(undefined, () => {});
+    }
+  }
 
   return NextResponse.json({ ok: true, [columna]: siguiente });
 }
